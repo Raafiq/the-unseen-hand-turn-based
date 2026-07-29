@@ -1,0 +1,79 @@
+# 08 — Roadmap, Scope & Onboarding
+
+How the design becomes a game, what a small team must cut to ship, how a new player is taught, and where the narrative repo plugs in.
+
+---
+
+## 1. Phased roadmap
+
+Guiding rule: **foundational invariants come first, even if their UI comes later.** The architect's warning (`docs/05` §3) is honored — determinism and data-driven state are P0, not features bolted on late.
+
+| Phase | Goal | Ships | Notes |
+|---|---|---|---|
+| **P0 — Core loop** | Prove the engine | Grid + CT tick scheduler (with pinned tie-break) + move/attack; **seeded RNG + serializable BattleState from day one**; formula test-vectors wired as tests | Rewind *substrate* exists here; no UI yet |
+| **P1 — Chassis + data** | Prove customization | 5-slot loadout; 3–4 base jobs; **data-driven job/ability/battle schema** (`docs/05` §6); AP purchase; **Spec Kit initialized** (see §5) | Battles are data now, so story battles can slot in later |
+| **P2 — Customization depth** | The pillar | Full 5+2 slots, per-job trees, mastery bonuses, free respec, transparency previews | Run the build-diversity metric for the first time |
+| **P3 — Enhancements** | Differentiators | Hybrid/fusion jobs, **rewind UI**, scan, speed toggle; evaluate `[OPTIONAL]` sockets against `docs/03` | Cut-line decisions get made here |
+| **P4 — Content, balance, polish** | Ship-shape | Encounter suite, balance passes vs. the metric, difficulty toggles, onboarding, accessibility, build-sharing | New Game+ if scope allows |
+
+## 2. Scope & cut-lines (for a small/solo team)
+
+The single most important discipline. **Minimum viable job system that still delivers the fantasy = the three spine axes + a handful of jobs.** Everything else is negotiable.
+
+| Feature | Tier | If cut… |
+|---|---|---|
+| 5-slot chassis + secondary | **Must** | there is no game |
+| AP trees + mastery + free respec | **Must** | the "intensive job system" pillar collapses |
+| ~10–14 base jobs | **Must** | (fewer than ~8 and builds don't diverge) |
+| Determinism / serializable state | **Must** | rewind, saves, and sharing all become rewrites |
+| Encounter benchmark suite | **Must** | balance is unverifiable |
+| Hybrid/fusion jobs | **Should** | **curated set only** — cap the count; the full N² web is a content trap |
+| Rewind UI, scan, speed toggle | **Should** | modern players expect them, but game is playable without |
+| Gear-as-ability + sockets | **Could** | keep only if it keeps feeding `docs/03` archetypes (#11/#12/#14) |
+| Build-sharing / codes | **Could** | free-ish given determinism; not a launch blocker |
+| Weapon skill-trees, set bonuses | **Cut without regret** | fold into AP trees; revisit only if playtest demands |
+| Behavior scripting / gambits | **Cut without regret** | `[DEFERRED]` post-1.0; wrong spine for manual tactics |
+| Monster breeding, propositions | **Cut without regret** | `[BASELINE]` flavor; nice later, not now |
+
+> **Log every cut.** Silent truncation reads as "we covered everything." When a system is cut or capped (e.g. "shipping 12 hybrids, not 190"), say so in the changelog so scope stays honest.
+
+## 3. Onboarding & complexity ramp
+
+Deep job systems' #1 failure is the **2-hour bounce**. The counter is **progressive disclosure**, mirrored by the economy ramp (`docs/07` §4):
+
+- **Hour 1:** move, attack, CT turn order, one job, the primary command. No permanent choices yet.
+- **Reversible early choices:** the tutorial arc **cannot permanently gimp** a character — free respec (`docs/02` B7) means early experiments are safe by design.
+- **Guided first build:** a scripted moment where the game walks the player through equipping a secondary + a reaction, so the recombination "aha" happens on rails once, then is theirs.
+- **Staged unlocks:** secondary command → reaction/support/movement → trait slots → first hybrid, each introduced with its own beat (Act structure, `docs/07` §4).
+- **Teach vs. trust:** *resolution* is always taught (previews, tooltips-everywhere option); *progression discovery* (what a hybrid becomes) is trusted to exploration (`docs/04` §3).
+- **Transparent requirements:** unlock *requirements* are shown in-game (FFT's opacity was a flaw) — you never need a wiki to know how to progress.
+
+## 4. The narrative-repo seam (data contract)
+
+Story and content come from a **separate, not-yet-started repo**. This engine stays narrative-agnostic by consuming a **battle-definition data contract** (schema in `docs/05` §6). A story battle file must provide:
+
+- `map` id + `deployZones` + enemy/guest `spawns` (with jobs, loadouts, levels)
+- `victory` / `defeat` conditions (defeatAll / defeatBoss / survive N / reach-tile / escort / protagonist-KO)
+- pre/mid/post-battle `events` hooks (dialogue triggers, reinforcements — dialogue itself lives in the story repo)
+- `loot` / rewards and a `seed`
+- unique-character references (which resolve to `docs/02` B6 "premium chassis" units)
+
+As long as the story repo emits this contract, no engine change is needed to add content. Keep the contract **versioned** (`docs/05` §5).
+
+## 5. Spec Kit adoption seam (the SDD hybrid, confirmed)
+
+At **P0/P1**, initialize **[GitHub Spec Kit](https://github.com/github/spec-kit)** (installs into Claude Code natively):
+1. `specify init` in the repo.
+2. Port **`docs/00`** → `constitution` (its pillars, spine, success criteria, non-goals become governing principles).
+3. Port each **buildable-system doc** → `specs/<feature>/spec.md`, lifting the **Acceptance Criteria** sections verbatim as the spec's requirements: `01`→combat-engine, `02`→job-system, `05`→simulation, `06`→encounters-ai.
+4. Generate `plan.md` + `tasks.md` per feature at implementation time.
+- Creative docs (`03`, `04`) remain GDD references the specs cite, not specs themselves.
+- Rationale for waiting: SDD specs describe features you're about to *build*; doing it before P0 would spec systems that might still be cut (§2).
+
+## Acceptance Criteria (SDD-ready)
+
+- **AC-R1 (P0 invariants):** P0 SHALL land seeded RNG + serializable BattleState + the pinned scheduler before any customization feature.
+- **AC-R2 (data-driven):** By end of P1, jobs, abilities, statuses, and battles SHALL be defined in external data validated against the `docs/05` schemas, not hard-coded.
+- **AC-R3 (diversity gate is CI):** From P2, the build-diversity metric (`docs/00`, `docs/06` AC-E2) SHALL run in the benchmark suite each balance pass.
+- **AC-R4 (narrative contract):** The engine SHALL load any battle satisfying the `docs/05` §6 battle schema without code changes.
+- **AC-R5 (cut log):** Every capped/cut system SHALL be recorded in a visible changelog with what was dropped.
