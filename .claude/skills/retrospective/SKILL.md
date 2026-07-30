@@ -4,10 +4,11 @@ description: >-
   Capture durable lessons after a task in the-unseen-hand that hit errors,
   surprises, dead-ends, wasted effort, or a "we should remember this" moment —
   then PROPOSE (never auto-apply) updates to CLAUDE.md, the docs, an ADR, or a
-  new/updated skill. Use this when a task went sideways, when the Stop-hook
-  nudge fires, when the user says "retro", "post-mortem", "what did we learn",
-  or "make sure this doesn't happen again". It turns one-off pain into
-  codified, approval-gated improvements so the same mistake isn't repeated.
+  new/updated skill. Use this before opening a PR (to bank lessons before the
+  work merges), when a task went sideways, or when the user says "retro",
+  "post-mortem", "what did we learn", or "make sure this doesn't happen again".
+  It turns one-off pain into codified, approval-gated improvements so the same
+  mistake isn't repeated across sessions.
 ---
 
 # Retrospective
@@ -16,8 +17,8 @@ The point is **compounding**: each stumble should make the repo's guidance a lit
 
 ## When to run
 
+- **Before opening a PR** (or requesting a merge) — the CLAUDE.md "retrospective before every PR" rule. Bank the lessons before the work merges.
 - A task hit an error, a wrong assumption, a blocked action, or a surprising amount of rework.
-- The Stop-hook nudge (`retrospective-nudge.sh`) reminded you.
 - The user asks for a retro / post-mortem, or says "don't let this happen again".
 
 ## Process

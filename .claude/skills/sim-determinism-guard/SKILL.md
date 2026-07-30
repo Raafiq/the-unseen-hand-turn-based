@@ -36,4 +36,9 @@ Run the bundled script over the sim source to catch the obvious violations:
 bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh sim/
 ```
 
+> **The check greps raw text — comments and strings included.** When you document
+> the ban in sim code, name the banned APIs by description ("the platform RNG",
+> "wall-clock") rather than writing the literal `Math.random` / `Date.now`, or the
+> docstring itself trips the guard (as a comment in `rng.ts` did).
+
 A clean run is necessary but **not sufficient** — the script finds banned calls, not logic bugs. The real test is the replay-equality harness: `replay(seed, commands)` must equal the live run (`docs/05` AC-S1). If you're unsure whether something breaks determinism, it probably does — make it draw from the seed or move it out of the sim.

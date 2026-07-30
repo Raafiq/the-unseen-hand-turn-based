@@ -32,16 +32,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/retrospective-nudge.sh"
-          }
-        ]
-      }
     ]
   }
 }
