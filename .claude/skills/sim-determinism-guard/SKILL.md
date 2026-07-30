@@ -42,3 +42,12 @@ bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh sim/
 > docstring itself trips the guard (as a comment in `rng.ts` did).
 
 A clean run is necessary but **not sufficient** — the script finds banned calls, not logic bugs. The real test is the replay-equality harness: `replay(seed, commands)` must equal the live run (`docs/05` AC-S1). If you're unsure whether something breaks determinism, it probably does — make it draw from the seed or move it out of the sim.
+
+## Regenerating the frozen golden
+
+A schema bump changes the serialized `BattleState`, so the frozen-golden oracle in `driver.test.ts` must be regenerated — and a regeneration is exactly where a real roll change can hide behind a "just a schema field" diff. Before committing a new golden, classify the slice and confirm the diff matches:
+
+- **Additive / representation-only** (a new field, a status reshape): the roll-bearing fields must be **byte-identical** — `rngCounter`, `tick`, every unit's `hp`/`crystalTimer`, and every `turnLog` entry appear unchanged on both the `+` and `-` sides of the diff; only the new/reshaped fields move.
+- **Intentional behavior change** (a formula/roll change): *exactly* those fields change, and a golden test-vector or equivalence test explains why.
+
+Grepping the diff for the roll fields (they should appear equally on `+`/`-` for an additive slice) is the cheap check that catches a stray roll change inspection misses. P1's four regens (v4→v7) all passed this way.
