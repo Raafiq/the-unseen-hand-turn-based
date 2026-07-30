@@ -7,7 +7,7 @@
 
 import type { ActiveActor, BattleState } from "../sim/index.js";
 import { forecast, makeDemoBattle, stepDemo, UNIT_META, type StepResult } from "./demo.js";
-import { draw } from "./iso.js";
+import { draw, type DamagePopup } from "./iso.js";
 
 interface ViewerApi {
   step: () => void;
@@ -37,10 +37,18 @@ function activeId(): string | undefined {
   return last?.active?.kind === "unit" ? last.active.id : undefined;
 }
 
+function currentPopup(): DamagePopup | undefined {
+  const atk = last?.attack;
+  if (!atk) return undefined;
+  const tgt = state.units.find((u) => u.id === atk.targetId);
+  if (!tgt) return undefined;
+  return { pos: tgt.pos, text: atk.hit ? `−${atk.damage}` : "MISS", hit: atk.hit };
+}
+
 function render(): void {
   const w = canvas.width;
   const h = canvas.height;
-  draw(ctx!, state, w, h, { activeId: activeId(), range: last?.activeRange ?? [] });
+  draw(ctx!, state, w, h, { activeId: activeId(), range: last?.activeRange ?? [], popup: currentPopup() });
   renderTimeline();
   renderStatus();
 }

@@ -13,9 +13,9 @@ const OUT = path.join(ROOT, "visual-artifacts", "gallery");
 
 const CAPTIONS = {
   "01-initial.png": "Initial deploy — the isometric grid, four units, and the turn order (Mage first: highest Speed).",
-  "02-after-3-turns.png": "After 3 turns — units begin maneuvering across the plateau within Move/Jump range.",
-  "03-after-6-turns.png": "After 6 turns — the CT clock keeps cycling; the active unit's move-range is highlighted.",
-  "04-after-8-turns.png": "After 8 turns — forces converge; the turn log shows the exact CT-ordered sequence.",
+  "02-closing-in.png": "Closing in — units maneuver across the plateau within Move/Jump range toward the enemy.",
+  "03-combat.png": "Combat — units attack when adjacent; real hit rolls and damage from the FFT formulas, with damage popups.",
+  "04-aftermath.png": "Aftermath — HP has dropped and KO'd units become crystals; the turn log shows the CT-ordered blow-by-blow.",
 };
 
 async function findVideo(dir) {

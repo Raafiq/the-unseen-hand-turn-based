@@ -78,12 +78,15 @@ Physical damage is **not** uniformly `PA×WP`. Each weapon class has its own for
 
 | Weapon class | Damage formula | Notes |
 |---|---|---|
-| Sword, Knife, Pole, Rod, Staff, Book, Cloth | `PA × WP` | Standard. |
-| Knight Sword, Katana | `[Br/100 × PA] × WP` | Brave-scaled. |
-| Bare hands / Martial Arts | `[PA × Br/100] × PA` | PA-squared, Brave-scaled. |
-| Bow | `[(PA + Speed)/2] × WP` | Arcs; factors height/range. |
-| Crossbow | `PA × WP` | No Speed term; flatter trajectory. |
-| Gun | `WP × WP` | **PA- and Faith-independent** (non-elemental guns). Elemental guns route through magic. |
+| Sword, Crossbow, Spear/Polearm | `PA × WP` | Standard `[VERIFIED]`. |
+| **Knife/Dagger, Bow, Ninja Sword** | `[(PA + Speed)/2] × WP` | **Speed weapons** — floor the average, then × WP. `[VERIFIED — Knife corrected here: it is NOT PA×WP]` |
+| Knight Sword, Katana | `[Br/100 × PA] × WP` | Brave-scaled: floor `(Br×PA)/100` first, then × WP. `[VERIFIED]` |
+| Bare hands | `[PA × Br/100] × PA` | PA-squared, Brave-scaled. **× 1.5 (floored) with Martial Arts** (Monk-innate/support). `[VERIFIED]` |
+| Gun | `WP × WP` | **PA- and Faith-independent** (non-elemental guns). Elemental guns route through magic. `[VERIFIED]` |
+| Staff, Rod, Book, Stick, Cloth | `[UNCERTAIN]` — some are **MA-based** (`MA×WP`) or `[(PA+MA)/2]×WP`, not `PA×WP` | **Do not implement as `PA×WP` without per-type verification.** Sources conflict; primary refs (BMG/FFHacktics) were egress-blocked this pass. |
+| Axe, Flail, Bag | `Rand(1..PA) × WP` | **Random-damage** weapons — note for later; needs a seeded roll. `[VERIFIED]` |
+
+> **Verification note (fft-fidelity, PR3):** the rows above were cross-checked against search-surfaced BMG/FFHacktics text; primary pages could not be opened directly (proxy 403), so `[UNCERTAIN]` rows must be re-verified before use, and no constant is hard-coded in `src/sim` without a golden vector (§12).
 
 - **Two Hands** (support): wield a one-hander in both hands → roughly **doubled** single-hit damage.
 - **Two Swords** (support): dual-wield → **two separate hits** (each its own accuracy/damage roll). This — plus Speed and Concentrate — is the real engine behind the "Orlandeau/Ninja delete a unit" power that `docs/04` critiques.
@@ -91,10 +94,14 @@ Physical damage is **not** uniformly `PA×WP`. Each weapon class has its own for
 - **Concentrate** (support) makes physical attacks **ignore evasion**. **Element-strengthening gear** ≈ +50% to that element.
 
 ### 5b. Magic damage / healing `[BASELINE]`
+Faith enters on **both ends**, each a floored `/100` step. Keep the two floors **separate** — the game floors *between* the Caster-Faith and Target-Faith multiplies, so collapsing them can drift by 1 `[VERIFIED — fft-fidelity]`:
 ```
-value = [ Q × MA × (casterFaith/100) × (targetFaith/100) ]
+d0 = MA × Q                          # base spell power
+d1 = floor( d0 × casterFaith / 100 ) # floor here
+d2 = floor( d1 × targetFaith / 100 ) # floor here
+# then Zodiac, then Shell (§5d, §8), each floored
 ```
-`Q` = spell's internal power. Both Faith values gate the result. Faith and Zodiac also modify the **hit / status-infliction chance**, not only damage (§5d, §9).
+`Q` = spell's internal power. Innocent = Faith 0 (→ 0). Faith and Zodiac also modify the **hit / status-infliction chance**, not only damage (§5d, §9). *(Do not use the single-outer-bracket form `[Q×MA×(cF/100)×(tF/100)]` — it hides the intermediate floors.)*
 
 ### 5c. Evasion — four independent rolls, by facing `[BASELINE]`
 Evasion is **not summed**. There are four separate sources — **Class Ev, Weapon Ev** (only with Weapon Guard), **Shield Ev, Accessory Ev** — each rolled **independently** (multiplicative miss chance). Facing removes sources:
@@ -182,7 +189,7 @@ Statuses (Haste, Reraise, Petrify, Stop, Charm, Don't-Act) swing battles more th
 A "faithful baseline" is only real if it's checkable. Before any values are hard-coded:
 
 1. **Verify against sources:** per-weapon damage variants, per-spell **Q**, per-ability **Speed**, job-unlock thresholds, growth constants, Brave/Faith desertion cutoffs — all against **AeroStar's BMG** and the **FFHacktics Formulas wiki** (the definitive data-mined references).
-2. **Author golden test vectors:** a handful of reference `input → expected output` cases per formula (e.g. "Br 70, PA 10, Excalibur WP 21 → 147"), used as regression tests when combat code is written (`docs/05`).
+2. **Author golden test vectors:** a handful of reference `input → expected output` cases per formula (e.g. "Br 70, PA 10, WP 21 → `floor(70×10/100)×21` = 147"), used as regression tests when combat code is written (`docs/05`). *(WP 21 = Save the Queen; Excalibur is commonly WP 24 → 168 — pick the intended weapon.)* **Done for PR3:** the Brave/PA-scaled, speed-weapon, bare-hands, gun, magic, Zodiac, Protect/Shell, and evasion-by-facing vectors are wired in `src/sim/formulas.test.ts` (14 vectors).
 3. **State invariants:** integer-floor at each step; non-negative clamps; evasion is multiplicative not additive; Zodiac/Faith apply to hit *and* damage.
 
 ---

@@ -63,9 +63,16 @@ function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.closePath();
 }
 
+export interface DamagePopup {
+  pos: Position;
+  text: string;
+  hit: boolean;
+}
+
 export interface DrawOptions {
   activeId?: string | undefined;
   range?: readonly Position[];
+  popup?: DamagePopup | undefined;
   theme?: Theme;
 }
 
@@ -140,6 +147,20 @@ export function draw(
     const u = unitAt.get(`${x},${y}`);
     if (u) drawUnit(ctx, u, top, u.id === opts.activeId, theme);
   }
+
+  // Damage / miss popup, drawn last so it sits above everything.
+  if (opts.popup) {
+    const t = state.grid.tiles[opts.popup.pos.y * width + opts.popup.pos.x];
+    const p = project(opts.popup.pos.x, opts.popup.pos.y, t?.height ?? 0, origin);
+    ctx.font = "700 20px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0b0f1c";
+    ctx.fillStyle = opts.popup.hit ? "#ff5d5d" : "#9aa4bb";
+    ctx.strokeText(opts.popup.text, p.x, p.y - 40);
+    ctx.fillText(opts.popup.text, p.x, p.y - 40);
+    ctx.textAlign = "start";
+  }
 }
 
 function drawUnit(
@@ -153,6 +174,25 @@ function drawUnit(
   const color = meta?.color ?? "#9aa4bb";
   const cx = top.x;
   const cy = top.y - 20;
+
+  // KO'd unit → a dim crystal on the tile (docs/01 §11), no token/HP bar.
+  if (u.hp <= 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 6);
+    ctx.lineTo(cx + 8, cy + 2);
+    ctx.lineTo(cx, cy + 12);
+    ctx.lineTo(cx - 8, cy + 2);
+    ctx.closePath();
+    ctx.fillStyle = "#5a6b8f";
+    ctx.fill();
+    ctx.strokeStyle = "#aeb8ff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
 
   if (active) {
     ctx.beginPath();

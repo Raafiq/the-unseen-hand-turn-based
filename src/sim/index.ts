@@ -78,3 +78,20 @@ export {
   type ActiveActor,
   type NextTurn,
 } from "./scheduler.js";
+export {
+  weaponBaseDamage,
+  magicDamage,
+  applyZodiac,
+  applyProtect,
+  applyShell,
+  hitChance,
+  zodiacCompatibility,
+  type ZodiacTier,
+} from "./formulas.js";
+export {
+  resolveAttack,
+  CRYSTAL_TIMER_START,
+  type AttackOptions,
+  type AttackOutcome,
+  type ResolveResult,
+} from "./resolve.js";

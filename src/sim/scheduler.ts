@@ -34,6 +34,7 @@ const MAX_TICKS_PER_TURN = 100_000;
  * silently favoring either.
  */
 export function ctRateOfUnit(u: UnitState): number {
+  if (u.hp <= 0) return 0; // KO'd units don't take turns (docs/01 §11)
   if (u.statuses.includes("stop")) return 0;
   const hasted = u.statuses.includes("haste");
   const slowed = u.statuses.includes("slow");

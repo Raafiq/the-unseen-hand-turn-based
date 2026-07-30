@@ -34,8 +34,12 @@ const IntSchema = z.number().int();
 export const FacingSchema = z.enum(["N", "E", "S", "W"]);
 export type Facing = z.infer<typeof FacingSchema>;
 
-/** Scheduler-relevant statuses (the CT-affecting subset for PR2, docs/01 §1). */
-export const StatusFlagSchema = z.enum(["haste", "slow", "stop"]);
+/**
+ * Status flags modeled so far: the CT-affecting set (docs/01 §1) plus the
+ * damage-reducing Protect/Shell (~2/3, docs/01 §8). The full status system
+ * arrives with the resolution pipeline's later slices.
+ */
+export const StatusFlagSchema = z.enum(["haste", "slow", "stop", "protect", "shell"]);
 export type StatusFlag = z.infer<typeof StatusFlagSchema>;
 
 /** One grid tile: integer height in half-tile "h" units + passability (docs/01 §7). */
@@ -80,14 +84,16 @@ export const ElementSchema = z.enum([
 ]);
 export type Element = z.infer<typeof ElementSchema>;
 
-/** Which damage formula a weapon uses (docs/01 §5a). */
-export const WeaponFormulaSchema = z.enum([
-  "physical", // PA × WP  (Sword/Knife/Pole/Rod/Staff/Book/Cloth, Crossbow)
-  "brave", //    [Br/100 × PA] × WP  (Knight Sword/Katana)
-  "bareHands", // [PA × Br/100] × PA
-  "bow", //      [(PA + Speed)/2] × WP
-  "gun", //      WP × WP
-]);
+/**
+ * Which damage formula a weapon uses (docs/01 §5a), named by the MATH so a
+ * weapon can't be mislabeled. Verified vs BMG/FFHacktics (fft-fidelity, PR3):
+ *   paWp      PA × WP                    — Sword, Crossbow, Spear/Polearm
+ *   braveWp   floor(Br × PA / 100) × WP  — Knight Sword, Katana
+ *   bareHands floor(PA × Br / 100) × PA  — unarmed (×1.5 with Martial Arts)
+ *   speedWp   floor((PA + Speed)/2) × WP — Bow, KNIFE, Ninja Sword (speed weapons)
+ *   wpWp      WP × WP                    — Gun (PA- and Faith-independent)
+ */
+export const WeaponFormulaSchema = z.enum(["paWp", "braveWp", "bareHands", "speedWp", "wpWp"]);
 export type WeaponFormula = z.infer<typeof WeaponFormulaSchema>;
 
 export const WeaponSchema = z
@@ -225,7 +231,7 @@ export function defaultUnit(id: string, teamId: number, over: Partial<UnitState>
     ma: 10,
     brave: 70,
     faith: 50,
-    weapon: { wp: 8, formula: "physical", element: "none", accuracy: 100 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
     evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
     zodiac: { sign: "aries", gender: "neutral" },
     crystalTimer: 0,
@@ -336,7 +342,7 @@ const migrate2to3: Migration = (s) => {
     ma: 10,
     brave: 70,
     faith: 50,
-    weapon: { wp: 8, formula: "physical", element: "none", accuracy: 100 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
     evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
     zodiac: { sign: "aries", gender: "neutral" },
     crystalTimer: 0,

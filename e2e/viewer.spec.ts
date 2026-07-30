@@ -28,17 +28,28 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   await page.screenshot({ path: `${SHOTS}/01-initial.png`, fullPage: true });
   await page.waitForTimeout(INTRO_MS); // let the opening frame settle
 
+  const totalHp = (): Promise<number> =>
+    page.evaluate(() => {
+      const w = window as unknown as { tuh: { getState(): { units: { hp: number }[] } } };
+      return w.tuh.getState().units.reduce((sum, u) => sum + u.hp, 0);
+    });
+  const startHp = await totalHp();
+
+  const TURNS = 16;
   const step = page.getByTestId("step");
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= TURNS; i++) {
     await step.click();
     await page.waitForTimeout(HOLD_MS); // hold each turn long enough to read
-    if (i === 3) await page.screenshot({ path: `${SHOTS}/02-after-3-turns.png`, fullPage: true });
-    if (i === 6) await page.screenshot({ path: `${SHOTS}/03-after-6-turns.png`, fullPage: true });
+    if (i === 5) await page.screenshot({ path: `${SHOTS}/02-closing-in.png`, fullPage: true });
+    if (i === 10) await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
   }
 
-  await expect(page.getByTestId("status")).toContainText("Turns 8");
-  await page.screenshot({ path: `${SHOTS}/04-after-8-turns.png`, fullPage: true });
+  await expect(page.getByTestId("status")).toContainText(`Turns ${TURNS}`);
+  await page.screenshot({ path: `${SHOTS}/04-aftermath.png`, fullPage: true });
   await page.waitForTimeout(OUTRO_MS); // hold the final board before reset
+
+  // Combat actually happened: total HP dropped from real damage.
+  expect(await totalHp()).toBeLessThan(startHp);
 
   // Reset restores turn 0 (state is rebuilt from the seed).
   await page.getByTestId("reset").click();

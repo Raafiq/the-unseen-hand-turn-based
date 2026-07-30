@@ -57,7 +57,7 @@
       <header>
         <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
         <h1>CT scheduler &amp; isometric grid — live</h1>
-        <p>The real headless sim, running in your browser. Press <b>Step</b> to advance the clock: the actor at the top of the turn order acts, maneuvering within its Move/Jump range. No damage yet — attack resolution lands in the next slice. Everything here is deterministic from the seed.</p>
+        <p>The real headless sim, running in your browser. Press <b>Step</b> to advance the clock: the actor at the top of the turn order moves within its Move/Jump range and <b>attacks when it reaches an enemy</b> — real hit rolls, facing, and damage from the FFT formulas (verified against the Battle Mechanics Guide). Everything here is deterministic from the seed.</p>
       </header>
 
       <div class="stage">
@@ -81,6 +81,7 @@
             <div class="row"><span class="sw" style="background:#4f8cff"></span> Team A — Knight, Archer</div>
             <div class="row"><span class="sw" style="background:#e2603c"></span> Team B — Brawler, Mage</div>
             <div class="row"><span class="sw" style="background:#e2a948"></span> Move range of the active unit</div>
+            <div class="row"><span class="sw" style="background:#ff5d5d"></span> Damage / miss popup · a crystal marks a KO'd unit</div>
             <div class="row"><span class="sw" style="background:#6a2f2f"></span> Impassable tile · raised tiles = terrain height</div>
           </div>
         </div>

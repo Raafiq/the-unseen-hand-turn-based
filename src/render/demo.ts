@@ -16,8 +16,10 @@ import {
   defaultUnit,
   makeFlatTiles,
   moveRange,
+  resolveAttack,
   settleTurn,
   type ActiveActor,
+  type AttackOutcome,
   type BattleState,
   type Facing,
   type Position,
@@ -59,10 +61,30 @@ export function makeDemoBattle(): BattleState {
   set(6, 2, 0, false);
 
   const units: UnitState[] = [
-    unit("knight", 0, { pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, jump: 2 }),
-    unit("archer", 0, { pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, jump: 2 }),
-    unit("brawler", 1, { pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3 }),
-    unit("mage", 1, { pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1 }),
+    unit("knight", 0, {
+      pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, hp: 130, maxHp: 130,
+      pa: 11, brave: 72, zodiac: { sign: "aries", gender: "male" },
+      weapon: { wp: 15, formula: "braveWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0 },
+    }),
+    unit("archer", 0, {
+      pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, hp: 90, maxHp: 90,
+      pa: 9, brave: 68, zodiac: { sign: "taurus", gender: "female" },
+      weapon: { wp: 10, formula: "speedWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    }),
+    unit("brawler", 1, {
+      pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3, hp: 120, maxHp: 120,
+      pa: 13, brave: 75, zodiac: { sign: "gemini", gender: "male" },
+      weapon: { wp: 0, formula: "bareHands", element: "none", accuracy: 100 },
+      evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    }),
+    unit("mage", 1, {
+      pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 80, maxHp: 80,
+      pa: 7, ma: 12, brave: 60, zodiac: { sign: "cancer", gender: "female" },
+      weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    }),
   ];
 
   return createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
@@ -83,45 +105,69 @@ export interface StepResult {
   /** The move-range that was available to the active unit this turn (for the highlight). */
   activeRange: Position[];
   moved: boolean;
+  /** The attack the active unit made this turn, if any (for the damage popup). */
+  attack: AttackOutcome | null;
 }
 
+const adjacent = (a: Position, b: Position): boolean => manhattan(a, b) === 1;
+
 /**
- * Advance one active turn. The active unit steps toward the nearest enemy
- * (deterministic tie-breaks), staying within its Move/Jump range, then settles.
+ * Advance one active turn (deterministic policy): the active unit closes on the
+ * nearest living enemy within its Move/Jump range, and if it ends up adjacent,
+ * attacks — a move+act turn resolved through the real damage pipeline.
  */
 export function stepDemo(input: BattleState): StepResult {
   const { state: adv, active } = advanceToNextTurn(input);
   if (!active || active.kind !== "unit") {
-    return { state: adv, active, activeRange: [], moved: false };
+    return { state: adv, active, activeRange: [], moved: false, attack: null };
   }
 
-  const actor = adv.units.find((u) => u.id === active.id);
-  if (!actor) return { state: adv, active, activeRange: [], moved: false };
+  let state = adv;
+  const actorId = active.id;
+  const actor = () => state.units.find((u) => u.id === actorId)!;
+  const enemies = () => state.units.filter((u) => u.teamId !== actor().teamId && u.hp > 0);
 
-  const range = moveRange(adv.grid, adv.units, actor.id);
-  const enemies = adv.units.filter((u) => u.teamId !== actor.teamId && u.hp > 0);
-
+  const range = moveRange(state.grid, state.units, actorId);
+  const foes = enemies();
   let moved = false;
-  if (enemies.length > 0) {
-    const target = [...enemies].sort(
-      (a, b) => manhattan(actor.pos, a.pos) - manhattan(actor.pos, b.pos) || (a.id < b.id ? -1 : 1),
+  let attack: AttackOutcome | null = null;
+
+  if (foes.length > 0) {
+    const target = [...foes].sort(
+      (a, b) => manhattan(actor().pos, a.pos) - manhattan(actor().pos, b.pos) || (a.id < b.id ? -1 : 1),
     )[0]!;
-    const here = manhattan(actor.pos, target.pos);
-    const best = [...range].sort(
-      (p, q) => manhattan(p, target.pos) - manhattan(q, target.pos) || p.y - q.y || p.x - q.x,
-    )[0];
-    if (best && manhattan(best, target.pos) < here) {
-      actor.facing = faceToward(actor.pos, best);
-      actor.pos = best;
-      moved = true;
-    } else {
-      actor.facing = faceToward(actor.pos, target.pos);
+
+    // Move to close the distance if not already adjacent.
+    if (!adjacent(actor().pos, target.pos)) {
+      const here = manhattan(actor().pos, target.pos);
+      const best = [...range].sort(
+        (p, q) => manhattan(p, target.pos) - manhattan(q, target.pos) || p.y - q.y || p.x - q.x,
+      )[0];
+      if (best && manhattan(best, target.pos) < here) {
+        const m = actor();
+        m.facing = faceToward(m.pos, best);
+        m.pos = best;
+        moved = true;
+      }
+    }
+
+    // Attack if a living enemy is now adjacent.
+    const adjFoe = enemies().find((e) => adjacent(actor().pos, e.pos));
+    if (adjFoe) {
+      actor().facing = faceToward(actor().pos, adjFoe.pos);
+      const res = resolveAttack(state, actorId, adjFoe.id);
+      state = res.state;
+      attack = res.outcome;
+    } else if (!moved) {
+      actor().facing = faceToward(actor().pos, target.pos);
     }
   }
 
-  const settled = settleTurn(adv, actor.id, { didMove: moved, didAct: false });
-  settled.turnLog.push({ tick: settled.tick, unitId: actor.id, action: moved ? "move" : "wait" });
-  return { state: settled, active, activeRange: range, moved };
+  const settled = settleTurn(state, actorId, { didMove: moved, didAct: attack !== null });
+  if (attack === null) {
+    settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: moved ? "move" : "wait" });
+  }
+  return { state: settled, active, activeRange: range, moved, attack };
 }
 
 /** Forecast the next `n` actors without mutating state (turn-order timeline). */
