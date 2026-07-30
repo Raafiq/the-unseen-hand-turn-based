@@ -18,6 +18,7 @@ import {
   moveRange,
   resolveAttack,
   settleTurn,
+  tickCrystal,
   type ActiveActor,
   type AttackOutcome,
   type BattleState,
@@ -124,6 +125,14 @@ export function stepDemo(input: BattleState): StepResult {
 
   let state = adv;
   const actorId = active.id;
+
+  // A KO'd unit's turn ticks its crystal counter instead of acting (docs/01 §11).
+  const activeUnit = state.units.find((u) => u.id === actorId)!;
+  if (activeUnit.hp <= 0) {
+    const res = tickCrystal(state, actorId);
+    return { state: res.state, active, activeRange: [], moved: false, attack: null };
+  }
+
   const actor = () => state.units.find((u) => u.id === actorId)!;
   const enemies = () => state.units.filter((u) => u.teamId !== actor().teamId && u.hp > 0);
 

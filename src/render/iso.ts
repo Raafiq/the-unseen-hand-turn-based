@@ -190,6 +190,14 @@ function drawUnit(
     ctx.strokeStyle = "#aeb8ff";
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    // Crystal countdown (3→0) while the unit can still be revived (docs/01 §11).
+    if (u.crystalTimer > 0) {
+      ctx.fillStyle = "#dfe6ff";
+      ctx.font = "700 11px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(String(u.crystalTimer), cx, cy + 6);
+      ctx.textAlign = "start";
+    }
     ctx.restore();
     return;
   }

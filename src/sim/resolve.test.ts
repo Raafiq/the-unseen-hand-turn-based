@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAttack } from "./resolve.js";
+import { resolveAttack, tickCrystal } from "./resolve.js";
 import { ctRateOfUnit } from "./scheduler.js";
 import { createBattleState, defaultUnit, type BattleState, type UnitState } from "./state.js";
 
@@ -97,20 +97,48 @@ describe("resolveAttack — hit / miss (AC-06)", () => {
   });
 });
 
-describe("resolveAttack — KO & crystal (AC-09)", () => {
-  it("lethal damage drops HP to 0, starts the crystal counter, and flags the KO", () => {
+describe("resolveAttack — illegal targets (AC-S1 replay safety)", () => {
+  it("refuses to attack itself or an already-downed target (would desync replay)", () => {
+    expect(() => resolveAttack(duel(), "atk", "atk")).toThrow();
+    const koState = resolveAttack(duel({ target: { hp: 100, maxHp: 100 } }), "atk", "tgt").state;
+    expect(() => resolveAttack(koState, "atk", "tgt")).toThrow(/already down/);
+  });
+});
+
+describe("resolveAttack + tickCrystal — KO & crystal countdown (AC-09)", () => {
+  it("lethal damage drops HP to 0 and starts the crystal counter; the unit still accrues CT", () => {
     const { state, outcome } = resolveAttack(duel({ target: { hp: 100, maxHp: 100 } }), "atk", "tgt");
     expect(outcome.ko).toBe(true);
     const tgt = state.units.find((u) => u.id === "tgt")!;
     expect(tgt.hp).toBe(0);
     expect(tgt.crystalTimer).toBe(3);
-    // A KO'd unit no longer accrues CT / takes turns.
-    expect(ctRateOfUnit(tgt)).toBe(0);
+    // Faithful model (docs/01 §11): a KO'd unit keeps accruing CT so its turn
+    // comes up to tick the counter — it is NOT frozen at KO.
+    expect(ctRateOfUnit(tgt)).toBeGreaterThan(0);
   });
 
-  it("re-hitting an already-KO'd unit does not re-flag a KO", () => {
-    const first = resolveAttack(duel({ target: { hp: 100, maxHp: 100 } }), "atk", "tgt");
-    const second = resolveAttack(first.state, "atk", "tgt");
-    expect(second.outcome.ko).toBe(false);
+  it("ticks the counter 3→0 across the unit's turns, then crystallizes and freezes", () => {
+    let state = resolveAttack(duel({ target: { hp: 100, maxHp: 100 } }), "atk", "tgt").state;
+    const tgt = (): (typeof state.units)[number] => state.units.find((u) => u.id === "tgt")!;
+
+    let r = tickCrystal(state, "tgt");
+    state = r.state;
+    expect(tgt().crystalTimer).toBe(2);
+    expect(r.crystallized).toBe(false);
+
+    r = tickCrystal(state, "tgt");
+    state = r.state;
+    expect(tgt().crystalTimer).toBe(1);
+
+    r = tickCrystal(state, "tgt");
+    state = r.state;
+    expect(tgt().crystalTimer).toBe(0);
+    expect(r.crystallized).toBe(true);
+    // Now permanently dead → out of the scheduler.
+    expect(ctRateOfUnit(tgt())).toBe(0);
+  });
+
+  it("tickCrystal refuses a living unit", () => {
+    expect(() => tickCrystal(duel(), "atk")).toThrow();
   });
 });

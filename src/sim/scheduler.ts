@@ -34,7 +34,10 @@ const MAX_TICKS_PER_TURN = 100_000;
  * silently favoring either.
  */
 export function ctRateOfUnit(u: UnitState): number {
-  if (u.hp <= 0) return 0; // KO'd units don't take turns (docs/01 §11)
+  // A KO'd unit KEEPS accruing CT so its turn "comes up" and the crystal counter
+  // can tick down (docs/01 §11) — the turn handler ticks instead of acting. Only
+  // a fully crystallized unit (counter spent) is out of play and freezes.
+  if (u.hp <= 0 && u.crystalTimer <= 0) return 0;
   if (u.statuses.includes("stop")) return 0;
   const hasted = u.statuses.includes("haste");
   const slowed = u.statuses.includes("slow");

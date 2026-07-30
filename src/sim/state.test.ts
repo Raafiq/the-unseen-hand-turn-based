@@ -149,4 +149,10 @@ describe("BattleState — validation rejects malformed data", () => {
     state.units[1] = { ...state.units[1]!, pos: { x: first.pos.x, y: first.pos.y } };
     expect(() => serialize(state)).toThrow();
   });
+
+  it("rejects duplicate unit ids (the tie-break and lookups depend on uniqueness)", () => {
+    const state = sampleState();
+    state.units[1] = { ...state.units[1]!, id: state.units[0]!.id };
+    expect(() => serialize(state)).toThrow();
+  });
 });

@@ -11,7 +11,13 @@
 
 import type { Evasion, UnitState, ZodiacProfile } from "./state.js";
 
-/** Exact integer floor division for non-negative integers (no float creep). */
+/**
+ * Exact integer division for NON-NEGATIVE integers (no float creep). BigInt
+ * division truncates toward zero, which equals floor only for non-negative
+ * operands — all current callers are non-negative. The deferred `absorb`
+ * element yields negative "damage" (healing); it must not route through this
+ * without handling the sign (trunc vs floor differ by 1 for negatives).
+ */
 function floorDiv(num: number, den: number): number {
   return Number(BigInt(num) / BigInt(den));
 }
@@ -69,7 +75,13 @@ export function applyZodiac(value: number, tier: ZodiacTier): number {
   }
 }
 
-/** Protect / Shell reduce physical / magical damage to ~2/3 (docs/01 §8), floored. */
+/**
+ * Protect / Shell reduce physical / magical damage (docs/01 §8), floored.
+ * [UNCERTAIN] the ~2/3 factor is from docs/01 §8's "~⅔" and is NOT independently
+ * confirmed (some sources cite ×3/4); re-verify vs BMG/FFHacktics before balance
+ * relies on it. Kept as separate functions so a future split (if Protect and
+ * Shell differ) has a home.
+ */
 export function applyProtect(value: number): number {
   return floorDiv(value * 2, 3);
 }
@@ -84,6 +96,12 @@ export type Facing = "front" | "side" | "rear";
  * independent multiplicative miss chances; facing removes sources:
  *   front → all four; side → drop Class; rear → keep only Accessory.
  * `ignoreEvasion` (Concentrate) skips evasion entirely. Result clamped 0–100.
+ *
+ * Design note: we compute ONE combined hit% and the pipeline takes a SINGLE
+ * seeded draw against it (resolve.ts) — probability-equivalent to FFT's separate
+ * per-source rolls and matching the displayed hit%. This fixes the per-swing
+ * draw count at 1; revisit if per-source reaction triggers (Weapon Guard) ever
+ * need to know which specific source evaded.
  */
 export function hitChance(
   accuracy: number,
@@ -118,13 +136,14 @@ function clampPercent(v: number): number {
  * Zodiac compatibility tier between two units (docs/01 §5d).
  *
  * VERIFIED (fft-fidelity): Best/Worst occur only between OPPOSITE signs,
- * resolved by gender — opposite gender = Best, same gender = Worst. Same sign
- * reads as Good.
+ * resolved by gender — opposite gender = Best, same gender = Worst.
  *
- * [UNCERTAIN] The full Good/Bad wheel for intermediate offsets was NOT
- * verifiable this pass (primary sources egress-blocked), so intermediate
- * offsets return Neutral rather than assert an unverified value. Complete the
- * wheel from the BMG chart before relying on off-axis Zodiac in balance.
+ * [UNCERTAIN] Same-sign = Good is a common-knowledge assumption, NOT pinned by
+ * docs/01 §5d; and the full Good/Bad wheel for intermediate offsets was not
+ * verifiable this pass (primary sources egress-blocked). So same-sign returns
+ * Good provisionally and intermediate offsets return Neutral rather than assert
+ * unverified values. Complete the wheel from the BMG chart before relying on
+ * off-axis Zodiac in balance.
  */
 export function zodiacCompatibility(a: ZodiacProfile, b: ZodiacProfile): ZodiacTier {
   const offset = ((SIGN_INDEX[a.sign] - SIGN_INDEX[b.sign]) % 12 + 12) % 12;

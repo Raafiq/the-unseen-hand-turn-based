@@ -90,8 +90,10 @@ export {
 } from "./formulas.js";
 export {
   resolveAttack,
+  tickCrystal,
   CRYSTAL_TIMER_START,
   type AttackOptions,
   type AttackOutcome,
   type ResolveResult,
+  type CrystalResult,
 } from "./resolve.js";

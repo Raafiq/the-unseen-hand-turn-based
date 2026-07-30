@@ -23,6 +23,7 @@ import {
   zodiacCompatibility,
   type Facing,
 } from "./formulas.js";
+import { CT_COST_WAIT } from "./scheduler.js";
 import { rngFor, type BattleState } from "./state.js";
 
 export interface AttackOptions {
@@ -64,11 +65,17 @@ export function resolveAttack(
   targetId: string,
   opts: AttackOptions = {},
 ): ResolveResult {
+  if (attackerId === targetId) {
+    throw new Error("resolveAttack: a unit cannot attack itself");
+  }
   const state = structuredClone(input);
   const attacker = state.units.find((u) => u.id === attackerId);
   const target = state.units.find((u) => u.id === targetId);
   if (!attacker) throw new Error(`resolveAttack: unknown attacker ${attackerId}`);
   if (!target) throw new Error(`resolveAttack: unknown target ${targetId}`);
+  // Guard against attacking a downed unit — the caller must pre-validate legal
+  // targets. Consuming an RNG draw for an illegal action would desync replay.
+  if (target.hp <= 0) throw new Error(`resolveAttack: target ${targetId} is already down`);
 
   const rng = rngFor(state);
 
@@ -111,4 +118,39 @@ export function resolveAttack(
   });
 
   return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+}
+
+export interface CrystalResult {
+  state: BattleState;
+  /** True on the tick the counter reaches 0 — the unit is now permanently dead. */
+  crystallized: boolean;
+}
+
+/**
+ * Handle a KO'd unit's turn (docs/01 §11): instead of acting, decrement its
+ * crystal counter and spend the turn. At 0 the unit crystallizes (permadeath;
+ * from then on it no longer accrues CT — see {@link ctRateOfUnit}). Consumes no
+ * RNG. The caller invokes this when the scheduler surfaces a unit with hp ≤ 0.
+ */
+export function tickCrystal(input: BattleState, unitId: string): CrystalResult {
+  const state = structuredClone(input);
+  const unit = state.units.find((u) => u.id === unitId);
+  if (!unit) throw new Error(`tickCrystal: unknown unit ${unitId}`);
+  if (unit.hp > 0) throw new Error(`tickCrystal: ${unitId} is not KO'd`);
+
+  let crystallized = false;
+  if (unit.crystalTimer > 0) {
+    unit.crystalTimer -= 1;
+    crystallized = unit.crystalTimer === 0;
+  }
+  // The turn is spent ticking the counter. A KO'd unit only reaches here at
+  // ct ≥ 100 (its turn came up); clamp defends the schema's ct ≥ 0 regardless.
+  unit.ct = Math.max(0, unit.ct - CT_COST_WAIT);
+
+  state.turnLog.push({
+    tick: state.tick,
+    unitId,
+    action: crystallized ? "crystallizes" : `crystal ${unit.crystalTimer}`,
+  });
+  return { state, crystallized };
 }

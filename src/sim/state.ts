@@ -198,6 +198,13 @@ export const BattleStateSchema = z
     turnLog: z.array(TurnLogEntrySchema),
   })
   .strict()
+  .refine((s) => new Set(s.units.map((u) => u.id)).size === s.units.length, {
+    // Unit ids must be unique: the scheduler tie-break and every `find(u.id===…)`
+    // lookup depend on it (docs/05 §1a). A duplicate would silently reintroduce
+    // array-order dependence and mis-target damage.
+    message: "unit ids must be unique",
+    path: ["units"],
+  })
   .refine((s) => new Set(s.units.map((u) => `${u.pos.x},${u.pos.y}`)).size === s.units.length, {
     message: "two units occupy the same tile (positions must be unique)",
     path: ["units"],
@@ -345,7 +352,8 @@ const migrate2to3: Migration = (s) => {
     weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
     evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
     zodiac: { sign: "aries", gender: "neutral" },
-    crystalTimer: 0,
+    // A v2 unit already at 0 HP is freshly KO'd, not crystallized — start its counter.
+    crystalTimer: (u["hp"] as number) <= 0 ? 3 : 0,
   }));
   return { ...s, schemaVersion: 3, units };
 };
