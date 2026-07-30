@@ -3,6 +3,7 @@ import {
   BattleStateSchema,
   SCHEMA_VERSION,
   SchemaVersionError,
+  basicAttackFrom,
   createBattleState,
   defaultUnit,
   deserialize,
@@ -115,6 +116,30 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     expect(migrated.units[1]?.pos).toEqual({ x: 1, y: 0 });
     expect(migrated.chargeQueue[0]?.speed).toBe(10);
     // Round-trips cleanly once migrated.
+    expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
+  it("migrates a v4 save to v5 by adding a basic.attack derived from each weapon (Slice 4)", () => {
+    // Hand-author a v4 state by stripping the additive `abilities` field off a
+    // current-version state and stamping schemaVersion 4 — a faithful v4 payload.
+    const current = sampleState();
+    const raw = JSON.parse(serialize(current)) as {
+      schemaVersion: number;
+      units: Array<Record<string, unknown>>;
+    };
+    raw.schemaVersion = 4;
+    for (const u of raw.units) delete u["abilities"];
+    const v4 = JSON.stringify(raw);
+
+    const migrated = deserialize(v4);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // Every unit gained exactly one basic.attack, derived from its own weapon.
+    for (const u of migrated.units) {
+      expect(u.abilities).toEqual([basicAttackFrom(u.weapon)]);
+      expect(u.abilities[0]?.id).toBe("basic.attack");
+      expect(u.abilities[0]?.power).toBe(u.weapon.wp); // mirrors the weapon
+    }
+    // Round-trips cleanly once migrated (real save codec).
     expect(deserialize(serialize(migrated))).toEqual(migrated);
   });
 

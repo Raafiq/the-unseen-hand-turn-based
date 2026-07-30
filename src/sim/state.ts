@@ -22,13 +22,24 @@
  *   - v4 (PR4): charged actions gain a `targetTile` and enough `effect` data to
  *     resolve on their matured tick (docs/01 §3, docs/05 §2). A 3→4 migration
  *     fills legacy charges with an inert (power-0) effect at tile (0,0).
+ *   - v5 (Slice 4): units gain an `abilities` projection (the castable actions
+ *     compiled from the persistent record at build time, build.ts). ADDITIVE
+ *     ONLY — no resolver reads it yet, so no roll order or result changes. A 4→5
+ *     migration adds a single `basic.attack` derived from the unit's `weapon`.
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
+import { ElementSchema } from "./element.js";
+import { BattleAbilitySchema, type BattleAbility } from "./ability.js";
+
+// Re-export the element enum from its leaf module so existing
+// `import { ElementSchema } from "./state.js"` call sites keep working (the enum
+// was moved to break a state↔ability load-time cycle; see element.ts).
+export { ElementSchema, type Element } from "./element.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -82,12 +93,6 @@ export const ZodiacSignSchema = z.enum([
   "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
 ]);
 export type ZodiacSign = z.infer<typeof ZodiacSignSchema>;
-
-/** Damage element (routes elemental modifiers; PR3 keeps "none" the default). */
-export const ElementSchema = z.enum([
-  "none", "fire", "ice", "lightning", "water", "earth", "wind", "holy", "dark",
-]);
-export type Element = z.infer<typeof ElementSchema>;
 
 /**
  * Which damage formula a weapon uses (docs/01 §5a), named by the MATH so a
@@ -160,6 +165,17 @@ export const UnitStateSchema = z
     /** Crystal counter after KO (docs/01 §11): 3 → 0, then permadeath. 0 while alive. */
     crystalTimer: IntSchema.min(0),
     statuses: z.array(StatusFlagSchema),
+    /**
+     * The unit's castable-action projection, compiled from its persistent record
+     * at build time (build.ts, ADR-0011) and self-contained for replay. Added at
+     * schemaVersion 5 (Slice 4). PROJECTION-ONLY THIS SLICE: no resolver reads it
+     * yet (the combat pipeline still fights off the inline `weapon`); Slice 5
+     * wires it in. `weapon` and `abilities[basic.attack]` therefore lead a DUAL
+     * LIFE for now — the basic attack is DERIVED FROM `weapon` (see
+     * {@link basicAttackFrom}) so they can't disagree — and `weapon` becomes
+     * removable once the resolvers read `abilities` (cleanup owed then).
+     */
+    abilities: z.array(BattleAbilitySchema),
   })
   .strict();
 export type UnitState = z.infer<typeof UnitStateSchema>;
@@ -264,12 +280,38 @@ export function makeFlatTiles(width: number, height: number, tileHeight = 0): Ti
 }
 
 /**
+ * Derive a unit's basic-attack {@link BattleAbility} from its inline `weapon`.
+ * The SINGLE source of a basic attack so a freshly-built unit ({@link defaultUnit}
+ * / build.ts) and a migrated v4 unit (migrate4to5) always produce a byte-identical
+ * `basic.attack`, and so it can never disagree with the `weapon` it is drawn from.
+ * `power`/`element`/`accuracy` mirror the weapon; a basic swing is instant
+ * (`speed: null`), melee (`range {h:1,v:1}`), and inflicts nothing.
+ */
+export function basicAttackFrom(weapon: Weapon): BattleAbility {
+  return {
+    id: "basic.attack",
+    actionKind: "action",
+    formula: "physical",
+    power: weapon.wp,
+    element: weapon.element,
+    accuracy: weapon.accuracy,
+    range: { h: 1, v: 1 },
+    inflicts: [],
+    speed: null,
+  };
+}
+
+/**
  * Build a fully-populated UnitState with sensible defaults, overridable per
  * field (test/viewer helper). Centralizes the combat-stat defaults so schema
  * growth touches one place. Combat constants here are placeholders for setup
  * only — real numbers are verified per docs/01 §12.
  */
 export function defaultUnit(id: string, teamId: number, over: Partial<UnitState> = {}): UnitState {
+  // Hoisted so the default `abilities` basic-attack is derived from the SAME
+  // weapon a caller may override — a fresh unit's `weapon` and `basic.attack`
+  // can never drift. An explicit `over.abilities` still wins (spread last).
+  const weapon: Weapon = over.weapon ?? { wp: 8, formula: "paWp", element: "none", accuracy: 100 };
   return {
     id,
     teamId,
@@ -285,11 +327,12 @@ export function defaultUnit(id: string, teamId: number, over: Partial<UnitState>
     ma: 10,
     brave: 70,
     faith: 50,
-    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    weapon,
     evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
     zodiac: { sign: "aries", gender: "neutral" },
     crystalTimer: 0,
     statuses: [],
+    abilities: [basicAttackFrom(weapon)],
     ...over,
   };
 }
@@ -422,6 +465,22 @@ const migrate3to4: Migration = (s) => {
 };
 
 /**
+ * v4 → v5: units gain an `abilities` projection. A v4 unit had none, so seed it
+ * with the single basic attack derived from its existing inline `weapon` (via
+ * {@link basicAttackFrom}) — byte-identical to what a freshly-built v5 unit with
+ * the same weapon carries. Purely additive: nothing reads `abilities` in combat
+ * yet, so no roll or result changes. Real units are born at the current version
+ * via {@link defaultUnit} / build.ts.
+ */
+const migrate4to5: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    abilities: [basicAttackFrom(u["weapon"] as Weapon)],
+  }));
+  return { ...s, schemaVersion: 5, units };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -429,6 +488,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrate1to2,
   2: migrate2to3,
   3: migrate3to4,
+  4: migrate4to5,
 };
 
 export class SchemaVersionError extends Error {

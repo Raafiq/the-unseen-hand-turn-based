@@ -16,7 +16,7 @@
  */
 
 import { z } from "zod";
-import { ElementSchema } from "./state.js";
+import { ElementSchema } from "./element.js";
 
 const IntSchema = z.number().int();
 /** 0–100 accuracy percentage (matches state.ts's internal PercentSchema). */

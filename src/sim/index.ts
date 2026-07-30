@@ -32,6 +32,7 @@ export {
   createBattleState,
   makeFlatTiles,
   defaultUnit,
+  basicAttackFrom,
   serialize,
   deserialize,
   rngFor,
@@ -196,3 +197,9 @@ export {
   type ContentPack,
   type ContentRegistry,
 } from "./content.js";
+export {
+  buildBattleUnit,
+  buildBattleState,
+  type BuildUnitInput,
+  type BuildBattleGridOptions,
+} from "./build.js";
