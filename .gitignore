@@ -38,4 +38,7 @@ Thumbs.db
 # Claude Code — personal, per-user settings (shared settings live in .claude/settings.json)
 .claude/settings.local.json
 
+# Claude Code — hook audit logs (local only)
+.claude/hooks/*.log
+
 # Spec Kit — additional ignore rules are added by `specify init` at P0.
