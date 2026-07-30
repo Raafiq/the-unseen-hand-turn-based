@@ -38,6 +38,18 @@ function activeId(): string | undefined {
 }
 
 function currentPopup(): DamagePopup | undefined {
+  const chg = last?.charge;
+  if (chg) {
+    const text =
+      chg.resolution === "hit"
+        ? `−${chg.damage}`
+        : chg.resolution === "miss"
+          ? "MISS"
+          : chg.resolution === "whiff"
+            ? "WHIFF"
+            : "FIZZLE"; // cancelled (caster disabled before it landed)
+    return { pos: chg.targetTile, text, hit: chg.resolution === "hit" };
+  }
   const atk = last?.attack;
   if (!atk) return undefined;
   const tgt = state.units.find((u) => u.id === atk.targetId);
@@ -54,6 +66,14 @@ function render(): void {
 }
 
 function chip(actor: ActiveActor, leading: boolean): string {
+  if (actor.kind === "charge") {
+    const charge = state.chargeQueue.find((c) => c.id === actor.id);
+    const caster = charge ? UNIT_META[charge.sourceUnitId] : undefined;
+    const color = caster?.color ?? "#ff7a3c";
+    const label = caster ? `⚡ ${caster.label}` : "⚡ Spell";
+    return `<span class="chip spell${leading ? " lead" : ""}" style="--c:${color}">
+      <span class="swatch"></span>${label}</span>`;
+  }
   const meta = UNIT_META[actor.id];
   const color = meta?.color ?? "#9aa4bb";
   const label = meta?.label ?? actor.id;
@@ -69,7 +89,7 @@ function renderTimeline(): void {
 
 function renderStatus(): void {
   const act = last?.active;
-  const who = act ? (UNIT_META[act.id]?.label ?? act.id) : "—";
+  const who = !act ? "—" : act.kind === "charge" ? "⚡ Spell" : (UNIT_META[act.id]?.label ?? act.id);
   statusEl.innerHTML =
     `<span><b>Tick</b> ${state.tick}</span>` +
     `<span><b>Turns</b> ${turnCount}</span>` +

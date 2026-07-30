@@ -241,6 +241,11 @@ export const BattleStateSchema = z
     path: ["units"],
   })
   .refine((s) => new Set(s.units.map((u) => `${u.pos.x},${u.pos.y}`)).size === s.units.length, {
+    // NOTE: this treats crystallized/dead units as still occupying their tile.
+    // Once tile-freeing-on-death or crystal pickup lands (docs/01 §11), a
+    // fully-crystallized unit MUST be removed from `units` (or given a sentinel
+    // off-grid position) before another unit can stand there — otherwise this
+    // refine would reject a legal post-KO state. Revisit when that feature ships.
     message: "two units occupy the same tile (positions must be unique)",
     path: ["units"],
   })

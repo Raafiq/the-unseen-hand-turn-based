@@ -1,27 +1,32 @@
 /**
  * Demo battle + a DETERMINISTIC step policy for the viewer.
  *
- * This is render-layer glue, not sim code — but it is kept fully deterministic
- * (no Math.random, no wall-clock) on purpose, so the viewer produces identical
- * frames every run and the Playwright screenshots are stable.
+ * Render-layer glue, not sim code — but kept fully deterministic (no Math.random,
+ * no wall-clock) so the viewer produces identical frames every run and the
+ * Playwright screenshots are stable.
  *
- * What it shows honestly for PR2: the CT clock driving turn order, and units
- * maneuvering across the grid within their Move/Jump range. There is no damage
- * yet — attack resolution and formulas land in PR3.
+ * Shows: the CT clock driving turn order; units maneuvering within Move/Jump
+ * range and attacking (real damage / KO / crystals, PR3); and the Mage casting a
+ * CHARGED spell at a target tile that builds on the shared timeline and then
+ * lands — or WHIFFS if the target walks off the tile before it matures (PR4).
  */
 
 import {
   advanceToNextTurn,
   createBattleState,
+  declareCharge,
   defaultUnit,
   makeFlatTiles,
   moveRange,
   resolveAttack,
+  resolveCharge,
   settleTurn,
   tickCrystal,
   type ActiveActor,
   type AttackOutcome,
   type BattleState,
+  type ChargeEffect,
+  type ChargeOutcome,
   type Facing,
   type Position,
   type UnitState,
@@ -82,7 +87,7 @@ export function makeDemoBattle(): BattleState {
     }),
     unit("mage", 1, {
       pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 80, maxHp: 80,
-      pa: 7, ma: 12, brave: 60, zodiac: { sign: "cancer", gender: "female" },
+      pa: 7, ma: 12, brave: 60, faith: 65, zodiac: { sign: "cancer", gender: "female" },
       weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
       evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
     }),
@@ -90,6 +95,13 @@ export function makeDemoBattle(): BattleState {
 
   return createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
 }
+
+/** The Mage's charged spell: a slow nuke (low speed → dodgeable, docs/01 §3). */
+const MAGE_CAST_RANGE = 6;
+const MAGE_SPELL: { speed: number; effect: ChargeEffect } = {
+  speed: 12,
+  effect: { kind: "magic", power: 22, element: "fire", accuracy: 100 },
+};
 
 const manhattan = (a: Position, b: Position): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 
@@ -103,80 +115,105 @@ function faceToward(from: Position, to: Position): Facing {
 export interface StepResult {
   state: BattleState;
   active: ActiveActor | null;
-  /** The move-range that was available to the active unit this turn (for the highlight). */
+  /** Move-range available to the active unit this turn (for the highlight). */
   activeRange: Position[];
   moved: boolean;
-  /** The attack the active unit made this turn, if any (for the damage popup). */
+  /** A melee attack made this turn, if any (for the damage popup). */
   attack: AttackOutcome | null;
+  /** A charged spell that RESOLVED this step, if any (land / whiff / cancel). */
+  charge: ChargeOutcome | null;
 }
 
 const adjacent = (a: Position, b: Position): boolean => manhattan(a, b) === 1;
 
 /**
- * Advance one active turn (deterministic policy): the active unit closes on the
- * nearest living enemy within its Move/Jump range, and if it ends up adjacent,
- * attacks — a move+act turn resolved through the real damage pipeline.
+ * Advance one active turn (deterministic policy):
+ *   - a matured CHARGE resolves against its target tile (land / whiff / cancel);
+ *   - a KO'd unit's turn ticks its crystal counter;
+ *   - the Mage casts a charged spell at the nearest enemy's tile when in range;
+ *   - everyone else closes and melees when adjacent.
  */
 export function stepDemo(input: BattleState): StepResult {
   const { state: adv, active } = advanceToNextTurn(input);
-  if (!active || active.kind !== "unit") {
-    return { state: adv, active, activeRange: [], moved: false, attack: null };
+  const idle = (state: BattleState): StepResult => ({
+    state, active, activeRange: [], moved: false, attack: null, charge: null,
+  });
+  if (!active) return idle(adv);
+
+  // A matured charge resolves against its target tile (docs/01 §3).
+  if (active.kind === "charge") {
+    const res = resolveCharge(adv, active.id);
+    return { ...idle(res.state), charge: res.outcome };
   }
 
   let state = adv;
   const actorId = active.id;
+  const me = (): UnitState => state.units.find((u) => u.id === actorId)!;
 
   // A KO'd unit's turn ticks its crystal counter instead of acting (docs/01 §11).
-  const activeUnit = state.units.find((u) => u.id === actorId)!;
-  if (activeUnit.hp <= 0) {
-    const res = tickCrystal(state, actorId);
-    return { state: res.state, active, activeRange: [], moved: false, attack: null };
-  }
+  if (me().hp <= 0) return idle(tickCrystal(state, actorId).state);
 
-  const actor = () => state.units.find((u) => u.id === actorId)!;
-  const enemies = () => state.units.filter((u) => u.teamId !== actor().teamId && u.hp > 0);
-
+  const enemies = (): UnitState[] => state.units.filter((u) => u.teamId !== me().teamId && u.hp > 0);
   const range = moveRange(state.grid, state.units, actorId);
   const foes = enemies();
+  if (foes.length === 0) {
+    const settled = settleTurn(state, actorId, { didMove: false, didAct: false });
+    settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: "wait" });
+    return { ...idle(settled), activeRange: range };
+  }
+
+  const target = [...foes].sort(
+    (a, b) => manhattan(me().pos, a.pos) - manhattan(me().pos, b.pos) || (a.id < b.id ? -1 : 1),
+  )[0]!;
+
+  // The Mage casts a charged spell at the target's CURRENT tile when in range and
+  // not already charging. It builds on the timeline; by the time it matures the
+  // target may have walked off → whiff. (declareCharge ends the caster's turn.)
+  const mageBusy = state.chargeQueue.some((c) => c.sourceUnitId === "mage");
+  if (actorId === "mage" && !mageBusy && manhattan(me().pos, target.pos) <= MAGE_CAST_RANGE) {
+    me().facing = faceToward(me().pos, target.pos);
+    const next = declareCharge(state, "mage", {
+      targetTile: { x: target.pos.x, y: target.pos.y },
+      speed: MAGE_SPELL.speed,
+      effect: MAGE_SPELL.effect,
+    });
+    return { state: next, active, activeRange: range, moved: false, attack: null, charge: null };
+  }
+
+  // Otherwise close the distance (Mage repositions to get in range; others melee).
   let moved = false;
-  let attack: AttackOutcome | null = null;
-
-  if (foes.length > 0) {
-    const target = [...foes].sort(
-      (a, b) => manhattan(actor().pos, a.pos) - manhattan(actor().pos, b.pos) || (a.id < b.id ? -1 : 1),
-    )[0]!;
-
-    // Move to close the distance if not already adjacent.
-    if (!adjacent(actor().pos, target.pos)) {
-      const here = manhattan(actor().pos, target.pos);
-      const best = [...range].sort(
-        (p, q) => manhattan(p, target.pos) - manhattan(q, target.pos) || p.y - q.y || p.x - q.x,
-      )[0];
-      if (best && manhattan(best, target.pos) < here) {
-        const m = actor();
-        m.facing = faceToward(m.pos, best);
-        m.pos = best;
-        moved = true;
-      }
+  if (!adjacent(me().pos, target.pos)) {
+    const here = manhattan(me().pos, target.pos);
+    const best = [...range].sort(
+      (p, q) => manhattan(p, target.pos) - manhattan(q, target.pos) || p.y - q.y || p.x - q.x,
+    )[0];
+    if (best && manhattan(best, target.pos) < here) {
+      me().facing = faceToward(me().pos, best);
+      me().pos = best;
+      moved = true;
     }
+  }
 
-    // Attack if a living enemy is now adjacent.
-    const adjFoe = enemies().find((e) => adjacent(actor().pos, e.pos));
+  let attack: AttackOutcome | null = null;
+  if (actorId !== "mage") {
+    const adjFoe = enemies().find((e) => adjacent(me().pos, e.pos));
     if (adjFoe) {
-      actor().facing = faceToward(actor().pos, adjFoe.pos);
+      me().facing = faceToward(me().pos, adjFoe.pos);
       const res = resolveAttack(state, actorId, adjFoe.id);
       state = res.state;
       attack = res.outcome;
     } else if (!moved) {
-      actor().facing = faceToward(actor().pos, target.pos);
+      me().facing = faceToward(me().pos, target.pos);
     }
+  } else if (!moved) {
+    me().facing = faceToward(me().pos, target.pos);
   }
 
   const settled = settleTurn(state, actorId, { didMove: moved, didAct: attack !== null });
   if (attack === null) {
     settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: moved ? "move" : "wait" });
   }
-  return { state: settled, active, activeRange: range, moved, attack };
+  return { state: settled, active, activeRange: range, moved, attack, charge: null };
 }
 
 /** Forecast the next `n` actors without mutating state (turn-order timeline). */
@@ -187,10 +224,15 @@ export function forecast(input: BattleState, n = 8): ActiveActor[] {
     const { state: adv, active } = advanceToNextTurn(state);
     if (!active) break;
     out.push(active);
-    state =
-      active.kind === "unit"
-        ? settleTurn(adv, active.id, { didMove: false, didAct: true })
-        : adv;
+    if (active.kind === "unit") {
+      state = settleTurn(adv, active.id, { didMove: false, didAct: true });
+    } else {
+      // Preview only: drop the matured charge so the forecast advances past it
+      // (the real resolution happens in stepDemo, not here).
+      const i = adv.chargeQueue.findIndex((c) => c.id === active.id);
+      if (i !== -1) adv.chargeQueue.splice(i, 1);
+      state = adv;
+    }
   }
   return out;
 }

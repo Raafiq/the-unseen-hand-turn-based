@@ -4,6 +4,7 @@ import {
   createBattleState,
   defaultUnit,
   serialize,
+  deserialize,
   type BattleState,
   type ChargeEffect,
 } from "./state.js";
@@ -110,6 +111,223 @@ describe("rewind then replay (AC-S7)", () => {
       const resumed = replay(steps[k - 1]!, LOG.slice(k));
       expect(serialize(resumed)).toBe(finalLive);
     }
+  });
+});
+
+/**
+ * A fully-scripted, single-active-actor battle: "hero" is the only unit that
+ * ever takes a turn (the two enemies are Stopped), so every command's legality
+ * is fixed and the run is a pure function of (seed, LOG). Exercises a move, two
+ * attacks (one lethal → a KO), and two charges that land on the dummy.
+ */
+function goldenBattle(): BattleState {
+  const hero = defaultUnit("hero", 0, {
+    pos: { x: 0, y: 0 },
+    speed: 10,
+    pa: 10,
+    ma: 10,
+    faith: 100,
+    hp: 200,
+    maxHp: 200,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    zodiac: { sign: "aries", gender: "male" },
+  });
+  const dummy = defaultUnit("dummy", 1, {
+    pos: { x: 2, y: 2 },
+    statuses: ["stop"],
+    hp: 9999,
+    maxHp: 9999,
+    faith: 100,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    zodiac: { sign: "taurus", gender: "neutral" },
+  });
+  const victim = defaultUnit("victim", 1, {
+    pos: { x: 1, y: 0 },
+    statuses: ["stop"],
+    hp: 60,
+    maxHp: 60,
+    faith: 100,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    zodiac: { sign: "taurus", gender: "neutral" },
+  });
+  return createBattleState({ seed: 424242, grid: { width: 5, height: 5 }, units: [hero, dummy, victim] });
+}
+
+const GOLDEN_LOG: Command[] = [
+  { kind: "move", to: { x: 1, y: 1 } },
+  { kind: "attack", targetId: "dummy" },
+  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
+  { kind: "attack", targetId: "victim" }, // lethal: 80 dmg vs 60 hp → KO
+  { kind: "wait" },
+  { kind: "attack", targetId: "dummy" },
+  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
+  { kind: "wait" },
+  { kind: "wait" },
+  { kind: "wait" },
+];
+
+describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () => {
+  // The committed literal below was generated from the current (verified-correct)
+  // engine output. It is the regression oracle a deterministic-but-WRONG change
+  // (e.g. a flipped floor order or a shifted roll cursor) would otherwise slip
+  // past — those changes stay reproducible but no longer match this value.
+  // INTENTIONAL behavior changes require REGENERATING this golden (re-run and
+  // paste the new serialize() output), and should be justified in review.
+  const GOLDEN =
+    '{"schemaVersion":4,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":["stop"]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":["stop"]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
+
+  it("serialize(replay(seed, LOG)) equals the committed golden state", () => {
+    const actual = serialize(replay(goldenBattle(), GOLDEN_LOG));
+    expect(actual).toBe(GOLDEN);
+  });
+
+  it("the golden run really contains a KO (representative battle)", () => {
+    const final = replay(goldenBattle(), GOLDEN_LOG);
+    expect(final.units.find((u) => u.id === "victim")!.hp).toBe(0);
+    expect(final.turnLog.some((e) => e.action.includes("KO victim"))).toBe(true);
+  });
+});
+
+/**
+ * A REAL unit dies here (finite HP, NOT the invincible Stopped dummy), so its
+ * KO'd turns run through the crystal-countdown branch of applyCommand. Both
+ * units share Speed 10 and start at ct 0: on the tick both reach ct 100, the
+ * lower id ("hero") acts first and lands the lethal blow on command[0], while
+ * "victim" keeps its ct-100 turn — which the driver then auto-spends ticking the
+ * crystal counter (no command consumed), keeping the run scripted. Equal speeds
+ * matter: a far-faster hero would overshoot ct and permanently out-rank the
+ * KO'd unit, so its crystal turns would never surface within the command budget.
+ */
+function koBattle(): BattleState {
+  const hero = defaultUnit("hero", 0, {
+    pos: { x: 0, y: 0 },
+    speed: 10,
+    pa: 10,
+    hp: 500,
+    maxHp: 500,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+  });
+  const victim = defaultUnit("victim", 1, {
+    pos: { x: 1, y: 0 },
+    speed: 10,
+    hp: 60,
+    maxHp: 60,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+  });
+  return createBattleState({ seed: 11, grid: { width: 5, height: 5 }, units: [hero, victim] });
+}
+
+const KO_LOG: Command[] = [
+  { kind: "attack", targetId: "victim" }, // KO on hero's first turn
+  ...Array.from({ length: 10 }, () => ({ kind: "wait" }) as Command),
+];
+
+describe("rewind across a KO (crystal-countdown branch in replay, AC-S7)", () => {
+  it("the KO'd unit's crystal counter actually ticks during the run", () => {
+    const final = replay(koBattle(), KO_LOG);
+    const victim = final.units.find((u) => u.id === "victim")!;
+    expect(victim.hp).toBe(0);
+    expect(victim.crystalTimer).toBeLessThan(3); // its would-be turns ticked the counter
+    expect(final.turnLog.some((e) => e.action.startsWith("crystal") || e.action === "crystallizes")).toBe(true);
+  });
+
+  it("rewinding K past the KO and replaying the tail == the continuous run", () => {
+    const steps = replaySteps(koBattle(), KO_LOG);
+    const finalLive = serialize(steps[steps.length - 1]!);
+    const K = 5; // well past the KO at command 1
+    const resumed = replay(steps[K - 1]!, KO_LOG.slice(K));
+    expect(serialize(resumed)).toBe(finalLive);
+  });
+});
+
+describe("rewind across the REAL save codec (serialize→deserialize→replay, AC-S7)", () => {
+  it("resuming from deserialize(serialize(snapshot)) + the tail == the continuous run", () => {
+    const steps = replaySteps(harness(), LOG);
+    const finalLive = serialize(steps[steps.length - 1]!);
+    const K = 6;
+    // Round-trip the snapshot through the actual save codec before resuming.
+    const restored = deserialize(serialize(steps[K - 1]!));
+    const resumed = replay(restored, LOG.slice(K));
+    expect(serialize(resumed)).toBe(finalLive);
+  });
+});
+
+describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
+  it("a charge whose target tile is vacated by a later command WHIFFS", () => {
+    // Single actor: casts on its OWN tile, then moves off it before maturity.
+    const c = defaultUnit("c", 0, { pos: { x: 0, y: 0 }, speed: 10, move: 3, ct: 100 });
+    const state = createBattleState({ seed: 2, grid: { width: 5, height: 5 }, units: [c] });
+    const log: Command[] = [
+      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 3, effect: { kind: "magic", power: 10, element: "none", accuracy: 100 } },
+      { kind: "move", to: { x: 1, y: 0 } },
+      ...Array.from({ length: 8 }, () => ({ kind: "wait" }) as Command),
+    ];
+    const final = replay(state, log);
+    expect(final.chargeQueue).toHaveLength(0);
+    expect(final.units[0]?.hp).toBe(c.hp); // the caster was never touched → whiff, not a self-hit
+    expect(final.turnLog.some((e) => e.action.includes("whiff"))).toBe(true);
+  });
+
+  it("a charge whose caster is KO'd by a faster charge before maturity CANCELS", () => {
+    // "aa" (lower id, higher ct) casts a SLOW charge on its own tile; "zz" then
+    // casts a FAST charge on aa's tile that KOs aa first → aa's charge cancels.
+    const aa = defaultUnit("aa", 0, {
+      pos: { x: 0, y: 0 },
+      speed: 10,
+      ct: 90,
+      ma: 10,
+      faith: 100,
+      hp: 60,
+      maxHp: 60,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      zodiac: { sign: "taurus", gender: "neutral" },
+    });
+    const zz = defaultUnit("zz", 1, {
+      // Speed 10 (not far-faster): a huge Speed would overshoot ct and keep
+      // out-ranking the maturing slow charge (higher-ct-first), so the charge
+      // would never surface to be cancelled within the command budget. ct 80 <
+      // aa's 90 makes aa act first (declare the slow charge before zz's KO cast).
+      pos: { x: 4, y: 4 },
+      speed: 10,
+      ct: 80,
+      ma: 10,
+      faith: 100,
+      hp: 500,
+      maxHp: 500,
+    });
+    const mk = (): BattleState => createBattleState({ seed: 4, grid: { width: 5, height: 5 }, units: [aa, zz] });
+    const log: Command[] = [
+      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 8, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
+      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 30, effect: { kind: "magic", power: 10, element: "none", accuracy: 100 } },
+      ...Array.from({ length: 20 }, () => ({ kind: "wait" }) as Command),
+    ];
+    const final = replay(mk(), log);
+    expect(final.units.find((u) => u.id === "aa")!.hp).toBe(0); // aa was KO'd by zz's fast charge
+    expect(final.turnLog.some((e) => e.action.includes("cancelled"))).toBe(true);
+    // Byte-reproducible end to end.
+    expect(serialize(final)).toBe(serialize(replay(mk(), log)));
+  });
+});
+
+describe("driver — boundary conditions", () => {
+  it("replay(initial, []) returns the initial state unchanged", () => {
+    const initial = harness();
+    expect(serialize(replay(initial, []))).toBe(serialize(initial));
+    expect(replaySteps(initial, [])).toEqual([]);
+  });
+
+  it("applyCommand on a fully-stalled (all-Stopped) field throws rather than hanging", () => {
+    const s = createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 3 },
+      units: [
+        defaultUnit("x", 0, { pos: { x: 0, y: 0 }, statuses: ["stop"] }),
+        defaultUnit("y", 1, { pos: { x: 1, y: 1 }, statuses: ["stop"] }),
+      ],
+    });
+    expect(() => applyCommand(s, { kind: "wait" })).toThrow(/stalled/);
   });
 });
 

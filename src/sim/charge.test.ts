@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { declareCharge, resolveCharge, type ChargeOutcome } from "./charge.js";
 import { advanceToNextTurn } from "./scheduler.js";
+import { magicDamage, applyZodiac, applyShell } from "./formulas.js";
 import {
   createBattleState,
   defaultUnit,
@@ -173,5 +174,76 @@ describe("charge on the shared timeline — surfaced at ct ≥ 100 (AC-04)", () 
     const { active, ticksAdvanced } = advanceToNextTurn(state);
     expect(ticksAdvanced).toBe(4); // 25,50,75,100 — not surfaced before 100
     expect(active).toEqual({ kind: "charge", id: "chg" });
+  });
+});
+
+describe("two charges maturing the same tick — order + determinism (ADR-0008)", () => {
+  /**
+   * Two charges both reach ct ≥ 100 on the SAME tick. The charge-vs-charge
+   * tie-break is by charge id (lower first), independent of sourceUnitId or
+   * queue position (docs/05 §1a, ADR-0008). Here "c.a" and "c.b" have DIFFERENT
+   * casters and "c.b" is enqueued FIRST — yet "c.a" must resolve first.
+   */
+  function twoChargeScene(): BattleState {
+    const casterA = defaultUnit("uA", 0, { pos: { x: 0, y: 0 }, ma: 10, faith: 100, statuses: ["stop"] });
+    const casterB = defaultUnit("uB", 0, { pos: { x: 4, y: 4 }, ma: 10, faith: 100, statuses: ["stop"] });
+    const t1 = defaultUnit("t1", 1, { pos: { x: 1, y: 1 }, hp: 300, maxHp: 300, faith: 100, zodiac: { sign: "taurus", gender: "neutral" } });
+    const t2 = defaultUnit("t2", 1, { pos: { x: 2, y: 2 }, hp: 300, maxHp: 300, faith: 100, zodiac: { sign: "taurus", gender: "neutral" } });
+    const s = createBattleState({ seed: 5, grid: { width: 5, height: 5 }, units: [casterA, casterB, t1, t2] });
+    // NOTE: casters are Stopped only so the scheduler surfaces the charges (units
+    // never accrue); the interrupt check keys on the resolving charge's caster —
+    // but each charge is resolved directly here, so Stop on the caster is not the
+    // subject. To avoid Stop-cancel we clear it right before resolving (below).
+    s.chargeQueue.push({ id: "c.b", sourceUnitId: "uB", ct: 90, speed: 25, targetTile: { x: 2, y: 2 }, effect: MAGIC });
+    s.chargeQueue.push({ id: "c.a", sourceUnitId: "uA", ct: 90, speed: 25, targetTile: { x: 1, y: 1 }, effect: MAGIC });
+    return s;
+  }
+
+  it("the lower charge id resolves first regardless of queue order or caster", () => {
+    const s = twoChargeScene();
+    // Both at ct 90, speed 25 → both hit 115 on the same single tick.
+    const { active, ticksAdvanced } = advanceToNextTurn(s);
+    expect(ticksAdvanced).toBe(1);
+    expect(active).toEqual({ kind: "charge", id: "c.a" }); // lower id wins the tie
+  });
+
+  it("resolving both in scheduler order is byte-identical across runs", () => {
+    const run = (): string[] => {
+      const s = twoChargeScene();
+      // Un-stop the casters so the interrupt check passes (isolating the tie-break).
+      for (const u of s.units) u.statuses = [];
+      const order: string[] = [];
+      let state = s;
+      for (let i = 0; i < 2; i++) {
+        const { state: adv, active } = advanceToNextTurn(state);
+        state = adv;
+        if (active?.kind !== "charge") break;
+        order.push(active.id);
+        state = resolveCharge(state, active.id).state;
+      }
+      return order;
+    };
+    const a = run();
+    const b = run();
+    expect(a).toEqual(["c.a", "c.b"]); // lower id first, then the other
+    expect(a).toEqual(b);
+  });
+});
+
+describe("magnitude golden — separate-floor order (AC-S5, fft-fidelity)", () => {
+  it("MA10 Q4 cFaith70 tFaith80, Zodiac Best, target Shelled → 22", () => {
+    // Locks the ORDER of the floors the charge pipeline applies (docs/05 §2):
+    //   magic:  d0 = 10×4 = 40
+    //           floor(40×70/100) = 28
+    //           floor(28×80/100) = 22
+    //   Zodiac Best: floor(22×3/2) = 33
+    //   Shell:       floor(33×2/3) = 22
+    // Collapsing any two of these steps drifts the result — this is the guard.
+    const magic = magicDamage(10, 4, 70, 80);
+    expect(magic).toBe(22);
+    const zodiac = applyZodiac(magic, "best");
+    expect(zodiac).toBe(33);
+    const shelled = applyShell(zodiac);
+    expect(shelled).toBe(22);
   });
 });

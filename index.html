@@ -37,6 +37,7 @@
       .chip { display: inline-flex; align-items: center; gap: 7px; font-size: .84rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
       .chip .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
       .chip.lead { border-color: var(--c); color: var(--ink); box-shadow: 0 0 0 1px var(--c) inset; }
+      .chip.spell { border-style: dashed; }
       .cols { display: grid; gap: 16px; margin-top: 22px; grid-template-columns: 1fr; }
       @media (min-width: 720px) { .cols { grid-template-columns: 1.4fr 1fr; } }
       .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
@@ -57,7 +58,7 @@
       <header>
         <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
         <h1>CT scheduler &amp; isometric grid — live</h1>
-        <p>The real headless sim, running in your browser. Press <b>Step</b> to advance the clock: the actor at the top of the turn order moves within its Move/Jump range and <b>attacks when it reaches an enemy</b> — real hit rolls, facing, and damage from the FFT formulas (verified against the Battle Mechanics Guide). Everything here is deterministic from the seed.</p>
+        <p>The real headless sim, running in your browser. Press <b>Step</b> to advance the clock: units move within Move/Jump range and <b>attack when they reach an enemy</b> (real hit rolls, facing, damage from the FFT formulas), and the <b>Mage casts a charged spell</b> that builds on the turn-order timeline (⚡) and then <b>lands — or whiffs</b> if the target walks off the reticle before it matures. Everything is deterministic from the seed.</p>
       </header>
 
       <div class="stage">
@@ -81,6 +82,7 @@
             <div class="row"><span class="sw" style="background:#4f8cff"></span> Team A — Knight, Archer</div>
             <div class="row"><span class="sw" style="background:#e2603c"></span> Team B — Brawler, Mage</div>
             <div class="row"><span class="sw" style="background:#e2a948"></span> Move range of the active unit</div>
+            <div class="row"><span class="sw" style="background:#ff7a3c"></span> A charging spell's target tile (reticle) — ⚡ on the timeline; lands or WHIFFs</div>
             <div class="row"><span class="sw" style="background:#ff5d5d"></span> Damage / miss popup · a crystal marks a KO'd unit</div>
             <div class="row"><span class="sw" style="background:#6a2f2f"></span> Impassable tile · raised tiles = terrain height</div>
           </div>
