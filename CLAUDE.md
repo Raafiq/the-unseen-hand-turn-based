@@ -34,7 +34,7 @@ Design lives in `docs/`. Read in this order before proposing changes:
 
 - Doc tags: `[BASELINE]` = faithful to FFT/WotL · `[ENHANCEMENT]` = intentional improvement · `[OPTIONAL]` = may cut · `[DEFERRED]` = post-1.0. Preserve this tagging when editing docs.
 - **Version baseline:** PSX FFT (1997) numbers are the numeric spine; War of the Lions deltas are tagged `[WotL]`; the 2025 *Ivalice Chronicles* remaster is **not** the baseline.
-- **FFT formula constants are illustrative until verified** against AeroStar's Battle Mechanics Guide and the FFHacktics Formulas wiki (`docs/01` §12). Do not hard-code combat numbers in code without verifying them and adding a golden test-vector.
+- **FFT formula constants are illustrative until verified** against AeroStar's Battle Mechanics Guide and the FFHacktics Formulas wiki (`docs/01` §12). Do not hard-code combat numbers without a golden test-vector. Those primary sources are often **egress-blocked (HTTP 403) in this environment**, so `fft-fidelity` cross-corroborates via WebSearch and **tags confidence per constant**. Only mark a value `[VERIFIED]` when a source actually confirmed it — default to `[UNCERTAIN]`; never label an unconfirmed number verified (a review caught Protect/Shell and same-sign Zodiac mislabeled).
 
 ## Commands
 
