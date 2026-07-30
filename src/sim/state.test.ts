@@ -4,6 +4,7 @@ import {
   SCHEMA_VERSION,
   SchemaVersionError,
   createBattleState,
+  defaultUnit,
   deserialize,
   makeFlatTiles,
   rngFor,
@@ -12,22 +13,8 @@ import {
   type UnitState,
 } from "./state.js";
 
-function unit(id: string, teamId: number, over: Partial<UnitState> = {}): UnitState {
-  return {
-    id,
-    teamId,
-    pos: { x: 0, y: 0 },
-    facing: "S",
-    ct: 0,
-    speed: 5,
-    move: 3,
-    jump: 3,
-    hp: 100,
-    maxHp: 100,
-    statuses: [],
-    ...over,
-  };
-}
+const unit = (id: string, teamId: number, over: Partial<UnitState> = {}): UnitState =>
+  defaultUnit(id, teamId, over);
 
 function sampleState(): BattleState {
   return createBattleState({

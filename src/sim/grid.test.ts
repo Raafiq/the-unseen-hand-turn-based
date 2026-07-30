@@ -1,27 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { inBounds, moveRange, relativeFacing, tileAt, tileIndex } from "./grid.js";
-import { makeFlatTiles, type GridState, type UnitState } from "./state.js";
+import { defaultUnit, makeFlatTiles, type GridState, type UnitState } from "./state.js";
 
 function grid(width: number, height: number): GridState {
   return { width, height, tiles: makeFlatTiles(width, height) };
 }
 
-function unit(id: string, teamId: number, x: number, y: number, over: Partial<UnitState> = {}): UnitState {
-  return {
-    id,
-    teamId,
-    pos: { x, y },
-    facing: "S",
-    ct: 0,
-    speed: 5,
-    move: 3,
-    jump: 3,
-    hp: 100,
-    maxHp: 100,
-    statuses: [],
-    ...over,
-  };
-}
+const unit = (id: string, teamId: number, x: number, y: number, over: Partial<UnitState> = {}): UnitState =>
+  defaultUnit(id, teamId, { pos: { x, y }, ...over });
 
 const has = (tiles: { x: number; y: number }[], x: number, y: number): boolean =>
   tiles.some((t) => t.x === x && t.y === y);

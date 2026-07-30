@@ -23,7 +23,7 @@ import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -62,6 +62,65 @@ export const GridStateSchema = z
   });
 export type GridState = z.infer<typeof GridStateSchema>;
 
+/** 0–100 percentage stat (Brave/Faith). */
+const PercentSchema = IntSchema.min(0).max(100);
+
+export const GenderSchema = z.enum(["male", "female", "neutral"]);
+export type Gender = z.infer<typeof GenderSchema>;
+
+export const ZodiacSignSchema = z.enum([
+  "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+  "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+]);
+export type ZodiacSign = z.infer<typeof ZodiacSignSchema>;
+
+/** Damage element (routes elemental modifiers; PR3 keeps "none" the default). */
+export const ElementSchema = z.enum([
+  "none", "fire", "ice", "lightning", "water", "earth", "wind", "holy", "dark",
+]);
+export type Element = z.infer<typeof ElementSchema>;
+
+/** Which damage formula a weapon uses (docs/01 §5a). */
+export const WeaponFormulaSchema = z.enum([
+  "physical", // PA × WP  (Sword/Knife/Pole/Rod/Staff/Book/Cloth, Crossbow)
+  "brave", //    [Br/100 × PA] × WP  (Knight Sword/Katana)
+  "bareHands", // [PA × Br/100] × PA
+  "bow", //      [(PA + Speed)/2] × WP
+  "gun", //      WP × WP
+]);
+export type WeaponFormula = z.infer<typeof WeaponFormulaSchema>;
+
+export const WeaponSchema = z
+  .object({
+    wp: IntSchema.min(0),
+    formula: WeaponFormulaSchema,
+    element: ElementSchema,
+    /** Base accuracy % of a swing before evasion (docs/01 §6). */
+    accuracy: PercentSchema,
+  })
+  .strict();
+export type Weapon = z.infer<typeof WeaponSchema>;
+
+/**
+ * The four independent evasion sources (docs/01 §5c), each a % miss chance
+ * rolled independently. Facing removes sources: side ignores Class; rear keeps
+ * only Accessory.
+ */
+export const EvasionSchema = z
+  .object({
+    classEv: PercentSchema,
+    weaponEv: PercentSchema,
+    shieldEv: PercentSchema,
+    accessoryEv: PercentSchema,
+  })
+  .strict();
+export type Evasion = z.infer<typeof EvasionSchema>;
+
+export const ZodiacProfileSchema = z
+  .object({ sign: ZodiacSignSchema, gender: GenderSchema })
+  .strict();
+export type ZodiacProfile = z.infer<typeof ZodiacProfileSchema>;
+
 export const UnitStateSchema = z
   .object({
     id: z.string().min(1),
@@ -78,6 +137,17 @@ export const UnitStateSchema = z
     jump: IntSchema.min(0),
     hp: IntSchema.min(0),
     maxHp: IntSchema.min(1),
+    /** Physical / magical attack (docs/01 §4). */
+    pa: IntSchema.min(0),
+    ma: IntSchema.min(0),
+    /** Brave / Faith percentages (docs/01 §4). */
+    brave: PercentSchema,
+    faith: PercentSchema,
+    weapon: WeaponSchema,
+    evasion: EvasionSchema,
+    zodiac: ZodiacProfileSchema,
+    /** Crystal counter after KO (docs/01 §11): 3 → 0, then permadeath. 0 while alive. */
+    crystalTimer: IntSchema.min(0),
     statuses: z.array(StatusFlagSchema),
   })
   .strict();
@@ -131,6 +201,37 @@ export type BattleState = z.infer<typeof BattleStateSchema>;
 /** Build a `width*height` flat grid of identical tiles (test/viewer helper). */
 export function makeFlatTiles(width: number, height: number, tileHeight = 0): Tile[] {
   return Array.from({ length: width * height }, () => ({ height: tileHeight, passable: true }));
+}
+
+/**
+ * Build a fully-populated UnitState with sensible defaults, overridable per
+ * field (test/viewer helper). Centralizes the combat-stat defaults so schema
+ * growth touches one place. Combat constants here are placeholders for setup
+ * only — real numbers are verified per docs/01 §12.
+ */
+export function defaultUnit(id: string, teamId: number, over: Partial<UnitState> = {}): UnitState {
+  return {
+    id,
+    teamId,
+    pos: { x: 0, y: 0 },
+    facing: "S",
+    ct: 0,
+    speed: 5,
+    move: 3,
+    jump: 3,
+    hp: 100,
+    maxHp: 100,
+    pa: 10,
+    ma: 10,
+    brave: 70,
+    faith: 50,
+    weapon: { wp: 8, formula: "physical", element: "none", accuracy: 100 },
+    evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    zodiac: { sign: "aries", gender: "neutral" },
+    crystalTimer: 0,
+    statuses: [],
+    ...over,
+  };
 }
 
 /** Options for {@link createBattleState}; grid tiles auto-fill flat if omitted. */
@@ -223,11 +324,33 @@ const migrate1to2: Migration = (s) => {
 };
 
 /**
+ * v2 → v3: units gain combat stats (PA/MA/Brave/Faith), a weapon, evasion
+ * sources, a zodiac profile, and the crystal timer. v2 saves had none of these,
+ * so fill neutral defaults (matching {@link defaultUnit}). Real saves are born
+ * at the current version.
+ */
+const migrate2to3: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    pa: 10,
+    ma: 10,
+    brave: 70,
+    faith: 50,
+    weapon: { wp: 8, formula: "physical", element: "none", accuracy: 100 },
+    evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    zodiac: { sign: "aries", gender: "neutral" },
+    crystalTimer: 0,
+  }));
+  return { ...s, schemaVersion: 3, units };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrate1to2,
+  2: migrate2to3,
 };
 
 export class SchemaVersionError extends Error {

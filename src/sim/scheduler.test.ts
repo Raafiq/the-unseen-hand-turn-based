@@ -5,24 +5,10 @@ import {
   settleTurn,
   type ActiveActor,
 } from "./scheduler.js";
-import { createBattleState, type BattleState, type UnitState } from "./state.js";
+import { createBattleState, defaultUnit, type BattleState, type UnitState } from "./state.js";
 
-function unit(id: string, teamId: number, over: Partial<UnitState> = {}): UnitState {
-  return {
-    id,
-    teamId,
-    pos: { x: 0, y: 0 },
-    facing: "S",
-    ct: 0,
-    speed: 10,
-    move: 3,
-    jump: 3,
-    hp: 100,
-    maxHp: 100,
-    statuses: [],
-    ...over,
-  };
-}
+const unit = (id: string, teamId: number, over: Partial<UnitState> = {}): UnitState =>
+  defaultUnit(id, teamId, { speed: 10, ...over });
 
 function stateWith(units: UnitState[]): BattleState {
   // Place units on distinct tiles (positions must be unique); the scheduler

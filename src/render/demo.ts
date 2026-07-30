@@ -13,6 +13,7 @@
 import {
   advanceToNextTurn,
   createBattleState,
+  defaultUnit,
   makeFlatTiles,
   moveRange,
   settleTurn,
@@ -37,22 +38,8 @@ export const UNIT_META: Record<string, DemoUnitMeta> = {
   mage: { label: "Mage", color: "#c86ee0", role: "Team B · Spd 13" },
 };
 
-function unit(id: string, teamId: number, over: Partial<UnitState>): UnitState {
-  return {
-    id,
-    teamId,
-    pos: { x: 0, y: 0 },
-    facing: "S",
-    ct: 0,
-    speed: 10,
-    move: 3,
-    jump: 2,
-    hp: 100,
-    maxHp: 100,
-    statuses: [],
-    ...over,
-  };
-}
+const unit = (id: string, teamId: number, over: Partial<UnitState>): UnitState =>
+  defaultUnit(id, teamId, { jump: 2, ...over });
 
 /** A small map with a central plateau, a ramp, and one impassable rock. */
 export function makeDemoBattle(): BattleState {
