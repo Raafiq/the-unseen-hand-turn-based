@@ -68,7 +68,7 @@ Committed, project-scoped skills for agent-first work — invoke by name:
 - `game-design` — this game's house rules (pillars, balance philosophy, anti-convergence law, build-fantasy acceptance test); use for any design/balance work.
 - `decision-record` — record a decision as an ADR under `docs/adr/`.
 - `brainstorm` / `grill-me` — project-local ideation and adversarial spec-interrogation (our own adaptations).
-- `retrospective` — after a task that hit errors/surprises, capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR, or a new skill.
+- `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR, or a new skill. **Run it before opening a PR** (see Tooling & workflow) and after any task that hit errors/surprises.
 
 ## Agent team (`.claude/agents/`)
 
@@ -78,6 +78,7 @@ Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `
 
 ## Tooling & workflow (for the P0 implementation phase)
 
+- **Retrospective before every PR.** Before opening a PR (or requesting a merge), run the `retrospective` skill: capture any durable lessons from the work and **propose** (approval-gated) updates to CLAUDE.md / the docs / an ADR / a skill. This is the checkpoint where lessons get codified so the same mistake isn't repeated in a future session — it replaces the old per-turn Stop-hook nudge, which fired too often to be useful.
 - **Spec-driven development (hybrid):** at P0/P1, initialize **GitHub Spec Kit** (`specify init`, integrates with Claude Code). Port `docs/00` → `/speckit.constitution`, and each buildable-system doc (`01`, `02`, `05`, `06`) → a `/speckit.specify` feature spec using its Acceptance Criteria section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP (Serena or a local-first graph), **disabled until P0** — a code graph over a docs-only repo adds noise, and can cost more tokens than it saves if misconfigured. Enable and measure once code exists.
 - **Helper skills** (enable on claude.ai if not already): `brainstorming` and `grill-me` for design sessions; the `design` plugin for menu UX. Use `/fewer-permission-prompts` and the `session-start-hook` skill to add `.claude/settings.json` and a SessionStart hook once real commands exist.
