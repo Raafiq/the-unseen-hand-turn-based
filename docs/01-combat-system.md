@@ -50,10 +50,11 @@ Many spells/abilities **do not resolve instantly** — they enter a **Charging**
 - On cast, the unit declares a **target tile** (not a locked unit) and enters Charging. The ability has its **own Speed**; the charge builds **+abilitySpeed per tick**, resolving at 100. *Illustrative:* Fire ≈ Speed 25 → ~4 ticks; Bahamut ≈ Speed 10 → ~10 ticks. **These raw values are not verified — treat as placeholders.**
 - **Charge time is (largely) independent of caster Speed** in FFT — which is exactly why **Short Charge** (support) and Speed-stacking matter. State this explicitly in implementation.
 - **Target is a tile:** if the target unit walks out of the area before resolution, the spell whiffs. Fast spells are near-guaranteed; slow nukes (Meteor, high summons, Holy) are dodgeable. This is the central tension.
-- **Interruptible:** killing or disabling the caster (Sleep/Stop/Don't Act/death) before resolution cancels it.
+- **Interruptible:** killing or disabling the caster before resolution cancels it. The interrupt set is **KO/death, Stop, Sleep, Don't-Act, Petrify** (Petrify is a *status*, not HP≤0), and **Silence for magic charges only** (Silence does **not** cancel Jump/Aim/Perform — the check must be `kind`-aware). *Timing:* faithful FFT cancels the **instant** the disable lands (latch it), not re-derived at maturity — these differ only if the caster recovers before maturity (`[VERIFIED — fft-fidelity, medium]`). Note: **damage does not cancel a charge** in PSX FFT (the caster already ended its turn) `[UNCERTAIN — verify vs BMG]`.
+- A charge whose target tile holds only a **KO'd body** (no living unit) **whiffs** — a crystal/body does not absorb a tile-targeted spell (PO ruling, ADR-0010; revisit if bodies should block).
 - **Other charged actions:** Dragoon **Jump**, Archer **Charge/Aim**, Bard/Dancer **Perform** — all resolve on delay via the same model.
 
-**Implementer note:** model charged abilities as first-class entities on the same tick timeline as units, each with speed, target tile, and interrupt hooks. Full algorithm in `docs/05`.
+**Implementer note:** model charged abilities as first-class entities on the same tick timeline as units, each with speed, target tile, and interrupt hooks. Full algorithm in `docs/05`. **PR4 status:** mechanics landed & verified; interrupt-set completeness, interrupt-latching, Faith/Zodiac-on-hit (§6), element, range/LoS, and AoE are tracked deferrals (ADR-0010).
 
 ---
 

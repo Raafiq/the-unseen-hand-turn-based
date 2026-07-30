@@ -148,6 +148,27 @@ export function draw(
     if (u) drawUnit(ctx, u, top, u.id === opts.activeId, theme);
   }
 
+  // Pending charged-spell target reticles (docs/01 §3): a charge resolves against
+  // its tile, so mark where each in-flight spell will land.
+  for (const c of state.chargeQueue) {
+    const t = state.grid.tiles[c.targetTile.y * width + c.targetTile.x];
+    if (!t) continue;
+    const p = project(c.targetTile.x, c.targetTile.y, t.height, origin);
+    ctx.save();
+    ctx.strokeStyle = "#ff7a3c";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x - 15, p.y);
+    ctx.lineTo(p.x + 15, p.y);
+    ctx.moveTo(p.x, p.y - 15);
+    ctx.lineTo(p.x, p.y + 15);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Damage / miss popup, drawn last so it sits above everything.
   if (opts.popup) {
     const t = state.grid.tiles[opts.popup.pos.y * width + opts.popup.pos.x];

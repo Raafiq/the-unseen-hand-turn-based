@@ -17,13 +17,18 @@
  *   - v2 (PR2): grid gains per-tile height+passability; units gain position,
  *     facing, speed, move, jump, hp, and scheduler statuses; charged actions
  *     gain their own speed. A 1→2 migration fills v1 saves with defaults.
+ *   - v3 (PR3): units gain combat stats (PA/MA/Brave/Faith), weapon, evasion,
+ *     zodiac, and the crystal timer. A 2→3 migration fills neutral defaults.
+ *   - v4 (PR4): charged actions gain a `targetTile` and enough `effect` data to
+ *     resolve on their matured tick (docs/01 §3, docs/05 §2). A 3→4 migration
+ *     fills legacy charges with an inert (power-0) effect at tile (0,0).
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -159,7 +164,33 @@ export const UnitStateSchema = z
   .strict();
 export type UnitState = z.infer<typeof UnitStateSchema>;
 
-/** Charge-queue element — target tile / interrupt hooks land in PR4. */
+/**
+ * The effect a matured charge applies (docs/01 §3, docs/05 §2). Carries enough
+ * data to resolve WITHOUT re-reading an ability book, so a serialized charge is
+ * self-contained for rewind/replay. `kind` is a discriminant: only "magic" is
+ * modeled now; Dragoon Jump / Archer Aim / Perform join as their own kinds
+ * later (docs/01 §3). Numeric fields (power, accuracy) are ILLUSTRATIVE per
+ * docs/01 §3 — not yet verified vs BMG/FFHacktics; behavior (not the magic
+ * number) is what the tests pin. fft-fidelity checks the values separately.
+ */
+export const ChargeEffectSchema = z
+  .object({
+    kind: z.literal("magic"),
+    /** Ability power `q` fed to the magic formula (docs/01 §5b). [UNVERIFIED] */
+    power: IntSchema.min(0),
+    element: ElementSchema,
+    /** Base hit % before facing/faith/zodiac (docs/01 §6). [UNVERIFIED] */
+    accuracy: PercentSchema,
+  })
+  .strict();
+export type ChargeEffect = z.infer<typeof ChargeEffectSchema>;
+
+/**
+ * Charge-queue element — a first-class actor on the shared timeline (docs/05
+ * §1). On cast the caster declares a `targetTile` (a tile, NOT a locked unit:
+ * if the occupant walks off before maturity the spell whiffs, docs/01 §3) and
+ * the charge builds `+speed` per tick, resolving at ct >= 100.
+ */
 export const ChargedActionStateSchema = z
   .object({
     id: z.string().min(1),
@@ -168,6 +199,10 @@ export const ChargedActionStateSchema = z
     ct: IntSchema.min(0),
     /** The action's own charge speed, independent of caster Speed (docs/01 §3). */
     speed: IntSchema.min(1),
+    /** The tile the charge resolves against (docs/01 §3). */
+    targetTile: PositionSchema,
+    /** Self-contained effect payload resolved on the matured tick (docs/05 §2). */
+    effect: ChargeEffectSchema,
   })
   .strict();
 export type ChargedActionState = z.infer<typeof ChargedActionStateSchema>;
@@ -206,8 +241,20 @@ export const BattleStateSchema = z
     path: ["units"],
   })
   .refine((s) => new Set(s.units.map((u) => `${u.pos.x},${u.pos.y}`)).size === s.units.length, {
+    // NOTE: this treats crystallized/dead units as still occupying their tile.
+    // Once tile-freeing-on-death or crystal pickup lands (docs/01 §11), a
+    // fully-crystallized unit MUST be removed from `units` (or given a sentinel
+    // off-grid position) before another unit can stand there — otherwise this
+    // refine would reject a legal post-KO state. Revisit when that feature ships.
     message: "two units occupy the same tile (positions must be unique)",
     path: ["units"],
+  })
+  .refine((s) => new Set(s.chargeQueue.map((c) => c.id)).size === s.chargeQueue.length, {
+    // Charge ids must be unique: the scheduler surfaces a charge by id and the
+    // driver dequeues it by id on resolution (docs/05 §2). A duplicate would
+    // resolve/dequeue the wrong charge and desync replay.
+    message: "charge ids must be unique",
+    path: ["chargeQueue"],
   });
 export type BattleState = z.infer<typeof BattleStateSchema>;
 
@@ -359,12 +406,29 @@ const migrate2to3: Migration = (s) => {
 };
 
 /**
+ * v3 → v4: charged actions gain a `targetTile` and an `effect` payload. v3
+ * charges carried neither, so target tile (0,0) and an INERT power-0 magic
+ * effect — a legacy charge whose effect data predates the field resolves
+ * harmlessly rather than corrupting. Real charges are born at the current
+ * version via {@link declareCharge}.
+ */
+const migrate3to4: Migration = (s) => {
+  const chargeQueue = (s["chargeQueue"] as Array<Record<string, unknown>>).map((c) => ({
+    ...c,
+    targetTile: { x: 0, y: 0 },
+    effect: { kind: "magic", power: 0, element: "none", accuracy: 100 },
+  }));
+  return { ...s, schemaVersion: 4, chargeQueue };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrate1to2,
   2: migrate2to3,
+  3: migrate3to4,
 };
 
 export class SchemaVersionError extends Error {

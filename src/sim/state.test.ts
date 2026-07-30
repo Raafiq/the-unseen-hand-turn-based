@@ -39,7 +39,14 @@ describe("BattleState — serialization round-trip (AC-S6)", () => {
     state.tick = 12;
     state.rngCounter = 5;
     state.turnLog.push({ tick: 12, unitId: "u.hero", action: "wait" });
-    state.chargeQueue.push({ id: "c.1", sourceUnitId: "u.hero", ct: 30, speed: 25 });
+    state.chargeQueue.push({
+      id: "c.1",
+      sourceUnitId: "u.hero",
+      ct: 30,
+      speed: 25,
+      targetTile: { x: 1, y: 1 },
+      effect: { kind: "magic", power: 18, element: "fire", accuracy: 100 },
+    });
     const restored = deserialize(serialize(state));
     expect(restored).toEqual(state);
   });
