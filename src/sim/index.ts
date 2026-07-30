@@ -144,6 +144,35 @@ export {
   type StatusEffect,
 } from "./status.js";
 export {
+  ROSTER_SCHEMA_VERSION,
+  MIN_SUPPORTED_ROSTER_SCHEMA_VERSION,
+  ROSTER_MIGRATIONS,
+  RosterSchemaVersionError,
+  RawStatsSchema,
+  UnitRecordSchema,
+  defaultUnitRecord,
+  serializeRecord,
+  deserializeRecord,
+  type RawStats,
+  type UnitRecord,
+  type RosterMigration,
+} from "./roster.js";
+export {
+  learnedNodeIds,
+  canLearn,
+  learnAbility,
+  isMastered,
+  checkMastery,
+  changeJob,
+  awardAp,
+  ApRewardSchema,
+  BASE_AP_GRANT,
+  AP_PER_ACTION,
+  ACTION_AP_CAP,
+  type CanLearnResult,
+  type ApReward,
+} from "./progression.js";
+export {
   CONTENT_SCHEMA_VERSION,
   MIN_SUPPORTED_CONTENT_SCHEMA_VERSION,
   BASELINE_SKILLSETS,
