@@ -1,0 +1,16 @@
+{
+  "_README": "Code-intelligence MCP scaffold. DISABLED by default: the active .mcp.json is empty because a code graph over a docs-only repo adds noise and can cost MORE tokens than it saves if misconfigured (see docs/09). At P0, once real code exists, copy ONE of the servers below into .mcp.json, install it, and MEASURE token/tool-call impact before trusting it.",
+  "_when": "Enable at P0 (docs/08 roadmap), not before.",
+  "_options": {
+    "serena": "LSP -> MCP: symbol-level retrieval/editing via a language server. Best once the TS/JS stack is chosen. https://github.com/oraios/serena",
+    "local-code-graph": "Local-first precomputed graph over MCP (e.g. CodeGraph / codebase-memory-mcp). No cloud, no embeddings API."
+  },
+  "mcpServers": {
+    "serena": {
+      "_disabled": true,
+      "_note": "Example only — lives in .mcp.example.json, NOT loaded. Move into .mcp.json to enable. Verify the command/args against Serena's current README before use.",
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--context", "ide-assistant"]
+    }
+  }
+}

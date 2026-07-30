@@ -1,0 +1,11 @@
+# Architecture / Any Decision Records
+
+Durable records of non-trivial decisions and **why** they were made. Append-only: to change a decision, add a new ADR that supersedes the old one (don't rewrite history). Create records with the `decision-record` skill.
+
+| # | Title | Status | Date |
+|---|---|---|---|
+| [0001](0001-customization-spine.md) | Customization spine = chassis + AP trees + hybrid jobs | Accepted | 2026-07-30 |
+| [0002](0002-respec-model.md) | Respec = permanent progress, free experiments | Accepted | 2026-07-30 |
+| [0003](0003-sdd-hybrid-approach.md) | Spec-driven development: hybrid (GDD now, Spec Kit at build) | Accepted | 2026-07-30 |
+| [0004](0004-determinism-p0-invariant.md) | Determinism (seeded RNG + serializable state) is a P0 invariant | Accepted | 2026-07-30 |
+| [0005](0005-agent-first-project-setup.md) | Agent-first project setup (config + skills + retrospective loop) | Accepted | 2026-07-30 |
