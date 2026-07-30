@@ -99,7 +99,7 @@ export function resolveAttack(
     // Element: "none" is a pass-through; weak/half/absorb/null land in a later slice.
     const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
     dmg = applyZodiac(dmg, tier);
-    if (target.statuses.includes("protect")) dmg = applyProtect(dmg);
+    if (target.statuses.some((st) => st.id === "protect")) dmg = applyProtect(dmg);
     if (dmg < 0) dmg = 0;
     damage = dmg;
 
@@ -174,8 +174,8 @@ export function resolveAbility(
     if (!heal) {
       const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
       mag = applyZodiac(mag, tier);
-      if (ability.formula === "physical" && target.statuses.includes("protect")) mag = applyProtect(mag);
-      if (ability.formula === "magic" && target.statuses.includes("shell")) mag = applyShell(mag);
+      if (ability.formula === "physical" && target.statuses.some((st) => st.id === "protect")) mag = applyProtect(mag);
+      if (ability.formula === "magic" && target.statuses.some((st) => st.id === "shell")) mag = applyShell(mag);
     }
     if (mag < 0) mag = 0;
     damage = mag;

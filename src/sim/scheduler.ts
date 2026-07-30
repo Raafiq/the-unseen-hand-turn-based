@@ -10,7 +10,7 @@
  *     never mutated, keeping rewind/replay honest.
  */
 
-import type { BattleState, ChargedActionState, UnitState } from "./state.js";
+import { PERMANENT_STATUS_CT, type BattleState, type ChargedActionState, type UnitState } from "./state.js";
 
 /** Haste/Slow CT multipliers (docs/01 §1). Applied then floored. */
 export const HASTE_FACTOR = 1.5;
@@ -28,21 +28,24 @@ export const CT_COST_WAIT = 60;
 const MAX_TICKS_PER_TURN = 100_000;
 
 /**
- * A unit's CT accrual per tick: floor(Speed × haste/slow), or 0 while Stopped.
- * Stop dominates. Haste and Slow are mutually exclusive in FFT (one dispels the
- * other); if a state somehow carries both, they cancel to neutral rather than
- * silently favoring either.
+ * A unit's CT accrual per tick: floor(Speed × Π ctFactor), read from the unit's
+ * active statuses (docs/05 §1b/§6). The multiplier is the PRODUCT of every active
+ * status's `ctFactor` — so Haste (1.5) and Slow (0.5) stack multiplicatively and
+ * Stop (0) dominates by zeroing the product. Applied then floored (integer CT),
+ * clamped ≥ 0. For the P0 five in isolation this is byte-identical to the old
+ * name-branch (Haste ×1.5, Slow ×0.5, Stop 0). NOTE: Haste and Slow are mutually
+ * exclusive in FFT (one dispels the other), so their combined product (0.75) is a
+ * defensive can't-happen case, not a balance rule.
  */
 export function ctRateOfUnit(u: UnitState): number {
   // A KO'd unit KEEPS accruing CT so its turn "comes up" and the crystal counter
   // can tick down (docs/01 §11) — the turn handler ticks instead of acting. Only
   // a fully crystallized unit (counter spent) is out of play and freezes.
   if (u.hp <= 0 && u.crystalTimer <= 0) return 0;
-  if (u.statuses.includes("stop")) return 0;
-  const hasted = u.statuses.includes("haste");
-  const slowed = u.statuses.includes("slow");
-  const factor = hasted && slowed ? 1 : hasted ? HASTE_FACTOR : slowed ? SLOW_FACTOR : 1;
-  return Math.floor(u.speed * factor);
+  let factor = 1;
+  for (const st of u.statuses) factor *= st.ctFactor;
+  const rate = Math.floor(u.speed * factor);
+  return rate < 0 ? 0 : rate;
 }
 
 /** A charged action accrues at its own speed, independent of caster Speed (docs/01 §3). */
@@ -57,6 +60,8 @@ interface SchedActor {
   id: string;
   rate: number;
   ref: { ct: number };
+  /** The unit ref for a unit actor (so its rate can be recomputed after status decay). */
+  unit?: UnitState;
 }
 
 function buildActors(state: BattleState): SchedActor[] {
@@ -67,9 +72,32 @@ function buildActors(state: BattleState): SchedActor[] {
     actors.push({ kind: "charge", id: c.id, rate: ctRateOfCharge(c), ref: c });
   }
   for (const u of state.units) {
-    actors.push({ kind: "unit", id: u.id, rate: ctRateOfUnit(u), ref: u });
+    actors.push({ kind: "unit", id: u.id, rate: ctRateOfUnit(u), ref: u, unit: u });
   }
   return actors;
+}
+
+/**
+ * Decay every unit's finite statuses by one CT tick, dropping the expired ones.
+ * PERMANENT statuses (`remainingCT >= PERMANENT_STATUS_CT`, e.g. a migrated P0
+ * status) are untouched. Mutates the given (cloned) state in place. Pure integer
+ * math, no RNG — a status's lifetime is a deterministic function of the tick
+ * count, so decay never breaks replay.
+ */
+function decayStatusesOneTick(state: BattleState): void {
+  for (const u of state.units) {
+    if (u.statuses.length === 0) continue;
+    u.statuses = u.statuses.filter((st) => {
+      if (st.remainingCT >= PERMANENT_STATUS_CT) return true;
+      st.remainingCT -= 1;
+      return st.remainingCT > 0;
+    });
+  }
+}
+
+/** True if any unit carries a FINITE status — one whose decay could yet change the field. */
+function hasDecayingStatus(state: BattleState): boolean {
+  return state.units.some((u) => u.statuses.some((st) => st.remainingCT < PERMANENT_STATUS_CT));
 }
 
 /**
@@ -120,10 +148,21 @@ export function advanceToNextTurn(input: BattleState): NextTurn {
   const readyActors = (): SchedActor[] => actors.filter((a) => a.ref.ct >= TURN_THRESHOLD);
 
   while (readyActors().length === 0) {
-    if (!actors.some((a) => a.rate > 0)) {
+    // A field can still make progress if any actor accrues OR any FINITE status is
+    // decaying (its expiry may un-Stop a unit or change a rate). Only when neither
+    // holds is it a true stalemate.
+    if (!actors.some((a) => a.rate > 0) && !hasDecayingStatus(state)) {
       return { state, active: null, ticksAdvanced: ticks }; // stalemate: nothing accrues
     }
-    for (const a of actors) a.ref.ct += a.rate;
+    // One clock tick (docs/05 §1b): status timers decay first, then CT accrues at
+    // each actor's CURRENT rate (a status that just expired no longer slows/stops
+    // the unit this tick). Charges accrue at their fixed speed; units re-read their
+    // rate from the freshly-decayed statuses.
+    decayStatusesOneTick(state);
+    for (const a of actors) {
+      if (a.unit) a.rate = ctRateOfUnit(a.unit);
+      a.ref.ct += a.rate;
+    }
     state.tick += 1;
     ticks += 1;
     if (ticks > MAX_TICKS_PER_TURN) {

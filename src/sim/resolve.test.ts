@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolveAttack, resolveAbility, tickCrystal } from "./resolve.js";
 import { ctRateOfUnit } from "./scheduler.js";
-import { createBattleState, defaultUnit, type BattleState, type UnitState } from "./state.js";
+import { createBattleState, defaultUnit, legacyActiveStatus, type BattleState, type UnitState } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 
 interface DuelOpts {
@@ -65,7 +65,7 @@ describe("resolveAttack — Zodiac & Protect enter in order (AC-07)", () => {
 
   it("Protect reduces to ~2/3 after Zodiac: neutral 120 → protect 80", () => {
     const { outcome } = resolveAttack(
-      duel({ target: { statuses: ["protect"], zodiac: { sign: "taurus", gender: "male" } } }),
+      duel({ target: { statuses: [legacyActiveStatus("protect")], zodiac: { sign: "taurus", gender: "male" } } }),
       "atk",
       "tgt",
     );

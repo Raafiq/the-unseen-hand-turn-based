@@ -31,12 +31,25 @@
  *     (formulas.ts `applyMagicEvasion` / `magicHitChance`). A 5→6 migration adds
  *     `magicEv: 0` to every unit's evasion. Additive: at magicEv 0 the magic hit%
  *     is unchanged, so no roll or result shifts for existing saves.
+ *   - v7 (Slice 7): the flat `statuses: StatusFlag[]` enum becomes an array of
+ *     self-contained {@link ActiveStatus} records (ADR-0011: status BEHAVIOR = code,
+ *     TUNING = data; a running/replayed battle never reads the content catalog).
+ *     Each record carries its resolved `ctFactor` (read by the scheduler), a
+ *     finite `remainingCT` (deterministic decay), and the behavior discriminants
+ *     (`preventsAction`/`interruptsCharge`/`interruptsMagicOnly`) the interrupt
+ *     check reads. Charges gain `interrupted` (the latch: a caster disabled
+ *     mid-charge stays interrupted even if it recovers before maturity). The 6→7
+ *     migration maps the P0 five flags via {@link legacyActiveStatus} with a
+ *     PERMANENT (non-decaying) `remainingCT`, so a migrated save preserves P0's
+ *     never-expiring behavior byte-for-byte, and stamps every charge `interrupted:
+ *     false`. Not additive (the shape changes), but behavior-preserving.
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 import { ElementSchema } from "./element.js";
 import { BattleAbilitySchema, type BattleAbility } from "./ability.js";
+import { StatusKindSchema, type StatusEffect } from "./status.js";
 
 // Re-export the element enum from its leaf module so existing
 // `import { ElementSchema } from "./state.js"` call sites keep working (the enum
@@ -44,7 +57,7 @@ import { BattleAbilitySchema, type BattleAbility } from "./ability.js";
 export { ElementSchema, type Element } from "./element.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -56,12 +69,92 @@ export const FacingSchema = z.enum(["N", "E", "S", "W"]);
 export type Facing = z.infer<typeof FacingSchema>;
 
 /**
- * Status flags modeled so far: the CT-affecting set (docs/01 §1) plus the
- * damage-reducing Protect/Shell (~2/3, docs/01 §8). The full status system
- * arrives with the resolution pipeline's later slices.
+ * The P0 status names (docs/01 §1/§8). RETAINED as a legacy vocabulary: the
+ * v6→v7 migration and test fixtures build {@link ActiveStatus} records from these
+ * names via {@link legacyActiveStatus}, and the damage resolvers still identify
+ * Protect/Shell by this short id. New authored statuses use the catalog ids
+ * (`status.*`, data/base-pack.json) and are applied via {@link makeActiveStatus}.
  */
 export const StatusFlagSchema = z.enum(["haste", "slow", "stop", "protect", "shell"]);
 export type StatusFlag = z.infer<typeof StatusFlagSchema>;
+
+/**
+ * A `remainingCT` at or above this sentinel means the status is PERMANENT (never
+ * decays) — the P0 model, where statuses had no lifetime. Status decay
+ * (scheduler.ts) skips these; only finite (`remainingCT < PERMANENT_STATUS_CT`)
+ * statuses tick down and expire. Well beyond any battle length, so a migrated P0
+ * status can never expire mid-battle.
+ */
+export const PERMANENT_STATUS_CT = 1_000_000_000;
+
+/**
+ * A RESOLVED, self-contained status on a unit (docs/05 §6, ADR-0011). At inflict
+ * time the tunable catalog record ({@link StatusEffect}) is copied onto the unit
+ * as one of these, so a running/replayed battle NEVER reads the catalog:
+ *   - `ctFactor` is read by the scheduler ({@link ctRateOfUnit}) as a CT-accrual
+ *     multiplier (1 = neutral, 1.5 = Haste, 0.5 = Slow, 0 = Stop);
+ *   - `remainingCT` ticks down deterministically each scheduler tick (no RNG),
+ *     expiring at 0 — unless PERMANENT (see {@link PERMANENT_STATUS_CT});
+ *   - `preventsAction` / `interruptsCharge` / `interruptsMagicOnly` are the
+ *     interrupt discriminants the charge-maturity check reads (kind-aware for
+ *     Silence). Behavior stays in code; only these tuning/behavior FLAGS are data.
+ */
+export const ActiveStatusSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: StatusKindSchema,
+    /** CT-accrual multiplier (docs/05 §1b): 1 = neutral, 0 = Stop. */
+    ctFactor: z.number(),
+    /** CT remaining before the status expires; >= PERMANENT_STATUS_CT = never. */
+    remainingCT: IntSchema.min(0),
+    /** Unit cannot declare actions (Stop/Sleep/Don't-Act/Petrify). */
+    preventsAction: z.boolean(),
+    /** Afflicting mid-charge cancels the charge (docs/05 §2 interrupt check). */
+    interruptsCharge: z.boolean(),
+    /** Interrupt applies to magic charges only (Silence). */
+    interruptsMagicOnly: z.boolean(),
+  })
+  .strict();
+export type ActiveStatus = z.infer<typeof ActiveStatusSchema>;
+
+/** Resolved behavior for the P0 five, keyed by legacy {@link StatusFlag} name. */
+const LEGACY_STATUS_BEHAVIOR: Readonly<
+  Record<StatusFlag, Omit<ActiveStatus, "id" | "remainingCT">>
+> = {
+  haste: { kind: "buff", ctFactor: 1.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
+  slow: { kind: "debuff", ctFactor: 0.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
+  stop: { kind: "debuff", ctFactor: 0, preventsAction: true, interruptsCharge: true, interruptsMagicOnly: false },
+  protect: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
+  shell: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
+};
+
+/**
+ * Build an {@link ActiveStatus} for one of the P0 five legacy statuses. Defaults
+ * to PERMANENT (matching P0, where these never expired); pass `remainingCT` for a
+ * finite one. Used by the v6→v7 migration and by test/setup fixtures.
+ */
+export function legacyActiveStatus(flag: StatusFlag, remainingCT: number = PERMANENT_STATUS_CT): ActiveStatus {
+  return { id: flag, remainingCT, ...LEGACY_STATUS_BEHAVIOR[flag] };
+}
+
+/**
+ * Build an {@link ActiveStatus} from a tunable catalog {@link StatusEffect} — the
+ * inflict-time copy that makes a status self-contained. `remainingCT` defaults to
+ * the catalog `durationCT`; the behavior FLAGS are copied verbatim (omitted ⇒
+ * false). Callers that want a permanent status (e.g. a `durationCT: 0`
+ * "until-cured" status) pass {@link PERMANENT_STATUS_CT} explicitly.
+ */
+export function makeActiveStatus(entry: StatusEffect, remainingCT?: number): ActiveStatus {
+  return {
+    id: entry.id,
+    kind: entry.kind,
+    ctFactor: entry.ctFactor,
+    remainingCT: remainingCT ?? entry.durationCT,
+    preventsAction: entry.preventsAction ?? false,
+    interruptsCharge: entry.interruptsCharge ?? false,
+    interruptsMagicOnly: entry.interruptsMagicOnly ?? false,
+  };
+}
 
 /** One grid tile: integer height in half-tile "h" units + passability (docs/01 §7). */
 export const TileSchema = z
@@ -175,7 +268,8 @@ export const UnitStateSchema = z
     zodiac: ZodiacProfileSchema,
     /** Crystal counter after KO (docs/01 §11): 3 → 0, then permadeath. 0 while alive. */
     crystalTimer: IntSchema.min(0),
-    statuses: z.array(StatusFlagSchema),
+    /** Self-contained active statuses (docs/05 §6); the sim never reads the catalog. */
+    statuses: z.array(ActiveStatusSchema),
     /**
      * The unit's castable-action projection, compiled from its persistent record
      * at build time (build.ts, ADR-0011) and self-contained for replay. Added at
@@ -230,6 +324,14 @@ export const ChargedActionStateSchema = z
     targetTile: PositionSchema,
     /** Self-contained effect payload resolved on the matured tick (docs/05 §2). */
     effect: ChargeEffectSchema,
+    /**
+     * The interrupt LATCH (ADR-0010 item 2). Set true the instant a disabling
+     * status is applied to the caster (charge.ts `applyStatusToUnit`), so a caster
+     * disabled mid-charge stays cancelled even if the status decays before the
+     * charge matures. `false` on a fresh charge; the maturity interrupt check ORs
+     * it with the caster's live disable state.
+     */
+    interrupted: z.boolean(),
   })
   .strict();
 export type ChargedActionState = z.infer<typeof ChargedActionStateSchema>;
@@ -508,6 +610,27 @@ const migrate5to6: Migration = (s) => {
 };
 
 /**
+ * v6 → v7: the flat `statuses: StatusFlag[]` enum becomes an array of
+ * self-contained {@link ActiveStatus} records, and each charge gains the
+ * `interrupted` latch (false). A v6 status was a bare name with P0's never-expiring
+ * semantics, so map it via {@link legacyActiveStatus} with a PERMANENT
+ * `remainingCT` — a migrated save preserves the exact P0 behavior (Stop stays
+ * Stopped forever, Haste never wears off). Behavior-preserving, not additive (the
+ * shape changed). Real units are born at the current version.
+ */
+const migrate6to7: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    statuses: (u["statuses"] as StatusFlag[]).map((flag) => legacyActiveStatus(flag)),
+  }));
+  const chargeQueue = (s["chargeQueue"] as Array<Record<string, unknown>>).map((c) => ({
+    ...c,
+    interrupted: false,
+  }));
+  return { ...s, schemaVersion: 7, units, chargeQueue };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -517,6 +640,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   3: migrate3to4,
   4: migrate4to5,
   5: migrate5to6,
+  6: migrate6to7,
 };
 
 export class SchemaVersionError extends Error {

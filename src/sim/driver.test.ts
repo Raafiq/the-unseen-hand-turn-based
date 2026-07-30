@@ -5,6 +5,7 @@ import { declareCharge } from "./charge.js";
 import {
   createBattleState,
   defaultUnit,
+  legacyActiveStatus,
   serialize,
   deserialize,
   type BattleState,
@@ -59,7 +60,7 @@ function harness(seed = 7): BattleState {
   const dummy = defaultUnit("dummy", 1, {
     pos: { x: 2, y: 2 },
     speed: 5,
-    statuses: ["stop"],
+    statuses: [legacyActiveStatus("stop")],
     hp: 9999,
     maxHp: 9999,
   });
@@ -114,7 +115,7 @@ describe("driver auto-resolves charges on the shared timeline (AC-04 wiring)", (
       { pos: { x: 0, y: 0 }, speed: 10 },
       spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100 }, 20),
     );
-    const t = defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: ["stop"], hp: 300, maxHp: 300, faith: 100 });
+    const t = defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: [legacyActiveStatus("stop")], hp: 300, maxHp: 300, faith: 100 });
     const state = createBattleState({ seed: 3, grid: { width: 5, height: 5 }, units: [c, t] });
 
     const log: Command[] = [CAST(1, 0), { kind: "wait" }, { kind: "wait" }, { kind: "wait" }];
@@ -178,7 +179,7 @@ function goldenBattle(): BattleState {
   );
   const dummy = defaultUnit("dummy", 1, {
     pos: { x: 2, y: 2 },
-    statuses: ["stop"],
+    statuses: [legacyActiveStatus("stop")],
     hp: 9999,
     maxHp: 9999,
     faith: 100,
@@ -187,7 +188,7 @@ function goldenBattle(): BattleState {
   });
   const victim = defaultUnit("victim", 1, {
     pos: { x: 1, y: 0 },
-    statuses: ["stop"],
+    statuses: [legacyActiveStatus("stop")],
     hp: 60,
     maxHp: 60,
     faith: 100,
@@ -217,14 +218,17 @@ describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () 
   // past — those changes stay reproducible but no longer match this value.
   // INTENTIONAL behavior changes require REGENERATING this golden (re-run and
   // paste the new serialize() output), and should be justified in review.
-  // Regenerated at Slice 6 (magic-hit + magic-evasion): the ONLY diff vs the
-  // Slice-5 golden is ADDITIVE — schemaVersion 5→6 and each unit's `evasion` gains
-  // `magicEv: 0`. Every roll, hp, tick, rngCounter, and turnLog entry is
-  // BYTE-IDENTICAL: the golden battle's targets have magicEv 0, so the magic hit%
-  // stays `applyMagicEvasion(100, 0) === 100` — one draw at the same cursor, same
-  // outcome. The new evasion path only bites when magicEv > 0 (see charge.test.ts).
+  // Regenerated at Slice 7 (status system fold-in): the ONLY diffs vs the Slice-6
+  // golden are the STATUS REPRESENTATION reshape — schemaVersion 6→7 and each
+  // unit's `statuses` flat-flag array (`["stop"]`) becomes a self-contained
+  // {@link ActiveStatus} record with a PERMANENT `remainingCT` (1e9, non-decaying,
+  // preserving P0's never-expiring Stop). Every ROLL is byte-identical: rngCounter
+  // stays 5, tick 76, every hp (hero 200, dummy 9679, victim 0/crystal 3), and all
+  // 8 turnLog entries are UNCHANGED. The dummy/victim stay Stopped the whole battle
+  // (permanent Stop never decays), so no roll moves. Charges carry `interrupted:
+  // false` now, but the final queue is empty so it does not appear here.
   const GOLDEN =
-    '{"schemaVersion":6,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null},{"id":"spell.nuke","actionKind":"action","formula":"magic","power":8,"element":"none","accuracy":100,"range":{"h":8,"v":8},"inflicts":[],"speed":20}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
+    '{"schemaVersion":7,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null},{"id":"spell.nuke","actionKind":"action","formula":"magic","power":8,"element":"none","accuracy":100,"range":{"h":8,"v":8},"inflicts":[],"speed":20}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
 
   it("serialize(replay(seed, LOG)) equals the committed golden state", () => {
     const actual = serialize(replay(goldenBattle(), GOLDEN_LOG));
@@ -387,8 +391,8 @@ describe("driver — boundary conditions", () => {
       seed: 1,
       grid: { width: 3, height: 3 },
       units: [
-        defaultUnit("x", 0, { pos: { x: 0, y: 0 }, statuses: ["stop"] }),
-        defaultUnit("y", 1, { pos: { x: 1, y: 1 }, statuses: ["stop"] }),
+        defaultUnit("x", 0, { pos: { x: 0, y: 0 }, statuses: [legacyActiveStatus("stop")] }),
+        defaultUnit("y", 1, { pos: { x: 1, y: 1 }, statuses: [legacyActiveStatus("stop")] }),
       ],
     });
     expect(() => applyCommand(s, { kind: "wait" })).toThrow(/stalled/);
@@ -405,7 +409,7 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
       });
       const foe = defaultUnit("foe", 1, {
         pos: { x: 2, y: 1 },
-        statuses: ["stop"],
+        statuses: [legacyActiveStatus("stop")],
         hp: 300,
         maxHp: 300,
         evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
@@ -423,7 +427,7 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
   it("a charged-ability act enqueues the same charge payload the old castCharge did", () => {
     const eff: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100 };
     const dummyTarget = (): UnitState =>
-      defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: ["stop"], hp: 300, maxHp: 300, faith: 100 });
+      defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: [legacyActiveStatus("stop")], hp: 300, maxHp: 300, faith: 100 });
     // Reference: declareCharge with the inline payload the pre-Slice-5 command carried.
     const ref = declareCharge(
       // ct 100 so the direct declareCharge can settle (the act path advances the
@@ -450,7 +454,7 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
 
   it("rejects an act for an ability the unit does not have equipped", () => {
     const hero = defaultUnit("hero", 0, { pos: { x: 1, y: 1 }, speed: 10 });
-    const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, statuses: ["stop"] });
+    const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, statuses: [legacyActiveStatus("stop")] });
     const s = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [hero, foe] });
     expect(() => applyCommand(s, { kind: "act", abilityId: "nope", target: { unitId: "foe" } })).toThrow(
       /no equipped ability/,
@@ -459,7 +463,7 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
 
   it("rejects an act whose target is out of the ability's range", () => {
     const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, speed: 10 });
-    const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 4 }, statuses: ["stop"] });
+    const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 4 }, statuses: [legacyActiveStatus("stop")] });
     const s = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [hero, foe] });
     // basic.attack is melee (range h:1); the foe is far off → rejected pre-roll.
     expect(() => applyCommand(s, ATTACK("foe"))).toThrow(/out of range/);

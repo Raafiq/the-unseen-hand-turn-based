@@ -5,7 +5,14 @@ import {
   settleTurn,
   type ActiveActor,
 } from "./scheduler.js";
-import { createBattleState, defaultUnit, type BattleState, type UnitState } from "./state.js";
+import {
+  createBattleState,
+  defaultUnit,
+  legacyActiveStatus,
+  PERMANENT_STATUS_CT,
+  type BattleState,
+  type UnitState,
+} from "./state.js";
 
 const unit = (id: string, teamId: number, over: Partial<UnitState> = {}): UnitState =>
   defaultUnit(id, teamId, { speed: 10, ...over });
@@ -34,17 +41,22 @@ function runTurns(initial: BattleState, turns: number): string[] {
 }
 
 describe("scheduler — CT accrual rate (AC-03, docs/01 §1)", () => {
-  it("floors Speed × Haste/Slow, and Stop freezes accrual", () => {
+  it("floors Speed × Haste/Slow (ctFactor), and Stop freezes accrual", () => {
     expect(ctRateOfUnit(unit("u", 0, { speed: 10 }))).toBe(10);
-    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["haste"] }))).toBe(15);
-    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["slow"] }))).toBe(5);
-    expect(ctRateOfUnit(unit("u", 0, { speed: 7, statuses: ["slow"] }))).toBe(3); // floor(3.5)
-    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["stop"] }))).toBe(0);
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: [legacyActiveStatus("haste")] }))).toBe(15);
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: [legacyActiveStatus("slow")] }))).toBe(5);
+    expect(ctRateOfUnit(unit("u", 0, { speed: 7, statuses: [legacyActiveStatus("slow")] }))).toBe(3); // floor(3.5)
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: [legacyActiveStatus("stop")] }))).toBe(0);
   });
 
-  it("Haste and Slow together cancel to the base rate; Stop dominates both", () => {
-    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["haste", "slow"] }))).toBe(10);
-    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["haste", "slow", "stop"] }))).toBe(0);
+  it("multiple ctFactors multiply, and Stop's 0 dominates the product", () => {
+    // Haste and Slow are mutually exclusive in FFT; if a state carries both, the
+    // product model gives 1.5×0.5 = 0.75 → floor(10×0.75) = 7 (a defensive
+    // can't-happen case, not a balance rule). Stop's 0 zeroes any product.
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: [legacyActiveStatus("haste"), legacyActiveStatus("slow")] }))).toBe(7);
+    expect(
+      ctRateOfUnit(unit("u", 0, { speed: 10, statuses: [legacyActiveStatus("haste"), legacyActiveStatus("slow"), legacyActiveStatus("stop")] })),
+    ).toBe(0);
   });
 });
 
@@ -91,7 +103,7 @@ describe("scheduler — CT settlement (AC-02, docs/01 §1)", () => {
 describe("scheduler — Haste ratio (AC-03)", () => {
   it("a hasted unit takes roughly 3 turns for every 2 of a base-speed twin", () => {
     const s = stateWith([
-      unit("hasted", 0, { speed: 10, statuses: ["haste"] }),
+      unit("hasted", 0, { speed: 10, statuses: [legacyActiveStatus("haste")] }),
       unit("base", 1, { speed: 10 }),
     ]);
     const order = runTurns(s, 500);
@@ -105,15 +117,43 @@ describe("scheduler — Haste ratio (AC-03)", () => {
 
 describe("scheduler — Stop and stalemate", () => {
   it("a stopped unit never accrues CT and never acts", () => {
-    const s = stateWith([unit("stopped", 0, { statuses: ["stop"] }), unit("mover", 1)]);
+    const s = stateWith([unit("stopped", 0, { statuses: [legacyActiveStatus("stop")] }), unit("mover", 1)]);
     const order = runTurns(s, 20);
     expect(order).not.toContain("stopped");
     expect(order.every((id) => id === "mover")).toBe(true);
   });
 
   it("a field where nothing can accrue reports a stalemate (active null)", () => {
-    const { active } = advanceToNextTurn(stateWith([unit("stopped", 0, { statuses: ["stop"] })]));
+    const { active } = advanceToNextTurn(stateWith([unit("stopped", 0, { statuses: [legacyActiveStatus("stop")] })]));
     expect(active).toBeNull();
+  });
+});
+
+describe("scheduler — status decay (Slice 7, deterministic, no RNG)", () => {
+  it("a FINITE status decays each tick and expires; a PERMANENT one persists", () => {
+    // "a" carries a PERMANENT protect (ctFactor 1, never decays) plus a FINITE
+    // haste (remainingCT 2). It reaches its turn many ticks later, by which point
+    // the haste has long since decayed away but protect remains.
+    const finiteHaste = legacyActiveStatus("haste", 2);
+    const permProtect = legacyActiveStatus("protect"); // permanent by default
+    const { state, active } = advanceToNextTurn(
+      stateWith([unit("a", 0, { speed: 10, statuses: [permProtect, finiteHaste] })]),
+    );
+    expect(active).toEqual<ActiveActor>({ kind: "unit", id: "a" });
+    const a = state.units.find((u) => u.id === "a")!;
+    expect(a.statuses.map((st) => st.id)).toEqual(["protect"]); // haste expired, protect kept
+    expect(a.statuses[0]!.remainingCT).toBe(PERMANENT_STATUS_CT); // permanent, undecayed
+  });
+
+  it("a FINITE Stop expires, so a lone Stopped unit is NOT a permanent stalemate", () => {
+    // remainingCT 3: Stop decays 3→0 over the first 3 ticks (rate 0 while it lasts),
+    // then the unit accrues at speed 10 and eventually takes its turn — proving
+    // decay can un-Stop a unit (and that hasDecayingStatus keeps the clock running).
+    const { active, state } = advanceToNextTurn(
+      stateWith([unit("a", 0, { speed: 10, statuses: [legacyActiveStatus("stop", 3)] })]),
+    );
+    expect(active).toEqual<ActiveActor>({ kind: "unit", id: "a" });
+    expect(state.units.find((u) => u.id === "a")!.statuses).toEqual([]); // Stop wore off
   });
 });
 
@@ -144,6 +184,7 @@ describe("scheduler — pinned tie-break (AC-S3, docs/05 §1a)", () => {
       speed: 10,
       targetTile: { x: 0, y: 0 },
       effect: { kind: "magic", power: 0, element: "none", accuracy: 100 },
+      interrupted: false,
     });
     const { active } = advanceToNextTurn(s);
     expect(active).toEqual<ActiveActor>({ kind: "charge", id: "spell" });

@@ -9,7 +9,12 @@
  * Determinism (sim-determinism-guard, docs/05 §3a): resolution draws from the
  * battle's single seeded stream, reconstructed from the state cursor, in a
  * DECLARED order:
- *   1. INTERRUPT CHECK   — no draw (caster KO/Stop → cancel)
+ *   1. INTERRUPT CHECK   — no draw. Cancel if the caster is KO'd, is carrying a
+ *                          disabling status (`preventsAction`/`interruptsCharge`;
+ *                          Silence's `interruptsMagicOnly` fires only when
+ *                          `effect.kind === "magic"`), OR the charge's `interrupted`
+ *                          latch is set (the caster was disabled mid-charge and may
+ *                          since have recovered — ADR-0010 item 2).
  *   2. TARGET RESOLUTION — no draw (empty tile → whiff)
  *   3. HIT ROLL          — one draw vs the magic hit% (accuracy then magic-evade,
  *                          facing-independent — docs/01 §6; only if a target present)
@@ -28,20 +33,56 @@ import { CRYSTAL_TIMER_START } from "./resolve.js";
 import { inBounds } from "./grid.js";
 import {
   rngFor,
+  type ActiveStatus,
   type BattleState,
   type ChargeEffect,
   type Position,
-  type StatusFlag,
 } from "./state.js";
 
 /**
- * Statuses that CANCEL a charge if the caster carries one at resolution
- * (docs/01 §3, docs/05 §2 step 1). Only "stop" exists in the status enum today;
- * Sleep and Don't-Act join this set the moment they land in {@link StatusFlag}
- * — the interrupt check is written to pick them up automatically then. (Death /
- * KO is checked separately via HP, since it is not a status flag.)
+ * Does `st` interrupt a charge whose effect is `effectKind`? Behavior-flag driven
+ * (docs/05 §2, ADR-0010 item 1), so it auto-covers every disabling status the
+ * catalog defines — Stop/Sleep/Don't-Act/Petrify (`preventsAction`/
+ * `interruptsCharge`) interrupt any charge; Silence (`interruptsMagicOnly`)
+ * interrupts ONLY a magic charge (kind-aware). No id hard-coding.
  */
-export const CHARGE_INTERRUPT_STATUSES: readonly StatusFlag[] = ["stop"];
+export function statusInterruptsCharge(st: ActiveStatus, effectKind: ChargeEffect["kind"]): boolean {
+  if (!st.preventsAction && !st.interruptsCharge) return false;
+  if (st.interruptsMagicOnly && effectKind !== "magic") return false;
+  return true;
+}
+
+/**
+ * Apply an {@link ActiveStatus} to a unit AND latch the interrupt (ADR-0010 item
+ * 2). If the status disables the unit ({@link statusInterruptsCharge}), every
+ * pending charge that unit owns is flagged `interrupted` NOW — so a caster
+ * disabled mid-charge stays cancelled at maturity even if the status decays first.
+ * Kind-aware: Silence latches only the caster's magic charges. Pure: clones the
+ * input, returns a new state. Consumes no RNG (status application is not random).
+ *
+ * SCOPE: this is the load-bearing status-application PLUMBING + latch. Full
+ * inflict RESOLUTION (a resolver auto-applying `ability.inflicts` on hit) is
+ * deferred — `BattleAbility.inflicts` carries status IDS only, not the resolved
+ * behavior a self-contained {@link ActiveStatus} needs, and resolvers are
+ * registry-free (ADR-0011). Wiring it needs the ActiveStatus template embedded at
+ * build time (or a code-side legacy map); tracked, not silently done here.
+ */
+export function applyStatusToUnit(
+  input: BattleState,
+  unitId: string,
+  status: ActiveStatus,
+): BattleState {
+  const state = structuredClone(input);
+  const unit = state.units.find((u) => u.id === unitId);
+  if (!unit) throw new Error(`applyStatusToUnit: unknown unit ${unitId}`);
+  unit.statuses.push({ ...status });
+  for (const c of state.chargeQueue) {
+    if (c.sourceUnitId === unitId && statusInterruptsCharge(status, c.effect.kind)) {
+      c.interrupted = true;
+    }
+  }
+  return state;
+}
 
 /** How a matured charge ended — the resolution outcome. */
 export type ChargeResolution =
@@ -112,6 +153,7 @@ export function declareCharge(
     speed,
     targetTile: { x: targetTile.x, y: targetTile.y },
     effect: { ...effect },
+    interrupted: false, // fresh charge; the latch is set only if the caster is later disabled
   });
   state.turnLog.push({ tick: state.tick, unitId: casterId, action: `charge ${id}` });
 
@@ -157,14 +199,17 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     targetTile,
   };
 
-  // 1. INTERRUPT CHECK — caster KO'd (HP <= 0) or carrying a disabling status
-  //    (Stop today; Sleep/Don't-Act join CHARGE_INTERRUPT_STATUSES later). A
-  //    missing caster (removed from the field) counts as cancelled. No draw.
+  // 1. INTERRUPT CHECK — cancel if the caster is KO'd (HP <= 0), is carrying a
+  //    disabling status right now ({@link statusInterruptsCharge}: Stop/Sleep/
+  //    Don't-Act/Petrify always, Silence for a magic charge), OR the `interrupted`
+  //    latch fired earlier (caster was disabled mid-charge and may have recovered
+  //    since — ADR-0010 item 2). A missing caster counts as cancelled. No draw.
   const caster = state.units.find((u) => u.id === sourceUnitId);
   const disabled =
     !caster ||
     caster.hp <= 0 ||
-    caster.statuses.some((st) => CHARGE_INTERRUPT_STATUSES.includes(st));
+    charge.interrupted ||
+    caster.statuses.some((st) => statusInterruptsCharge(st, effect.kind));
   if (disabled) {
     dequeue();
     state.turnLog.push({ tick: state.tick, unitId: sourceUnitId, action: `charge ${chargeId} cancelled` });
@@ -209,7 +254,7 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     // Element "none" is a pass-through; weak/half/absorb/null land in a later slice.
     const tier = zodiacCompatibility(caster.zodiac, target.zodiac);
     dmg = applyZodiac(dmg, tier);
-    if (target.statuses.includes("shell")) dmg = applyShell(dmg);
+    if (target.statuses.some((st) => st.id === "shell")) dmg = applyShell(dmg);
     if (dmg < 0) dmg = 0;
     damage = dmg;
 
