@@ -38,12 +38,22 @@ Design lives in `docs/`. Read in this order before proposing changes:
 
 ## Commands
 
-No build/lint/test tooling exists yet — the stack is deliberately deferred (`docs/09`; leaning Web/TypeScript). Fill this section in when P0 code lands:
+Stack locked at P0 (ADR-0007): **Web / TypeScript** — a pure headless `src/sim/`
+core + a (later) thin `src/render/` layer. Toolchain: TypeScript `strict`,
+Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
+`npm install`.
 
-- Build: _TBD_
-- Lint: _TBD_
-- Test (all): _TBD_
-- Test (single): _TBD_
+- **Build:** `npm run build` (typecheck + `vite build`)
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`)
+- **Lint:** `npm run lint` (`eslint .` — bans unseeded RNG / wall-clock in `src/sim/**`)
+- **Determinism guard:** `npm run check:rng` (greps `src/sim` for banned nondeterminism)
+- **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
+- **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
+- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+
+The sim core is pure and headless — no rendering/UI deps in `src/sim/**` (ADR-0007,
+`sim-determinism-guard` skill). CI runs `npm run check` on every push/PR
+(`.github/workflows/ci.yml`).
 
 ## Project skills (in `.claude/skills/`)
 
