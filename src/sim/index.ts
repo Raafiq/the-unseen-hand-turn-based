@@ -24,6 +24,7 @@ export {
   EvasionSchema,
   ZodiacProfileSchema,
   UnitStateSchema,
+  ChargeEffectSchema,
   ChargedActionStateSchema,
   TurnLogEntrySchema,
   SchemaVersionError,
@@ -49,6 +50,7 @@ export {
   type Evasion,
   type ZodiacProfile,
   type UnitState,
+  type ChargeEffect,
   type ChargedActionState,
   type TurnLogEntry,
   type CreateBattleStateOptions,
@@ -97,3 +99,19 @@ export {
   type ResolveResult,
   type CrystalResult,
 } from "./resolve.js";
+export {
+  declareCharge,
+  resolveCharge,
+  CHARGE_INTERRUPT_STATUSES,
+  type ChargeResolution,
+  type ChargeOutcome,
+  type ChargeResolveResult,
+  type DeclareChargeInput,
+} from "./charge.js";
+export {
+  CommandSchema,
+  applyCommand,
+  replay,
+  replaySteps,
+  type Command,
+} from "./driver.js";

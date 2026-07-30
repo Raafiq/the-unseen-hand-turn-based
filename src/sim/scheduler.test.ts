@@ -137,7 +137,14 @@ describe("scheduler — pinned tie-break (AC-S3, docs/05 §1a)", () => {
 
   it("on equal CT, a charged action resolves before a unit", () => {
     const s = stateWith([unit("caster", 0, { ct: 95 })]);
-    s.chargeQueue.push({ id: "spell", sourceUnitId: "caster", ct: 95, speed: 10 });
+    s.chargeQueue.push({
+      id: "spell",
+      sourceUnitId: "caster",
+      ct: 95,
+      speed: 10,
+      targetTile: { x: 0, y: 0 },
+      effect: { kind: "magic", power: 0, element: "none", accuracy: 100 },
+    });
     const { active } = advanceToNextTurn(s);
     expect(active).toEqual<ActiveActor>({ kind: "charge", id: "spell" });
   });

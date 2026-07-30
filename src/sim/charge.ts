@@ -1,0 +1,237 @@
+/**
+ * Charged (slow) actions on the shared timeline (docs/01 §3, docs/05 §1/§2).
+ *
+ * A charge is a first-class actor: on DECLARE the caster names a target TILE and
+ * an effect, the charge is enqueued and the caster's turn ends. The EXISTING
+ * scheduler (scheduler.ts) accrues the charge `+speed` per tick and surfaces it
+ * once its ct >= 100; the driver (driver.ts) then calls {@link resolveCharge}.
+ *
+ * Determinism (sim-determinism-guard, docs/05 §3a): resolution draws from the
+ * battle's single seeded stream, reconstructed from the state cursor, in a
+ * DECLARED order:
+ *   1. INTERRUPT CHECK   — no draw (caster KO/Stop → cancel)
+ *   2. TARGET RESOLUTION — no draw (empty tile → whiff)
+ *   3. HIT ROLL          — one draw vs the effect's hit% (only if a target is present)
+ *   4. MAGNITUDE         — no draw (magic formula → element → Zodiac → Shell)
+ * On resolve the advanced RNG cursor is written back to `rngCounter`. A cancel
+ * or a whiff consumes NO draw (no target to roll against) — keeping the cursor
+ * position a function of what actually happened, so replay stays byte-exact.
+ *
+ * Magnitude floor order (docs/05 §2): magic formula → element → Zodiac → Shell
+ * → clamp >= 0. Mirrors resolve.ts's physical path with the magic formula.
+ */
+
+import { magicDamage, applyZodiac, applyShell, zodiacCompatibility } from "./formulas.js";
+import { settleTurn } from "./scheduler.js";
+import { CRYSTAL_TIMER_START } from "./resolve.js";
+import { inBounds } from "./grid.js";
+import {
+  rngFor,
+  type BattleState,
+  type ChargeEffect,
+  type Position,
+  type StatusFlag,
+} from "./state.js";
+
+/**
+ * Statuses that CANCEL a charge if the caster carries one at resolution
+ * (docs/01 §3, docs/05 §2 step 1). Only "stop" exists in the status enum today;
+ * Sleep and Don't-Act join this set the moment they land in {@link StatusFlag}
+ * — the interrupt check is written to pick them up automatically then. (Death /
+ * KO is checked separately via HP, since it is not a status flag.)
+ */
+export const CHARGE_INTERRUPT_STATUSES: readonly StatusFlag[] = ["stop"];
+
+/** How a matured charge ended — the resolution outcome. */
+export type ChargeResolution =
+  | "cancelled" // caster KO'd or disabled at maturity (no effect, no draw)
+  | "whiff" // target tile vacated (no effect, no draw)
+  | "miss" // a unit was present but the hit roll failed (one draw)
+  | "hit"; // damage applied (one draw)
+
+export interface ChargeOutcome {
+  chargeId: string;
+  sourceUnitId: string;
+  targetTile: Position;
+  resolution: ChargeResolution;
+  /** The unit on the target tile that was resolved against, if any. */
+  targetId: string | null;
+  /** Post-facing/effect hit chance used (0 when cancelled/whiffed). */
+  hitChance: number;
+  /** Damage dealt (0 unless resolution === "hit"). */
+  damage: number;
+  /** True only on the hit that drops the target to 0 HP. */
+  ko: boolean;
+}
+
+export interface ChargeResolveResult {
+  state: BattleState;
+  outcome: ChargeOutcome;
+}
+
+export interface DeclareChargeInput {
+  /** The tile the charge will resolve against (docs/01 §3). */
+  targetTile: Position;
+  /** The charge's own accrual speed, independent of caster Speed (docs/01 §3). */
+  speed: number;
+  /** The self-contained effect payload resolved on the matured tick. */
+  effect: ChargeEffect;
+}
+
+/**
+ * Declare a charged action (docs/05 §2 DECLARE): enqueue a ChargedAction with a
+ * deterministic id and END the caster's turn (settle, cost 80 — a cast locks
+ * the act sub-phase, docs/01 §2). Pure: clones the input, returns a new state.
+ * Consumes no RNG (declaration is not a random event).
+ *
+ * The charge id is derived deterministically from caster + tick (with a numeric
+ * disambiguator scanning the queue), never a counter or timestamp — so replay
+ * reproduces the same id and the schema's charge-id-uniqueness refine holds.
+ */
+export function declareCharge(
+  input: BattleState,
+  casterId: string,
+  { targetTile, speed, effect }: DeclareChargeInput,
+): BattleState {
+  const state = structuredClone(input);
+  const caster = state.units.find((u) => u.id === casterId);
+  if (!caster) throw new Error(`declareCharge: unknown caster ${casterId}`);
+  // A downed unit cannot begin a charge; the caller must pre-validate legal
+  // actors (a KO'd unit's turn ticks the crystal instead — docs/01 §11).
+  if (caster.hp <= 0) throw new Error(`declareCharge: caster ${casterId} is down`);
+  if (!inBounds(state.grid, targetTile.x, targetTile.y)) {
+    throw new Error(`declareCharge: target tile (${targetTile.x},${targetTile.y}) is off-grid`);
+  }
+
+  const id = nextChargeId(state, casterId);
+  state.chargeQueue.push({
+    id,
+    sourceUnitId: casterId,
+    ct: 0,
+    speed,
+    targetTile: { x: targetTile.x, y: targetTile.y },
+    effect: { ...effect },
+  });
+  state.turnLog.push({ tick: state.tick, unitId: casterId, action: `charge ${id}` });
+
+  // The cast ends the caster's turn (cost 80 — one action, no move phase here).
+  return settleTurn(state, casterId, { didMove: false, didAct: true });
+}
+
+/** Deterministic, collision-free charge id from caster + tick. */
+function nextChargeId(state: BattleState, casterId: string): string {
+  const taken = new Set(state.chargeQueue.map((c) => c.id));
+  let n = 0;
+  let id = `chg.${casterId}.${state.tick}.${n}`;
+  while (taken.has(id)) {
+    n += 1;
+    id = `chg.${casterId}.${state.tick}.${n}`;
+  }
+  return id;
+}
+
+/**
+ * Resolve a matured charge (docs/05 §2 RESOLVE), then DEQUEUE it. Pure: clones
+ * the input and returns a new state. The dequeue is mandatory — the scheduler
+ * leaves a matured charge in the queue at ct >= 100, and a charge left there
+ * wins every tie-break forever and starves all units (contract noted in
+ * scheduler.ts).
+ *
+ * Roll order is documented at the top of this file. Cancel and whiff consume no
+ * RNG draw.
+ */
+export function resolveCharge(input: BattleState, chargeId: string): ChargeResolveResult {
+  const state = structuredClone(input);
+  const idx = state.chargeQueue.findIndex((c) => c.id === chargeId);
+  if (idx === -1) throw new Error(`resolveCharge: unknown charge ${chargeId}`);
+  const charge = state.chargeQueue[idx]!;
+  const { sourceUnitId, targetTile, effect } = charge;
+
+  const dequeue = (): void => {
+    state.chargeQueue.splice(idx, 1);
+  };
+  const base: Omit<ChargeOutcome, "resolution" | "targetId" | "hitChance" | "damage" | "ko"> = {
+    chargeId,
+    sourceUnitId,
+    targetTile,
+  };
+
+  // 1. INTERRUPT CHECK — caster KO'd (HP <= 0) or carrying a disabling status
+  //    (Stop today; Sleep/Don't-Act join CHARGE_INTERRUPT_STATUSES later). A
+  //    missing caster (removed from the field) counts as cancelled. No draw.
+  const caster = state.units.find((u) => u.id === sourceUnitId);
+  const disabled =
+    !caster ||
+    caster.hp <= 0 ||
+    caster.statuses.some((st) => CHARGE_INTERRUPT_STATUSES.includes(st));
+  if (disabled) {
+    dequeue();
+    state.turnLog.push({ tick: state.tick, unitId: sourceUnitId, action: `charge ${chargeId} cancelled` });
+    return {
+      state,
+      outcome: { ...base, resolution: "cancelled", targetId: null, hitChance: 0, damage: 0, ko: false },
+    };
+  }
+
+  // 2. TARGET RESOLUTION — units currently on the target tile. Positions are
+  //    unique (schema refine), so at most one LIVING unit is there; a KO'd unit
+  //    on the tile is not a valid target. Empty tile → whiff, no draw.
+  const target = state.units.find(
+    (u) => u.hp > 0 && u.pos.x === targetTile.x && u.pos.y === targetTile.y,
+  );
+  if (!target) {
+    dequeue();
+    state.turnLog.push({ tick: state.tick, unitId: sourceUnitId, action: `charge ${chargeId} whiff` });
+    return {
+      state,
+      outcome: { ...base, resolution: "whiff", targetId: null, hitChance: 0, damage: 0, ko: false },
+    };
+  }
+
+  // 3. HIT ROLL — one draw vs the effect hit%. (Faith/Zodiac-on-hit are a later
+  //    fidelity slice; the mechanic here is "rolls once, deterministically".)
+  const rng = rngFor(state);
+  const chance = effect.accuracy;
+  const hit = rng.chance(chance);
+
+  let damage = 0;
+  let ko = false;
+  if (hit) {
+    // 4. MAGNITUDE — magic formula → element → Zodiac → Shell → clamp (docs/05 §2).
+    let dmg = magicDamage(caster.ma, effect.power, caster.faith, target.faith);
+    // Element "none" is a pass-through; weak/half/absorb/null land in a later slice.
+    const tier = zodiacCompatibility(caster.zodiac, target.zodiac);
+    dmg = applyZodiac(dmg, tier);
+    if (target.statuses.includes("shell")) dmg = applyShell(dmg);
+    if (dmg < 0) dmg = 0;
+    damage = dmg;
+
+    const newHp = Math.max(0, target.hp - damage);
+    const wasAlive = target.hp > 0;
+    target.hp = newHp;
+    if (newHp === 0 && wasAlive) {
+      target.crystalTimer = CRYSTAL_TIMER_START;
+      ko = true;
+    }
+  }
+
+  state.rngCounter = rng.count;
+  dequeue();
+  state.turnLog.push({
+    tick: state.tick,
+    unitId: sourceUnitId,
+    action: !hit ? `charge ${chargeId} miss ${target.id}` : ko ? `charge ${chargeId} KO ${target.id}` : `charge ${chargeId} hit ${target.id} −${damage}`,
+  });
+
+  return {
+    state,
+    outcome: {
+      ...base,
+      resolution: hit ? "hit" : "miss",
+      targetId: target.id,
+      hitChance: chance,
+      damage,
+      ko,
+    },
+  };
+}
