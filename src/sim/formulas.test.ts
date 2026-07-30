@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  applyMagicEvasion,
   applyProtect,
   applyShell,
   applyZodiac,
+  applyZodiacToHit,
   hitChance,
   magicDamage,
+  magicHitChance,
   weaponBaseDamage,
   zodiacCompatibility,
 } from "./formulas.js";
@@ -80,7 +83,7 @@ describe("Zodiac & Protect/Shell — golden vectors (AC-07, order per docs/05 §
 });
 
 describe("hitChance — evasion by facing (AC-06)", () => {
-  const ev: Evasion = { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 };
+  const ev: Evasion = { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
 
   it("front applies Class evasion: 100 acc, 10 classEv → 90%", () => {
     expect(hitChance(100, ev, "front")).toBe(90);
@@ -89,11 +92,11 @@ describe("hitChance — evasion by facing (AC-06)", () => {
     expect(hitChance(100, ev, "side")).toBe(100);
   });
   it("rear keeps only Accessory evasion", () => {
-    const withAcc: Evasion = { classEv: 40, weaponEv: 30, shieldEv: 20, accessoryEv: 15 };
+    const withAcc: Evasion = { classEv: 40, weaponEv: 30, shieldEv: 20, accessoryEv: 15, magicEv: 0 };
     expect(hitChance(100, withAcc, "rear")).toBe(85); // only 15% accessory applies
   });
   it("front stacks Class + Shield multiplicatively: 100×90×80/... = 72%", () => {
-    const cs: Evasion = { classEv: 10, weaponEv: 0, shieldEv: 20, accessoryEv: 0 };
+    const cs: Evasion = { classEv: 10, weaponEv: 0, shieldEv: 20, accessoryEv: 0, magicEv: 0 };
     expect(hitChance(100, cs, "front")).toBe(72);
   });
   it("Concentrate ignores evasion → returns base accuracy", () => {
@@ -102,6 +105,57 @@ describe("hitChance — evasion by facing (AC-06)", () => {
   it("clamps accuracy into 0–100", () => {
     expect(hitChance(120, ev, "side")).toBe(100);
     expect(hitChance(-5, ev, "front")).toBe(0);
+  });
+});
+
+describe("applyMagicEvasion — independent-multiplicative (AC-07) [UNCERTAIN model]", () => {
+  it("magicEv 0 is a pass-through (agrees with subtractive at 0)", () => {
+    expect(applyMagicEvasion(100, 0)).toBe(100);
+    expect(applyMagicEvasion(45, 0)).toBe(45);
+  });
+  it("reduces hit by the floored fraction: floor(45×80/100) = 36", () => {
+    // Subtractive model would give 45−20 = 25; this pins the MULTIPLICATIVE op.
+    expect(applyMagicEvasion(45, 20)).toBe(36);
+  });
+  it("floor(100×80/100) = 80", () => {
+    expect(applyMagicEvasion(100, 20)).toBe(80);
+  });
+  it("clamps its inputs into 0–100", () => {
+    expect(applyMagicEvasion(120, 0)).toBe(100); // hit clamped to 100
+    expect(applyMagicEvasion(100, 150)).toBe(0); // magicEv clamped to 100
+    expect(applyMagicEvasion(-5, 0)).toBe(0);
+  });
+});
+
+describe("applyZodiacToHit — add/subtract floored fraction (AC-07) [UNCERTAIN op]", () => {
+  it("Good = v + floor(v/4); Bad = v − floor(v/4)", () => {
+    expect(applyZodiacToHit(36, "good")).toBe(45); // 36 + 9
+    expect(applyZodiacToHit(36, "bad")).toBe(27); // 36 − 9
+  });
+  it("Best = v + floor(v/2); Worst = v − floor(v/2)", () => {
+    expect(applyZodiacToHit(36, "best")).toBe(54); // 36 + 18
+    expect(applyZodiacToHit(37, "worst")).toBe(19); // 37 − floor(37/2)=18
+  });
+  it("Neutral is identity", () => {
+    expect(applyZodiacToHit(50, "neutral")).toBe(50);
+  });
+});
+
+describe("magicHitChance — golden vectors (AC-07, fft-fidelity V1–V4)", () => {
+  it("V1: base 50, CFa 70, TFa 80, neutral, magicEv 0 → 28", () => {
+    // S1=floor(50×70/100)=35 → S2=floor(35×80/100)=28 → neutral 28 → cap 28 → evade 28.
+    expect(magicHitChance(50, 70, 80, "neutral", 0)).toBe(28);
+  });
+  it("V2: base 60, CFa 80, TFa 75, Good, magicEv 20 → 36 (multiplicative)", () => {
+    // S1=48 → S2=36 → Good 36+9=45 → cap 45 → floor(45×80/100)=36.
+    // [UNCERTAIN] the SUBTRACTIVE evasion model would give 45−20 = 25; we assert 36.
+    expect(magicHitChance(60, 80, 75, "good", 20)).toBe(36);
+  });
+  it("V3: base 100, Faith 100/100, neutral, magicEv 20 → 80 (both models agree)", () => {
+    expect(magicHitChance(100, 100, 100, "neutral", 20)).toBe(80);
+  });
+  it("V4: targetFaith 0 (Innocent / magic-immune) → 0", () => {
+    expect(magicHitChance(100, 100, 0, "neutral", 0)).toBe(0);
   });
 });
 

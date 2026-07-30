@@ -9,6 +9,7 @@
  */
 
 import type { GridState, Position, Tile, UnitState, Facing } from "./state.js";
+import type { RangeBox } from "./ability.js";
 
 /** Orthogonal steps in fixed N, E, S, W order (movement is 4-directional). */
 const STEP_DIRS: ReadonlyArray<{ dx: number; dy: number }> = [
@@ -99,6 +100,30 @@ export function moveRange(grid: GridState, units: readonly UnitState[], unitId: 
   }
   reachable.sort((a, b) => (a.y - b.y) || (a.x - b.x));
   return reachable;
+}
+
+/**
+ * Whether `to` lies within an ability's range box FROM `from` (docs/01 §7,
+ * docs/05 §6): Chebyshev horizontal reach ≤ `range.h` AND absolute height delta
+ * ≤ `range.v`. This is the deterministic reach gate the driver uses to reject an
+ * out-of-range act — symmetric with {@link moveRange} gating a move.
+ *
+ * P1 SIMPLIFICATION (ADR-0010 item 5, range/LoS still partial): no line-of-sight
+ * or blocking yet — reach + height tolerance only. Chebyshev (not Manhattan) is
+ * used so a melee `h:1` ability can strike a diagonally-adjacent tile.
+ */
+export function inAbilityRange(
+  grid: GridState,
+  from: Position,
+  to: Position,
+  range: RangeBox,
+): boolean {
+  const h = Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
+  if (h > range.h) return false;
+  const fromTile = tileAt(grid, from.x, from.y);
+  const toTile = tileAt(grid, to.x, to.y);
+  if (!fromTile || !toTile) return false;
+  return Math.abs(toTile.height - fromTile.height) <= range.v;
 }
 
 /**

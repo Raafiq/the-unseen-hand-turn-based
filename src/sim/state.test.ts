@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   BattleStateSchema,
+  PERMANENT_STATUS_CT,
   SCHEMA_VERSION,
   SchemaVersionError,
+  basicAttackFrom,
   createBattleState,
   defaultUnit,
   deserialize,
+  legacyActiveStatus,
   makeFlatTiles,
   rngFor,
   serialize,
@@ -46,6 +49,7 @@ describe("BattleState — serialization round-trip (AC-S6)", () => {
       speed: 25,
       targetTile: { x: 1, y: 1 },
       effect: { kind: "magic", power: 18, element: "fire", accuracy: 100 },
+      interrupted: false,
     });
     const restored = deserialize(serialize(state));
     expect(restored).toEqual(state);
@@ -115,6 +119,92 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     expect(migrated.units[1]?.pos).toEqual({ x: 1, y: 0 });
     expect(migrated.chargeQueue[0]?.speed).toBe(10);
     // Round-trips cleanly once migrated.
+    expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
+  it("migrates a v4 save to v5 by adding a basic.attack derived from each weapon (Slice 4)", () => {
+    // Hand-author a v4 state by stripping the additive `abilities` field off a
+    // current-version state and stamping schemaVersion 4 — a faithful v4 payload.
+    const current = sampleState();
+    const raw = JSON.parse(serialize(current)) as {
+      schemaVersion: number;
+      units: Array<Record<string, unknown>>;
+    };
+    raw.schemaVersion = 4;
+    for (const u of raw.units) delete u["abilities"];
+    const v4 = JSON.stringify(raw);
+
+    const migrated = deserialize(v4);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // Every unit gained exactly one basic.attack, derived from its own weapon.
+    for (const u of migrated.units) {
+      expect(u.abilities).toEqual([basicAttackFrom(u.weapon)]);
+      expect(u.abilities[0]?.id).toBe("basic.attack");
+      expect(u.abilities[0]?.power).toBe(u.weapon.wp); // mirrors the weapon
+    }
+    // Round-trips cleanly once migrated (real save codec).
+    expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
+  it("migrates a v5 save to v6 by adding magicEv: 0 to each unit's evasion (Slice 6)", () => {
+    // Hand-author a v5 state by stripping the additive `magicEv` off every
+    // evasion and stamping schemaVersion 5 — a faithful v5 payload.
+    const current = sampleState();
+    const raw = JSON.parse(serialize(current)) as {
+      schemaVersion: number;
+      units: Array<{ evasion: Record<string, unknown> }>;
+    };
+    raw.schemaVersion = 5;
+    for (const u of raw.units) delete u.evasion["magicEv"];
+    const v5 = JSON.stringify(raw);
+
+    const migrated = deserialize(v5);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // Every unit gained magicEv: 0; the four physical sources are untouched.
+    for (let i = 0; i < migrated.units.length; i++) {
+      expect(migrated.units[i]!.evasion.magicEv).toBe(0);
+      expect(migrated.units[i]!.evasion.classEv).toBe(current.units[i]!.evasion.classEv);
+    }
+    // Round-trips cleanly once migrated (real save codec).
+    expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
+  it("migrates a v6 save to v7: flat status flags become ActiveStatus records; charges gain interrupted:false (Slice 7)", () => {
+    // Build a current (v7) state with a stopped unit and a pending charge, then
+    // hand-author its v6 predecessor: statuses back to flat names, charge without
+    // the interrupted latch, schemaVersion 6.
+    const current = createBattleState({
+      seed: 9,
+      grid: { width: 4, height: 4 },
+      units: [
+        defaultUnit("u.stopped", 1, { pos: { x: 0, y: 0 }, statuses: [legacyActiveStatus("stop")] }),
+        defaultUnit("u.free", 0, { pos: { x: 1, y: 0 } }),
+      ],
+    });
+    current.chargeQueue.push({
+      id: "c.1", sourceUnitId: "u.free", ct: 0, speed: 10,
+      targetTile: { x: 0, y: 0 }, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 },
+      interrupted: false,
+    });
+    const raw = JSON.parse(serialize(current)) as {
+      schemaVersion: number;
+      units: Array<{ statuses: unknown }>;
+      chargeQueue: Array<Record<string, unknown>>;
+    };
+    raw.schemaVersion = 6;
+    raw.units[0]!.statuses = ["stop"]; // v6 statuses were flat StatusFlag[] names
+    raw.units[1]!.statuses = [];
+    for (const c of raw.chargeQueue) delete c["interrupted"];
+    const v6 = JSON.stringify(raw);
+
+    const migrated = deserialize(v6);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    const stopped = migrated.units.find((u) => u.id === "u.stopped")!;
+    expect(stopped.statuses).toEqual([legacyActiveStatus("stop")]);
+    expect(stopped.statuses[0]!.remainingCT).toBe(PERMANENT_STATUS_CT); // preserves P0 non-expiry
+    expect(migrated.units.find((u) => u.id === "u.free")!.statuses).toEqual([]);
+    expect(migrated.chargeQueue[0]!.interrupted).toBe(false);
+    // Round-trips cleanly once migrated (real save codec).
     expect(deserialize(serialize(migrated))).toEqual(migrated);
   });
 

@@ -5,11 +5,15 @@ import { magicDamage, applyZodiac, applyShell } from "./formulas.js";
 import {
   createBattleState,
   defaultUnit,
+  legacyActiveStatus,
+  makeActiveStatus,
   type BattleState,
   type ChargeEffect,
   type ChargedActionState,
   type UnitState,
 } from "./state.js";
+import { applyStatusToUnit, statusInterruptsCharge } from "./charge.js";
+import { StatusEffectSchema } from "./status.js";
 
 const MAGIC: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100 };
 
@@ -43,6 +47,7 @@ function scene({ caster = {}, target = {}, charge = {}, seed = 1 }: SceneOpts = 
     speed: 25,
     targetTile: { x: 2, y: 2 },
     effect: MAGIC,
+    interrupted: false,
     ...charge,
   });
   return state;
@@ -127,8 +132,8 @@ describe("resolveCharge — matures against the target tile (AC-04 / AC-S4)", ()
     expect(state.rngCounter).toBe(0);
   });
 
-  it("CANCELS when the caster is Stopped (interrupt-status set; Sleep/Don't-Act hook later)", () => {
-    const { outcome } = resolveCharge(scene({ caster: { statuses: ["stop"] } }), "chg");
+  it("CANCELS when the caster is Stopped (preventsAction/interruptsCharge status)", () => {
+    const { outcome } = resolveCharge(scene({ caster: { statuses: [legacyActiveStatus("stop")] } }), "chg");
     expect(outcome.resolution).toBe("cancelled");
   });
 
@@ -160,7 +165,7 @@ describe("resolveCharge — matures against the target tile (AC-04 / AC-S4)", ()
 describe("charge on the shared timeline — surfaced at ct ≥ 100 (AC-04)", () => {
   it("the scheduler advances the charge +speed per tick and hands it its turn at ct ≥ 100", () => {
     // One stopped unit (never accrues) so only the charge advances: 25→50→75→100.
-    const stalled = defaultUnit("idle", 0, { statuses: ["stop"], pos: { x: 0, y: 0 } });
+    const stalled = defaultUnit("idle", 0, { statuses: [legacyActiveStatus("stop")], pos: { x: 0, y: 0 } });
     const state = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [stalled] });
     state.chargeQueue.push({
       id: "chg",
@@ -169,6 +174,7 @@ describe("charge on the shared timeline — surfaced at ct ≥ 100 (AC-04)", () 
       speed: 25,
       targetTile: { x: 0, y: 0 },
       effect: MAGIC,
+      interrupted: false,
     });
 
     const { active, ticksAdvanced } = advanceToNextTurn(state);
@@ -185,8 +191,8 @@ describe("two charges maturing the same tick — order + determinism (ADR-0008)"
    * casters and "c.b" is enqueued FIRST — yet "c.a" must resolve first.
    */
   function twoChargeScene(): BattleState {
-    const casterA = defaultUnit("uA", 0, { pos: { x: 0, y: 0 }, ma: 10, faith: 100, statuses: ["stop"] });
-    const casterB = defaultUnit("uB", 0, { pos: { x: 4, y: 4 }, ma: 10, faith: 100, statuses: ["stop"] });
+    const casterA = defaultUnit("uA", 0, { pos: { x: 0, y: 0 }, ma: 10, faith: 100, statuses: [legacyActiveStatus("stop")] });
+    const casterB = defaultUnit("uB", 0, { pos: { x: 4, y: 4 }, ma: 10, faith: 100, statuses: [legacyActiveStatus("stop")] });
     const t1 = defaultUnit("t1", 1, { pos: { x: 1, y: 1 }, hp: 300, maxHp: 300, faith: 100, zodiac: { sign: "taurus", gender: "neutral" } });
     const t2 = defaultUnit("t2", 1, { pos: { x: 2, y: 2 }, hp: 300, maxHp: 300, faith: 100, zodiac: { sign: "taurus", gender: "neutral" } });
     const s = createBattleState({ seed: 5, grid: { width: 5, height: 5 }, units: [casterA, casterB, t1, t2] });
@@ -194,8 +200,8 @@ describe("two charges maturing the same tick — order + determinism (ADR-0008)"
     // never accrue); the interrupt check keys on the resolving charge's caster —
     // but each charge is resolved directly here, so Stop on the caster is not the
     // subject. To avoid Stop-cancel we clear it right before resolving (below).
-    s.chargeQueue.push({ id: "c.b", sourceUnitId: "uB", ct: 90, speed: 25, targetTile: { x: 2, y: 2 }, effect: MAGIC });
-    s.chargeQueue.push({ id: "c.a", sourceUnitId: "uA", ct: 90, speed: 25, targetTile: { x: 1, y: 1 }, effect: MAGIC });
+    s.chargeQueue.push({ id: "c.b", sourceUnitId: "uB", ct: 90, speed: 25, targetTile: { x: 2, y: 2 }, effect: MAGIC, interrupted: false });
+    s.chargeQueue.push({ id: "c.a", sourceUnitId: "uA", ct: 90, speed: 25, targetTile: { x: 1, y: 1 }, effect: MAGIC, interrupted: false });
     return s;
   }
 
@@ -227,6 +233,74 @@ describe("two charges maturing the same tick — order + determinism (ADR-0008)"
     const b = run();
     expect(a).toEqual(["c.a", "c.b"]); // lower id first, then the other
     expect(a).toEqual(b);
+  });
+});
+
+describe("magic evasion on the hit roll (AC-07, facing-independent)", () => {
+  const EV = (magicEv: number) => ({ classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv });
+
+  it("magicEv 0 preserves the prior behavior: full accuracy, one draw (regression anchor)", () => {
+    const { state, outcome } = resolveCharge(scene({ target: { evasion: EV(0) } }), "chg");
+    expect(outcome.hitChance).toBe(100); // applyMagicEvasion(100, 0) === 100
+    expect(state.rngCounter).toBe(1); // still exactly one hit roll
+  });
+
+  it("magicEv > 0 reduces the hit% by the independent-multiplicative model, still one draw", () => {
+    // accuracy 100, magicEv 20 → floor(100×80/100) = 80. Facing is irrelevant.
+    const { state, outcome } = resolveCharge(scene({ target: { evasion: EV(20) } }), "chg");
+    expect(outcome.hitChance).toBe(80);
+    expect(state.rngCounter).toBe(1);
+  });
+});
+
+describe("kind-aware interrupt + latch (ADR-0010 items 1-2, Slice 7)", () => {
+  const STOP = makeActiveStatus(
+    StatusEffectSchema.parse({
+      id: "status.stop", kind: "debuff", ctFactor: 0, durationCT: 20,
+      dispellable: true, preventsAction: true, interruptsCharge: true,
+    }),
+    5,
+  );
+  const SILENCE = makeActiveStatus(
+    StatusEffectSchema.parse({
+      id: "status.silence", kind: "debuff", ctFactor: 1, durationCT: 32,
+      dispellable: true, interruptsCharge: true, interruptsMagicOnly: true,
+    }),
+  );
+
+  it("statusInterruptsCharge: Stop interrupts any charge, Silence only magic, Protect never", () => {
+    expect(statusInterruptsCharge(STOP, "magic")).toBe(true);
+    expect(statusInterruptsCharge(SILENCE, "magic")).toBe(true); // magic charge → interrupts
+    expect(statusInterruptsCharge(legacyActiveStatus("protect"), "magic")).toBe(false);
+  });
+
+  it("applyStatusToUnit latches interrupted the instant a disabling status lands", () => {
+    const after = applyStatusToUnit(scene(), "caster", STOP);
+    expect(after.chargeQueue[0]!.interrupted).toBe(true);
+    // The status is also present on the unit (self-contained application).
+    expect(after.units.find((u) => u.id === "caster")!.statuses.map((s) => s.id)).toEqual(["status.stop"]);
+  });
+
+  it("a caster disabled mid-charge that RECOVERS before maturity STILL cancels (the latch)", () => {
+    const latched = applyStatusToUnit(scene(), "caster", STOP);
+    // Simulate recovery: the disabling status decays away before the charge matures.
+    const recovered = structuredClone(latched);
+    recovered.units.find((u) => u.id === "caster")!.statuses = [];
+    const { state, outcome } = resolveCharge(recovered, "chg");
+    expect(outcome.resolution).toBe("cancelled"); // latch fires though the caster is no longer disabled
+    expect(state.rngCounter).toBe(0); // cancel consumes no draw (P0 accounting preserved)
+  });
+
+  it("Silence latches the caster's magic charge (kind-aware) and it cancels", () => {
+    const after = applyStatusToUnit(scene(), "caster", SILENCE);
+    expect(after.chargeQueue[0]!.interrupted).toBe(true);
+    expect(resolveCharge(after, "chg").outcome.resolution).toBe("cancelled");
+  });
+
+  it("a non-disabling status (Protect) neither latches nor cancels the pending charge", () => {
+    const after = applyStatusToUnit(scene(), "caster", legacyActiveStatus("protect"));
+    expect(after.chargeQueue[0]!.interrupted).toBe(false);
+    expect(resolveCharge(after, "chg").outcome.resolution).toBe("hit"); // still lands
   });
 });
 

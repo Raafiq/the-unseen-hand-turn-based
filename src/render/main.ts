@@ -8,6 +8,7 @@
 import type { ActiveActor, BattleState } from "../sim/index.js";
 import { forecast, makeDemoBattle, stepDemo, UNIT_META, type StepResult } from "./demo.js";
 import { draw, type DamagePopup } from "./iso.js";
+import { mountPrep } from "./prep.js";
 
 interface ViewerApi {
   step: () => void;
@@ -138,3 +139,8 @@ window.tuh = {
 
 render();
 renderLog();
+
+// Slice 8: the prep/loadout viewer (customization pillar). Rendered below the
+// battle; wholly independent of the battle state above.
+const prepBody = document.getElementById("prep-body");
+if (prepBody) mountPrep(prepBody);

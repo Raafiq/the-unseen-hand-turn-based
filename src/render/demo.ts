@@ -24,8 +24,8 @@ import {
   tickCrystal,
   type ActiveActor,
   type AttackOutcome,
+  type BattleAbility,
   type BattleState,
-  type ChargeEffect,
   type ChargeOutcome,
   type Facing,
   type Position,
@@ -71,36 +71,50 @@ export function makeDemoBattle(): BattleState {
       pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, hp: 130, maxHp: 130,
       pa: 11, brave: 72, zodiac: { sign: "aries", gender: "male" },
       weapon: { wp: 15, formula: "braveWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0 },
+      evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0, magicEv: 0 },
     }),
     unit("archer", 0, {
       pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, hp: 90, maxHp: 90,
       pa: 9, brave: 68, zodiac: { sign: "taurus", gender: "female" },
       weapon: { wp: 10, formula: "speedWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("brawler", 1, {
       pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3, hp: 120, maxHp: 120,
       pa: 13, brave: 75, zodiac: { sign: "gemini", gender: "male" },
       weapon: { wp: 0, formula: "bareHands", element: "none", accuracy: 100 },
-      evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("mage", 1, {
       pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 80, maxHp: 80,
       pa: 7, ma: 12, brave: 60, faith: 65, zodiac: { sign: "cancer", gender: "female" },
       weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
   ];
+
+  // The Mage's charged spell is a LOADOUT-DERIVED ability (Slice 5): it lives in
+  // the mage's `abilities` projection alongside its auto basic attack, and
+  // stepDemo sources the cast's speed/effect from it — not an inline constant.
+  const mage = units.find((u) => u.id === "mage")!;
+  mage.abilities = [...mage.abilities, MAGE_SPELL_ABILITY];
 
   return createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
 }
 
 /** The Mage's charged spell: a slow nuke (low speed → dodgeable, docs/01 §3). */
 const MAGE_CAST_RANGE = 6;
-const MAGE_SPELL: { speed: number; effect: ChargeEffect } = {
+const MAGE_SPELL_ID = "spell.fire";
+const MAGE_SPELL_ABILITY: BattleAbility = {
+  id: MAGE_SPELL_ID,
+  actionKind: "action",
+  formula: "magic",
+  power: 22,
+  element: "fire",
+  accuracy: 100,
+  range: { h: MAGE_CAST_RANGE, v: 3 },
+  inflicts: [],
   speed: 12,
-  effect: { kind: "magic", power: 22, element: "fire", accuracy: 100 },
 };
 
 const manhattan = (a: Position, b: Position): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -171,11 +185,14 @@ export function stepDemo(input: BattleState): StepResult {
   // target may have walked off → whiff. (declareCharge ends the caster's turn.)
   const mageBusy = state.chargeQueue.some((c) => c.sourceUnitId === "mage");
   if (actorId === "mage" && !mageBusy && manhattan(me().pos, target.pos) <= MAGE_CAST_RANGE) {
+    // Source the cast from the mage's equipped spell ability (Slice 5): its
+    // speed/element/power/accuracy come from the loadout projection, not a payload.
+    const spell = me().abilities.find((a) => a.id === MAGE_SPELL_ID)!;
     me().facing = faceToward(me().pos, target.pos);
     const next = declareCharge(state, "mage", {
       targetTile: { x: target.pos.x, y: target.pos.y },
-      speed: MAGE_SPELL.speed,
-      effect: MAGE_SPELL.effect,
+      speed: spell.speed ?? 1,
+      effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy },
     });
     return { state: next, active, activeRange: range, moved: false, attack: null, charge: null };
   }

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { resolveAttack, tickCrystal } from "./resolve.js";
+import { resolveAttack, resolveAbility, tickCrystal } from "./resolve.js";
 import { ctRateOfUnit } from "./scheduler.js";
-import { createBattleState, defaultUnit, type BattleState, type UnitState } from "./state.js";
+import { createBattleState, defaultUnit, legacyActiveStatus, type BattleState, type UnitState } from "./state.js";
+import type { BattleAbility } from "./ability.js";
 
 interface DuelOpts {
   attacker?: Partial<UnitState>;
@@ -25,7 +26,7 @@ function duel({ attacker = {}, target = {}, seed = 1 }: DuelOpts = {}): BattleSt
     hp: 300,
     maxHp: 300,
     zodiac: { sign: "taurus", gender: "male" }, // neutral vs aries → ×1
-    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     ...target,
   });
   return createBattleState({ seed, grid: { width: 4, height: 4 }, units: [atk, tgt] });
@@ -64,7 +65,7 @@ describe("resolveAttack — Zodiac & Protect enter in order (AC-07)", () => {
 
   it("Protect reduces to ~2/3 after Zodiac: neutral 120 → protect 80", () => {
     const { outcome } = resolveAttack(
-      duel({ target: { statuses: ["protect"], zodiac: { sign: "taurus", gender: "male" } } }),
+      duel({ target: { statuses: [legacyActiveStatus("protect")], zodiac: { sign: "taurus", gender: "male" } } }),
       "atk",
       "tgt",
     );
@@ -140,5 +141,52 @@ describe("resolveAttack + tickCrystal — KO & crystal countdown (AC-09)", () =>
 
   it("tickCrystal refuses a living unit", () => {
     expect(() => tickCrystal(duel(), "atk")).toThrow();
+  });
+});
+
+describe("resolveAbility — instant loadout-derived actions (Slice 5)", () => {
+  const MAGIC_BOLT: BattleAbility = {
+    id: "magic.bolt", actionKind: "action", formula: "magic",
+    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null,
+  };
+  const HEAL: BattleAbility = {
+    id: "heal.cure", actionKind: "action", formula: "heal",
+    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null,
+  };
+
+  it("reads magnitude from the ability projection and consumes exactly one hit draw", () => {
+    const s = duel({ attacker: { ma: 10, faith: 100, abilities: [MAGIC_BOLT] }, target: { faith: 100 } });
+    const { state, outcome } = resolveAbility(s, "atk", "tgt", "magic.bolt");
+    expect(outcome.hit).toBe(true);
+    expect(outcome.damage).toBe(80); // magicDamage(ma 10, q 8, faith 100/100)
+    expect(hpOf(state, "tgt")).toBe(220);
+    expect(state.rngCounter).toBe(1); // one draw, same cursor position as resolveAttack
+  });
+
+  it("a 0-accuracy instant still consumes the roll and deals nothing", () => {
+    const bolt: BattleAbility = { ...MAGIC_BOLT, accuracy: 0 };
+    const s = duel({ attacker: { ma: 10, faith: 100, abilities: [bolt] }, target: { faith: 100 } });
+    const { state, outcome } = resolveAbility(s, "atk", "tgt", "magic.bolt");
+    expect(outcome.hit).toBe(false);
+    expect(hpOf(state, "tgt")).toBe(300);
+    expect(state.rngCounter).toBe(1);
+  });
+
+  it("a heal instant restores HP (capped at maxHp), never dealing damage", () => {
+    const s = duel({
+      attacker: { ma: 10, faith: 100, abilities: [HEAL] },
+      target: { hp: 100, maxHp: 300, faith: 100 },
+    });
+    const { state, outcome } = resolveAbility(s, "atk", "tgt", "heal.cure");
+    expect(outcome.hit).toBe(true);
+    expect(outcome.ko).toBe(false);
+    expect(hpOf(state, "tgt")).toBe(180); // 100 + 80
+  });
+
+  it("rejects an ability the unit does not carry, and stays pure", () => {
+    const s = duel({ attacker: { abilities: [MAGIC_BOLT] } });
+    const before = JSON.stringify(s);
+    expect(() => resolveAbility(s, "atk", "tgt", "nope")).toThrow(/no ability/);
+    expect(JSON.stringify(s)).toBe(before);
   });
 });
