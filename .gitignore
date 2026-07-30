@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Claude Code (personal, uncommitted — shared settings would be committed as .claude/settings.json)
+.claude/settings.local.json
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Spec Kit note: `specify init` will add its own ignore rules at P0.
