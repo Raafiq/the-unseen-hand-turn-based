@@ -9,3 +9,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0003](0003-sdd-hybrid-approach.md) | Spec-driven development: hybrid (GDD now, Spec Kit at build) | Accepted | 2026-07-30 |
 | [0004](0004-determinism-p0-invariant.md) | Determinism (seeded RNG + serializable state) is a P0 invariant | Accepted | 2026-07-30 |
 | [0005](0005-agent-first-project-setup.md) | Agent-first project setup (config + skills + retrospective loop) | Accepted | 2026-07-30 |
+| [0006](0006-agent-team-and-po-contract.md) | Specialized agent team with a Product-Owner contract | Accepted | 2026-07-30 |

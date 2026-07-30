@@ -56,6 +56,12 @@ Committed, project-scoped skills for agent-first work — invoke by name:
 - `brainstorm` / `grill-me` — project-local ideation and adversarial spec-interrogation (our own adaptations).
 - `retrospective` — after a task that hit errors/surprises, capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR, or a new skill.
 
+## Agent team (`.claude/agents/`)
+
+Development uses a **Product-Owner-orchestrated** team. Because the main session is always the human's interlocutor, **Product Owner is the operating contract of the main session** — it holds the vision, is the single point of contact for requirements/decisions, and **delegates to specialist subagents**, integrating their results rather than surfacing raw sub-agent output to the human.
+
+Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `reviewer` (adversarial) — active now; `combat-engineer`, `content-author`, `qe-tester` (test plans now; running tests + screenshots at P0), and `playtester` (spawn 2–3 personas) — full value at P0+. Design/review agents are read-only and return findings; only `combat-engineer`/`content-author` edit code/data. See `.claude/agents/README.md` for the full contract and personas.
+
 ## Tooling & workflow (for the P0 implementation phase)
 
 - **Spec-driven development (hybrid):** at P0/P1, initialize **GitHub Spec Kit** (`specify init`, integrates with Claude Code). Port `docs/00` → `/speckit.constitution`, and each buildable-system doc (`01`, `02`, `05`, `06`) → a `/speckit.specify` feature spec using its Acceptance Criteria section. See `docs/08` §5.
