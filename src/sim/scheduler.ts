@@ -27,12 +27,17 @@ export const CT_COST_WAIT = 60;
 /** Safety bound so a fully-stalled field can't spin forever. */
 const MAX_TICKS_PER_TURN = 100_000;
 
-/** A unit's CT accrual per tick: floor(Speed × haste/slow), or 0 while Stopped. */
+/**
+ * A unit's CT accrual per tick: floor(Speed × haste/slow), or 0 while Stopped.
+ * Stop dominates. Haste and Slow are mutually exclusive in FFT (one dispels the
+ * other); if a state somehow carries both, they cancel to neutral rather than
+ * silently favoring either.
+ */
 export function ctRateOfUnit(u: UnitState): number {
   if (u.statuses.includes("stop")) return 0;
-  let factor = 1;
-  if (u.statuses.includes("haste")) factor = HASTE_FACTOR;
-  else if (u.statuses.includes("slow")) factor = SLOW_FACTOR;
+  const hasted = u.statuses.includes("haste");
+  const slowed = u.statuses.includes("slow");
+  const factor = hasted && slowed ? 1 : hasted ? HASTE_FACTOR : slowed ? SLOW_FACTOR : 1;
   return Math.floor(u.speed * factor);
 }
 
@@ -47,37 +52,40 @@ interface SchedActor {
   kind: "unit" | "charge";
   id: string;
   rate: number;
-  /** Deploy/queue index — the deterministic third-level tie-break key. */
-  order: number;
   ref: { ct: number };
 }
 
 function buildActors(state: BattleState): SchedActor[] {
   const actors: SchedActor[] = [];
-  // Charges enumerated before units only for construction; the comparator — not
-  // this order — decides ties.
-  state.chargeQueue.forEach((c, i) => {
-    actors.push({ kind: "charge", id: c.id, rate: ctRateOfCharge(c), order: i, ref: c });
-  });
-  state.units.forEach((u, i) => {
-    actors.push({ kind: "unit", id: u.id, rate: ctRateOfUnit(u), order: i, ref: u });
-  });
+  // Enumeration order is irrelevant: the comparator is a total order on
+  // (ct, kind, id), so ties never fall back to insertion/iteration order.
+  for (const c of state.chargeQueue) {
+    actors.push({ kind: "charge", id: c.id, rate: ctRateOfCharge(c), ref: c });
+  }
+  for (const u of state.units) {
+    actors.push({ kind: "unit", id: u.id, rate: ctRateOfUnit(u), ref: u });
+  }
   return actors;
 }
 
 /**
- * The PINNED tie-break (docs/05 §1a), as a total order. Returns < 0 when `a`
- * should resolve before `b`:
+ * The PINNED tie-break (docs/05 §1a, ADR-0008), as a total order. Returns < 0
+ * when `a` should resolve before `b`:
  *   1. higher `ct` first,
  *   2. then a ChargedAction before a Unit,
- *   3. then lower deploy index (unitId asc, assigned team-then-slot).
+ *   3. then lower id — a locale-independent lexicographic compare of the
+ *      actor id (unitId asc per the spec; charge-vs-charge uses the same rule).
+ *      Keying on the id (not array position) means a mis-ordered `units` array
+ *      can never change the outcome.
  */
 export function tieBreak(a: SchedActor, b: SchedActor): number {
   if (a.ref.ct !== b.ref.ct) return b.ref.ct - a.ref.ct;
   const ka = a.kind === "charge" ? 0 : 1;
   const kb = b.kind === "charge" ? 0 : 1;
   if (ka !== kb) return ka - kb;
-  return a.order - b.order;
+  if (a.id < b.id) return -1;
+  if (a.id > b.id) return 1;
+  return 0;
 }
 
 export interface NextTurn {
@@ -93,6 +101,11 @@ export interface NextTurn {
  * Advance the clock until an actor reaches CT ≥ 100, then return that actor
  * (resolved by the pinned tie-break) and the advanced state. Does not spend CT
  * — the caller resolves the action and then calls {@link settleTurn}.
+ *
+ * CONTRACT: a returned charged action is left in the queue at ct ≥ 100. The
+ * caller MUST dequeue it on resolution (PR4); otherwise it stays perpetually
+ * ready and wins every tie-break, starving all units. `MAX_TICKS_PER_TURN`
+ * cannot catch that (no ticks advance) — it is a caller obligation.
  */
 export function advanceToNextTurn(input: BattleState): NextTurn {
   const state = structuredClone(input);
@@ -120,8 +133,13 @@ export function advanceToNextTurn(input: BattleState): NextTurn {
 
 /**
  * Spend end-of-turn CT for a unit (docs/01 §1, docs/05 §1c): 100 for move+act,
- * 80 for one, 60 for a Wait; the remainder carries over. Because a unit only
- * acts at ct ≥ 100 and the max cost is 100, the result is always ≥ 0.
+ * 80 for one, 60 for a Wait; the remainder carries over.
+ *
+ * A unit only takes a turn at ct ≥ 100 and the max cost is 100, so the result
+ * is always ≥ 0 in correct use. Rather than trust that, we assert `ct ≥ cost`
+ * and throw loudly on violation — a negative CT is a caller bug (settling the
+ * wrong unit, or one that never reached the threshold), and surfacing it here
+ * beats a confusing serialization error two steps later.
  */
 export function settleTurn(
   input: BattleState,
@@ -139,6 +157,11 @@ export function settleTurn(
         ? CT_COST_ONE
         : CT_COST_WAIT;
 
+  if (unit.ct < cost) {
+    throw new Error(
+      `settleTurn: unit ${unitId} has ct ${unit.ct} < cost ${cost}; only a unit that took its turn (ct >= ${TURN_THRESHOLD}) should be settled`,
+    );
+  }
   unit.ct -= cost;
   return state;
 }

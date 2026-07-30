@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
 
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -22,6 +22,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src", "vitest.config.ts", "eslint.config.js"],
+  "include": ["src", "vite.config.ts", "vitest.config.ts", "eslint.config.js"],
   "exclude": ["node_modules", "dist"]
 }

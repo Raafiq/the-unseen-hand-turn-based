@@ -121,7 +121,11 @@ export const BattleStateSchema = z
     chargeQueue: z.array(ChargedActionStateSchema),
     turnLog: z.array(TurnLogEntrySchema),
   })
-  .strict();
+  .strict()
+  .refine((s) => new Set(s.units.map((u) => `${u.pos.x},${u.pos.y}`)).size === s.units.length, {
+    message: "two units occupy the same tile (positions must be unique)",
+    path: ["units"],
+  });
 export type BattleState = z.infer<typeof BattleStateSchema>;
 
 /** Build a `width*height` flat grid of identical tiles (test/viewer helper). */
@@ -185,10 +189,18 @@ const migrate1to2: Migration = (s) => {
   const grid = s["grid"] as { width: number; height: number };
   const width = grid.width;
   const height = grid.height;
-  const units = (s["units"] as Array<{ id: string; teamId: number; ct: number }>).map((u, i) => ({
+  const oldUnits = s["units"] as Array<{ id: string; teamId: number; ct: number }>;
+  // Fail loudly rather than stack units on the same tile (docs/05 §5: a
+  // migration must never corrupt). Positions must stay unique.
+  if (oldUnits.length > width * height) {
+    throw new SchemaVersionError(
+      `cannot migrate v1 save: ${oldUnits.length} units do not fit on a ${width}x${height} grid without overlap`,
+    );
+  }
+  const units = oldUnits.map((u, i) => ({
     id: u.id,
     teamId: u.teamId,
-    pos: { x: i % width, y: Math.floor(i / width) % height },
+    pos: { x: i % width, y: Math.floor(i / width) },
     facing: "S" as const,
     ct: u.ct,
     speed: 5,

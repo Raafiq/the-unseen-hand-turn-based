@@ -8,16 +8,21 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "npm run build && playwright test",
+    "gallery": "node scripts/build-gallery.mjs",
     "check": "npm run typecheck && npm run lint && npm run check:rng && npm run test"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^22.10.0",
     "eslint": "^9.18.0",
     "typescript": "^5.7.0",

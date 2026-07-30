@@ -23,7 +23,16 @@ const DETERMINISM_RULES = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist/**", "coverage/**", "node_modules/**"] },
+  {
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "node_modules/**",
+      "visual-artifacts/**",
+      "test-results/**",
+      "playwright-report/**",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -32,5 +41,13 @@ export default tseslint.config(
     files: ["src/sim/**/*.ts"],
     ignores: ["src/sim/**/*.{test,spec}.ts"],
     rules: DETERMINISM_RULES,
+  },
+  {
+    // Node tooling scripts (ESM): provide Node globals for no-undef.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      sourceType: "module",
+      globals: { process: "readonly", console: "readonly" },
+    },
   },
 );

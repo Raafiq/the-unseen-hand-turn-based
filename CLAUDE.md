@@ -50,10 +50,14 @@ Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
 - **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
 - **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
 - **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+- **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
+- **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)
 
 The sim core is pure and headless — no rendering/UI deps in `src/sim/**` (ADR-0007,
-`sim-determinism-guard` skill). CI runs `npm run check` on every push/PR
-(`.github/workflows/ci.yml`).
+`sim-determinism-guard` skill). `src/render/**` is the thin viewer (imports the
+sim, never the reverse). CI runs `npm run check` + a visual-tests job on every
+push/PR (`.github/workflows/ci.yml`); merges to `main` deploy the viewer + the
+visual gallery (`/visual/`) to GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Project skills (in `.claude/skills/`)
 

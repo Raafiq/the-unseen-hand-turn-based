@@ -16,6 +16,12 @@ out/
 coverage/
 .nyc_output/
 
+# Playwright / visual-test artifacts (regenerated in CI, deployed to Pages)
+visual-artifacts/
+test-results/
+playwright-report/
+.playwright/
+
 # Logs
 *.log
 npm-debug.log*

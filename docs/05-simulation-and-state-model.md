@@ -25,7 +25,7 @@ tick():
 When multiple actors reach ct ≥ 100 on the same tick, resolve in this exact order:
 1. **Higher `ct`** first.
 2. If tied: **ChargedAction before Unit** (a spell that matured this tick lands before the caster's next move).
-3. If still tied: **lower `unitId`** (deterministic, assigned at deploy in team-then-slot order).
+3. If still tied: **lower actor id**, compared as a **locale-independent lexicographic** string compare (never `localeCompare`). For units this is the `unitId` (ids assigned at deploy in team-then-slot order, so ascending id = deploy order); **two charged actions tied at the same `ct` use the same id rule.** Keying on the id — not array/queue position — means a mis-ordered `units` array can never change the outcome. (ADR-0008.)
 
 *This order is a spec commitment, not an implementation detail — changing it changes battle outcomes. Encode it as data and cover it with a test (AC below).*
 

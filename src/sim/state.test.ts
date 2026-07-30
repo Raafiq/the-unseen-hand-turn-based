@@ -123,6 +123,20 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     // Round-trips cleanly once migrated.
     expect(deserialize(serialize(migrated))).toEqual(migrated);
   });
+
+  it("refuses to migrate a v1 save whose units overflow the grid (never corrupt)", () => {
+    const v1 = JSON.stringify({
+      schemaVersion: 1,
+      seed: 1,
+      tick: 0,
+      rngCounter: 0,
+      grid: { width: 2, height: 2 },
+      units: [0, 1, 2, 3, 4].map((i) => ({ id: `u.${i}`, teamId: 0, ct: 0 })),
+      chargeQueue: [],
+      turnLog: [],
+    });
+    expect(() => deserialize(v1)).toThrow(SchemaVersionError);
+  });
 });
 
 describe("BattleState — validation rejects malformed data", () => {
@@ -140,5 +154,12 @@ describe("BattleState — validation rejects malformed data", () => {
   it("serialize validates on the way out", () => {
     const bad = { ...sampleState(), tick: -5 } as BattleState;
     expect(() => serialize(bad)).toThrow();
+  });
+
+  it("rejects two units sharing a tile (position uniqueness)", () => {
+    const state = sampleState();
+    const first = state.units[0]!;
+    state.units[1] = { ...state.units[1]!, pos: { x: first.pos.x, y: first.pos.y } };
+    expect(() => serialize(state)).toThrow();
   });
 });

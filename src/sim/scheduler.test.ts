@@ -25,7 +25,10 @@ function unit(id: string, teamId: number, over: Partial<UnitState> = {}): UnitSt
 }
 
 function stateWith(units: UnitState[]): BattleState {
-  return createBattleState({ seed: 1, grid: { width: 4, height: 4 }, units });
+  // Place units on distinct tiles (positions must be unique); the scheduler
+  // ignores position, so this only keeps the fixtures realistic.
+  const placed = units.map((u, i) => ({ ...u, pos: { x: i % 4, y: Math.floor(i / 4) } }));
+  return createBattleState({ seed: 1, grid: { width: 4, height: 4 }, units: placed });
 }
 
 /** Run `turns` active turns, each acting-only (cost 80), returning the id order. */
@@ -51,6 +54,11 @@ describe("scheduler — CT accrual rate (AC-03, docs/01 §1)", () => {
     expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["slow"] }))).toBe(5);
     expect(ctRateOfUnit(unit("u", 0, { speed: 7, statuses: ["slow"] }))).toBe(3); // floor(3.5)
     expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["stop"] }))).toBe(0);
+  });
+
+  it("Haste and Slow together cancel to the base rate; Stop dominates both", () => {
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["haste", "slow"] }))).toBe(10);
+    expect(ctRateOfUnit(unit("u", 0, { speed: 10, statuses: ["haste", "slow", "stop"] }))).toBe(0);
   });
 });
 
@@ -132,11 +140,13 @@ describe("scheduler — pinned tie-break (AC-S3, docs/05 §1a)", () => {
     expect(active).toEqual<ActiveActor>({ kind: "unit", id: "b" });
   });
 
-  it("on equal CT, the lower deploy index wins", () => {
+  it("on equal CT, the lower unitId wins regardless of array order", () => {
+    // "u.z" is at array index 0 but "u.a" is the lower id → "u.a" must win.
+    // Keying on id (not index) is what makes this hold; see docs/05 §1a, ADR-0008.
     const { active } = advanceToNextTurn(
-      stateWith([unit("first", 0, { ct: 95 }), unit("second", 1, { ct: 95 })]),
+      stateWith([unit("u.z", 0, { ct: 95 }), unit("u.a", 1, { ct: 95 })]),
     );
-    expect(active).toEqual<ActiveActor>({ kind: "unit", id: "first" });
+    expect(active).toEqual<ActiveActor>({ kind: "unit", id: "u.a" });
   });
 
   it("on equal CT, a charged action resolves before a unit", () => {

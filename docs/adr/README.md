@@ -11,3 +11,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0005](0005-agent-first-project-setup.md) | Agent-first project setup (config + skills + retrospective loop) | Accepted | 2026-07-30 |
 | [0006](0006-agent-team-and-po-contract.md) | Specialized agent team with a Product-Owner contract | Accepted | 2026-07-30 |
 | [0007](0007-tech-stack-web-typescript.md) | Tech stack = Web / TypeScript (pure headless sim + thin render) | Accepted | 2026-07-30 |
+| [0008](0008-scheduler-tiebreak-precision.md) | Scheduler tie-break precision (id-keyed, lexicographic, charge-vs-charge) | Accepted | 2026-07-30 |
