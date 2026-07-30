@@ -1,0 +1,62 @@
+name: Deploy viewer to GitHub Pages
+
+# Builds the engine viewer + the visual-test gallery and publishes them to
+# GitHub Pages on every merge to main. One-time setup: repo Settings → Pages →
+# "Build and deployment" → Source = "GitHub Actions".
+#
+# Result: the live viewer at the Pages URL, and the screenshot/video gallery at
+# <pages-url>/visual/.
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Build once at base "/" so the preview server + visual tests line up.
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - run: npm run gallery
+
+      # Rebuild under the project-site base path for the actual deploy, then
+      # fold the gallery in under /visual/.
+      - name: Build for Pages base path
+        run: npm run build
+        env:
+          PAGES_BASE: /${{ github.event.repository.name }}/
+      - name: Add the visual gallery
+        run: cp -r visual-artifacts/gallery dist/visual
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

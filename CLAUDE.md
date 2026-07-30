@@ -38,12 +38,26 @@ Design lives in `docs/`. Read in this order before proposing changes:
 
 ## Commands
 
-No build/lint/test tooling exists yet — the stack is deliberately deferred (`docs/09`; leaning Web/TypeScript). Fill this section in when P0 code lands:
+Stack locked at P0 (ADR-0007): **Web / TypeScript** — a pure headless `src/sim/`
+core + a (later) thin `src/render/` layer. Toolchain: TypeScript `strict`,
+Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
+`npm install`.
 
-- Build: _TBD_
-- Lint: _TBD_
-- Test (all): _TBD_
-- Test (single): _TBD_
+- **Build:** `npm run build` (typecheck + `vite build`)
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`)
+- **Lint:** `npm run lint` (`eslint .` — bans unseeded RNG / wall-clock in `src/sim/**`)
+- **Determinism guard:** `npm run check:rng` (greps `src/sim` for banned nondeterminism)
+- **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
+- **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
+- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+- **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
+- **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)
+
+The sim core is pure and headless — no rendering/UI deps in `src/sim/**` (ADR-0007,
+`sim-determinism-guard` skill). `src/render/**` is the thin viewer (imports the
+sim, never the reverse). CI runs `npm run check` + a visual-tests job on every
+push/PR (`.github/workflows/ci.yml`); merges to `main` deploy the viewer + the
+visual gallery (`/visual/`) to GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Project skills (in `.claude/skills/`)
 

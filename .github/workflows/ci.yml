@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    name: typecheck · lint · determinism · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Static half of the determinism invariant (ADR-0004). The dynamic half is
+      # the replay-equality harness, which runs as part of the test suite.
+      - name: Determinism guard (no unseeded RNG / wall-clock in sim)
+        run: npm run check:rng
+
+      - name: Test
+        run: npm run test
+
+  visual:
+    name: visual tests (screenshots + video)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Builds the viewer, drives it in a headless browser, captures screenshots
+      # + video, and assembles the gallery.
+      - name: Run visual tests
+        run: npm run test:visual
+
+      - name: Build gallery
+        if: ${{ !cancelled() }}
+        run: npm run gallery
+
+      - name: Upload visual artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-artifacts
+          path: |
+            visual-artifacts/screenshots
+            visual-artifacts/gallery
+          if-no-files-found: warn
