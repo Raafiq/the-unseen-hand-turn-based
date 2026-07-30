@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { applyCommand, replay, replaySteps, type Command } from "./driver.js";
+import { resolveAttack } from "./resolve.js";
+import { declareCharge } from "./charge.js";
 import {
   createBattleState,
   defaultUnit,
@@ -7,20 +9,53 @@ import {
   deserialize,
   type BattleState,
   type ChargeEffect,
+  type UnitState,
 } from "./state.js";
+import type { BattleAbility } from "./ability.js";
 
 const MAGIC: ChargeEffect = { kind: "magic", power: 8, element: "none", accuracy: 100 };
 
 /**
- * Two active units (a, b) plus a STOPPED, high-HP "dummy" that never takes a
- * turn — so every command is consumed by a or b, and `attack dummy` / a charge
- * aimed at the dummy's tile are always legal (dummy is never the actor, never
- * dies). Deterministic by construction: no command's legality depends on WHICH
- * of a/b the scheduler picks.
+ * Slice 5: issuable actions are the unit's `act` commands, and every combat datum
+ * (speed/power/element/accuracy/range) comes from the unit's `abilities`
+ * projection — not the command. These helpers give a test unit a charged SPELL
+ * ability so an `act` charge can be issued; the basic attack is already auto-added
+ * by {@link defaultUnit}.
+ */
+const SPELL_ID = "spell.nuke";
+function spellAbility(effect: ChargeEffect = MAGIC, speed = 20, range = { h: 8, v: 8 }): BattleAbility {
+  return {
+    id: SPELL_ID,
+    actionKind: "action",
+    formula: "magic",
+    power: effect.power,
+    element: effect.element,
+    accuracy: effect.accuracy,
+    range,
+    inflicts: [],
+    speed,
+  };
+}
+/** A unit that also carries the charged SPELL ability (keeps its auto basic attack). */
+function spellUnit(id: string, teamId: number, over: Partial<UnitState>, spell = spellAbility()): UnitState {
+  const u = defaultUnit(id, teamId, over);
+  return { ...u, abilities: [...u.abilities, spell] };
+}
+const ATTACK = (targetId: string): Command => ({ kind: "act", abilityId: "basic.attack", target: { unitId: targetId } });
+const CAST = (x: number, y: number): Command => ({ kind: "act", abilityId: SPELL_ID, target: { x, y } });
+
+/**
+ * Two active units (a, b) FLANKING a STOPPED, high-HP "dummy" that never takes a
+ * turn — so every command is consumed by a or b, and `basic.attack dummy` / a
+ * charge aimed at the dummy's tile are always legal (dummy is never the actor,
+ * never dies). a and b sit orthogonally adjacent to the dummy so the melee
+ * `basic.attack` (range h:1) is in range from EITHER, and both carry the charged
+ * spell. Deterministic by construction: no command's legality depends on WHICH of
+ * a/b the scheduler picks.
  */
 function harness(seed = 7): BattleState {
-  const a = defaultUnit("a", 0, { pos: { x: 0, y: 0 }, speed: 10, hp: 500, maxHp: 500 });
-  const b = defaultUnit("b", 0, { pos: { x: 4, y: 4 }, speed: 13, hp: 500, maxHp: 500 });
+  const a = spellUnit("a", 0, { pos: { x: 2, y: 1 }, speed: 10, hp: 500, maxHp: 500 });
+  const b = spellUnit("b", 0, { pos: { x: 2, y: 3 }, speed: 13, hp: 500, maxHp: 500 });
   const dummy = defaultUnit("dummy", 1, {
     pos: { x: 2, y: 2 },
     speed: 5,
@@ -33,16 +68,16 @@ function harness(seed = 7): BattleState {
 
 const LOG: Command[] = [
   { kind: "wait" },
-  { kind: "attack", targetId: "dummy" },
-  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: MAGIC },
-  { kind: "attack", targetId: "dummy" },
+  ATTACK("dummy"),
+  CAST(2, 2),
+  ATTACK("dummy"),
   { kind: "wait" },
-  { kind: "attack", targetId: "dummy" },
-  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: MAGIC },
+  ATTACK("dummy"),
+  CAST(2, 2),
   { kind: "wait" },
-  { kind: "attack", targetId: "dummy" },
+  ATTACK("dummy"),
   { kind: "wait" },
-  { kind: "attack", targetId: "dummy" },
+  ATTACK("dummy"),
   { kind: "wait" },
 ];
 
@@ -73,16 +108,16 @@ describe("replay equality — byte-identical at every step (AC-S1)", () => {
 describe("driver auto-resolves charges on the shared timeline (AC-04 wiring)", () => {
   it("a declared charge matures and is resolved by the driver with no command of its own", () => {
     // Caster "c" acts; target "t" is stopped (stays on its tile, never acts).
-    const c = defaultUnit("c", 0, { pos: { x: 0, y: 0 }, speed: 10 });
+    const c = spellUnit(
+      "c",
+      0,
+      { pos: { x: 0, y: 0 }, speed: 10 },
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100 }, 20),
+    );
     const t = defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: ["stop"], hp: 300, maxHp: 300, faith: 100 });
     const state = createBattleState({ seed: 3, grid: { width: 5, height: 5 }, units: [c, t] });
 
-    const log: Command[] = [
-      { kind: "castCharge", targetTile: { x: 1, y: 0 }, speed: 20, effect: { kind: "magic", power: 10, element: "none", accuracy: 100 } },
-      { kind: "wait" },
-      { kind: "wait" },
-      { kind: "wait" },
-    ];
+    const log: Command[] = [CAST(1, 0), { kind: "wait" }, { kind: "wait" }, { kind: "wait" }];
     const final = replay(state, log);
 
     expect(final.chargeQueue).toHaveLength(0); // the charge matured and was dequeued
@@ -121,18 +156,26 @@ describe("rewind then replay (AC-S7)", () => {
  * attacks (one lethal → a KO), and two charges that land on the dummy.
  */
 function goldenBattle(): BattleState {
-  const hero = defaultUnit("hero", 0, {
-    pos: { x: 0, y: 0 },
-    speed: 10,
-    pa: 10,
-    ma: 10,
-    faith: 100,
-    hp: 200,
-    maxHp: 200,
-    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
-    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
-    zodiac: { sign: "aries", gender: "male" },
-  });
+  // The hero carries the charged spell it casts as a loadout-derived ability
+  // (Slice 5) — the projection supplies the same speed(20)/power(8)/element/
+  // accuracy the pre-Slice-5 inline `castCharge` payload did.
+  const hero = spellUnit(
+    "hero",
+    0,
+    {
+      pos: { x: 0, y: 0 },
+      speed: 10,
+      pa: 10,
+      ma: 10,
+      faith: 100,
+      hp: 200,
+      maxHp: 200,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      zodiac: { sign: "aries", gender: "male" },
+    },
+    spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100 }, 20),
+  );
   const dummy = defaultUnit("dummy", 1, {
     pos: { x: 2, y: 2 },
     statuses: ["stop"],
@@ -156,12 +199,12 @@ function goldenBattle(): BattleState {
 
 const GOLDEN_LOG: Command[] = [
   { kind: "move", to: { x: 1, y: 1 } },
-  { kind: "attack", targetId: "dummy" },
-  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
-  { kind: "attack", targetId: "victim" }, // lethal: 80 dmg vs 60 hp → KO
+  ATTACK("dummy"),
+  CAST(2, 2),
+  ATTACK("victim"), // lethal: 80 dmg vs 60 hp → KO
   { kind: "wait" },
-  { kind: "attack", targetId: "dummy" },
-  { kind: "castCharge", targetTile: { x: 2, y: 2 }, speed: 20, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
+  ATTACK("dummy"),
+  CAST(2, 2),
   { kind: "wait" },
   { kind: "wait" },
   { kind: "wait" },
@@ -174,12 +217,15 @@ describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () 
   // past — those changes stay reproducible but no longer match this value.
   // INTENTIONAL behavior changes require REGENERATING this golden (re-run and
   // paste the new serialize() output), and should be justified in review.
-  // Regenerated at schemaVersion 5 (Slice 4): the ONLY diff vs the v4 golden is
-  // the added `schemaVersion:5` and the additive `abilities:[basic.attack]` on
-  // each unit — every roll, hp, tick, rngCounter, and turnLog entry is unchanged
-  // (the projection is inert; no resolver reads `abilities` yet).
+  // Regenerated at Slice 5 (act commands derive from the loadout): the ONLY diff
+  // vs the Slice-4 golden is the additive `spell.nuke` charged ability now on the
+  // HERO's `abilities` (it is the projection the hero's `act` charge reads its
+  // speed/effect from). Every roll, hp, tick, rngCounter, and turnLog entry is
+  // BYTE-IDENTICAL — the indirection changed the command-log SHAPE, not any draw:
+  // `act{basic.attack}` still routes to resolveAttack and `act{spell.nuke}` still
+  // enqueues the same (speed 20, power 8) charge the old inline `castCharge` did.
   const GOLDEN =
-    '{"schemaVersion":5,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
+    '{"schemaVersion":5,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null},{"id":"spell.nuke","actionKind":"action","formula":"magic","power":8,"element":"none","accuracy":100,"range":{"h":8,"v":8},"inflicts":[],"speed":20}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":["stop"],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
 
   it("serialize(replay(seed, LOG)) equals the committed golden state", () => {
     const actual = serialize(replay(goldenBattle(), GOLDEN_LOG));
@@ -224,7 +270,7 @@ function koBattle(): BattleState {
 }
 
 const KO_LOG: Command[] = [
-  { kind: "attack", targetId: "victim" }, // KO on hero's first turn
+  ATTACK("victim"), // KO on hero's first turn
   ...Array.from({ length: 10 }, () => ({ kind: "wait" }) as Command),
 ];
 
@@ -261,10 +307,15 @@ describe("rewind across the REAL save codec (serialize→deserialize→replay, A
 describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
   it("a charge whose target tile is vacated by a later command WHIFFS", () => {
     // Single actor: casts on its OWN tile, then moves off it before maturity.
-    const c = defaultUnit("c", 0, { pos: { x: 0, y: 0 }, speed: 10, move: 3, ct: 100 });
+    const c = spellUnit(
+      "c",
+      0,
+      { pos: { x: 0, y: 0 }, speed: 10, move: 3, ct: 100 },
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100 }, 3),
+    );
     const state = createBattleState({ seed: 2, grid: { width: 5, height: 5 }, units: [c] });
     const log: Command[] = [
-      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 3, effect: { kind: "magic", power: 10, element: "none", accuracy: 100 } },
+      CAST(0, 0),
       { kind: "move", to: { x: 1, y: 0 } },
       ...Array.from({ length: 8 }, () => ({ kind: "wait" }) as Command),
     ];
@@ -277,34 +328,44 @@ describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
   it("a charge whose caster is KO'd by a faster charge before maturity CANCELS", () => {
     // "aa" (lower id, higher ct) casts a SLOW charge on its own tile; "zz" then
     // casts a FAST charge on aa's tile that KOs aa first → aa's charge cancels.
-    const aa = defaultUnit("aa", 0, {
-      pos: { x: 0, y: 0 },
-      speed: 10,
-      ct: 90,
-      ma: 10,
-      faith: 100,
-      hp: 60,
-      maxHp: 60,
-      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
-      zodiac: { sign: "taurus", gender: "neutral" },
-    });
-    const zz = defaultUnit("zz", 1, {
-      // Speed 10 (not far-faster): a huge Speed would overshoot ct and keep
-      // out-ranking the maturing slow charge (higher-ct-first), so the charge
-      // would never surface to be cancelled within the command budget. ct 80 <
-      // aa's 90 makes aa act first (declare the slow charge before zz's KO cast).
-      pos: { x: 4, y: 4 },
-      speed: 10,
-      ct: 80,
-      ma: 10,
-      faith: 100,
-      hp: 500,
-      maxHp: 500,
-    });
+    const aa = spellUnit(
+      "aa",
+      0,
+      {
+        pos: { x: 0, y: 0 },
+        speed: 10,
+        ct: 90,
+        ma: 10,
+        faith: 100,
+        hp: 60,
+        maxHp: 60,
+        evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+        zodiac: { sign: "taurus", gender: "neutral" },
+      },
+      spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100 }, 8),
+    );
+    const zz = spellUnit(
+      "zz",
+      1,
+      {
+        // Speed 10 (not far-faster): a huge Speed would overshoot ct and keep
+        // out-ranking the maturing slow charge (higher-ct-first), so the charge
+        // would never surface to be cancelled within the command budget. ct 80 <
+        // aa's 90 makes aa act first (declare the slow charge before zz's KO cast).
+        pos: { x: 4, y: 4 },
+        speed: 10,
+        ct: 80,
+        ma: 10,
+        faith: 100,
+        hp: 500,
+        maxHp: 500,
+      },
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100 }, 30),
+    );
     const mk = (): BattleState => createBattleState({ seed: 4, grid: { width: 5, height: 5 }, units: [aa, zz] });
     const log: Command[] = [
-      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 8, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 } },
-      { kind: "castCharge", targetTile: { x: 0, y: 0 }, speed: 30, effect: { kind: "magic", power: 10, element: "none", accuracy: 100 } },
+      CAST(0, 0),
+      CAST(0, 0),
       ...Array.from({ length: 20 }, () => ({ kind: "wait" }) as Command),
     ];
     const final = replay(mk(), log);
@@ -332,6 +393,77 @@ describe("driver — boundary conditions", () => {
       ],
     });
     expect(() => applyCommand(s, { kind: "wait" })).toThrow(/stalled/);
+  });
+});
+
+describe("act command — equivalence with the pre-Slice-5 resolvers (safety net)", () => {
+  it("a basic.attack act reproduces resolveAttack's draws and damage exactly", () => {
+    const mk = (): BattleState => {
+      const hero = defaultUnit("hero", 0, {
+        pos: { x: 1, y: 1 },
+        speed: 10,
+        evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      });
+      const foe = defaultUnit("foe", 1, {
+        pos: { x: 2, y: 1 },
+        statuses: ["stop"],
+        hp: 300,
+        maxHp: 300,
+        evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      });
+      return createBattleState({ seed: 99, grid: { width: 5, height: 5 }, units: [hero, foe] });
+    };
+    // Direct resolveAttack vs the act path: same seed, same cursor start (0), same
+    // single hit draw → identical rngCounter delta and target hp.
+    const direct = resolveAttack(mk(), "hero", "foe").state;
+    const viaAct = applyCommand(mk(), ATTACK("foe"));
+    expect(viaAct.rngCounter).toBe(direct.rngCounter);
+    expect(viaAct.units.find((u) => u.id === "foe")!.hp).toBe(direct.units.find((u) => u.id === "foe")!.hp);
+  });
+
+  it("a charged-ability act enqueues the same charge payload the old castCharge did", () => {
+    const eff: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100 };
+    const dummyTarget = (): UnitState =>
+      defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: ["stop"], hp: 300, maxHp: 300, faith: 100 });
+    // Reference: declareCharge with the inline payload the pre-Slice-5 command carried.
+    const ref = declareCharge(
+      // ct 100 so the direct declareCharge can settle (the act path advances the
+      // caster to its turn first; only the payload fields are compared below).
+      createBattleState({ seed: 5, grid: { width: 5, height: 5 }, units: [defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, speed: 10, ct: 100 }), dummyTarget()] }),
+      "hero",
+      { targetTile: { x: 1, y: 0 }, speed: 20, effect: eff },
+    );
+    // Via act: the hero carries a spell ability with the SAME speed/effect, and the
+    // driver sources the charge from that projection instead of a command payload.
+    const via = applyCommand(
+      createBattleState({ seed: 5, grid: { width: 5, height: 5 }, units: [spellUnit("hero", 0, { pos: { x: 0, y: 0 }, speed: 10 }, spellAbility(eff, 20)), dummyTarget()] }),
+      CAST(1, 0),
+    );
+    expect(via.chargeQueue).toHaveLength(1);
+    const refCharge = ref.chargeQueue[0]!;
+    const viaCharge = via.chargeQueue[0]!;
+    // The ability-derived payload equals the old inline payload (id/ct differ only
+    // because the act path matures the caster's turn first — not a payload change).
+    expect(viaCharge.speed).toBe(refCharge.speed);
+    expect(viaCharge.effect).toEqual(refCharge.effect);
+    expect(viaCharge.targetTile).toEqual(refCharge.targetTile);
+  });
+
+  it("rejects an act for an ability the unit does not have equipped", () => {
+    const hero = defaultUnit("hero", 0, { pos: { x: 1, y: 1 }, speed: 10 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, statuses: ["stop"] });
+    const s = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [hero, foe] });
+    expect(() => applyCommand(s, { kind: "act", abilityId: "nope", target: { unitId: "foe" } })).toThrow(
+      /no equipped ability/,
+    );
+  });
+
+  it("rejects an act whose target is out of the ability's range", () => {
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, speed: 10 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 4 }, statuses: ["stop"] });
+    const s = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [hero, foe] });
+    // basic.attack is melee (range h:1); the foe is far off → rejected pre-roll.
+    expect(() => applyCommand(s, ATTACK("foe"))).toThrow(/out of range/);
   });
 });
 

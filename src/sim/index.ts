@@ -62,6 +62,7 @@ export {
   tileIndex,
   tileAt,
   moveRange,
+  inAbilityRange,
   relativeFacing,
   FACING_VECTOR,
   OPPOSITE_FACING,
@@ -93,6 +94,7 @@ export {
 } from "./formulas.js";
 export {
   resolveAttack,
+  resolveAbility,
   tickCrystal,
   CRYSTAL_TIMER_START,
   type AttackOptions,

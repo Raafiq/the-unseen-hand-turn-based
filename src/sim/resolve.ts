@@ -17,14 +17,17 @@
 import { relativeFacing } from "./grid.js";
 import {
   applyProtect,
+  applyShell,
   applyZodiac,
   hitChance,
+  magicDamage,
   weaponBaseDamage,
   zodiacCompatibility,
   type Facing,
 } from "./formulas.js";
 import { CT_COST_WAIT } from "./scheduler.js";
-import { rngFor, type BattleState } from "./state.js";
+import { rngFor, type BattleState, type UnitState } from "./state.js";
+import type { BattleAbility } from "./ability.js";
 
 export interface AttackOptions {
   /** Concentrate: physical attack ignores evasion (docs/01 §5c). */
@@ -118,6 +121,105 @@ export function resolveAttack(
   });
 
   return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+}
+
+/**
+ * Resolve an INSTANT (non-charged) ability that is NOT the plain weapon swing —
+ * a power-based action read from the attacker's own `abilities` projection. Per
+ * ADR-0011 this takes {@link BattleState} + ids only and looks the ability up on
+ * the unit; it never reads the content registry, so `replay` stays registry-free
+ * and deterministic.
+ *
+ * Same declared roll order and cursor position as {@link resolveAttack}: exactly
+ * ONE hit draw, then a floored magnitude. The basic weapon attack does NOT come
+ * here — the driver routes `formula:"physical"` instants to {@link resolveAttack}
+ * so their rolls stay byte-identical with the pre-Slice-5 engine. This path
+ * covers magic / heal / none (and a power-based physical fallback) instants.
+ *
+ * P1: the magnitude formulas here are [UNVERIFIED] illustrative (docs/01 §12) —
+ * behavior (one draw, floored per step, deterministic), not the constant, is what
+ * the tests pin. Element weak/half/absorb/null land in a later fidelity slice.
+ */
+export function resolveAbility(
+  input: BattleState,
+  attackerId: string,
+  targetId: string,
+  abilityId: string,
+): ResolveResult {
+  const state = structuredClone(input);
+  const attacker = state.units.find((u) => u.id === attackerId);
+  const target = state.units.find((u) => u.id === targetId);
+  if (!attacker) throw new Error(`resolveAbility: unknown attacker ${attackerId}`);
+  if (!target) throw new Error(`resolveAbility: unknown target ${targetId}`);
+  const ability = attacker.abilities.find((a) => a.id === abilityId);
+  if (!ability) throw new Error(`resolveAbility: ${attackerId} has no ability ${abilityId}`);
+  // Guard against acting on a downed unit — the caller pre-validates legal
+  // targets. Consuming an RNG draw for an illegal action would desync replay.
+  if (target.hp <= 0) throw new Error(`resolveAbility: target ${targetId} is already down`);
+
+  const rng = rngFor(state);
+  const facing = relativeFacing(target, attacker.pos);
+  const chance = hitChance(ability.accuracy, target.evasion, facing);
+
+  // ROLL 1 — hit (same cursor position as resolveAttack). Always consumed.
+  const hit = rng.chance(chance);
+
+  const heal = ability.formula === "heal";
+  let damage = 0;
+  let ko = false;
+  if (hit) {
+    // MAGNITUDE — floor order mirrors resolve.ts / charge.ts: formula → Zodiac →
+    // Protect/Shell → clamp ≥ 0. Healing skips the damage reducers.
+    let mag = abilityMagnitude(attacker, target, ability);
+    if (!heal) {
+      const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
+      mag = applyZodiac(mag, tier);
+      if (ability.formula === "physical" && target.statuses.includes("protect")) mag = applyProtect(mag);
+      if (ability.formula === "magic" && target.statuses.includes("shell")) mag = applyShell(mag);
+    }
+    if (mag < 0) mag = 0;
+    damage = mag;
+
+    if (heal) {
+      target.hp = Math.min(target.maxHp, target.hp + damage);
+    } else {
+      const newHp = Math.max(0, target.hp - damage);
+      const wasAlive = target.hp > 0;
+      target.hp = newHp;
+      if (newHp === 0 && wasAlive) {
+        target.crystalTimer = CRYSTAL_TIMER_START;
+        ko = true;
+      }
+    }
+  }
+
+  state.rngCounter = rng.count;
+  state.turnLog.push({
+    tick: state.tick,
+    unitId: attackerId,
+    action: !hit
+      ? `miss ${targetId}`
+      : heal
+        ? `heal ${targetId} +${damage}`
+        : ko
+          ? `KO ${targetId}`
+          : `hit ${targetId} −${damage}`,
+  });
+
+  return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+}
+
+/** Instant-ability magnitude by formula (P1, [UNVERIFIED] — see {@link resolveAbility}). */
+function abilityMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbility): number {
+  switch (ability.formula) {
+    case "physical":
+      return attacker.pa * ability.power;
+    case "magic":
+    case "heal":
+      return magicDamage(attacker.ma, ability.power, attacker.faith, target.faith);
+    case "none":
+      return 0;
+  }
 }
 
 export interface CrystalResult {

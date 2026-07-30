@@ -24,8 +24,8 @@ import {
   tickCrystal,
   type ActiveActor,
   type AttackOutcome,
+  type BattleAbility,
   type BattleState,
-  type ChargeEffect,
   type ChargeOutcome,
   type Facing,
   type Position,
@@ -93,14 +93,28 @@ export function makeDemoBattle(): BattleState {
     }),
   ];
 
+  // The Mage's charged spell is a LOADOUT-DERIVED ability (Slice 5): it lives in
+  // the mage's `abilities` projection alongside its auto basic attack, and
+  // stepDemo sources the cast's speed/effect from it — not an inline constant.
+  const mage = units.find((u) => u.id === "mage")!;
+  mage.abilities = [...mage.abilities, MAGE_SPELL_ABILITY];
+
   return createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
 }
 
 /** The Mage's charged spell: a slow nuke (low speed → dodgeable, docs/01 §3). */
 const MAGE_CAST_RANGE = 6;
-const MAGE_SPELL: { speed: number; effect: ChargeEffect } = {
+const MAGE_SPELL_ID = "spell.fire";
+const MAGE_SPELL_ABILITY: BattleAbility = {
+  id: MAGE_SPELL_ID,
+  actionKind: "action",
+  formula: "magic",
+  power: 22,
+  element: "fire",
+  accuracy: 100,
+  range: { h: MAGE_CAST_RANGE, v: 3 },
+  inflicts: [],
   speed: 12,
-  effect: { kind: "magic", power: 22, element: "fire", accuracy: 100 },
 };
 
 const manhattan = (a: Position, b: Position): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -171,11 +185,14 @@ export function stepDemo(input: BattleState): StepResult {
   // target may have walked off → whiff. (declareCharge ends the caster's turn.)
   const mageBusy = state.chargeQueue.some((c) => c.sourceUnitId === "mage");
   if (actorId === "mage" && !mageBusy && manhattan(me().pos, target.pos) <= MAGE_CAST_RANGE) {
+    // Source the cast from the mage's equipped spell ability (Slice 5): its
+    // speed/element/power/accuracy come from the loadout projection, not a payload.
+    const spell = me().abilities.find((a) => a.id === MAGE_SPELL_ID)!;
     me().facing = faceToward(me().pos, target.pos);
     const next = declareCharge(state, "mage", {
       targetTile: { x: target.pos.x, y: target.pos.y },
-      speed: MAGE_SPELL.speed,
-      effect: MAGE_SPELL.effect,
+      speed: spell.speed ?? 1,
+      effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy },
     });
     return { state: next, active, activeRange: range, moved: false, attack: null, charge: null };
   }
