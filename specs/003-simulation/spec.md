@@ -33,9 +33,11 @@ from `docs/05` alone, without inventing tie-break or interrupt rules.
 
 ## Requirements (ported verbatim from `docs/05`)
 
-> P0 status (partial, this PR series): AC-S1/S2/S6 substrate landed with the
-> seeded PRNG + serializable `BattleState` (see `src/sim/`); AC-S3/S4/S5/S7 land
-> with the scheduler, pipeline, and charged actions in later P0 slices.
+> P0 status: AC-S1/S2/S3/S5/S6/S7 landed (seeded PRNG, serializable
+> `BattleState`, pinned scheduler, damage pipeline, and the command-log
+> replay-equality harness with a frozen-golden oracle). **AC-S4 is PARTIAL** —
+> charge interrupt covers KO + Stop; Sleep/Don't-Act/Petrify/Silence and
+> interrupt-latching are tracked deferrals (**ADR-0010**).
 
 - **AC-S1 (determinism):** Given identical `(seed, command log)`, the engine SHALL reproduce byte-identical `BattleState` at every tick. *Test:* replay equality harness.
 - **AC-S2 (single RNG stream):** The sim SHALL consume randomness only from the seeded PRNG in the declared order; a lint/test SHALL fail on any unseeded random call in sim code.

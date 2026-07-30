@@ -42,6 +42,12 @@ Each requirement maps to a golden test-vector (`docs/01` §12) or an observable
 behavior; the damage/floor requirements are enforced by the pipeline in
 [`003-simulation`](../003-simulation/spec.md) (AC-S5).
 
+> P0 status: AC-01/02/03/05/06/07/09 landed. **AC-04 is PARTIAL** — charged
+> actions resolve on the shared timeline against their target tile and
+> whiff/cancel on KO+Stop; the rest of the interrupt set, Faith/Zodiac-on-hit,
+> element, and DECLARE range/LoS are tracked deferrals (**ADR-0010**). AC-08
+> (Undead/Petrify defeat) is not yet modeled.
+
 - **AC-01 (turn order):** The scheduler SHALL advance every unit's CT by its Speed each tick and grant a turn at CT ≥ 100, resolving simultaneous ≥100 via the pinned tie-break order (`docs/05`). *Test:* a fixed set of Speeds produces a deterministic, reproducible turn sequence.
 - **AC-02 (CT reduction):** On turn end, the system SHALL subtract 100 / 80 / 60 for move+act / one / neither, carrying the remainder. *Test:* act-at-108 → next CT 8.
 - **AC-03 (Haste/Slow):** Haste SHALL scale CT accrual ×1.5 and Slow ×0.5 (floored); Stop SHALL freeze accrual. *Test:* hasted vs. base unit turn ratio ≈ 3:2.
