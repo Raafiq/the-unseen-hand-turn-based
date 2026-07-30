@@ -89,6 +89,83 @@ export function applyShell(value: number): number {
   return floorDiv(value * 2, 3);
 }
 
+/**
+ * Magic evasion (docs/01 §6) — the SEPARATE, facing-independent magic-evade
+ * stat. Magic uses ONLY this: no class/weapon/shield physical evade, no
+ * front/side/rear. Modeled as an independent-multiplicative miss chance (mirrors
+ * the physical §5c path in {@link hitChance}):
+ *   finalHit = floor(hit × (100 − magicEv) / 100)
+ *
+ * [UNCERTAIN] the exact model. The ALTERNATIVE is subtractive
+ * (`finalHit = hit − magicEv`); the two agree exactly at magicEv 0 and diverge
+ * as magicEv grows (hit 45, magicEv 20 → 36 here vs 25 subtractive). Re-verify
+ * vs BMG/FFHacktics before balance leans on magic evasion; formulas.test.ts V2
+ * pins THIS (multiplicative) op.
+ */
+export function applyMagicEvasion(hit: number, magicEv: number): number {
+  const h = clampPercent(hit);
+  const ev = clampPercent(magicEv);
+  return floorDiv(h * (100 - ev), 100);
+}
+
+/**
+ * Apply Zodiac compatibility to a HIT / status-infliction chance (docs/01
+ * §5d/§6). This is the add/subtract-of-a-floored-fraction integer op — distinct
+ * from the damage ×rational op in {@link applyZodiac}:
+ *   Good:  v + floor(v/4)     Bad:   v − floor(v/4)
+ *   Best:  v + floor(v/2)     Worst: v − floor(v/2)     Neutral: v
+ *
+ * [UNCERTAIN] the exact rounding op. The compat MAGNITUDES (1.25/0.75/1.5/0.5)
+ * are P0-verified (fft-fidelity), but this integer form can differ ±1 from the
+ * naive float ×multiplier. No clamp here — {@link magicHitChance} caps at 100
+ * before evasion.
+ */
+export function applyZodiacToHit(value: number, compat: ZodiacTier): number {
+  switch (compat) {
+    case "good":
+      return value + floorDiv(value, 4);
+    case "bad":
+      return value - floorDiv(value, 4);
+    case "best":
+      return value + floorDiv(value, 2);
+    case "worst":
+      return value - floorDiv(value, 2);
+    case "neutral":
+      return value;
+  }
+}
+
+/**
+ * Magic / status hit% (docs/01 §6). Pure integer math, floored in the declared
+ * order — NO RNG (the resolution pipeline owns the draw):
+ *   S1       = floor(base × casterFaith / 100)     # caster Faith
+ *   S2       = floor(S1   × targetFaith / 100)     # target Faith (both floors kept)
+ *   S3       = applyZodiacToHit(S2, compat)        # Zodiac on hit
+ *   S4       = min(S3, 100)                         # cap BEFORE evasion
+ *   finalHit = clamp(applyMagicEvasion(S4, magicEv), 0, 100)
+ *
+ * `base` is PER-ABILITY: damage/heal spells pass base = 100 (Faith drives the
+ * MAGNITUDE, not the hit — see {@link magicDamage} / charge.ts), so their hit
+ * reduces to `applyMagicEvasion(100, magicEv)`. Status spells pass base = MA + K
+ * (K per-ability, [UNCERTAIN], data-table later) so Faith/Zodiac DO gate landing.
+ *
+ * NOTE — Punch Art / ki (Monk) is Faith-INDEPENDENT (PA/Brave, physical path):
+ * it must NEVER route through this function.
+ */
+export function magicHitChance(
+  base: number,
+  casterFaith: number,
+  targetFaith: number,
+  compat: ZodiacTier,
+  magicEv: number,
+): number {
+  const s1 = floorDiv(base * clampPercent(casterFaith), 100);
+  const s2 = floorDiv(s1 * clampPercent(targetFaith), 100);
+  const s3 = applyZodiacToHit(s2, compat);
+  const s4 = s3 > 100 ? 100 : s3;
+  return clampPercent(applyMagicEvasion(s4, magicEv));
+}
+
 export type Facing = "front" | "side" | "rear";
 
 /**

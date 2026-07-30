@@ -71,25 +71,25 @@ export function makeDemoBattle(): BattleState {
       pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, hp: 130, maxHp: 130,
       pa: 11, brave: 72, zodiac: { sign: "aries", gender: "male" },
       weapon: { wp: 15, formula: "braveWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0 },
+      evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0, magicEv: 0 },
     }),
     unit("archer", 0, {
       pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, hp: 90, maxHp: 90,
       pa: 9, brave: 68, zodiac: { sign: "taurus", gender: "female" },
       weapon: { wp: 10, formula: "speedWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("brawler", 1, {
       pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3, hp: 120, maxHp: 120,
       pa: 13, brave: 75, zodiac: { sign: "gemini", gender: "male" },
       weapon: { wp: 0, formula: "bareHands", element: "none", accuracy: 100 },
-      evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("mage", 1, {
       pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 80, maxHp: 80,
       pa: 7, ma: 12, brave: 60, faith: 65, zodiac: { sign: "cancer", gender: "female" },
       weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
-      evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+      evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
   ];
 

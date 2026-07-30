@@ -26,6 +26,11 @@
  *     compiled from the persistent record at build time, build.ts). ADDITIVE
  *     ONLY — no resolver reads it yet, so no roll order or result changes. A 4→5
  *     migration adds a single `basic.attack` derived from the unit's `weapon`.
+ *   - v6 (Slice 6): evasion gains `magicEv` — a SEPARATE magic-evasion stat
+ *     (docs/01 §5c/§6), facing-independent, consumed only by the magic-hit path
+ *     (formulas.ts `applyMagicEvasion` / `magicHitChance`). A 5→6 migration adds
+ *     `magicEv: 0` to every unit's evasion. Additive: at magicEv 0 the magic hit%
+ *     is unchanged, so no roll or result shifts for existing saves.
  */
 
 import { z } from "zod";
@@ -39,7 +44,7 @@ import { BattleAbilitySchema, type BattleAbility } from "./ability.js";
 export { ElementSchema, type Element } from "./element.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -118,9 +123,14 @@ export const WeaponSchema = z
 export type Weapon = z.infer<typeof WeaponSchema>;
 
 /**
- * The four independent evasion sources (docs/01 §5c), each a % miss chance
- * rolled independently. Facing removes sources: side ignores Class; rear keeps
- * only Accessory.
+ * Evasion sources (docs/01 §5c/§6). The four PHYSICAL sources — Class, Weapon,
+ * Shield, Accessory — are each a % miss chance rolled independently, and facing
+ * removes some (side ignores Class; rear keeps only Accessory; see `hitChance`).
+ *
+ * `magicEv` (added at schemaVersion 6) is the SEPARATE magic-evasion stat: it is
+ * FACING-INDEPENDENT (no front/side/rear) and applies ONLY to magic hit%, never
+ * to a physical swing (`magicHitChance` / `applyMagicEvasion` in formulas.ts).
+ * The physical `hitChance` never reads it.
  */
 export const EvasionSchema = z
   .object({
@@ -128,6 +138,7 @@ export const EvasionSchema = z
     weaponEv: PercentSchema,
     shieldEv: PercentSchema,
     accessoryEv: PercentSchema,
+    magicEv: PercentSchema,
   })
   .strict();
 export type Evasion = z.infer<typeof EvasionSchema>;
@@ -328,7 +339,7 @@ export function defaultUnit(id: string, teamId: number, over: Partial<UnitState>
     brave: 70,
     faith: 50,
     weapon,
-    evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    evasion: { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     zodiac: { sign: "aries", gender: "neutral" },
     crystalTimer: 0,
     statuses: [],
@@ -481,6 +492,22 @@ const migrate4to5: Migration = (s) => {
 };
 
 /**
+ * v5 → v6: every unit's `evasion` gains `magicEv` (the separate magic-evasion
+ * stat, docs/01 §5c/§6). A v5 unit had no magic-evasion concept, so seed it with
+ * 0 — i.e. no magic evasion, which leaves the magic hit% unchanged
+ * (`applyMagicEvasion(hit, 0) === hit`). Purely additive: no roll or result
+ * shifts for a migrated save. Real units are born at the current version via
+ * {@link defaultUnit} / build.ts.
+ */
+const migrate5to6: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    evasion: { ...(u["evasion"] as Record<string, unknown>), magicEv: 0 },
+  }));
+  return { ...s, schemaVersion: 6, units };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -489,6 +516,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   2: migrate2to3,
   3: migrate3to4,
   4: migrate4to5,
+  5: migrate5to6,
 };
 
 export class SchemaVersionError extends Error {

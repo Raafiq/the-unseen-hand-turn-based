@@ -132,6 +132,25 @@ Good/Bad are fixed sign relationships. **Best/Worst** occur only between **oppos
 
 Base hit% comes from the ability (often `Spd+c`, `PA+c`, `MA+c`, or flat), then reduced by evasion (§5c). **Magic hit% and status-infliction% are additionally modified by caster/target Faith and Zodiac.** Status durations are **CT-based** (tick down on the afflicted unit's timeline). Height advantage helps ranged accuracy (notably Bows).
 
+### 6a. Magic hit% — a SEPARATE path from physical evasion `[BASELINE]`
+
+Magic does **not** use the §5c 4-source facing model. It uses **only magic-evasion** (a separate stat, largely from shield/accessory), which is **facing-independent** — there is no front/side/rear for a spell. The declared, all-integer, floor-in-order pipeline:
+
+```
+S1       = floor(base × casterFaith / 100)   # caster Faith  (floor)
+S2       = floor(S1   × targetFaith / 100)   # target Faith  (floor) — both Faiths multiply
+S3       = applyZodiacToHit(S2, compat)      # Zodiac on the HIT (§5d)
+S4       = min(S3, 100)                        # cap to 100 BEFORE evasion
+finalHit = clamp( applyMagicEvasion(S4, magicEv), 0, 100 )
+```
+
+- **`base` is per-ability.** **Damage/heal spells use `base = 100`** — Faith drives the spell's *magnitude* (§5b), not its hit, so their hit reduces to `applyMagicEvasion(100, magicEv)`. **Status spells use `base = MA + K`** (`K` per-ability, `[UNCERTAIN]` — a data-table job), so Faith and Zodiac genuinely gate whether the status lands. `[UNCERTAIN]` the `K` constants.
+- **Zodiac-on-hit rounding** `[UNCERTAIN]`: implemented as add/subtract of a floored fraction — Good `v+floor(v/4)`, Bad `v−floor(v/4)`, Best `v+floor(v/2)`, Worst `v−floor(v/2)`, Neutral `v`. The compat *magnitudes* (1.25/0.75/1.5/0.5) are `[VERIFIED — fft-fidelity]`; this integer op can differ ±1 from the naive float and is not itself pinned.
+- **Magic-evasion model** `[UNCERTAIN]`: we use **independent-multiplicative** `floor(S4 × (100−magicEv)/100)`, consistent with the §5c physical path. The alternative is **subtractive** (`S4 − magicEv`); the two agree exactly at `magicEv = 0` and diverge as it grows. Re-verify vs BMG/FFHacktics before balance leans on magic evasion.
+- **Punch Art / ki (Monk)** is **Faith-INDEPENDENT** (PA/Brave, physical path) and must never route through this pipeline.
+
+This is the magic analogue of §5c; the physical 4-source facing model there is unchanged.
+
 ---
 
 ## 7. Grid & positioning

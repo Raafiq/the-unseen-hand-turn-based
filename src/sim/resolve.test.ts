@@ -26,7 +26,7 @@ function duel({ attacker = {}, target = {}, seed = 1 }: DuelOpts = {}): BattleSt
     hp: 300,
     maxHp: 300,
     zodiac: { sign: "taurus", gender: "male" }, // neutral vs aries → ×1
-    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0 },
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     ...target,
   });
   return createBattleState({ seed, grid: { width: 4, height: 4 }, units: [atk, tgt] });

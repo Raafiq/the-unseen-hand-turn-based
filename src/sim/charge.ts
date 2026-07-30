@@ -11,7 +11,8 @@
  * DECLARED order:
  *   1. INTERRUPT CHECK   — no draw (caster KO/Stop → cancel)
  *   2. TARGET RESOLUTION — no draw (empty tile → whiff)
- *   3. HIT ROLL          — one draw vs the effect's hit% (only if a target is present)
+ *   3. HIT ROLL          — one draw vs the magic hit% (accuracy then magic-evade,
+ *                          facing-independent — docs/01 §6; only if a target present)
  *   4. MAGNITUDE         — no draw (magic formula → element → Zodiac → Shell)
  * On resolve the advanced RNG cursor is written back to `rngCounter`. A cancel
  * or a whiff consumes NO draw (no target to roll against) — keeping the cursor
@@ -21,7 +22,7 @@
  * → clamp >= 0. Mirrors resolve.ts's physical path with the magic formula.
  */
 
-import { magicDamage, applyZodiac, applyShell, zodiacCompatibility } from "./formulas.js";
+import { magicDamage, applyZodiac, applyShell, applyMagicEvasion, zodiacCompatibility } from "./formulas.js";
 import { settleTurn } from "./scheduler.js";
 import { CRYSTAL_TIMER_START } from "./resolve.js";
 import { inBounds } from "./grid.js";
@@ -188,10 +189,16 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     };
   }
 
-  // 3. HIT ROLL — one draw vs the effect hit%. (Faith/Zodiac-on-hit are a later
-  //    fidelity slice; the mechanic here is "rolls once, deterministically".)
+  // 3. HIT ROLL — one draw vs the MAGIC hit%. Magic uses ONLY magic-evasion,
+  //    facing-independent (docs/01 §6): the base `effect.accuracy` is reduced by
+  //    the target's magicEv via the independent-multiplicative model. For our
+  //    DAMAGE magic, base = 100 with Faith carried in the MAGNITUDE (magicDamage
+  //    below), so caster×target Faith does NOT gate the hit here — the hit is
+  //    `applyMagicEvasion(accuracy, magicEv)`. (STATUS magic, when it lands in a
+  //    later slice, routes its base = MA+K through `magicHitChance` so Faith and
+  //    Zodiac DO gate landing.) One draw, same cursor position as before.
   const rng = rngFor(state);
-  const chance = effect.accuracy;
+  const chance = applyMagicEvasion(effect.accuracy, target.evasion.magicEv);
   const hit = rng.chance(chance);
 
   let damage = 0;

@@ -230,6 +230,23 @@ describe("two charges maturing the same tick — order + determinism (ADR-0008)"
   });
 });
 
+describe("magic evasion on the hit roll (AC-07, facing-independent)", () => {
+  const EV = (magicEv: number) => ({ classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv });
+
+  it("magicEv 0 preserves the prior behavior: full accuracy, one draw (regression anchor)", () => {
+    const { state, outcome } = resolveCharge(scene({ target: { evasion: EV(0) } }), "chg");
+    expect(outcome.hitChance).toBe(100); // applyMagicEvasion(100, 0) === 100
+    expect(state.rngCounter).toBe(1); // still exactly one hit roll
+  });
+
+  it("magicEv > 0 reduces the hit% by the independent-multiplicative model, still one draw", () => {
+    // accuracy 100, magicEv 20 → floor(100×80/100) = 80. Facing is irrelevant.
+    const { state, outcome } = resolveCharge(scene({ target: { evasion: EV(20) } }), "chg");
+    expect(outcome.hitChance).toBe(80);
+    expect(state.rngCounter).toBe(1);
+  });
+});
+
 describe("magnitude golden — separate-floor order (AC-S5, fft-fidelity)", () => {
   it("MA10 Q4 cFaith70 tFaith80, Zodiac Best, target Shelled → 22", () => {
     // Locks the ORDER of the floors the charge pipeline applies (docs/05 §2):

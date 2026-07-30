@@ -143,6 +143,29 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     expect(deserialize(serialize(migrated))).toEqual(migrated);
   });
 
+  it("migrates a v5 save to v6 by adding magicEv: 0 to each unit's evasion (Slice 6)", () => {
+    // Hand-author a v5 state by stripping the additive `magicEv` off every
+    // evasion and stamping schemaVersion 5 — a faithful v5 payload.
+    const current = sampleState();
+    const raw = JSON.parse(serialize(current)) as {
+      schemaVersion: number;
+      units: Array<{ evasion: Record<string, unknown> }>;
+    };
+    raw.schemaVersion = 5;
+    for (const u of raw.units) delete u.evasion["magicEv"];
+    const v5 = JSON.stringify(raw);
+
+    const migrated = deserialize(v5);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // Every unit gained magicEv: 0; the four physical sources are untouched.
+    for (let i = 0; i < migrated.units.length; i++) {
+      expect(migrated.units[i]!.evasion.magicEv).toBe(0);
+      expect(migrated.units[i]!.evasion.classEv).toBe(current.units[i]!.evasion.classEv);
+    }
+    // Round-trips cleanly once migrated (real save codec).
+    expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
   it("refuses to migrate a v1 save whose units overflow the grid (never corrupt)", () => {
     const v1 = JSON.stringify({
       schemaVersion: 1,
