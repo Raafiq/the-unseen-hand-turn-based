@@ -26,14 +26,20 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/session-start.sh" }
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh"
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/retrospective-nudge.sh" }
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/retrospective-nudge.sh"
+          }
         ]
       }
     ]
