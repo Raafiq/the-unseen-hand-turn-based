@@ -14,6 +14,7 @@ import {
   deserializeRecord,
   type UnitRecord,
 } from "./roster.js";
+import { emptyLoadout } from "./loadout.js";
 
 describe("roster codec — round-trip + defaults", () => {
   it("defaultUnitRecord produces a schema-valid record at the current version", () => {
@@ -84,5 +85,48 @@ describe("roster codec — loud version + shape guards", () => {
   it("serialize validates on the way out (bad raw stat is rejected)", () => {
     const bad = { ...defaultUnitRecord("hero", "knight"), ap: -1 } as UnitRecord;
     expect(() => serializeRecord(bad)).toThrow();
+  });
+});
+
+describe("roster codec — v1→v2 loadout migration (Slice 3)", () => {
+  /** A hand-authored v1 record: pre-loadout shape, no `loadout` field. */
+  function v1Record(): Record<string, unknown> {
+    return {
+      rosterSchemaVersion: 1,
+      id: "old-save",
+      name: "Old Save",
+      level: 7,
+      currentJob: "knight",
+      raw: { pa: 6, ma: 5, speed: 6, hp: 55, mp: 12 },
+      brave: 70,
+      faith: 50,
+      ap: 180,
+      learned: ["battle-skill.weapon-break"],
+      mastered: [],
+    };
+  }
+
+  it("migrates a v1 record forward to v2 with an empty loadout", () => {
+    const migrated = deserializeRecord(JSON.stringify(v1Record()));
+    expect(migrated.rosterSchemaVersion).toBe(2);
+    expect(migrated.loadout).toEqual(emptyLoadout());
+    // Non-loadout fields are carried through untouched.
+    expect(migrated.ap).toBe(180);
+    expect(migrated.learned).toEqual(["battle-skill.weapon-break"]);
+  });
+
+  it("a v2 record with a populated loadout round-trips exactly", () => {
+    const rec = defaultUnitRecord("hero", "knight", {
+      learned: ["black-magic.fire"],
+      loadout: {
+        secondary: "wizard",
+        reaction: null,
+        support: null,
+        movement: null,
+        traits: ["bulwark"],
+      },
+    });
+    expect(rec.rosterSchemaVersion).toBe(ROSTER_SCHEMA_VERSION);
+    expect(deserializeRecord(serializeRecord(rec))).toEqual(rec);
   });
 });

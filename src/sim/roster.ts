@@ -15,15 +15,20 @@
  * Version handling mirrors `state.ts:deserialize` — loud fail on an unsupported
  * version, never a silent/partial load.
  *
- * Scope note: NO loadout/equipment fields yet. The 5-slot ability loadout lands
- * in Slice 3 (the 1→2 migration); equipment lands in Slice 4. `learned` /
- * `mastered` / `ap` here are the progression substrate those slices build on.
+ * Scope note: the 5-slot ability loadout landed in Slice 3 (the 1→2 migration,
+ * below); equipment lands in Slice 4. `learned` / `mastered` / `ap` here are the
+ * progression substrate those slices build on.
+ *
+ * Import direction (loadout.ts): this file imports `LoadoutSchema`/`emptyLoadout`
+ * at RUNTIME; loadout.ts imports only the `UnitRecord` TYPE back (erased), so the
+ * runtime dependency is one-way roster → loadout with no cycle.
  */
 
 import { z } from "zod";
+import { LoadoutSchema, emptyLoadout } from "./loadout.js";
 
 /** Current on-disk unit-record schema version. Bump when UnitRecord shape changes. */
-export const ROSTER_SCHEMA_VERSION = 1;
+export const ROSTER_SCHEMA_VERSION = 2;
 
 /** Oldest rosterSchemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_ROSTER_SCHEMA_VERSION = 1;
@@ -77,6 +82,12 @@ export const UnitRecordSchema = z
     learned: z.array(z.string().min(1)),
     /** Job ids permanently mastered (AC-J3: latching, never removed). */
     mastered: z.array(z.string().min(1)),
+    /**
+     * The 5-slot ability chassis (AC-J1; loadout.ts). Added at rosterSchemaVersion
+     * 2. FREE + reversible (AC-J4): the loadout mutators never touch `ap` or the
+     * permanent progress fields above.
+     */
+    loadout: LoadoutSchema,
   })
   .strict();
 export type UnitRecord = z.infer<typeof UnitRecordSchema>;
@@ -93,11 +104,23 @@ export class RosterSchemaVersionError extends Error {
 export type RosterMigration = (record: Record<string, unknown>) => Record<string, unknown>;
 
 /**
- * Migration registry: `ROSTER_MIGRATIONS[v]` upgrades a record from version `v`
- * to `v + 1`. Empty at v1 — Slice 3 registers the 1→2 migration here when it
- * adds the loadout field.
+ * Migrate a v1 record (no loadout) to v2 by attaching an empty 5-slot chassis.
+ * Purely additive — a pre-loadout unit simply starts with everything un-equipped
+ * (which is the safe default; a loadout carries no permanent progress).
  */
-export const ROSTER_MIGRATIONS: Readonly<Record<number, RosterMigration>> = {};
+const migrate1to2: RosterMigration = (record) => ({
+  ...record,
+  rosterSchemaVersion: 2,
+  loadout: emptyLoadout(),
+});
+
+/**
+ * Migration registry: `ROSTER_MIGRATIONS[v]` upgrades a record from version `v`
+ * to `v + 1`. `1→2` adds the loadout field (Slice 3).
+ */
+export const ROSTER_MIGRATIONS: Readonly<Record<number, RosterMigration>> = {
+  1: migrate1to2,
+};
 
 /**
  * Build a valid UnitRecord with sensible defaults, overridable per field
@@ -121,6 +144,7 @@ export function defaultUnitRecord(
     ap: over.ap ?? 0,
     learned: over.learned ?? [],
     mastered: over.mastered ?? [],
+    loadout: over.loadout ?? emptyLoadout(),
   };
 }
 

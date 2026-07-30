@@ -65,6 +65,16 @@ export const AbilitySchema = z
     hitBase: z.string().min(1).optional(),
     /** Status ids inflicted on hit; each must exist in the pack's statuses. */
     inflicts: z.array(z.string().min(1)).optional(),
+    /**
+     * [AC-J6 hook] Ability ids this ability may not be co-equipped with in another
+     * chassis slot (mutual-exclusion, enforced at equip time by loadout.ts). ADDITIVE
+     * + OPTIONAL: absent = no exclusions, so existing packs (base-pack has none) stay
+     * valid against CONTENT_SCHEMA_VERSION=1 with NO migration — an unspecified
+     * optional field can never invalidate prior data, so the content version does not
+     * bump. It is a PREP-TIME concern only and is deliberately NOT on
+     * BattleAbilitySchema (the combat projection never reads it).
+     */
+    excludes: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
   })
   .strict();

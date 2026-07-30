@@ -173,6 +173,17 @@ export {
   type ApReward,
 } from "./progression.js";
 export {
+  LoadoutSlotSchema,
+  LoadoutSchema,
+  emptyLoadout,
+  primaryCommand,
+  setLoadoutSlot,
+  setLoadoutTraits,
+  equippedSecondaryAbilities,
+  type LoadoutSlot,
+  type Loadout,
+} from "./loadout.js";
+export {
   CONTENT_SCHEMA_VERSION,
   MIN_SUPPORTED_CONTENT_SCHEMA_VERSION,
   BASELINE_SKILLSETS,
