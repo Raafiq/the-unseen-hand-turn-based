@@ -16,6 +16,8 @@ const CAPTIONS = {
   "02-closing-in.png": "Closing in — units maneuver across the plateau within Move/Jump range toward the enemy.",
   "03-combat.png": "Combat — units attack when adjacent; real hit rolls and damage from the FFT formulas, with damage popups.",
   "04-aftermath.png": "Aftermath — HP has dropped and KO'd units become crystals; the turn log shows the CT-ordered blow-by-blow.",
+  "05-prep-chassis.png": "Prep — the 5-slot ability chassis. A Knight with abilities learned across four jobs; the Secondary command starts empty, so the command list is just Attack + Battle Skill.",
+  "06-prep-black-magic.png": "Customization aha — equipping Black Magic as the Secondary command grows the castable command list: the Knight can now cast Fire (and its whole line). Swaps are free and reversible.",
 };
 
 async function findVideo(dir) {

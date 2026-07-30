@@ -51,6 +51,28 @@
       .legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
       footer { margin-top: 26px; color: var(--ink-faint); font-size: .8rem; font-family: var(--mono); }
       footer a { color: var(--accent); }
+      .prep { margin-top: 22px; }
+      .prep > p.lede { margin: 0 0 14px; color: var(--ink-soft); max-width: 64ch; font-size: .92rem; }
+      .prep-grid { display: grid; gap: 18px; grid-template-columns: 1fr; }
+      @media (min-width: 760px) { .prep-grid { grid-template-columns: 1.25fr 1fr; align-items: start; } }
+      .chassis { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+      @media (min-width: 520px) { .chassis { grid-template-columns: repeat(3, 1fr); } }
+      .slot { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+      .slot h3 { margin: 0 0 8px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; justify-content: space-between; gap: 6px; }
+      .slot h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .slot .val { font-size: .92rem; color: var(--ink); }
+      .slot .sub { margin-top: 3px; font-size: .76rem; color: var(--ink-soft); }
+      .slot select { width: 100%; font-family: var(--sans); font-size: .86rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; }
+      .slot select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .slot .chk { display: flex; align-items: center; gap: 6px; font-size: .86rem; color: var(--ink-soft); }
+      .slot .empty { margin: 0; font-size: .76rem; color: var(--ink-faint); }
+      .cmds h3 { margin: 0 0 12px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+      .cmds h3 .count { background: var(--accent); color: #10151f; border-radius: 999px; padding: 1px 8px; font-size: .72rem; font-weight: 700; }
+      .cmd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+      .cmd-list li { font-size: .84rem; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
+      .cmd-list li[data-cmd^="black-magic"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .cmds .hint { margin: 14px 0 0; font-size: .82rem; color: var(--ink-soft); }
+      .cmds .hint b { color: var(--ink); }
     </style>
   </head>
   <body>
@@ -88,6 +110,12 @@
           </div>
         </div>
       </div>
+
+      <section class="panel prep" data-testid="prep">
+        <h2>Prep — 5-slot chassis &amp; loadout</h2>
+        <p class="lede">The customization pillar, live from the pure sim. This Knight has learned abilities across four jobs. Equip a <b>Secondary</b> command and watch the <b>Commands in battle</b> list change — the flagship “learn Black Magic → cast Fire” moment. The command list is the real battle projection (<code>buildBattleUnit</code>), and every swap is free and reversible.</p>
+        <div id="prep-body" class="prep-grid"></div>
+      </section>
 
       <footer>Built from <code>src/sim</code> (pure &amp; headless) + <code>src/render</code>. Grid height &amp; facing live in <code>BattleState</code>; the isometric view is a pure projection.</footer>
     </div>
