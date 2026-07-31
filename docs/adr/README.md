@@ -16,3 +16,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0010](0010-pr4-charged-actions-scope.md) | PR4 charged-actions scope — faithful now vs deferred (AC-04/S4 partial) | Accepted | 2026-07-30 |
 | [0011](0011-p1-customization-architecture.md) | P1 customization data architecture (battle-start resolution, 3 version lines, status split) | Accepted | 2026-07-30 |
 | [0012](0012-p1-ap-economy-and-job-set.md) | P1 AP economy baseline + starting-job set (Knight/Monk/Black Mage/Thief) | Accepted | 2026-07-30 |
+| [0013](0013-defer-facing-on-move.md) | Defer facing-on-move; ship the balance-probe AI against deploy facing | Accepted | 2026-07-31 |

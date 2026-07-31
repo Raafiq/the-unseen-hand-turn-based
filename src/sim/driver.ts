@@ -56,35 +56,78 @@ export const CommandSchema = z.discriminatedUnion("kind", [
 export type Command = z.infer<typeof CommandSchema>;
 
 /**
- * Advance to the next living-unit turn (auto-resolving any charges and crystal
- * ticks that come up first) and apply `command` to that unit, settling its turn.
- * Pure: threads immutable states, never mutates the input.
- *
- * @throws if the field is fully stalled (no actor can reach a turn), since there
- *   is no unit to apply the command to.
+ * The result of advancing the shared timeline to the next DECISION POINT — the
+ * moment a living unit is up and a caller (the driver or the benchmark harness)
+ * must supply one command. `unitId` names that unit; `terminal` is `"stalemate"`
+ * (with `unitId: null`) when the field is fully stalled and no actor can reach a
+ * turn (all Stopped) — there is no unit to decide for.
  */
-export function applyCommand(input: BattleState, command: Command): BattleState {
-  const parsed = CommandSchema.parse(command);
+export interface Decision {
+  /** State advanced to the decision point (charges/crystal ticks already resolved). */
+  state: BattleState;
+  /** The living unit whose turn it is, or `null` on a stalemate. */
+  unitId: string | null;
+  /** `"stalemate"` when the field is fully stalled; otherwise `null`. */
+  terminal: "stalemate" | null;
+}
+
+/**
+ * Advance the shared timeline to the next living-unit turn, AUTO-RESOLVING any
+ * charges (via {@link resolveCharge}) and KO crystal ticks (via {@link tickCrystal})
+ * that come up first — exactly the loop {@link applyCommand} used to inline. Pure:
+ * threads immutable states, never mutates the input. Returns the advanced state
+ * plus the unit that must now decide, or a `"stalemate"` terminal when no actor can
+ * reach a turn.
+ *
+ * IDEMPOTENT at a decision point: if `state` already sits at a ready living unit
+ * (no charge outranks it), calling this advances zero ticks and re-surfaces the
+ * same unit — so the harness can call it to inspect/evaluate, then hand the state
+ * to {@link applyCommand} (which re-advances harmlessly to the same unit).
+ *
+ * This is the SINGLE primitive the interactive driver and the headless harness
+ * share, so "who acts next" can never diverge between them.
+ */
+export function advanceToDecision(input: BattleState): Decision {
   let state = input;
   for (;;) {
     const { state: advanced, active } = advanceToNextTurn(state);
     state = advanced;
     if (!active) {
-      throw new Error("applyCommand: field is stalled; no actor to apply the command to");
+      // Fully stalled (all Stopped): no actor can reach a turn.
+      return { state, unitId: null, terminal: "stalemate" };
     }
     if (active.kind === "charge") {
       state = resolveCharge(state, active.id).state;
       continue;
     }
     const unit = state.units.find((u) => u.id === active.id);
-    if (!unit) throw new Error(`applyCommand: scheduler surfaced unknown unit ${active.id}`);
+    if (!unit) throw new Error(`advanceToDecision: scheduler surfaced unknown unit ${active.id}`);
     if (unit.hp <= 0) {
       // A KO'd unit's turn ticks the crystal counter (docs/01 §11); no command.
       state = tickCrystal(state, active.id).state;
       continue;
     }
-    return applyToUnit(state, active.id, parsed);
+    return { state, unitId: active.id, terminal: null };
   }
+}
+
+/**
+ * Advance to the next living-unit turn (auto-resolving any charges and crystal
+ * ticks that come up first) and apply `command` to that unit, settling its turn.
+ * Pure: threads immutable states, never mutates the input. Built on
+ * {@link advanceToDecision} so the harness and interactive play can never diverge
+ * on which unit is up.
+ *
+ * @throws if the field is fully stalled (no actor can reach a turn), since there
+ *   is no unit to apply the command to.
+ */
+export function applyCommand(input: BattleState, command: Command): BattleState {
+  const parsed = CommandSchema.parse(command);
+  const { state, unitId, terminal } = advanceToDecision(input);
+  if (terminal !== null || unitId === null) {
+    throw new Error("applyCommand: field is stalled; no actor to apply the command to");
+  }
+  return applyToUnit(state, unitId, parsed);
 }
 
 /** Apply one command to the (living) unit whose turn it is, then settle. */
