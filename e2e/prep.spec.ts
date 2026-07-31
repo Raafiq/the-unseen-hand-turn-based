@@ -66,3 +66,50 @@ test("prep viewer: equipping a Secondary command grows the castable command list
   await page.waitForTimeout(HOLD_MS);
   await expect(commands).not.toContainText("Fire");
 });
+
+/**
+ * Drives the live derived-stats strip: toggling the Lightfoot mastery trait (Move
+ * +1, earned by mastering Thief) visibly moves the unit's Move stat. Proves that
+ * mastery traits are no longer inert labels — they change the BUILT unit's derived
+ * stats at battle-start — and that a loadout swap is free + reversible (AC-J4).
+ * Deterministic (no RNG, no timers affecting state), so the before/after
+ * screenshots double as a visual regression baseline.
+ */
+test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", async ({ page }) => {
+  await mkdir(SHOTS, { recursive: true });
+
+  await page.goto("/");
+
+  const stats = page.getByTestId("prep-stats");
+  await expect(stats).toBeVisible();
+  await stats.scrollIntoViewIfNeeded();
+  await expect(stats).toContainText("Move");
+
+  // Lightfoot (Thief mastery, Move +1) is equipped by default → Move is boosted.
+  const moveCell = page.locator('[data-stat="move"]');
+  const moveWith = Number((await moveCell.innerText()).replace(/[^\d-]/g, ""));
+
+  const lightfoot = page.locator('input[data-trait="lightfoot"]');
+  await expect(lightfoot).toBeChecked();
+  await page.waitForTimeout(INTRO_MS);
+  await page.screenshot({ path: `${SHOTS}/07-prep-stats-trait-on.png`, fullPage: true });
+
+  // Un-equip Lightfoot → the flat +1 Move is removed at the next build.
+  await lightfoot.uncheck();
+  await page.waitForTimeout(HOLD_MS);
+  const moveWithout = Number((await moveCell.innerText()).replace(/[^\d-]/g, ""));
+  expect(moveWithout).toBe(moveWith - 1);
+  await page.screenshot({ path: `${SHOTS}/08-prep-stats-trait-off.png`, fullPage: true });
+
+  // Cross-check the deterministic hook: the built unit's Move matches the display.
+  const built = await page.evaluate(() => {
+    const w = window as unknown as { tuhPrep: { getStats(): { move: number } } };
+    return w.tuhPrep.getStats();
+  });
+  expect(built.move).toBe(moveWithout);
+
+  // Reversible (AC-J4): re-equipping restores the boost exactly.
+  await lightfoot.check();
+  await page.waitForTimeout(HOLD_MS);
+  await expect(moveCell).toHaveText(String(moveWith));
+});
