@@ -17,6 +17,7 @@ import {
 function validPack(): ContentPack {
   return {
     contentSchemaVersion: CONTENT_SCHEMA_VERSION,
+    traits: [{ id: "magic-attack-up", effect: {} }],
     statuses: [
       {
         id: "poison",
@@ -72,9 +73,11 @@ describe("loadContentPack — valid pack + registry lookups (AC-R2)", () => {
     expect(reg.job("black-mage").primarySkillset).toBe("black-magic");
     expect(reg.ability("black.fire").element).toBe("fire");
     expect(reg.status("poison").kind).toBe("debuff");
+    expect(reg.trait("magic-attack-up").effect).toEqual({});
     expect(reg.jobById.size).toBe(1);
     expect(reg.abilityById.size).toBe(2);
     expect(reg.statusById.size).toBe(1);
+    expect(reg.traitById.size).toBe(1);
   });
 
   it("accepts an ability whose skillset is a baseline (not a job) skillset", () => {
@@ -94,6 +97,63 @@ describe("loadContentPack — valid pack + registry lookups (AC-R2)", () => {
     expect(() => reg.ability("nope")).toThrow(ContentIntegrityError);
     expect(() => reg.job("nope")).toThrow(ContentIntegrityError);
     expect(() => reg.status("nope")).toThrow(ContentIntegrityError);
+    expect(() => reg.trait("nope")).toThrow(ContentIntegrityError);
+  });
+});
+
+describe("Trait catalog — integrity + v1→v2 migration (AC-P5)", () => {
+  it("rejects a job masteryBonus referencing a trait with no catalog entry", () => {
+    const pack = validPack();
+    pack.jobs[0]!.masteryBonus = { trait: "ghost-trait" };
+    expect(() => loadContentPack(pack)).toThrow(ContentIntegrityError);
+    expect(() => loadContentPack(pack)).toThrow(/unknown trait/);
+  });
+
+  it("rejects a duplicate trait id", () => {
+    const pack = validPack();
+    pack.traits.push({ id: "magic-attack-up", effect: {} });
+    expect(() => loadContentPack(pack)).toThrow(/duplicate trait/);
+  });
+
+  it("validates a real (non-empty) trait effect and rejects a `speed` key (AC-P5)", () => {
+    const pack = validPack();
+    pack.traits[0]!.effect = { maxHp: { mult: 1.1 }, evasion: { classEv: 10 } };
+    const reg = loadContentPack(pack);
+    expect(reg.trait("magic-attack-up").effect.maxHp?.mult).toBe(1.1);
+    // A `speed` key is structurally impossible — .strict() rejects it.
+    const bad = validPack();
+    (bad.traits[0]!.effect as Record<string, unknown>).speed = { flat: 1 };
+    expect(() => loadContentPack(bad)).toThrow();
+  });
+
+  it("migrates a v1 pack (no `traits` key) into inert, zero-effect traits", () => {
+    // A legacy v1 pack: jobs reference trait ids only via masteryBonus; no catalog.
+    const v1 = validPack() as Record<string, unknown>;
+    v1["contentSchemaVersion"] = 1;
+    delete v1["traits"];
+    const reg = loadContentPack(v1);
+    // The distinct masteryBonus.trait ("magic-attack-up") is synthesized inert.
+    expect(reg.trait("magic-attack-up").effect).toEqual({});
+    expect(reg.traitById.size).toBe(1);
+    expect(reg.job("black-mage").masteryBonus.trait).toBe("magic-attack-up");
+  });
+
+  it("v1 migration de-dupes trait ids across jobs (one entry per distinct id)", () => {
+    const v1 = validPack() as Record<string, unknown>;
+    v1["contentSchemaVersion"] = 1;
+    delete v1["traits"];
+    const jobs = v1["jobs"] as Array<Record<string, unknown>>;
+    // A second job sharing the SAME mastery trait id.
+    jobs.push({
+      id: "sage",
+      primarySkillset: "black-magic",
+      genderLock: null,
+      growth: { pa: 0.9, ma: 1.2, speed: 1.0, hp: 0.85, mp: 1.3 },
+      tree: [],
+      masteryBonus: { trait: "magic-attack-up" },
+    });
+    const reg = loadContentPack(v1);
+    expect(reg.traitById.size).toBe(1); // one distinct trait, not two
   });
 });
 

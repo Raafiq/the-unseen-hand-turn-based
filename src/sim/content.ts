@@ -20,9 +20,10 @@ import { z } from "zod";
 import { AbilitySchema, type Ability } from "./ability.js";
 import { JobSchema, type Job } from "./job.js";
 import { StatusEffectSchema, type StatusEffect } from "./status.js";
+import { TraitSchema, type Trait } from "./trait.js";
 
 /** Current content-pack schema version. Bump when any catalog shape changes. */
-export const CONTENT_SCHEMA_VERSION = 1;
+export const CONTENT_SCHEMA_VERSION = 2;
 
 /** Oldest content schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_CONTENT_SCHEMA_VERSION = 1;
@@ -39,10 +40,37 @@ export const BASELINE_SKILLSETS: readonly string[] = ["basic", "item"];
 export type ContentMigration = (pack: Record<string, unknown>) => Record<string, unknown>;
 
 /**
- * Migration registry: `CONTENT_MIGRATIONS[v]` upgrades a pack from version `v`
- * to `v + 1`. Empty at v1; each future content-schema bump registers here.
+ * v1 → v2: the mastery-trait catalog landed (traits gained stat effects). A v1
+ * pack has no `traits` array — its traits were bare identifier strings referenced
+ * only by `job.masteryBonus.trait`. Synthesize a ZERO-EFFECT entry (`{id, effect:
+ * {}}`) for every DISTINCT trait id found across the jobs, preserving the legacy
+ * behavior (inert traits) exactly. Pure: walks the authored `jobs` array in stable
+ * order, never mutating the input.
  */
-export const CONTENT_MIGRATIONS: Readonly<Record<number, ContentMigration>> = {};
+function migrateContentV1toV2(pack: Record<string, unknown>): Record<string, unknown> {
+  const jobs = Array.isArray(pack["jobs"]) ? (pack["jobs"] as unknown[]) : [];
+  const seen = new Set<string>();
+  const traits: Array<{ id: string; effect: Record<string, never> }> = [];
+  for (const job of jobs) {
+    if (typeof job !== "object" || job === null) continue;
+    const mastery = (job as Record<string, unknown>)["masteryBonus"];
+    if (typeof mastery !== "object" || mastery === null) continue;
+    const traitId = (mastery as Record<string, unknown>)["trait"];
+    if (typeof traitId === "string" && !seen.has(traitId)) {
+      seen.add(traitId);
+      traits.push({ id: traitId, effect: {} });
+    }
+  }
+  return { ...pack, traits, contentSchemaVersion: 2 };
+}
+
+/**
+ * Migration registry: `CONTENT_MIGRATIONS[v]` upgrades a pack from version `v`
+ * to `v + 1`. Each content-schema bump registers here.
+ */
+export const CONTENT_MIGRATIONS: Readonly<Record<number, ContentMigration>> = {
+  1: migrateContentV1toV2,
+};
 
 /** Thrown when a content pack's schemaVersion is missing or unsupported. */
 export class ContentSchemaVersionError extends Error {
@@ -67,6 +95,7 @@ export const ContentPackSchema = z
     jobs: z.array(JobSchema),
     abilities: z.array(AbilitySchema),
     statuses: z.array(StatusEffectSchema),
+    traits: z.array(TraitSchema),
   })
   .strict();
 export type ContentPack = z.infer<typeof ContentPackSchema>;
@@ -80,9 +109,11 @@ export interface ContentRegistry {
   readonly jobById: ReadonlyMap<string, Job>;
   readonly abilityById: ReadonlyMap<string, Ability>;
   readonly statusById: ReadonlyMap<string, StatusEffect>;
+  readonly traitById: ReadonlyMap<string, Trait>;
   job(id: string): Job;
   ability(id: string): Ability;
   status(id: string): StatusEffect;
+  trait(id: string): Trait;
 }
 
 /** Index `items` by `id`, rejecting duplicates with a clear error. */
@@ -124,6 +155,7 @@ function checkReferentialIntegrity(
   pack: ContentPack,
   abilityById: ReadonlyMap<string, Ability>,
   statusById: ReadonlyMap<string, StatusEffect>,
+  traitById: ReadonlyMap<string, Trait>,
 ): void {
   // Known skillsets = baseline allowlist + every job's primary skillset.
   const knownSkillsets = new Set<string>(BASELINE_SKILLSETS);
@@ -142,6 +174,14 @@ function checkReferentialIntegrity(
           `ability "${ability.id}" inflicts unknown status id "${statusId}"`,
         );
       }
+    }
+  }
+
+  for (const job of pack.jobs) {
+    if (!traitById.has(job.masteryBonus.trait)) {
+      throw new ContentIntegrityError(
+        `job "${job.id}" masteryBonus references unknown trait id "${job.masteryBonus.trait}"`,
+      );
     }
   }
 
@@ -221,19 +261,23 @@ export function loadContentPack(raw: unknown): ContentRegistry {
   const jobById = indexById(pack.jobs, "job");
   const abilityById = indexById(pack.abilities, "ability");
   const statusById = indexById(pack.statuses, "status");
+  const traitById = indexById(pack.traits, "trait");
 
-  checkReferentialIntegrity(pack, abilityById, statusById);
+  checkReferentialIntegrity(pack, abilityById, statusById, traitById);
 
   const frozenJobs = freezeMap(jobById);
   const frozenAbilities = freezeMap(abilityById);
   const frozenStatuses = freezeMap(statusById);
+  const frozenTraits = freezeMap(traitById);
 
   return Object.freeze({
     jobById: frozenJobs,
     abilityById: frozenAbilities,
     statusById: frozenStatuses,
+    traitById: frozenTraits,
     job: makeLookup(frozenJobs, "job"),
     ability: makeLookup(frozenAbilities, "ability"),
     status: makeLookup(frozenStatuses, "status"),
+    trait: makeLookup(frozenTraits, "trait"),
   });
 }

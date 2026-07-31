@@ -80,6 +80,23 @@ describe("shipped content pack (AC-R2, data/base-pack.json)", () => {
     expect(types.has("action")).toBe(true);
   });
 
+  it("ships the four mastery traits at contentSchemaVersion 2 with real effects", () => {
+    const reg = loadShippedPack();
+    expect(reg.traitById.size).toBe(4);
+    // bulwark: +10 class evasion and a maxHp mult.
+    expect(reg.trait("bulwark").effect.evasion?.classEv).toBe(10);
+    expect(reg.trait("bulwark").effect.maxHp?.mult).toBe(1.05);
+    // inner-focus / arcane-attunement are single-mult stat boosts.
+    expect(reg.trait("inner-focus").effect.maxHp?.mult).toBe(1.12);
+    expect(reg.trait("arcane-attunement").effect.ma?.mult).toBe(1.12);
+    // lightfoot: +1 move.
+    expect(reg.trait("lightfoot").effect.move?.flat).toBe(1);
+    // Every job's mastery trait resolves in the catalog (integrity already passed).
+    for (const id of ["knight", "monk", "wizard", "thief"]) {
+      expect(() => reg.trait(reg.job(id).masteryBonus.trait)).not.toThrow();
+    }
+  });
+
   it("resolves every inflicted status id against the catalog", () => {
     const reg = loadShippedPack();
     for (const ability of reg.abilityById.values()) {

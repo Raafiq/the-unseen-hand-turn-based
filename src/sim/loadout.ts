@@ -46,7 +46,9 @@ export type LoadoutSlot = z.infer<typeof LoadoutSlotSchema>;
  * The stored 5-slot chassis (minus the derived Primary). `null` = an empty slot.
  * `secondary` holds a JOB id (a whole command); `reaction`/`support`/`movement`
  * each hold a single ABILITY id. `traits` holds up to TWO earned trait strings
- * (`.max(2)` is the cardinality guard from AC-J1).
+ * (`.max(2)` is the cardinality guard from AC-J1); a `.refine` also rejects
+ * DUPLICATES at the schema level, so a hand-edited/deserialized save can never
+ * double-stack one trait past the {@link setLoadoutTraits} happy-path guard.
  */
 export const LoadoutSchema = z
   .object({
@@ -58,8 +60,13 @@ export const LoadoutSchema = z
     support: z.string().min(1).nullable(),
     /** Movement ability id, or null. */
     movement: z.string().min(1).nullable(),
-    /** Up to two earned mastery-trait strings. */
-    traits: z.array(z.string().min(1)).max(2),
+    /** Up to two earned mastery-trait strings, which MUST be distinct. */
+    traits: z
+      .array(z.string().min(1))
+      .max(2)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: "loadout traits must be distinct (no equipping the same trait twice)",
+      }),
   })
   .strict();
 export type Loadout = z.infer<typeof LoadoutSchema>;
@@ -169,7 +176,8 @@ export function setLoadoutSlot(
 
 /**
  * Replace the equipped traits, returning a NEW record touching only
- * `loadout.traits` (AC-J4: free + reversible). Validates `traits.length <= 2` and
+ * `loadout.traits` (AC-J4: free + reversible). Validates `traits.length <= 2`, that
+ * the ids are DISTINCT (no equipping the same trait twice for a double effect), and
  * that every trait is EARNED — equal to `masteryBonus.trait` of some job in
  * `record.mastered`. Throws a clear Error otherwise.
  */
@@ -180,6 +188,9 @@ export function setLoadoutTraits(
 ): UnitRecord {
   if (traits.length > 2) {
     throw new Error(`cannot equip ${traits.length} traits: at most 2 are allowed`);
+  }
+  if (new Set(traits).size !== traits.length) {
+    throw new Error(`cannot equip duplicate traits: [${traits.join(", ")}]`);
   }
   const earned = new Set(record.mastered.map((jobId) => registry.job(jobId).masteryBonus.trait));
   for (const trait of traits) {

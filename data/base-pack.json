@@ -1,5 +1,11 @@
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
+  "traits": [
+    { "id": "bulwark", "effect": { "evasion": { "classEv": 10 }, "maxHp": { "mult": 1.05 } } },
+    { "id": "inner-focus", "effect": { "maxHp": { "mult": 1.12 } } },
+    { "id": "arcane-attunement", "effect": { "ma": { "mult": 1.12 } } },
+    { "id": "lightfoot", "effect": { "move": { "flat": 1 } } }
+  ],
   "statuses": [
     {
       "id": "status.haste",
