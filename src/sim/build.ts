@@ -6,9 +6,10 @@
  * registry-free and therefore deterministic (the same reason `ChargeEffect` and
  * `BattleAbility` are self-contained, ADR-0010/ADR-0011).
  *
- * Derivation order (docs/05 §4: raw → job growth → [equipment / mastery / status
- * — DEFERRED] → clamp). Integer/floored math only, floored per step; no RNG, no
- * wall-clock, no IO. The registry is an injected parameter, never a global.
+ * Derivation order (docs/05 §4: raw → job growth → mastery-trait modifiers →
+ * clamp; equipment / status still DEFERRED). Integer/floored math only, floored
+ * per step; no RNG, no wall-clock, no IO. The registry is an injected parameter,
+ * never a global.
  *
  * SLICE-4 SCOPE: this projects a unit's CASTABLE ACTIONS into `abilities`, but
  * NOTHING in the resolver reads `abilities` yet (Slice 5 wires it). So building a
@@ -28,10 +29,12 @@ import {
   defaultUnit,
   makeFlatTiles,
   type BattleState,
+  type Evasion,
   type Tile,
   type UnitState,
   type Weapon,
 } from "./state.js";
+import { applyTraitEffects, type TraitStatBase } from "./trait.js";
 
 /**
  * Placeholder weapon until an equipment layer lands — a UnitRecord carries no
@@ -39,6 +42,51 @@ import {
  * default-constructed one agree on the basic attack.
  */
 const DEFAULT_BUILD_WEAPON: Weapon = { wp: 8, formula: "paWp", element: "none", accuracy: 100 };
+
+/**
+ * The move / evasion a built unit gets when neither the caller (`over`) nor a
+ * trait supplies one — MUST equal {@link defaultUnit}'s own defaults (state.ts),
+ * so the no-trait build path stays byte-for-byte identical to a default unit.
+ */
+const DEFAULT_BUILD_MOVE = 3;
+const DEFAULT_BUILD_EVASION: Evasion = {
+  classEv: 10,
+  weaponEv: 0,
+  shieldEv: 0,
+  accessoryEv: 0,
+  magicEv: 0,
+};
+
+/** The five evasion sources, clamped individually to the PercentSchema bounds. */
+const EVASION_KEYS = ["classEv", "weaponEv", "shieldEv", "accessoryEv", "magicEv"] as const;
+
+/**
+ * FINAL clamp of the trait-folded stats back into the {@link UnitStateSchema}
+ * bounds (state.ts): `pa`/`ma` ≥ 0 (IntSchema.min(0)), `maxHp` ≥ 1 (min(1)),
+ * `move` ≥ 0 (min(0)), and each evasion source in `[0, 100]` (PercentSchema =
+ * IntSchema.min(0).max(100)). A trait's negative `flat` or a shrinking `mult` can
+ * push a folded stat out of range, and `buildBattleUnit` never `.parse`s its
+ * output — so without this the invalid unit runs live and only throws at
+ * `serialize()`/rewind. This is a BUILD-TIME concern (it knows the target schema),
+ * so it lives here, not in the pure trait fold (trait.ts). Integer in, integer out.
+ * `speed` is absent because a trait can never touch it (TraitEffect has no `speed`
+ * key, AC-P5), so its pre-fold clamp in {@link buildBattleUnit} is already final.
+ *
+ * NO-OP INVARIANT: on an already-legal derived stat (no traits), every clamp is a
+ * no-op, so the no-trait build stays byte-identical.
+ */
+function clampToUnitStateBounds(s: TraitStatBase): TraitStatBase {
+  const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
+  const evasion = {} as Evasion;
+  for (const key of EVASION_KEYS) evasion[key] = clamp(s.evasion[key], 0, 100);
+  return {
+    pa: Math.max(0, s.pa),
+    ma: Math.max(0, s.ma),
+    maxHp: Math.max(1, s.maxHp),
+    move: Math.max(0, s.move),
+    evasion,
+  };
+}
 
 /**
  * Project a full authored {@link Ability} into its trimmed combat
@@ -110,8 +158,9 @@ function projectAbilities(
  * other placement fields come from `over` (callers/tests supply them) or sensible
  * {@link defaultUnit} defaults. The registry is read only here.
  *
- * NOTE: `raw.mp` is ignored — UnitState has no MP field yet. Equipment/mastery/
- * status modifiers are DEFERRED (docs/05 §4), so only raw × growth applies today.
+ * NOTE: `raw.mp` is ignored — UnitState has no MP field yet. Equipment/status
+ * modifiers are still DEFERRED (docs/05 §4); the mastery-trait layer IS applied
+ * (below): growth → trait fold → FINAL clamp → construct.
  */
 export function buildBattleUnit(
   record: UnitRecord,
@@ -122,19 +171,48 @@ export function buildBattleUnit(
   const pa = Math.floor(record.raw.pa * job.growth.pa);
   const ma = Math.floor(record.raw.ma * job.growth.ma);
   // Clamp to the schema mins (speed ≥ 1, maxHp ≥ 1) so a tiny raw × small growth
-  // can never floor below a legal stat.
+  // can never floor below a legal stat. (Trait speed effects are impossible by
+  // construction — TraitEffect has no `speed` key, AC-P5 — so speed is final here.)
   const speed = Math.max(1, Math.floor(record.raw.speed * job.growth.speed));
   const maxHp = Math.max(1, Math.floor(record.raw.hp * job.growth.hp));
+
+  // Mastery-trait layer: fold every equipped trait's effect over the derived
+  // stats, then a FINAL clamp back into the UnitStateSchema bounds. The fold is
+  // order-independent (trait.ts) so a loadout's trait order never changes the
+  // result. The fold base is the EFFECTIVE base — `over.<stat>` when the caller
+  // supplies one, else the derived value / defaultUnit default — and `...over` is
+  // STILL spread last, so an explicit test override wins outright. A trait's
+  // negative flat / shrinking mult can drive a stat out of range, so the clamp
+  // (growth → trait fold → clamp, docs/05 §4) keeps the built unit schema-valid
+  // WITHOUT a `.parse` (it would otherwise only fail at serialize/rewind). With no
+  // equipped traits both steps are a no-op: Σflat = 0, Πmult = 1, and every clamp
+  // leaves an already-legal derived stat untouched, so the built UnitState is
+  // byte-identical to before.
+  const effects = record.loadout.traits.map((id) => registry.trait(id).effect);
+  const adjusted = clampToUnitStateBounds(
+    applyTraitEffects(
+      {
+        pa,
+        ma,
+        maxHp,
+        move: over.move ?? DEFAULT_BUILD_MOVE,
+        evasion: over.evasion ?? DEFAULT_BUILD_EVASION,
+      },
+      effects,
+    ),
+  );
 
   const weapon: Weapon = over.weapon ?? DEFAULT_BUILD_WEAPON;
   const abilities = projectAbilities(record, registry, weapon);
 
   return defaultUnit(record.id, over.teamId ?? 0, {
-    pa,
-    ma,
+    pa: adjusted.pa,
+    ma: adjusted.ma,
     speed,
-    maxHp,
-    hp: maxHp,
+    maxHp: adjusted.maxHp,
+    hp: adjusted.maxHp,
+    move: adjusted.move,
+    evasion: adjusted.evasion,
     brave: record.brave,
     faith: record.faith,
     weapon,

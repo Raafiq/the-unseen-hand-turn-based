@@ -99,7 +99,11 @@ const registry: ContentRegistry = loadContentPack(pack);
  *   - Wizard (Black Magic): the FULL tree → mastery, which earns the Arcane
  *     Attunement trait AND makes Black Magic a rich secondary (Fire … Ice 2).
  *   - Monk (Punch Art): the Counter reaction (+ a couple of actions).
- *   - Thief (Steal): the Move +2 movement ability.
+ *   - Thief (Steal): the FULL tree → mastery, which earns the Lightfoot trait
+ *     (Move +1) — a FLAT stat effect, so toggling it visibly moves the derived
+ *     Move stat in the live stat strip (Arcane Attunement's MA multiplier is
+ *     inert on this melee frame — floor(6×0.8×1.12)=4=floor(6×0.8) — which is the
+ *     anti-convergence rule working, so Lightfoot is the demonstrable one here).
  *
  * Initial chassis: reaction/support/movement/traits are equipped, but the
  * SECONDARY is left empty — so equipping it live visibly grows the command list.
@@ -108,7 +112,7 @@ function makeDemoRecord(): UnitRecord {
   let r = defaultUnitRecord("knight", "knight", {
     name: "Ramza",
     raw: { pa: 8, ma: 6, speed: 8, hp: 90, mp: 40 },
-    ap: 2500,
+    ap: 20000,
   });
 
   const learn = (jobId: string, nodeId: string): void => {
@@ -135,9 +139,16 @@ function makeDemoRecord(): UnitRecord {
   learn("monk", "revive");
   learn("monk", "counter");
 
-  // Thief (Steal) — the Move +2 movement ability.
+  // Thief (Steal) — FULL tree → mastery (earns Lightfoot), keeping the Move +2
+  // movement ability. Nodes ordered to satisfy each `requires` prerequisite.
   learn("thief", "steal-gil");
+  learn("thief", "steal-armor");
+  learn("thief", "gilgame-heart");
+  learn("thief", "steal-heart");
   learn("thief", "move-plus-2");
+  learn("thief", "secret-hunt");
+  learn("thief", "steal-helmet");
+  learn("thief", "steal-weapon");
 
   // Latch mastery for any fully-learned tree (Wizard → Arcane Attunement).
   for (const jobId of registry.jobById.keys()) {
@@ -148,7 +159,9 @@ function makeDemoRecord(): UnitRecord {
   r = setLoadoutSlot(r, "reaction", "punch-art.counter", registry);
   r = setLoadoutSlot(r, "support", "battle-skill.equip-heavy-armor", registry);
   r = setLoadoutSlot(r, "movement", "steal.move-plus-2", registry);
-  r = setLoadoutTraits(r, ["arcane-attunement"], registry);
+  // Equip Lightfoot by default (Move +1) — the trait whose effect is visible on a
+  // Knight; Arcane Attunement stays earned/equippable but inert on this frame.
+  r = setLoadoutTraits(r, ["lightfoot"], registry);
 
   return r;
 }
@@ -191,12 +204,41 @@ function primaryActionIds(r: UnitRecord): string[] {
 const earnedTraits = (r: UnitRecord): string[] =>
   r.mastered.map((jobId) => registry.job(jobId).masteryBonus.trait);
 
+/** The derived combat stats surfaced in the live stat strip. */
+interface StatLine {
+  hp: number;
+  pa: number;
+  ma: number;
+  move: number;
+  evade: number;
+}
+
+/**
+ * The BUILT unit's derived stats — the real battle projection (`buildBattleUnit`,
+ * build.ts), with the equipped traits already folded in. Reading them from the
+ * same one-way compile a battle uses means the strip shows exactly what a unit
+ * would fight with, trait effects included (never a re-derivation).
+ */
+const statLineOf = (r: UnitRecord): StatLine => {
+  const u = buildBattleUnit(r, registry);
+  return { hp: u.maxHp, pa: u.pa, ma: u.ma, move: u.move, evade: u.evasion.classEv };
+};
+
 // ---- DOM rendering ----------------------------------------------------------
 
 interface Opt {
   value: string;
   label: string;
 }
+
+/** Stat strip cells: display label + which {@link StatLine} field, in display order. */
+const STAT_CELLS: ReadonlyArray<{ key: keyof StatLine; label: string; suffix: string }> = [
+  { key: "hp", label: "HP", suffix: "" },
+  { key: "pa", label: "PA", suffix: "" },
+  { key: "ma", label: "MA", suffix: "" },
+  { key: "move", label: "Move", suffix: "" },
+  { key: "evade", label: "Evade", suffix: "%" },
+];
 
 const optionList = (opts: Opt[], selected: string): string =>
   opts
@@ -221,6 +263,15 @@ function render(): void {
   const commands = commandsOf(record);
   const primaryActs = primaryActionIds(record);
   const traits = earnedTraits(record);
+
+  // Live derived stats, and a traits-stripped baseline so any stat an equipped
+  // trait lifts renders highlighted (the visible "the trait did something").
+  const stats = statLineOf(record);
+  const baseStats = statLineOf({ ...record, loadout: { ...record.loadout, traits: [] } });
+  const statsBody = STAT_CELLS.map(({ key, label, suffix }) => {
+    const up = stats[key] > baseStats[key];
+    return `<li${up ? ' class="up"' : ""}><span class="k">${label}</span><span class="v" data-stat="${key}">${stats[key]}${suffix}</span></li>`;
+  }).join("");
 
   const noneOpt: Opt = { value: "", label: "— none —" };
 
@@ -256,6 +307,10 @@ function render(): void {
     .join("");
 
   bodyEl.innerHTML = `
+    <div class="stats" data-testid="prep-stats">
+      <h3>Derived stats <span class="lock">traits apply at battle start</span></h3>
+      <ul class="stat-row">${statsBody}</ul>
+    </div>
     <div class="chassis">
       <div class="slot" data-testid="prep-primary">
         <h3>Primary <span class="lock">locked to job</span></h3>
@@ -329,6 +384,8 @@ interface PrepApi {
   getState: () => { loadout: Loadout; commands: string[] };
   /** Castable command ids only. */
   getCommands: () => string[];
+  /** The built unit's derived combat stats (the real battle projection, traits applied). */
+  getStats: () => StatLine;
   /** Equip a job id as the Secondary command (or null to clear); re-renders. */
   setSecondary: (jobId: string | null) => void;
   /** Set any single-ability slot (or clear); re-renders. */
@@ -351,6 +408,7 @@ export function mountPrep(container: HTMLElement): void {
   window.tuhPrep = {
     getState: () => ({ loadout: record.loadout, commands: commandsOf(record) }),
     getCommands: () => commandsOf(record),
+    getStats: () => statLineOf(record),
     setSecondary: (jobId) => setSlot("secondary", jobId),
     setSlot,
     reset: () => {

@@ -73,6 +73,15 @@
       .cmd-list li[data-cmd^="black-magic"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
       .cmds .hint { margin: 14px 0 0; font-size: .82rem; color: var(--ink-soft); }
       .cmds .hint b { color: var(--ink); }
+      .stats { grid-column: 1 / -1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+      .stats h3 { margin: 0 0 10px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+      .stats h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .stat-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 22px; }
+      .stat-row li { display: flex; flex-direction: column; gap: 3px; }
+      .stat-row .k { font-size: .58rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); }
+      .stat-row .v { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+      .stat-row li.up .v { color: var(--accent); }
+      .stat-row li.up .v::after { content: " ▲"; font-size: .62em; vertical-align: middle; }
     </style>
   </head>
   <body>

@@ -9,10 +9,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { loadContentPack, type ContentRegistry } from "./content.js";
+import { loadContentPack, type ContentPack, type ContentRegistry } from "./content.js";
 import { defaultUnitRecord } from "./roster.js";
-import { setLoadoutSlot } from "./loadout.js";
+import { emptyLoadout, setLoadoutSlot, setLoadoutTraits } from "./loadout.js";
 import { buildBattleUnit, buildBattleState } from "./build.js";
+import { deserialize, serialize } from "./state.js";
 
 function loadShippedPack(): ContentRegistry {
   const path = fileURLToPath(new URL("../../data/base-pack.json", import.meta.url));
@@ -107,6 +108,191 @@ describe("buildBattleUnit — abilities projection (primary + secondary + basic 
     expect(fire?.power).toBe(20); // base-pack fire power
     expect(fire?.element).toBe("fire");
     expect(fire?.speed).toBe(25); // charged (its own charge speed), not instant
+  });
+});
+
+describe("buildBattleUnit — mastery-trait stat effects (docs/02, AC-P5)", () => {
+  const DEFAULT_EVASION = { classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+
+  it("no-trait build is a no-op vs the same record without a trait (byte-identical)", () => {
+    const rec = defaultUnitRecord("plain", "knight", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+    });
+    const unit = buildBattleUnit(rec, registry);
+    // Empty traits ⇒ derived stats + defaultUnit's move/evasion, unchanged.
+    expect(unit.pa).toBe(12); // floor(10 * 1.2)
+    expect(unit.ma).toBe(8); // floor(10 * 0.8)
+    expect(unit.maxHp).toBe(60); // floor(50 * 1.2)
+    expect(unit.move).toBe(3);
+    expect(unit.evasion).toEqual(DEFAULT_EVASION);
+  });
+
+  it("bulwark (Knight): classEv +10 and maxHp ×1.05", () => {
+    // Knight growth hp 1.2: raw.hp 50 → base maxHp 60; ×1.05 → floor(63) = 63.
+    let rec = defaultUnitRecord("kn", "knight", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["knight"],
+    });
+    rec = setLoadoutTraits(rec, ["bulwark"], registry);
+    const unit = buildBattleUnit(rec, registry);
+    expect(unit.maxHp).toBe(63);
+    expect(unit.hp).toBe(63); // hp starts at full (trait-adjusted) maxHp
+    expect(unit.evasion.classEv).toBe(20); // 10 default + 10
+    expect(unit.evasion.weaponEv).toBe(0); // untouched
+    expect(unit.pa).toBe(12); // pa untouched by bulwark
+  });
+
+  it("inner-focus (Monk): maxHp ×1.12 (earned via mastered monk, worn on a knight)", () => {
+    // currentJob knight (hp 1.2): raw.hp 50 → 60; inner-focus ×1.12 → floor(67.2) = 67.
+    let rec = defaultUnitRecord("mk", "knight", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["monk"],
+    });
+    rec = setLoadoutTraits(rec, ["inner-focus"], registry);
+    const unit = buildBattleUnit(rec, registry);
+    expect(unit.maxHp).toBe(67);
+    expect(unit.evasion).toEqual(DEFAULT_EVASION); // no evasion effect
+  });
+
+  it("arcane-attunement (Wizard): ma ×1.12", () => {
+    // Wizard growth ma 1.5: raw.ma 10 → base ma 15; ×1.12 → floor(16.8) = 16.
+    let rec = defaultUnitRecord("wz", "wizard", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["wizard"],
+    });
+    rec = setLoadoutTraits(rec, ["arcane-attunement"], registry);
+    const unit = buildBattleUnit(rec, registry);
+    expect(unit.ma).toBe(16);
+  });
+
+  it("lightfoot (Thief): move +1", () => {
+    let rec = defaultUnitRecord("th", "thief", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["thief"],
+    });
+    rec = setLoadoutTraits(rec, ["lightfoot"], registry);
+    const unit = buildBattleUnit(rec, registry);
+    expect(unit.move).toBe(4); // default 3 + 1
+  });
+
+  it("two traits aggregate: bulwark + inner-focus stack both maxHp mults and classEv", () => {
+    // Knight hp 1.2: raw.hp 50 → 60; floor(60 * 1.05 * 1.12) = floor(70.56) = 70.
+    let rec = defaultUnitRecord("hy", "knight", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["knight", "monk"],
+    });
+    rec = setLoadoutTraits(rec, ["bulwark", "inner-focus"], registry);
+    const unit = buildBattleUnit(rec, registry);
+    expect(unit.maxHp).toBe(70);
+    expect(unit.evasion.classEv).toBe(20); // only bulwark adds classEv
+  });
+
+  it("trait order in the loadout does not change the built unit", () => {
+    const base = defaultUnitRecord("ord", "knight", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["knight", "monk"],
+    });
+    const forward = buildBattleUnit(setLoadoutTraits(base, ["bulwark", "inner-focus"], registry), registry);
+    const reversed = buildBattleUnit(setLoadoutTraits(base, ["inner-focus", "bulwark"], registry), registry);
+    expect(forward).toEqual(reversed);
+  });
+
+  it("an explicit `over` stat still wins over the trait-adjusted value", () => {
+    let rec = defaultUnitRecord("ov", "thief", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 50, mp: 10 },
+      mastered: ["thief"],
+    });
+    rec = setLoadoutTraits(rec, ["lightfoot"], registry);
+    const unit = buildBattleUnit(rec, registry, { move: 9 });
+    expect(unit.move).toBe(9); // caller override beats the +1 trait
+  });
+});
+
+describe("buildBattleUnit — final clamp to UnitStateSchema bounds (FIX 1, docs/05 §4)", () => {
+  /**
+   * A pack whose traits can push a folded stat OUT of the schema bounds — a
+   * negative flat below the min, or an evasion add above 100. `ScalarMod.flat` /
+   * `MoveMod.flat` are unbounded ints, so these are representable. Growth is all
+   * 1.0 so the base stat equals the raw stat (easy arithmetic). The traits are set
+   * on the loadout DIRECTLY (bypassing the setLoadoutTraits earned-check) to prove
+   * the build-time clamp, not the setter, is what keeps the unit schema-valid.
+   */
+  function boundsPack(): ContentPack {
+    return {
+      contentSchemaVersion: 2,
+      statuses: [],
+      traits: [
+        { id: "frail-curse", effect: { maxHp: { flat: -1000 } } },
+        { id: "wall", effect: { evasion: { classEv: 200 } } },
+        { id: "hobble", effect: { move: { flat: -10 } } },
+        { id: "enfeeble", effect: { pa: { flat: -100 }, ma: { flat: -100 } } },
+      ],
+      abilities: [{ id: "b.strike", type: "action", skillset: "b-skill", apCost: 10 }],
+      jobs: [
+        {
+          id: "bjob",
+          primarySkillset: "b-skill",
+          genderLock: null,
+          growth: { pa: 1, ma: 1, speed: 1, hp: 1, mp: 1 },
+          masteryBonus: { trait: "frail-curse" },
+          tree: [{ node: "n1", ability: "b.strike", apCost: 10, requires: [] }],
+        },
+      ],
+    };
+  }
+  const boundsReg = loadContentPack(boundsPack());
+
+  const withTraits = (traits: string[]) =>
+    defaultUnitRecord("bnd", "bjob", {
+      raw: { pa: 10, ma: 10, speed: 5, hp: 40, mp: 10 },
+      loadout: { ...emptyLoadout(), traits },
+    });
+
+  it("clamps a below-1 maxHp (negative flat) up to 1, and sets hp to the clamped maxHp", () => {
+    // base maxHp 40; frail-curse flat -1000 → -960; clamped to the schema min of 1.
+    const unit = buildBattleUnit(withTraits(["frail-curse"]), boundsReg);
+    expect(unit.maxHp).toBe(1);
+    expect(unit.hp).toBe(1); // hp starts at the CLAMPED maxHp, never below it
+  });
+
+  it("clamps an evasion source above 100 down to the PercentSchema max", () => {
+    // default classEv 10 + wall's +200 = 210 → clamped to 100; others untouched.
+    const unit = buildBattleUnit(withTraits(["wall"]), boundsReg);
+    expect(unit.evasion.classEv).toBe(100);
+    expect(unit.evasion.weaponEv).toBe(0);
+  });
+
+  it("clamps negative move / pa / ma up to their schema minimums (0)", () => {
+    const moved = buildBattleUnit(withTraits(["hobble"]), boundsReg);
+    expect(moved.move).toBe(0); // default 3 - 10 = -7 → 0
+    const enfeebled = buildBattleUnit(withTraits(["enfeeble"]), boundsReg);
+    expect(enfeebled.pa).toBe(0); // 10 - 100 = -90 → 0
+    expect(enfeebled.ma).toBe(0);
+  });
+
+  it("a trait-built out-of-bounds unit is schema-valid: serialize() round-trips it", () => {
+    // The regression: buildBattleUnit never `.parse`s its output, so without the
+    // clamp this unit only throws at serialize()/rewind. It must now round-trip.
+    const state = buildBattleState([{ record: withTraits(["frail-curse", "wall"]) }], 1, boundsReg);
+    const json = serialize(state); // parses on the way out — would throw if invalid
+    const back = deserialize(json);
+    expect(back).toEqual(state);
+    expect(back.units[0]?.maxHp).toBe(1);
+    expect(back.units[0]?.evasion.classEv).toBe(100);
+  });
+
+  it("no-trait build is unchanged by the clamp: legal derived stats round-trip byte-identical", () => {
+    const rec = withTraits([]); // same record, empty traits
+    const unit = buildBattleUnit(rec, boundsReg);
+    // Every stat is already in-bounds, so the clamp is a pure no-op.
+    expect(unit.pa).toBe(10);
+    expect(unit.ma).toBe(10);
+    expect(unit.maxHp).toBe(40);
+    expect(unit.hp).toBe(40);
+    expect(unit.move).toBe(3);
+    expect(unit.evasion).toEqual({ classEv: 10, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 });
+    const state = buildBattleState([{ record: rec }], 1, boundsReg);
+    expect(deserialize(serialize(state))).toEqual(state);
   });
 });
 

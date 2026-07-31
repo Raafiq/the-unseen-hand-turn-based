@@ -53,6 +53,14 @@ describe("AC-J1 — chassis cardinality", () => {
       LoadoutSchema.parse({ ...emptyLoadout(), traits: ["a", "b", "c"] }),
     ).toThrow();
   });
+
+  it("a duplicate-trait loadout is rejected by the schema (.refine distinct)", () => {
+    // Tightens an always-invalid state at the parse boundary (not just the setter),
+    // so a hand-edited/deserialized save can never smuggle in a double-stacked trait.
+    expect(() =>
+      LoadoutSchema.parse({ ...emptyLoadout(), traits: ["bulwark", "bulwark"] }),
+    ).toThrow(/distinct/);
+  });
 });
 
 describe("AC-J1 — secondary command rules (a whole learned job command)", () => {
@@ -164,6 +172,19 @@ describe("AC-J1 — traits (only earned mastery traits equip)", () => {
       /at most 2/,
     );
   });
+
+  it("rejects a duplicate trait id (no double-stacking one trait)", () => {
+    const rec = defaultUnitRecord("h", "knight", { mastered: ["knight"] });
+    expect(() => setLoadoutTraits(rec, ["bulwark", "bulwark"], registry)).toThrow(/duplicate/);
+  });
+
+  it("accepts a distinct 2-trait set from two mastered jobs", () => {
+    const rec = defaultUnitRecord("h", "knight", { mastered: ["knight", "monk"] });
+    expect(setLoadoutTraits(rec, ["bulwark", "inner-focus"], registry).loadout.traits).toEqual([
+      "bulwark",
+      "inner-focus",
+    ]);
+  });
 });
 
 describe("AC-J4 — free respec (no cost, fully reversible)", () => {
@@ -210,7 +231,8 @@ describe("AC-J6 hook — mutual exclusion at equip time", () => {
   /** Tiny pack with an excludes pair across two slots (base-pack has none). */
   function excludesPack(): ContentPack {
     return {
-      contentSchemaVersion: 1,
+      contentSchemaVersion: 2,
+      traits: [{ id: "x-trait", effect: {} }],
       statuses: [],
       abilities: [
         { id: "x.strike", type: "action", skillset: "x-skill", apCost: 10 },

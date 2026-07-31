@@ -193,6 +193,20 @@ export {
   type Loadout,
 } from "./loadout.js";
 export {
+  ScalarModSchema,
+  EvasionModSchema,
+  MoveModSchema,
+  TraitEffectSchema,
+  TraitSchema,
+  applyTraitEffects,
+  type ScalarMod,
+  type EvasionMod,
+  type MoveMod,
+  type TraitEffect,
+  type Trait,
+  type TraitStatBase,
+} from "./trait.js";
+export {
   CONTENT_SCHEMA_VERSION,
   MIN_SUPPORTED_CONTENT_SCHEMA_VERSION,
   BASELINE_SKILLSETS,
