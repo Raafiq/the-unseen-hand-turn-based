@@ -213,7 +213,16 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
   }
 }
 
-/** Fold a command log over the initial state — the canonical replay (AC-S1). */
+/**
+ * Fold a command log over the initial state — the canonical replay (AC-S1).
+ *
+ * Reproduces the state right after the LAST command's `applyCommand`. Note that a
+ * harness loop (harness.ts) leaves its terminal state one `advanceToDecision` FURTHER
+ * on — the post-command clock advance during which it detected the win/lose condition.
+ * That trailing advance can still mutate state (mature/cancel a pending charge, tick
+ * crystal timers), so to reconstruct a `runFromState` final state exactly, apply one
+ * `advanceToDecision` after this replay (see benchmark-suite.test.ts).
+ */
 export function replay(initialState: BattleState, commands: readonly Command[]): BattleState {
   let state = initialState;
   for (const command of commands) state = applyCommand(state, command);

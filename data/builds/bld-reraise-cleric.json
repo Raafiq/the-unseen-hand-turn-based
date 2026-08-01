@@ -1,0 +1,28 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-reraise-cleric",
+  "name": "Reraise Cleric",
+  "level": 10,
+  "currentJob": "priest",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "white-magic.cure",
+    "white-magic.cura",
+    "white-magic.holy",
+    "white-magic.reraise",
+    "punch-art.chakra",
+    "black-magic.magic-attack-up",
+    "steal.move-plus-2"
+  ],
+  "mastered": ["priest"],
+  "loadout": {
+    "secondary": "monk",
+    "reaction": "white-magic.reraise",
+    "support": "black-magic.magic-attack-up",
+    "movement": "steal.move-plus-2",
+    "traits": ["aegis-of-faith"]
+  }
+}

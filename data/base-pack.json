@@ -4,7 +4,11 @@
     { "id": "bulwark", "effect": { "evasion": { "classEv": 10 }, "maxHp": { "mult": 1.05 } } },
     { "id": "inner-focus", "effect": { "maxHp": { "mult": 1.12 } } },
     { "id": "arcane-attunement", "effect": { "ma": { "mult": 1.12 } } },
-    { "id": "lightfoot", "effect": { "move": { "flat": 1 } } }
+    { "id": "lightfoot", "effect": { "move": { "flat": 1 } } },
+    { "id": "aegis-of-faith", "effect": { "maxHp": { "mult": 1.06 }, "evasion": { "magicEv": 12 } } },
+    { "id": "marksman", "effect": { "pa": { "mult": 1.06 } } },
+    { "id": "stoneskin", "effect": { "evasion": { "classEv": 12 } } },
+    { "id": "spirit-conduit", "effect": { "ma": { "mult": 1.08 }, "maxHp": { "mult": 1.05 } } }
   ],
   "statuses": [
     {
@@ -400,6 +404,350 @@
       "skillset": "steal",
       "apCost": 60,
       "tags": ["movement", "move-plus-2"]
+    },
+    {
+      "id": "white-magic.cure",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 60,
+      "mp": 6,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 1, "v": 1 },
+      "power": 14,
+      "formula": "heal",
+      "hitBase": "MA+X",
+      "tags": ["restore"]
+    },
+    {
+      "id": "white-magic.cura",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 120,
+      "mp": 10,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 1, "v": 1 },
+      "power": 24,
+      "formula": "heal",
+      "hitBase": "MA+X",
+      "tags": ["restore"]
+    },
+    {
+      "id": "white-magic.holy",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 120,
+      "mp": 56,
+      "range": { "h": 5, "v": 2 },
+      "element": "holy",
+      "power": 40,
+      "formula": "magic",
+      "hitBase": "MA+X",
+      "tags": ["holy"]
+    },
+    {
+      "id": "white-magic.raise",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 120,
+      "mp": 10,
+      "range": { "h": 3, "v": 1 },
+      "power": 10,
+      "formula": "heal",
+      "tags": ["raise", "effect-deferred"]
+    },
+    {
+      "id": "white-magic.esuna",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 60,
+      "range": { "h": 3, "v": 1 },
+      "formula": "none",
+      "tags": ["cleanse", "effect-deferred"]
+    },
+    {
+      "id": "white-magic.protect",
+      "type": "action",
+      "skillset": "white-magic",
+      "apCost": 120,
+      "range": { "h": 3, "v": 1 },
+      "formula": "none",
+      "inflicts": ["status.protect"],
+      "tags": ["buff", "effect-deferred"]
+    },
+    {
+      "id": "white-magic.retribution",
+      "type": "reaction",
+      "skillset": "white-magic",
+      "apCost": 240,
+      "tags": ["reaction", "holy-counter", "capstone"]
+    },
+    {
+      "id": "white-magic.reraise",
+      "type": "reaction",
+      "skillset": "white-magic",
+      "apCost": 240,
+      "tags": ["reaction", "reraise", "capstone"]
+    },
+    {
+      "id": "aim.aimed-shot",
+      "type": "action",
+      "skillset": "aim",
+      "apCost": 60,
+      "range": { "h": 5, "v": 3 },
+      "element": "none",
+      "power": 12,
+      "formula": "physical",
+      "tags": ["ranged"]
+    },
+    {
+      "id": "aim.piercing-shot",
+      "type": "action",
+      "skillset": "aim",
+      "apCost": 120,
+      "range": { "h": 5, "v": 3 },
+      "element": "none",
+      "power": 16,
+      "formula": "physical",
+      "tags": ["ranged", "line"]
+    },
+    {
+      "id": "aim.head-shot",
+      "type": "action",
+      "skillset": "aim",
+      "apCost": 120,
+      "range": { "h": 4, "v": 3 },
+      "element": "none",
+      "power": 13,
+      "formula": "physical",
+      "inflicts": ["status.stop"],
+      "tags": ["ranged", "stat-deferred"]
+    },
+    {
+      "id": "aim.leg-shot",
+      "type": "action",
+      "skillset": "aim",
+      "apCost": 120,
+      "range": { "h": 5, "v": 3 },
+      "element": "none",
+      "power": 9,
+      "formula": "physical",
+      "inflicts": ["status.slow"],
+      "tags": ["ranged", "stat-deferred"]
+    },
+    {
+      "id": "aim.volley",
+      "type": "action",
+      "skillset": "aim",
+      "apCost": 120,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 1, "v": 0 },
+      "element": "none",
+      "power": 9,
+      "formula": "physical",
+      "tags": ["ranged", "aoe"]
+    },
+    {
+      "id": "aim.scout",
+      "type": "movement",
+      "skillset": "aim",
+      "apCost": 60,
+      "tags": ["movement", "vision"]
+    },
+    {
+      "id": "aim.concentrate",
+      "type": "support",
+      "skillset": "aim",
+      "apCost": 240,
+      "tags": ["support", "ignore-evasion", "capstone"]
+    },
+    {
+      "id": "aim.eagle-eye",
+      "type": "support",
+      "skillset": "aim",
+      "apCost": 240,
+      "tags": ["support", "range-up", "capstone"]
+    },
+    {
+      "id": "geomancy.pitfall",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 60,
+      "mp": 0,
+      "range": { "h": 3, "v": 1 },
+      "element": "earth",
+      "power": 16,
+      "formula": "magic",
+      "tags": ["geomancy"]
+    },
+    {
+      "id": "geomancy.water-ball",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 120,
+      "mp": 0,
+      "range": { "h": 3, "v": 2 },
+      "element": "water",
+      "power": 18,
+      "formula": "magic",
+      "tags": ["geomancy"]
+    },
+    {
+      "id": "geomancy.static-shock",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 120,
+      "mp": 0,
+      "range": { "h": 3, "v": 1 },
+      "element": "lightning",
+      "power": 18,
+      "formula": "magic",
+      "tags": ["geomancy"]
+    },
+    {
+      "id": "geomancy.tremor",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 60,
+      "mp": 0,
+      "range": { "h": 2, "v": 1 },
+      "element": "earth",
+      "power": 12,
+      "formula": "magic",
+      "tags": ["geomancy"]
+    },
+    {
+      "id": "geomancy.sandstorm",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 120,
+      "mp": 0,
+      "range": { "h": 3, "v": 1 },
+      "aoe": { "h": 1, "v": 0 },
+      "element": "earth",
+      "power": 15,
+      "formula": "magic",
+      "tags": ["geomancy", "aoe"]
+    },
+    {
+      "id": "geomancy.quicksand",
+      "type": "action",
+      "skillset": "geomancy",
+      "apCost": 120,
+      "mp": 0,
+      "range": { "h": 3, "v": 1 },
+      "element": "earth",
+      "power": 15,
+      "formula": "magic",
+      "inflicts": ["status.slow"],
+      "tags": ["geomancy", "stat-deferred"]
+    },
+    {
+      "id": "geomancy.lava-walk",
+      "type": "movement",
+      "skillset": "geomancy",
+      "apCost": 240,
+      "tags": ["movement", "ignore-hazard", "capstone"]
+    },
+    {
+      "id": "geomancy.terrain-stride",
+      "type": "movement",
+      "skillset": "geomancy",
+      "apCost": 240,
+      "tags": ["movement", "ignore-height", "ignore-terrain", "capstone"]
+    },
+    {
+      "id": "summon.shiva",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 60,
+      "mp": 14,
+      "speed": 20,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 2, "v": 1 },
+      "element": "ice",
+      "power": 24,
+      "formula": "magic",
+      "tags": ["summon"]
+    },
+    {
+      "id": "summon.ifrit",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 120,
+      "mp": 14,
+      "speed": 20,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 2, "v": 1 },
+      "element": "fire",
+      "power": 24,
+      "formula": "magic",
+      "tags": ["summon"]
+    },
+    {
+      "id": "summon.ramuh",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 120,
+      "mp": 14,
+      "speed": 20,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 2, "v": 2 },
+      "element": "lightning",
+      "power": 24,
+      "formula": "magic",
+      "tags": ["summon"]
+    },
+    {
+      "id": "summon.bahamut",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 120,
+      "mp": 30,
+      "speed": 10,
+      "range": { "h": 4, "v": 2 },
+      "aoe": { "h": 2, "v": 2 },
+      "element": "none",
+      "power": 46,
+      "formula": "magic",
+      "tags": ["summon"]
+    },
+    {
+      "id": "summon.golem",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 120,
+      "mp": 14,
+      "range": { "h": 3, "v": 2 },
+      "aoe": { "h": 1, "v": 1 },
+      "power": 18,
+      "formula": "heal",
+      "tags": ["summon", "restore"]
+    },
+    {
+      "id": "summon.moogle",
+      "type": "action",
+      "skillset": "summon",
+      "apCost": 120,
+      "mp": 8,
+      "range": { "h": 3, "v": 2 },
+      "aoe": { "h": 1, "v": 0 },
+      "power": 12,
+      "formula": "heal",
+      "tags": ["summon", "restore"]
+    },
+    {
+      "id": "summon.arcane-focus",
+      "type": "support",
+      "skillset": "summon",
+      "apCost": 240,
+      "tags": ["support", "summon-damage-up", "capstone"]
+    },
+    {
+      "id": "summon.short-charge",
+      "type": "support",
+      "skillset": "summon",
+      "apCost": 240,
+      "tags": ["support", "charge-time-down", "capstone"]
     }
   ],
   "jobs": [
@@ -468,6 +816,74 @@
         { "node": "secret-hunt", "ability": "steal.secret-hunt", "apCost": 120, "requires": ["move-plus-2"] },
         { "node": "steal-helmet", "ability": "steal.helmet", "apCost": 120, "requires": ["secret-hunt"] },
         { "node": "steal-weapon", "ability": "steal.weapon", "apCost": 240, "requires": ["steal-helmet"] }
+      ]
+    },
+    {
+      "id": "priest",
+      "primarySkillset": "white-magic",
+      "genderLock": null,
+      "growth": { "pa": 0.9, "ma": 1.2, "speed": 1.0, "hp": 0.8, "mp": 1.2 },
+      "masteryBonus": { "trait": "aegis-of-faith" },
+      "tree": [
+        { "node": "cure", "ability": "white-magic.cure", "apCost": 60, "requires": [] },
+        { "node": "cura", "ability": "white-magic.cura", "apCost": 120, "requires": ["cure"] },
+        { "node": "holy", "ability": "white-magic.holy", "apCost": 120, "requires": ["cura"] },
+        { "node": "retribution", "ability": "white-magic.retribution", "apCost": 240, "requires": ["holy"] },
+        { "node": "esuna", "ability": "white-magic.esuna", "apCost": 60, "requires": ["cure"] },
+        { "node": "protect", "ability": "white-magic.protect", "apCost": 120, "requires": ["cure"] },
+        { "node": "raise", "ability": "white-magic.raise", "apCost": 120, "requires": ["protect"] },
+        { "node": "reraise", "ability": "white-magic.reraise", "apCost": 240, "requires": ["raise"] }
+      ]
+    },
+    {
+      "id": "archer",
+      "primarySkillset": "aim",
+      "genderLock": null,
+      "growth": { "pa": 1.1, "ma": 0.8, "speed": 1.1, "hp": 1.0, "mp": 0.55 },
+      "masteryBonus": { "trait": "marksman" },
+      "tree": [
+        { "node": "aimed-shot", "ability": "aim.aimed-shot", "apCost": 60, "requires": [] },
+        { "node": "piercing-shot", "ability": "aim.piercing-shot", "apCost": 120, "requires": ["aimed-shot"] },
+        { "node": "head-shot", "ability": "aim.head-shot", "apCost": 120, "requires": ["piercing-shot"] },
+        { "node": "concentrate", "ability": "aim.concentrate", "apCost": 240, "requires": ["head-shot"] },
+        { "node": "scout", "ability": "aim.scout", "apCost": 60, "requires": ["aimed-shot"] },
+        { "node": "leg-shot", "ability": "aim.leg-shot", "apCost": 120, "requires": ["aimed-shot"] },
+        { "node": "volley", "ability": "aim.volley", "apCost": 120, "requires": ["leg-shot"] },
+        { "node": "eagle-eye", "ability": "aim.eagle-eye", "apCost": 240, "requires": ["volley"] }
+      ]
+    },
+    {
+      "id": "geomancer",
+      "primarySkillset": "geomancy",
+      "genderLock": null,
+      "growth": { "pa": 1.1, "ma": 1.1, "speed": 1.0, "hp": 1.1, "mp": 0.8 },
+      "masteryBonus": { "trait": "stoneskin" },
+      "tree": [
+        { "node": "pitfall", "ability": "geomancy.pitfall", "apCost": 60, "requires": [] },
+        { "node": "water-ball", "ability": "geomancy.water-ball", "apCost": 120, "requires": ["pitfall"] },
+        { "node": "static-shock", "ability": "geomancy.static-shock", "apCost": 120, "requires": ["water-ball"] },
+        { "node": "lava-walk", "ability": "geomancy.lava-walk", "apCost": 240, "requires": ["static-shock"] },
+        { "node": "tremor", "ability": "geomancy.tremor", "apCost": 60, "requires": ["pitfall"] },
+        { "node": "sandstorm", "ability": "geomancy.sandstorm", "apCost": 120, "requires": ["pitfall"] },
+        { "node": "quicksand", "ability": "geomancy.quicksand", "apCost": 120, "requires": ["sandstorm"] },
+        { "node": "terrain-stride", "ability": "geomancy.terrain-stride", "apCost": 240, "requires": ["quicksand"] }
+      ]
+    },
+    {
+      "id": "summoner",
+      "primarySkillset": "summon",
+      "genderLock": null,
+      "growth": { "pa": 0.6, "ma": 1.25, "speed": 1.0, "hp": 0.65, "mp": 1.3 },
+      "masteryBonus": { "trait": "spirit-conduit" },
+      "tree": [
+        { "node": "shiva", "ability": "summon.shiva", "apCost": 60, "requires": [] },
+        { "node": "ifrit", "ability": "summon.ifrit", "apCost": 120, "requires": ["shiva"] },
+        { "node": "ramuh", "ability": "summon.ramuh", "apCost": 120, "requires": ["ifrit"] },
+        { "node": "bahamut", "ability": "summon.bahamut", "apCost": 120, "requires": ["ramuh"] },
+        { "node": "arcane-focus", "ability": "summon.arcane-focus", "apCost": 240, "requires": ["bahamut"] },
+        { "node": "golem", "ability": "summon.golem", "apCost": 120, "requires": ["shiva"] },
+        { "node": "moogle", "ability": "summon.moogle", "apCost": 120, "requires": ["golem"] },
+        { "node": "short-charge", "ability": "summon.short-charge", "apCost": 240, "requires": ["moogle"] }
       ]
     }
   ]

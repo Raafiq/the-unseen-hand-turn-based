@@ -1,0 +1,26 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-terrain-geo",
+  "name": "Terrain Geomancer",
+  "level": 10,
+  "currentJob": "geomancer",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "geomancy.pitfall",
+    "geomancy.water-ball",
+    "geomancy.static-shock",
+    "geomancy.terrain-stride",
+    "steal.gil"
+  ],
+  "mastered": ["geomancer"],
+  "loadout": {
+    "secondary": "thief",
+    "reaction": null,
+    "support": null,
+    "movement": "geomancy.terrain-stride",
+    "traits": ["stoneskin"]
+  }
+}

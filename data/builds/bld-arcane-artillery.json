@@ -1,0 +1,29 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-arcane-artillery",
+  "name": "Arcane Artillery",
+  "level": 10,
+  "currentJob": "wizard",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "black-magic.fire",
+    "black-magic.fire-2",
+    "black-magic.bolt",
+    "black-magic.ice",
+    "black-magic.magic-attack-up",
+    "punch-art.counter",
+    "steal.gil",
+    "steal.move-plus-2"
+  ],
+  "mastered": ["wizard"],
+  "loadout": {
+    "secondary": "thief",
+    "reaction": "punch-art.counter",
+    "support": "black-magic.magic-attack-up",
+    "movement": "steal.move-plus-2",
+    "traits": ["arcane-attunement"]
+  }
+}

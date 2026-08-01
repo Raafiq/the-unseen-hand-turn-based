@@ -1,0 +1,23 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-warlord",
+  "name": "Warlord Captain",
+  "level": 10,
+  "currentJob": "knight",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 110, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "battle-skill.weapon-break",
+    "punch-art.wave-fist"
+  ],
+  "mastered": ["knight", "monk"],
+  "loadout": {
+    "secondary": "monk",
+    "reaction": null,
+    "support": null,
+    "movement": null,
+    "traits": ["bulwark", "inner-focus"]
+  }
+}

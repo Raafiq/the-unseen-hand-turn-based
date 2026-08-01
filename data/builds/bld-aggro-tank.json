@@ -1,0 +1,26 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-aggro-tank",
+  "name": "Aggro Tank",
+  "level": 10,
+  "currentJob": "knight",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "battle-skill.weapon-break",
+    "punch-art.wave-fist",
+    "punch-art.counter",
+    "steal.move-plus-2",
+    "battle-skill.equip-heavy-armor"
+  ],
+  "mastered": ["knight", "monk"],
+  "loadout": {
+    "secondary": "monk",
+    "reaction": "punch-art.counter",
+    "support": "battle-skill.equip-heavy-armor",
+    "movement": "steal.move-plus-2",
+    "traits": ["inner-focus", "bulwark"]
+  }
+}

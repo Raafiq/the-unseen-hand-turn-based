@@ -60,7 +60,14 @@ export interface RunReport {
 export interface RunResult {
   report: RunReport;
   state: BattleState;
-  /** The commands applied, in order — replaying them reproduces `state` byte-for-byte. */
+  /**
+   * The commands applied, in order. Replaying them reproduces `state` UP TO the
+   * loop's final `advanceToDecision` — the post-command clock advance on which the
+   * terminal condition was detected. When that advance still mutates state (a pending
+   * charge maturing/cancelling, crystal timers ticking — e.g. a summon in flight when
+   * a team is wiped), `replay(commands)` lands one advance short of `state`; apply a
+   * single `advanceToDecision` after replaying to reconstruct it exactly.
+   */
   commands: Command[];
 }
 

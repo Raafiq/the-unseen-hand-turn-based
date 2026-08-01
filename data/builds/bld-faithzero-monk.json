@@ -1,0 +1,27 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-faithzero-monk",
+  "name": "Faith-Zero Monk",
+  "level": 10,
+  "currentJob": "monk",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 5,
+  "ap": 0,
+  "learned": [
+    "punch-art.wave-fist",
+    "punch-art.earth-slash",
+    "punch-art.martial-arts",
+    "punch-art.hamedo",
+    "steal.move-plus-2",
+    "battle-skill.weapon-break"
+  ],
+  "mastered": ["monk"],
+  "loadout": {
+    "secondary": "knight",
+    "reaction": "punch-art.hamedo",
+    "support": "punch-art.martial-arts",
+    "movement": "steal.move-plus-2",
+    "traits": ["inner-focus"]
+  }
+}
