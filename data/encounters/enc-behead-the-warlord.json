@@ -1,0 +1,24 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "enc-behead-the-warlord",
+  "seed": 30260802,
+  "grid": { "width": 8, "height": 8 },
+  "teams": [
+    { "teamId": 0, "controller": "ai", "aiProfile": "balance-probe" },
+    { "teamId": 1, "controller": "ai", "aiProfile": "balance-probe" }
+  ],
+  "placements": [
+    { "slotId": "blue-1", "teamId": 0, "pos": { "x": 0, "y": 1 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-glass-summoner" } },
+    { "slotId": "blue-2", "teamId": 0, "pos": { "x": 0, "y": 3 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-longshot" } },
+    { "slotId": "blue-3", "teamId": 0, "pos": { "x": 0, "y": 5 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-counter-wall" } },
+    { "slotId": "blue-4", "teamId": 0, "pos": { "x": 1, "y": 3 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-reraise-cleric" } },
+    { "slotId": "warlord", "teamId": 1, "pos": { "x": 5, "y": 4 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-warlord" } },
+    { "slotId": "red-1", "teamId": 1, "pos": { "x": 7, "y": 2 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-faithzero-monk" } },
+    { "slotId": "red-2", "teamId": 1, "pos": { "x": 7, "y": 5 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-aggro-tank" } },
+    { "slotId": "red-3", "teamId": 1, "pos": { "x": 6, "y": 3 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-longshot" } }
+  ],
+  "victory": { "kind": "defeatUnit", "unitId": "warlord" },
+  "defeat": { "kind": "eliminateTeams", "teams": [0] },
+  "maxTurns": 300,
+  "maxTicks": 3000
+}

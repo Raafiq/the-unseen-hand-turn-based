@@ -84,6 +84,10 @@ Legend for the "Systems" column: `chassis` = 5-slot recombination · `tree` = AP
 - Systems: chassis + tree (gender-locked baseline). Loadout: Perform primary / support secondary / survivability traits.
 - Counterplay: rush the low-HP performer; interrupt the charged Perform (`docs/01` §3).
 
+**17. Longshot Skirmisher** — *"Reach without a footstep."*
+- Systems: chassis + tree. Loadout: Archer primary / physical secondary / **Support: Concentrate** / **Move: Scout** / Traits: marksman (PA mastery). Its identity is instant-shot **reach + status** (Head/Leg-Shot), not raw per-hit power — it opens the fight before a melee build has closed the gap.
+- Counterplay: gap-close and pin it — it folds in melee; take its high ground to deny the range/line advantage; high-evasion foes shrug off its shots until it commits **Concentrate** (which then costs it the Support slot). This closes the catalog gap for the Archer baseline (`docs/02`).
+
 ---
 
 ## Coverage matrix (systems → archetypes)

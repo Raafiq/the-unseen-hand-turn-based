@@ -1,0 +1,22 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "enc-the-long-march",
+  "seed": 30260806,
+  "grid": { "width": 12, "height": 4 },
+  "teams": [
+    { "teamId": 0, "controller": "ai", "aiProfile": "balance-probe" },
+    { "teamId": 1, "controller": "ai", "aiProfile": "balance-probe" }
+  ],
+  "placements": [
+    { "slotId": "blue-1", "teamId": 0, "pos": { "x": 0, "y": 1 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-battle-cleric" } },
+    { "slotId": "blue-2", "teamId": 0, "pos": { "x": 1, "y": 1 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-counter-wall" } },
+    { "slotId": "blue-3", "teamId": 0, "pos": { "x": 0, "y": 2 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-longshot" } },
+    { "slotId": "red-1", "teamId": 1, "pos": { "x": 6, "y": 1 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-faithzero-monk" } },
+    { "slotId": "red-2", "teamId": 1, "pos": { "x": 8, "y": 2 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-aggro-tank" } },
+    { "slotId": "red-3", "teamId": 1, "pos": { "x": 10, "y": 1 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-faithzero-monk" } }
+  ],
+  "victory": { "kind": "eliminateTeams", "teams": [1] },
+  "defeat": { "kind": "eliminateTeams", "teams": [0] },
+  "maxTurns": 400,
+  "maxTicks": 3000
+}

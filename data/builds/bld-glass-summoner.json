@@ -1,0 +1,29 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-glass-summoner",
+  "name": "Glass Summoner",
+  "level": 10,
+  "currentJob": "summoner",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "summon.shiva",
+    "summon.ifrit",
+    "summon.ramuh",
+    "summon.bahamut",
+    "summon.arcane-focus",
+    "black-magic.fire",
+    "punch-art.counter",
+    "steal.move-plus-2"
+  ],
+  "mastered": ["summoner"],
+  "loadout": {
+    "secondary": "wizard",
+    "reaction": "punch-art.counter",
+    "support": "summon.arcane-focus",
+    "movement": "steal.move-plus-2",
+    "traits": ["spirit-conduit"]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-battle-cleric",
+  "name": "Battle Cleric",
+  "level": 10,
+  "currentJob": "monk",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "punch-art.wave-fist",
+    "punch-art.chakra",
+    "white-magic.cure",
+    "punch-art.counter",
+    "punch-art.martial-arts",
+    "steal.move-plus-2"
+  ],
+  "mastered": ["monk"],
+  "loadout": {
+    "secondary": "priest",
+    "reaction": "punch-art.counter",
+    "support": "punch-art.martial-arts",
+    "movement": "steal.move-plus-2",
+    "traits": ["inner-focus"]
+  }
+}
