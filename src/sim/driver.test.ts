@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyCommand, replay, replaySteps, type Command } from "./driver.js";
+import { advanceToDecision, applyCommand, replay, replaySteps, type Command } from "./driver.js";
 import { resolveAttack } from "./resolve.js";
 import { declareCharge } from "./charge.js";
 import {
@@ -376,6 +376,47 @@ describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
     expect(final.turnLog.some((e) => e.action.includes("cancelled"))).toBe(true);
     // Byte-reproducible end to end.
     expect(serialize(final)).toBe(serialize(replay(mk(), log)));
+  });
+});
+
+describe("advanceToDecision — the shared decision primitive (Slice-2 extraction)", () => {
+  it("lands on the next living unit and is IDEMPOTENT at a decision point", () => {
+    const s = harness();
+    const first = advanceToDecision(s);
+    expect(first.terminal).toBeNull();
+    expect(first.unitId).not.toBeNull();
+    // Re-advancing from a decision point advances zero ticks and re-surfaces the
+    // same unit (byte-identical state) — the property the harness relies on.
+    const again = advanceToDecision(first.state);
+    expect(again.unitId).toBe(first.unitId);
+    expect(serialize(again.state)).toBe(serialize(first.state));
+  });
+
+  it("reports `stalemate` on a fully-Stopped field (no actor can reach a turn)", () => {
+    const s = createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 3 },
+      units: [
+        defaultUnit("x", 0, { pos: { x: 0, y: 0 }, statuses: [legacyActiveStatus("stop")] }),
+        defaultUnit("y", 1, { pos: { x: 1, y: 1 }, statuses: [legacyActiveStatus("stop")] }),
+      ],
+    });
+    const dec = advanceToDecision(s);
+    expect(dec.terminal).toBe("stalemate");
+    expect(dec.unitId).toBeNull();
+  });
+
+  it("applyCommand lands on the SAME unit advanceToDecision surfaced (no divergence)", () => {
+    const s = harness();
+    const dec = advanceToDecision(s);
+    // The command settles whichever unit is up; applyCommand re-advances to that
+    // same unit, so its post-state matches applying to dec.unitId directly.
+    const viaApply = applyCommand(s, { kind: "wait" });
+    const settled = viaApply.units.find((u) => u.id === dec.unitId)!;
+    // The unit that just took a Wait paid CT_COST_WAIT (60); it is the one that
+    // was up at the decision point.
+    const before = dec.state.units.find((u) => u.id === dec.unitId)!;
+    expect(settled.ct).toBe(before.ct - 60);
   });
 });
 

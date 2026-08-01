@@ -100,6 +100,8 @@ export {
 export {
   resolveAttack,
   resolveAbility,
+  attackDamage,
+  abilityDamage,
   tickCrystal,
   CRYSTAL_TIMER_START,
   type AttackOptions,
@@ -119,10 +121,12 @@ export {
 } from "./charge.js";
 export {
   CommandSchema,
+  advanceToDecision,
   applyCommand,
   replay,
   replaySteps,
   type Command,
+  type Decision,
 } from "./driver.js";
 export {
   AbilityTypeSchema,
@@ -225,3 +229,48 @@ export {
   type BuildUnitInput,
   type BuildBattleGridOptions,
 } from "./build.js";
+export {
+  ConditionSchema,
+  evalCondition,
+  evalTerminal,
+  winningTeamOf,
+  type Condition,
+  type Outcome,
+  type TerminalVerdict,
+  type TerminalCounters,
+} from "./condition.js";
+export {
+  ENCOUNTER_SCHEMA_VERSION,
+  MIN_SUPPORTED_ENCOUNTER_SCHEMA_VERSION,
+  ENCOUNTER_MIGRATIONS,
+  EncounterSchemaVersionError,
+  ControllerSchema,
+  UnitSourceSchema,
+  TeamSchema,
+  PlacementSchema,
+  EncounterGridSchema,
+  EncounterSchema,
+  parseEncounter,
+  loadEncounter,
+  type Controller,
+  type UnitSource,
+  type Team,
+  type Placement,
+  type EncounterGrid,
+  type Encounter,
+  type EncounterMigration,
+  type RecordMap,
+  type SlotAssignment,
+  type EncounterResolver,
+} from "./encounter.js";
+export { decideBalanceProbe } from "./ai.js";
+export {
+  runEncounter,
+  runEncounterDetailed,
+  runFromState,
+  type RunReport,
+  type RunResult,
+  type TeamReport,
+  type RunConfig,
+  type RunOptions,
+} from "./harness.js";

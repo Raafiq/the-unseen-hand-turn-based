@@ -1,0 +1,20 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "skirmish-a",
+  "seed": 20260731,
+  "grid": { "width": 7, "height": 3 },
+  "teams": [
+    { "teamId": 0, "controller": "ai", "aiProfile": "balance-probe" },
+    { "teamId": 1, "controller": "ai", "aiProfile": "balance-probe" }
+  ],
+  "placements": [
+    { "slotId": "blue-1", "teamId": 0, "pos": { "x": 0, "y": 0 }, "facing": "E", "unit": { "kind": "ref", "recordId": "knight-a" } },
+    { "slotId": "blue-2", "teamId": 0, "pos": { "x": 0, "y": 2 }, "facing": "E", "unit": { "kind": "ref", "recordId": "monk-a" } },
+    { "slotId": "red-1", "teamId": 1, "pos": { "x": 6, "y": 0 }, "facing": "W", "unit": { "kind": "ref", "recordId": "knight-b" } },
+    { "slotId": "red-2", "teamId": 1, "pos": { "x": 6, "y": 2 }, "facing": "W", "unit": { "kind": "ref", "recordId": "monk-b" } }
+  ],
+  "victory": { "kind": "eliminateTeams", "teams": [1] },
+  "defeat": { "kind": "eliminateTeams", "teams": [0] },
+  "maxTurns": 300,
+  "maxTicks": 3000
+}

@@ -94,14 +94,8 @@ export function resolveAttack(
   let damage = 0;
   let ko = false;
   if (hit) {
-    // MAGNITUDE — floor order per docs/05 §2.
-    let dmg = weaponBaseDamage(attacker, { martialArts: opts.martialArts ?? false });
-    // Element: "none" is a pass-through; weak/half/absorb/null land in a later slice.
-    const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
-    dmg = applyZodiac(dmg, tier);
-    if (target.statuses.some((st) => st.id === "protect")) dmg = applyProtect(dmg);
-    if (dmg < 0) dmg = 0;
-    damage = dmg;
+    // MAGNITUDE — floor order per docs/05 §2 (extracted, RNG-free: {@link attackDamage}).
+    damage = attackDamage(attacker, target, opts);
 
     // APPLY — clamp HP ≥ 0; on lethal, start the crystal counter (docs/01 §11).
     const newHp = Math.max(0, target.hp - damage);
@@ -169,16 +163,8 @@ export function resolveAbility(
   let ko = false;
   if (hit) {
     // MAGNITUDE — floor order mirrors resolve.ts / charge.ts: formula → Zodiac →
-    // Protect/Shell → clamp ≥ 0. Healing skips the damage reducers.
-    let mag = abilityMagnitude(attacker, target, ability);
-    if (!heal) {
-      const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
-      mag = applyZodiac(mag, tier);
-      if (ability.formula === "physical" && target.statuses.some((st) => st.id === "protect")) mag = applyProtect(mag);
-      if (ability.formula === "magic" && target.statuses.some((st) => st.id === "shell")) mag = applyShell(mag);
-    }
-    if (mag < 0) mag = 0;
-    damage = mag;
+    // Protect/Shell → clamp ≥ 0 (extracted, RNG-free: {@link abilityDamage}).
+    damage = abilityDamage(attacker, target, ability);
 
     if (heal) {
       target.hp = Math.min(target.maxHp, target.hp + damage);
@@ -207,6 +193,43 @@ export function resolveAbility(
   });
 
   return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+}
+
+/**
+ * Deterministic ON-HIT damage of a BASIC weapon swing — {@link resolveAttack}'s
+ * exact magnitude block, extracted RNG-free (floor order: weapon base → Zodiac →
+ * Protect → clamp ≥ 0, docs/05 §2). Shared so the balance-probe AI can rank a
+ * candidate WITHOUT re-deriving the combat constants (they live in formulas.ts)
+ * and can never drift from what the resolver actually deals.
+ */
+export function attackDamage(attacker: UnitState, target: UnitState, opts: AttackOptions = {}): number {
+  let dmg = weaponBaseDamage(attacker, { martialArts: opts.martialArts ?? false });
+  // Element: "none" is a pass-through; weak/half/absorb/null land in a later slice.
+  const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
+  dmg = applyZodiac(dmg, tier);
+  if (target.statuses.some((st) => st.id === "protect")) dmg = applyProtect(dmg);
+  return dmg < 0 ? 0 : dmg;
+}
+
+/**
+ * Deterministic ON-HIT magnitude of an INSTANT ability — {@link resolveAbility}'s
+ * exact magnitude block, extracted RNG-free. Damage formulas (physical/magic) run
+ * formula → Zodiac → Protect/Shell → clamp ≥ 0; a `heal` returns its raw restorative
+ * magnitude (no reducers), a `none` returns 0. Shared with the AI for the same
+ * no-drift reason as {@link attackDamage}. NOTE: a positive number is returned for a
+ * heal too — the caller keys on `ability.formula` to know whether it is damage or
+ * healing.
+ */
+export function abilityDamage(attacker: UnitState, target: UnitState, ability: BattleAbility): number {
+  const heal = ability.formula === "heal";
+  let mag = abilityMagnitude(attacker, target, ability);
+  if (!heal) {
+    const tier = zodiacCompatibility(attacker.zodiac, target.zodiac);
+    mag = applyZodiac(mag, tier);
+    if (ability.formula === "physical" && target.statuses.some((st) => st.id === "protect")) mag = applyProtect(mag);
+    if (ability.formula === "magic" && target.statuses.some((st) => st.id === "shell")) mag = applyShell(mag);
+  }
+  return mag < 0 ? 0 : mag;
 }
 
 /** Instant-ability magnitude by formula (P1, [UNVERIFIED] — see {@link resolveAbility}). */
