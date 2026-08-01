@@ -28,6 +28,8 @@ Each archetype stresses a different axis of the player's builds:
 
 Story battles (from the narrative repo later) are authored instances of these; the engine is data-driven so they slot in without code (`docs/05` §6, `docs/08`).
 
+> **Implementation status (P2 Slice 3).** The benchmark suite authors the archetypes expressible today — Skirmish, Siege/choke, Assassinate, Elevation, Anti-cheese, Attrition (`data/encounters/`). Three are **`[DEFERRED]` on engine capability, not design**: **Defend / survive-N** needs a `surviveTurns` win condition (the `Condition` union only has `eliminateTeams`/`defeatUnit`); **Escort / protect** and reliable **heal-in-encounter** need a support-aware AI — the current balance-probe is a greedy 1-ply policy with no hold-position/protect logic, so a fragile ally (or a squishy healer) simply advances toward the enemy and dies before it can be protected or heal. They unlock when those two features land; don't re-attempt them against the current probe.
+
 ## 3. Threat / difficulty model
 
 - **Threat budget per encounter:** enemy count × tier × support density, tuned to a target **time-to-kill** band (`docs/07`) — not to the player's level (no mandatory scaling treadmill).
