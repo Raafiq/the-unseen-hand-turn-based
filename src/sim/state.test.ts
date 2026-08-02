@@ -48,7 +48,7 @@ describe("BattleState — serialization round-trip (AC-S6)", () => {
       ct: 30,
       speed: 25,
       targetTile: { x: 1, y: 1 },
-      effect: { kind: "magic", power: 18, element: "fire", accuracy: 100 },
+      effect: { kind: "magic", power: 18, element: "fire", accuracy: 100, aoe: null },
       interrupted: false,
     });
     const restored = deserialize(serialize(state));
@@ -183,7 +183,7 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     });
     current.chargeQueue.push({
       id: "c.1", sourceUnitId: "u.free", ct: 0, speed: 10,
-      targetTile: { x: 0, y: 0 }, effect: { kind: "magic", power: 8, element: "none", accuracy: 100 },
+      targetTile: { x: 0, y: 0 }, effect: { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null },
       interrupted: false,
     });
     const raw = JSON.parse(serialize(current)) as {

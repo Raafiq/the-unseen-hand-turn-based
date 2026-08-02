@@ -19,6 +19,7 @@ const HEAL_ABILITY: BattleAbility = {
   range: { h: 3, v: 3 },
   inflicts: [],
   speed: null,
+  aoe: null,
 };
 
 /** A unit that keeps its auto basic attack and also carries `extra` abilities. */
@@ -131,7 +132,7 @@ describe("decideBalanceProbe — movement + passivity", () => {
 
   it("DOES select a charged MAGIC ability (the skip is not over-broad)", () => {
     // A charged magic nuke IS safe to select; encoded as a TILE target (charged/AoE).
-    const nuke: BattleAbility = { id: "spell.nuke", actionKind: "action", formula: "magic", power: 8, element: "none", accuracy: 100, range: { h: 8, v: 8 }, inflicts: [], speed: 20 };
+    const nuke: BattleAbility = { id: "spell.nuke", actionKind: "action", formula: "magic", power: 8, element: "none", accuracy: 100, range: { h: 8, v: 8 }, inflicts: [], speed: 20, aoe: null };
     const caster = unitWith("caster", 0, { pos: { x: 2, y: 2 }, ma: 10, faith: 50 }, [nuke]);
     // Foe at range 3 → out of basic-attack (h1) range, so the nuke is the only option.
     const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 5 }, hp: 100, maxHp: 100, faith: 50 });

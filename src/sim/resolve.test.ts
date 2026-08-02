@@ -147,11 +147,11 @@ describe("resolveAttack + tickCrystal — KO & crystal countdown (AC-09)", () =>
 describe("resolveAbility — instant loadout-derived actions (Slice 5)", () => {
   const MAGIC_BOLT: BattleAbility = {
     id: "magic.bolt", actionKind: "action", formula: "magic",
-    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null,
+    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null, aoe: null,
   };
   const HEAL: BattleAbility = {
     id: "heal.cure", actionKind: "action", formula: "heal",
-    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null,
+    power: 8, element: "none", accuracy: 100, range: { h: 4, v: 4 }, inflicts: [], speed: null, aoe: null,
   };
 
   it("reads magnitude from the ability projection and consumes exactly one hit draw", () => {

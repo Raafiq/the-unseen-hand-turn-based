@@ -30,7 +30,7 @@
 import type { BattleState, UnitState } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 import type { Command } from "./driver.js";
-import { inAbilityRange, moveRange, relativeFacing } from "./grid.js";
+import { inAbilityRange, moveRange, relativeFacing, unitsInAoeBox } from "./grid.js";
 import { attackDamage, abilityDamage } from "./resolve.js";
 
 /**
@@ -46,15 +46,26 @@ const FACING_RANK: Record<"front" | "side" | "rear", number> = { rear: 0, side: 
 
 interface Candidate {
   cls: number;
-  /** Target effective HP (= `hp`, D2). Sorted ASC — the FOCUS key (AC-E3(b)). */
+  /**
+   * Target effective HP (= `hp`, D2). Sorted ASC — the FOCUS key (AC-E3(b)),
+   * applied UNIFORMLY to single-target and area acts. For an area act this is the
+   * LOWEST effHp among the units it would affect, so an AoE "focuses" on the
+   * weakest unit in its box exactly as a single-target act focuses its one target.
+   */
   targetEffHp: number;
-  /** Effective magnitude (damage dealt, or HP actually restored). Sorted DESC. */
+  /**
+   * Effective magnitude: damage dealt / HP restored for a single-target act, or
+   * the SUM over the aim box for an area act. Sorted DESC (the CHIP tie-break after
+   * effHp, and the LETHAL/HEAL primary).
+   */
   magnitude: number;
   /** Facing rank from the actor's current tile. Sorted ASC (rear best). */
   facingRank: number;
+  /** The single target's id, or the AIM CENTRE unit's id for an area act (tie-break). */
   targetId: string;
   abilityIndex: number;
   ability: BattleAbility;
+  /** The single target, or the AIM CENTRE unit whose tile the area is centred on. */
   target: UnitState;
 }
 
@@ -97,34 +108,80 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
     // `effect.kind` by `formula`, only magic-formula charges are safe to select.
     if (ability.speed !== null && ability.formula !== "magic") return;
     const heal = ability.formula === "heal";
-    for (const target of state.units) {
-      if (target.hp <= 0) continue;
-      const sameTeam = target.teamId === actor.teamId;
+    // The AIM CENTRES: for a single-target act, each valid unit is its own aim; for
+    // an area act, the AI centres the box on a valid unit's tile (foe for damage,
+    // ally for heal) and sums over everyone the box catches. Iterating candidate
+    // aim units (not raw tiles) keeps the search finite and each aim deterministic.
+    for (const aim of state.units) {
+      if (aim.hp <= 0) continue;
+      const sameTeam = aim.teamId === actor.teamId;
       if (heal ? !sameTeam : sameTeam) continue; // heal allies (incl. self); damage foes
-      if (!inAbilityRange(state.grid, actor.pos, target.pos, ability.range)) continue;
+      if (!inAbilityRange(state.grid, actor.pos, aim.pos, ability.range)) continue;
 
-      const raw = estMagnitude(actor, target, ability);
+      if (ability.aoe !== null) {
+        // AREA — value the aim by the SUMMED magnitude over the units the box catches
+        // (TARGETED: foes for damage, allies for heal) and by the LOWEST effHp among
+        // them. The box is centred on each valid unit's tile; ranking (compareCandidate)
+        // is the SAME focus rule as single-target, so an AoE competes on (lowest-effHp,
+        // total-magnitude) rather than on raw cluster size.
+        const affected = unitsInAoeBox(state.grid, state.units, aim.pos, ability.aoe).filter((u) =>
+          heal ? u.teamId === actor.teamId : u.teamId !== actor.teamId,
+        );
+        let magnitude = 0;
+        let affectedCount = 0;
+        let kos = 0;
+        let minEffHp = Infinity;
+        for (const t of affected) {
+          const raw = estMagnitude(actor, t, ability);
+          if (heal) {
+            const gain = Math.min(t.maxHp - t.hp, raw);
+            if (gain <= 0) continue; // this ally has no HP to restore
+            magnitude += gain;
+          } else {
+            if (raw <= 0) continue; // a 0-damage tick on this foe is worthless
+            magnitude += raw;
+            if (raw >= t.hp) kos += 1;
+          }
+          affectedCount += 1;
+          if (t.hp < minEffHp) minEffHp = t.hp;
+        }
+        if (affectedCount === 0) continue; // the box catches nothing worth a turn
+        const cls = heal ? ACTION_CLASS.HEAL : kos >= 1 ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
+        cands.push({
+          cls,
+          magnitude,
+          targetEffHp: minEffHp,
+          facingRank: FACING_RANK[relativeFacing(aim, actor.pos)],
+          targetId: aim.id,
+          abilityIndex,
+          ability,
+          target: aim,
+        });
+        continue;
+      }
+
+      const raw = estMagnitude(actor, aim, ability);
       let magnitude: number;
       let cls: number;
       if (heal) {
-        magnitude = Math.min(target.maxHp - target.hp, raw);
+        magnitude = Math.min(aim.maxHp - aim.hp, raw);
         if (magnitude <= 0) continue; // no HP to restore → not worth a turn
         cls = ACTION_CLASS.HEAL;
       } else {
         if (raw <= 0) continue; // a 0-damage swing is not worth a turn
         magnitude = raw;
-        cls = raw >= target.hp ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
+        cls = raw >= aim.hp ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
       }
-      const facing = relativeFacing(target, actor.pos);
+      const facing = relativeFacing(aim, actor.pos);
       cands.push({
         cls,
         magnitude,
-        targetEffHp: target.hp,
+        targetEffHp: aim.hp,
         facingRank: FACING_RANK[facing],
-        targetId: target.id,
+        targetId: aim.id,
         abilityIndex,
         ability,
-        target,
+        target: aim,
       });
     }
   });
@@ -139,20 +196,31 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
  *
  * The focus keys differ by class because AC-E3(b) is a FOCUS rule, not a big-hit
  * rule:
- *   - CHIP (non-lethal damage): effHp ASC first, then magnitude DESC — FOCUS the
- *     lowest-effective-HP foe (docs/06 §4), even when a Zodiac/Protect asymmetry
- *     makes a higher-HP foe the bigger hit. Focusing kills things sooner.
+ *   - CHIP (non-lethal damage): effHp ASC first, then magnitude DESC — focus the
+ *     lowest-effective-HP foe even when a Zodiac/Protect asymmetry makes a higher-HP
+ *     foe the bigger hit (docs/06 §4). Applied UNIFORMLY to single-target and area
+ *     acts: an area act carries the LOWEST effHp it would hit and its SUMMED
+ *     magnitude, so it competes on (focus, total-damage) like any other chip. An AoE
+ *     therefore wins only when it reaches a lower-HP foe, OR ties the focus target
+ *     and out-totals it (hits the same weakest foe PLUS others) — never merely by
+ *     catching more units. [Decision: replaced an earlier spread-DESC-first key that
+ *     preferred cluster size over focus and could rank a 2-for-1-damage tap above a
+ *     near-lethal single-target chip; reviewer S2. Uniform effHp→magnitude keeps the
+ *     comparator a single transitive total order and preserves AC-E3(b).]
  *   - LETHAL: magnitude DESC first (unchanged) — every lethal already kills, so
- *     rank by overkill margin then effHp; the class itself is the "actual kill" key.
+ *     rank by overkill margin (summed, for an area act) then effHp.
  *   - HEAL: magnitude DESC first (unchanged) — its magnitude IS "HP restored", so
- *     the biggest effective heal wins.
+ *     the biggest effective (summed, for an area act) heal wins.
  * Comparisons only reach the focus keys when `a.cls === b.cls`, so branching on the
  * (shared) class is well-defined.
  */
 function compareCandidate(a: Candidate, b: Candidate): number {
   if (a.cls !== b.cls) return a.cls - b.cls;
   if (a.cls === ACTION_CLASS.CHIP) {
-    // Non-lethal offensive: focus lowest effHp first, then prefer the bigger chip.
+    // Non-lethal offensive: focus the lowest effHp first (AC-E3(b)), then prefer the
+    // bigger total chip. UNIFORM for single-target and area acts (an area act carries
+    // its lowest-affected effHp and summed magnitude), so a wide-but-weak tap can
+    // never out-rank a focus on a lower-HP foe — see the docstring (reviewer S2).
     if (a.targetEffHp !== b.targetEffHp) return a.targetEffHp - b.targetEffHp;
     if (a.magnitude !== b.magnitude) return b.magnitude - a.magnitude;
   } else {
@@ -167,10 +235,11 @@ function compareCandidate(a: Candidate, b: Candidate): number {
 
 /** Encode a chosen candidate as a driver {@link Command} (tile vs unit target). */
 function toActCommand(c: Candidate): Command {
-  // Charged/AoE actions resolve against a TILE (the occupant may vacate before
-  // maturity — the counterplay); instant single-target actions lock the UNIT.
+  // A charged action OR an area action resolves against a TILE (the aim centre —
+  // the occupant may vacate a charge before maturity, the counterplay; an area act
+  // is inherently tile-centred). An instant single-target action locks the UNIT.
   const target =
-    c.ability.speed !== null
+    c.ability.speed !== null || c.ability.aoe !== null
       ? { x: c.target.pos.x, y: c.target.pos.y }
       : { unitId: c.target.id };
   return { kind: "act", abilityId: c.ability.id, target };

@@ -115,6 +115,7 @@ const MAGE_SPELL_ABILITY: BattleAbility = {
   range: { h: MAGE_CAST_RANGE, v: 3 },
   inflicts: [],
   speed: 12,
+  aoe: null,
 };
 
 const manhattan = (a: Position, b: Position): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -192,7 +193,7 @@ export function stepDemo(input: BattleState): StepResult {
     const next = declareCharge(state, "mage", {
       targetTile: { x: target.pos.x, y: target.pos.y },
       speed: spell.speed ?? 1,
-      effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy },
+      effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy, aoe: spell.aoe },
     });
     return { state: next, active, activeRange: range, moved: false, attack: null, charge: null };
   }

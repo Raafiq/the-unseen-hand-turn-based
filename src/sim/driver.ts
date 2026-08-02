@@ -23,7 +23,7 @@
 
 import { z } from "zod";
 import { advanceToNextTurn, settleTurn } from "./scheduler.js";
-import { resolveAttack, resolveAbility, tickCrystal } from "./resolve.js";
+import { resolveAttack, resolveAbility, resolveAbilityAoe, tickCrystal } from "./resolve.js";
 import { declareCharge, resolveCharge } from "./charge.js";
 import { moveRange, inAbilityRange } from "./grid.js";
 import { PositionSchema, type BattleState, type Position } from "./state.js";
@@ -72,6 +72,117 @@ export interface Decision {
 }
 
 /**
+ * A LANDED-outcome accounting record for one resolved action (docs/06 diversity
+ * gate). Emitted by the instrumented driver ({@link applyCommandDetailed} for an
+ * instant act, {@link advanceToDecisionDetailed} for a matured charge) and folded
+ * into `RunReport.contributionByUnit` by the harness. This is PURE accounting over
+ * the already-seeded resolution outcomes — it introduces NO new randomness and no
+ * new state; it only reads what the resolvers already computed.
+ *
+ * `landed` is the honesty linchpin: it is true ONLY when the action CONNECTED with
+ * ≥ 1 target (a hit / heal that dealt something). A miss, an empty-box whiff, or a
+ * cancelled charge is `landed:false` and contributes 0 — so the diversity gate keys
+ * on what a build actually DID, never on the commands it merely issued.
+ */
+export interface ResolutionEvent {
+  /** The unit CREDITED with the action (the caster — the charge source for a charge). */
+  sourceUnitId: string;
+  /** The issuing ability id; `""` for a matured charge with no recorded label. */
+  abilityId: string;
+  /** Landed damage dealt to foes (0 on a heal / miss / whiff / cancel). */
+  damageDealt: number;
+  /** Landed HP restored to allies (0 on damage / miss). */
+  healingDone: number;
+  /** Foes/units this action dropped to 0 HP. */
+  kos: number;
+  /** Did the action connect with ≥ 1 target? (drives signature-landed counting). */
+  landed: boolean;
+}
+
+/**
+ * The result of {@link applyCommandDetailed}: the settled state, the LANDED
+ * accounting {@link ResolutionEvent} for the command (or `null` for move / wait /
+ * a charge DECLARE, which lands nothing yet), and — when the command declared a
+ * charge — the deterministic id of that charge, so the caller can remember the
+ * abilityId to credit the charge's eventual maturity to.
+ */
+export interface AppliedCommand {
+  state: BattleState;
+  event: ResolutionEvent | null;
+  declaredChargeId: string | null;
+}
+
+/**
+ * Compute a LANDED {@link ResolutionEvent} by diffing per-unit HP across a single
+ * resolution (`before` → `after`), crediting it to `sourceUnitId`. This is EXACT
+ * HP-removed / HP-restored accounting — overkill beyond a unit's HP is NOT counted
+ * (a killing blow contributes only the HP it actually removed), and a miss / whiff /
+ * cancel (no HP change) yields `landed:false` and zero. Pure and order-independent
+ * (the sums and the KO count do not depend on `units` array order). `abilityId`
+ * labels the source action for signature counting.
+ *
+ * ATTRIBUTION ASSUMPTION (valid ONLY while no live reactions / friendly-fire exist):
+ * damage is attributed by TEAM — HP LOSS on a FOE of the source is the source's
+ * damage; HP GAIN on an ALLY (incl. self) is the source's healing. A future
+ * counter/friendly-fire/self-damage path would break this simple mapping, so it is
+ * GUARDED rather than left to silently inflate `damageDealt`/`kos`: HP loss on a
+ * same-team unit OTHER than the source THROWS (that is the mis-attribution tripwire —
+ * make the new mechanic surface here and account itself, don't credit it to the
+ * caster). Self HP loss (a future recoil) is deliberately NOT counted as damage dealt.
+ *
+ * EDGE: healing a full-HP ally moves no HP → the action is `landed:false` and
+ * contributes 0 (an "overheal" is not a landed contribution). Likewise a 0-magnitude
+ * hit removes no HP → not landed.
+ */
+function hpDiffEvent(
+  before: BattleState,
+  after: BattleState,
+  sourceUnitId: string,
+  abilityId: string,
+): ResolutionEvent {
+  const beforeById = new Map(before.units.map((u) => [u.id, u]));
+  const srcTeam = beforeById.get(sourceUnitId)?.teamId;
+  let damageDealt = 0;
+  let healingDone = 0;
+  let kos = 0;
+  for (const u of after.units) {
+    const prev = beforeById.get(u.id);
+    if (prev === undefined) continue;
+    const delta = u.hp - prev.hp;
+    if (delta === 0) continue;
+    const sameTeam = srcTeam !== undefined && u.teamId === srcTeam;
+    const isSelf = u.id === sourceUnitId;
+    if (delta < 0) {
+      if (sameTeam && !isSelf) {
+        // Only a future friendly-fire / reaction path can lower an ally's HP during
+        // the source's action — surface it instead of mis-crediting the source.
+        throw new Error(
+          `hpDiffEvent: ${sourceUnitId}'s action lowered same-team ${u.id}'s HP ` +
+            `(friendly-fire/reaction not modeled — attribution would be wrong)`,
+        );
+      }
+      if (!isSelf) {
+        damageDealt += -delta; // HP removed from a foe
+        if (prev.hp > 0 && u.hp <= 0) kos += 1;
+      }
+      // self HP loss (future recoil): not "damage dealt", left uncredited by design.
+    } else {
+      // HP gain: healing of an ally (incl. self). A foe gaining HP is not this
+      // source's doing (no such action today); it is ignored, not credited.
+      if (sameTeam) healingDone += delta;
+    }
+  }
+  return {
+    sourceUnitId,
+    abilityId,
+    damageDealt,
+    healingDone,
+    kos,
+    landed: damageDealt > 0 || healingDone > 0,
+  };
+}
+
+/**
  * Advance the shared timeline to the next living-unit turn, AUTO-RESOLVING any
  * charges (via {@link resolveCharge}) and KO crystal ticks (via {@link tickCrystal})
  * that come up first — exactly the loop {@link applyCommand} used to inline. Pure:
@@ -112,6 +223,45 @@ export function advanceToDecision(input: BattleState): Decision {
 }
 
 /**
+ * As {@link advanceToDecision}, but ALSO emits a {@link ResolutionEvent} for every
+ * charge that matures during the advance — the landed-outcome accounting the
+ * benchmark harness folds into `contributionByUnit`. State evolution is
+ * byte-identical to {@link advanceToDecision} (same primitives, same order); the
+ * events are pure side information. `chargeLabels` maps a charge id to the ability
+ * that declared it (the caller records this when a charge is declared), so a
+ * matured charge is credited to its ORIGINAL ability for signature counting.
+ */
+export function advanceToDecisionDetailed(
+  input: BattleState,
+  chargeLabels: ReadonlyMap<string, string>,
+): Decision & { events: ResolutionEvent[] } {
+  let state = input;
+  const events: ResolutionEvent[] = [];
+  for (;;) {
+    const { state: advanced, active } = advanceToNextTurn(state);
+    state = advanced;
+    if (!active) {
+      return { state, unitId: null, terminal: "stalemate", events };
+    }
+    if (active.kind === "charge") {
+      const { state: after, outcome } = resolveCharge(state, active.id);
+      // HP-diff accounting, credited to the charge's SOURCE unit and labelled with
+      // the ability that declared it. A cancel / whiff / miss changes no HP ⇒ 0.
+      events.push(hpDiffEvent(state, after, outcome.sourceUnitId, chargeLabels.get(active.id) ?? ""));
+      state = after;
+      continue;
+    }
+    const unit = state.units.find((u) => u.id === active.id);
+    if (!unit) throw new Error(`advanceToDecisionDetailed: scheduler surfaced unknown unit ${active.id}`);
+    if (unit.hp <= 0) {
+      state = tickCrystal(state, active.id).state;
+      continue;
+    }
+    return { state, unitId: active.id, terminal: null, events };
+  }
+}
+
+/**
  * Advance to the next living-unit turn (auto-resolving any charges and crystal
  * ticks that come up first) and apply `command` to that unit, settling its turn.
  * Pure: threads immutable states, never mutates the input. Built on
@@ -122,6 +272,20 @@ export function advanceToDecision(input: BattleState): Decision {
  *   is no unit to apply the command to.
  */
 export function applyCommand(input: BattleState, command: Command): BattleState {
+  return applyCommandDetailed(input, command).state;
+}
+
+/**
+ * As {@link applyCommand}, but returns the LANDED accounting {@link ResolutionEvent}
+ * for the command (or `null` for move / wait / a charge DECLARE) plus the
+ * `declaredChargeId` when the command begins a charge — the instrumentation the
+ * benchmark harness folds into `contributionByUnit`. The state result is identical
+ * to {@link applyCommand}. NOTE: any charge that matures during the internal
+ * advance-to-decision is NOT accounted here — the harness advances (and accounts
+ * charges) via {@link advanceToDecisionDetailed} first, so this call is already AT a
+ * decision point and its advance is a no-op.
+ */
+export function applyCommandDetailed(input: BattleState, command: Command): AppliedCommand {
   const parsed = CommandSchema.parse(command);
   const { state, unitId, terminal } = advanceToDecision(input);
   if (terminal !== null || unitId === null) {
@@ -130,8 +294,14 @@ export function applyCommand(input: BattleState, command: Command): BattleState 
   return applyToUnit(state, unitId, parsed);
 }
 
-/** Apply one command to the (living) unit whose turn it is, then settle. */
-function applyToUnit(state: BattleState, unitId: string, command: Command): BattleState {
+/**
+ * Apply one command to the (living) unit whose turn it is, settle, and return the
+ * settled state alongside the LANDED {@link ResolutionEvent} (a pure read of the
+ * resolver's outcome) and any `declaredChargeId`. The dispatch is unchanged from
+ * the pre-instrumentation path — only the outcome is now surfaced instead of
+ * discarded.
+ */
+function applyToUnit(state: BattleState, unitId: string, command: Command): AppliedCommand {
   switch (command.kind) {
     case "move": {
       const legal = moveRange(state.grid, state.units, unitId);
@@ -144,7 +314,11 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
       const unit = next.units.find((u) => u.id === unitId)!;
       unit.pos = { x: command.to.x, y: command.to.y };
       next.turnLog.push({ tick: next.tick, unitId, action: `move ${command.to.x},${command.to.y}` });
-      return settleTurn(next, unitId, { didMove: true, didAct: false });
+      return {
+        state: settleTurn(next, unitId, { didMove: true, didAct: false }),
+        event: null,
+        declaredChargeId: null,
+      };
     }
     case "act": {
       const actor = state.units.find((u) => u.id === unitId)!;
@@ -180,11 +354,27 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
         );
       }
 
-      // DISPATCH by charge speed (docs/01 §3).
+      // DISPATCH by charge speed (docs/01 §3). The landed event is computed by
+      // diffing HP across the resolution ({@link hpDiffEvent}), so every instant path
+      // accounts identically and exactly (no overkill, miss ⇒ 0).
       if (ability.speed === null) {
-        // INSTANT — resolve now. A basic weapon swing (formula "physical") delegates
-        // to resolveAttack so its rolls are byte-identical to the pre-Slice-5 path;
-        // every other instant reads its magnitude from the ability projection.
+        // INSTANT — resolve now.
+        if (ability.aoe !== null) {
+          // AREA — resolve every appropriate unit in the box around the aim TILE
+          // (foes for damage, allies incl. self for heal — TARGETED, no friendly
+          // fire). A tile target is legal for an area act, so the unit-target
+          // requirement below is relaxed here.
+          const after = resolveAbilityAoe(state, unitId, targetTile, ability.id).state;
+          return {
+            state: settleTurn(after, unitId, { didMove: false, didAct: true }),
+            event: hpDiffEvent(state, after, unitId, ability.id),
+            declaredChargeId: null,
+          };
+        }
+        // SINGLE-TARGET — a basic weapon swing (formula "physical") delegates to
+        // resolveAttack so its rolls are byte-identical to the pre-Slice-5 path;
+        // every other instant reads its magnitude from the ability projection. A
+        // single-target instant still requires a locked unit target.
         if (!targetUnitId) {
           throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
         }
@@ -192,12 +382,19 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
           ability.formula === "physical"
             ? resolveAttack(state, unitId, targetUnitId).state
             : resolveAbility(state, unitId, targetUnitId, ability.id).state;
-        return settleTurn(after, unitId, { didMove: false, didAct: true });
+        return {
+          state: settleTurn(after, unitId, { didMove: false, didAct: true }),
+          event: hpDiffEvent(state, after, unitId, ability.id),
+          declaredChargeId: null,
+        };
       }
       // CHARGED — enqueue via declareCharge, sourcing speed + effect from the
       // ability projection (not an inline command payload). declareCharge ends the
-      // caster's turn (settles). The matured charge resolves via resolveCharge.
-      return declareCharge(state, unitId, {
+      // caster's turn (settles). The matured charge resolves via resolveCharge — its
+      // landed outcome is accounted THEN (advanceToDecisionDetailed), credited to
+      // this ability via the returned declaredChargeId.
+      const beforeIds = new Set(state.chargeQueue.map((c) => c.id));
+      const after = declareCharge(state, unitId, {
         targetTile,
         speed: ability.speed,
         effect: {
@@ -205,11 +402,18 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
           power: ability.power,
           element: ability.element,
           accuracy: ability.accuracy,
+          aoe: ability.aoe,
         },
       });
+      const declared = after.chargeQueue.find((c) => !beforeIds.has(c.id));
+      return { state: after, event: null, declaredChargeId: declared ? declared.id : null };
     }
     case "wait":
-      return settleTurn(state, unitId, { didMove: false, didAct: false });
+      return {
+        state: settleTurn(state, unitId, { didMove: false, didAct: false }),
+        event: null,
+        declaredChargeId: null,
+      };
   }
 }
 
