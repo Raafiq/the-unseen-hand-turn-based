@@ -16,6 +16,7 @@
     "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim",
     "test": "vitest run",
     "test:watch": "vitest",
+    "state": "vite-node scripts/gen-state.mts",
     "test:visual": "npm run build && playwright test",
     "gallery": "node scripts/build-gallery.mjs",
     "check": "npm run typecheck && npm run lint && npm run check:rng && npm run test"

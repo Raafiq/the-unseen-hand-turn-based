@@ -34,6 +34,17 @@ jobs:
       - name: Test
         run: npm run test
 
+      # Drift-proofing: the "state of the engine" dashboard is generated from the repo's
+      # actual state (data counts + a LIVE diversity-gate run). Regenerate it and fail if
+      # the committed copy drifted — this only works because the output is deterministic.
+      - name: State dashboard is not stale
+        run: |
+          npm run state
+          if ! git diff --exit-code state/index.html; then
+            echo "::error::state/index.html is stale. Run 'npm run state' and commit the regenerated file."
+            exit 1
+          fi
+
   visual:
     name: visual tests (screenshots + video)
     runs-on: ubuntu-latest
