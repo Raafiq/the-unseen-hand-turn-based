@@ -42,25 +42,45 @@ different names — the exact **masked-identity** failure CLAUDE.md warns about 
 **Option 4.** AC-E2 is amended to a **phased target**:
 
 - **Interim gate (now, CI-enforced):** the benchmark asserts `distinctMeasurableArchetypes ≥ N`
-  (**N = 5**) **plus** the anti-convergence dominance ban (no single build clears all six gauntlet maps
-  at top efficiency). A build counts under its archetype only if its **signature action landed** (a new
-  per-unit contribution metric), so masked brawlers do not inflate the count.
+  **plus** a **relative, threshold-free dominance ban** (a build fails only if it clears all six gauntlet
+  maps AND no other measurable build clears any map faster — it strictly outclasses the field). A build
+  counts under its archetype only if its **signature action landed** (a new per-unit contribution metric),
+  so masked brawlers do not inflate the count.
 - **A committed `MEASURABLE` allow-list and an `EXCLUDED` manifest**, each excluded build tagged with the
   capability that unblocks it (support-aware AI → +summoner, +2 clerics; provoke/threat → +aggro-tank;
   reaction-as-live → +counter/reraise).
 - **`≥ 8` (full AC-E2) is marked BLOCKED**, and `N` rises as each named capability lands. The `8`
   remains the honest release bar — it is not redefined away.
 
-`N = 5` and the viability fraction (viable = clears ≥ 4/6 maps in band) are tagged `[UNCERTAIN]` /
-illustrative, to be confirmed at calibration.
+### Calibration outcome (confirmed at implementation, amends the `[UNCERTAIN]` above)
+
+- **`N = 4`, not 5.** The count keys on the landed **signature prefix**, and `bld-spellblade` and
+  `bld-arcane-artillery` both signature on `black-magic.` — so the *maximum* distinct-identity count the
+  five-build allow-list can produce is 4, not 5 (5 was never reachable). Calibration also found
+  `arcane-artillery` sub-viable (a pure caster charge-whiff-loops to timeout on the small maps), so
+  `black-magic.` is carried by `spellblade`. The four measurable identities are `aim.`, `black-magic.`,
+  `geomancy.`, `punch-art.`. Because there are exactly four possible prefixes, `≥ N` has **zero slack**
+  today — it is really "all four measurable identities must stay viable," and `N` **cannot rise without a
+  new signature prefix** (a new job/skillset), independent of the EXCLUDED capabilities.
+- **Scope honesty — what the interim gate does NOT prove.** The gauntlet fields each candidate against a
+  **single fixed bruiser opposition** across six maps that vary **geometry, not threat** — so it cannot
+  test **opportunity cost / matchup** (docs/02 B5): a build has nothing to *lose* to, and e.g.
+  `faithzero-monk`'s anti-mage identity is credited on plain melee because nothing casts magic. The
+  interim gate therefore proves (a) ≥4 distinct identities land their signature and stay viable, and
+  (b) a **gross-over-tuning** speed check — **not** the full anti-convergence property. Builds that clear
+  all six with no losing matchup are **surfaced** (`winsAllInBand`), not failed — that becomes a real
+  signal only under **multi-matchup opposition**, the named next step that makes the anti-convergence half
+  meaningful. Do not read a green gate as "diversity proven."
 
 ## Consequences
 
 - **Makes easy:** a real, enforceable diversity + anti-convergence gate ships at P2 (honors AC-R3), and
   the measurability gap becomes a *tracked backlog of named blockers* instead of a silent hole.
-- **What we give up:** the gate does not prove the full `≥8` pillar target yet — it proves `≥5` distinct
-  identities and no dominance. Five archetypes remain unmeasured until their enabling features land, and
-  raising `N` is gated on that work (support-aware AI is the single biggest unlock: +3).
+- **What we give up:** the gate does not prove the full `≥8` pillar target yet — it proves `≥4` distinct
+  identities and no gross dominance. Six builds remain unmeasured until their enabling features land, and
+  raising `N` is gated on that work (support-aware AI is the single biggest unlock: +3). It also does not
+  yet prove real opportunity-cost/anti-convergence — that waits on multi-matchup opposition (see the
+  calibration-outcome note). Anti-convergence is *surfaced* (`winsAllInBand`) but not enforced today.
 - **Honesty guardrail:** the gate MUST count *distinct exercised identities* via landed signature
   actions, never build wins — otherwise it regresses to the masked-brawler lie this ADR exists to
   prevent. The `EXCLUDED` manifest MUST name a blocking capability per entry; a build may not be silently

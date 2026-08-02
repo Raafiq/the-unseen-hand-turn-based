@@ -1,6 +1,16 @@
 # Slice 4 — Build-Diversity Gate (AC-E2 / AC-R3) — Plan of Record
 
-Source: systems-designer methodology spec (this session). Status: **awaiting scope decision** on the AC-E2 amendment before implementation.
+Source: systems-designer methodology spec (this session). Status: **IMPLEMENTED** — see the calibration outcome below; ADR-0014 and `src/sim/gauntlet.ts` are the final truth where this pre-implementation plan differs.
+
+> **Calibration outcome (as shipped).** `N = 4`, not 5 — `spellblade` and `arcane-artillery` share the
+> `black-magic.` signature prefix, so 5 was never reachable, and `arcane-artillery` is sub-viable (pure
+> caster → charge-whiff timeouts). Measurable identities: `aim.`, `black-magic.`, `geomancy.`, `punch-art.`.
+> The dominance ban shipped **relative/threshold-free** (not the absolute `TOP_EFF_TICKS` band this plan
+> sketched — that was gerrymandered to pass and was cut): a build fails only if it clears all six maps AND
+> no other measurable build clears any map faster. Band uses `WIN_CEIL_TICKS=300` for the grind-exclusion
+> only. Builds that clear all six with no losing matchup are **surfaced** (`winsAllInBand`), not failed —
+> the interim gate proves the diversity *count* + a gross-over-tune check, NOT opportunity-cost/anti-
+> convergence, which needs **multi-matchup opposition** (the named next step). Full rationale: ADR-0014.
 
 ## Headline finding
 AC-E2's "**≥ 8 archetypes clear within the efficiency band**" **cannot be met honestly with today's greedy 1-ply balance probe.** Only ~**5** of the 11 shipped builds have a *distinct, probe-measurable identity*. Five more field as the *same* PA-8 brawler (masked identity) or depend on AI/mechanics that don't exist yet.
