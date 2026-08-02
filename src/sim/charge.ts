@@ -23,6 +23,17 @@
  * or a whiff consumes NO draw (no target to roll against) — keeping the cursor
  * position a function of what actually happened, so replay stays byte-exact.
  *
+ * AREA CHARGES (`effect.aoe !== null`): after the interrupt check the resolver
+ * enumerates the caster's FOES in the box around the target tile
+ * ({@link unitsInAoeBox}, filtered to the enemy team — charges are magic damage,
+ * so a friendly is never caught), and resolves each ONE AT A TIME in the DECLARED
+ * TOTAL ORDER of the box (units sorted by `id` ASCENDING). Each target consumes
+ * exactly ONE hit roll (step 3) then its own magnitude (step 4, recomputed
+ * per target — Faith/Zodiac/Shell differ per unit). So the Nth draw is a pure
+ * function of state, never of `units` array / Map / Set order. An EMPTY box is a
+ * whiff (no draw). A `null` aoe takes the single-target path above UNCHANGED
+ * (one draw, same cursor) — the no-op invariant that keeps replay byte-exact.
+ *
  * Magnitude floor order (docs/05 §2): magic formula → element → Zodiac → Shell
  * → clamp >= 0. Mirrors resolve.ts's physical path with the magic formula.
  */
@@ -30,7 +41,7 @@
 import { magicDamage, applyZodiac, applyShell, applyMagicEvasion, zodiacCompatibility } from "./formulas.js";
 import { settleTurn } from "./scheduler.js";
 import { CRYSTAL_TIMER_START } from "./resolve.js";
-import { inBounds } from "./grid.js";
+import { inBounds, unitsInAoeBox } from "./grid.js";
 import {
   rngFor,
   type ActiveStatus,
@@ -91,19 +102,40 @@ export type ChargeResolution =
   | "miss" // a unit was present but the hit roll failed (one draw)
   | "hit"; // damage applied (one draw)
 
+/** One affected unit's result inside an AREA charge (id-sorted in {@link ChargeOutcome.perTarget}). */
+export interface ChargeTargetHit {
+  targetId: string;
+  /** Magic hit chance used against this unit. */
+  hitChance: number;
+  hit: boolean;
+  /** Damage dealt to this unit (0 on a miss). */
+  damage: number;
+  /** True only if this unit was dropped to 0 HP. */
+  ko: boolean;
+}
+
 export interface ChargeOutcome {
   chargeId: string;
   sourceUnitId: string;
   targetTile: Position;
   resolution: ChargeResolution;
-  /** The unit on the target tile that was resolved against, if any. */
+  /**
+   * The unit resolved against for a SINGLE-TARGET charge; `null` for an area
+   * charge (see {@link perTarget}) or when cancelled/whiffed.
+   */
   targetId: string | null;
-  /** Post-facing/effect hit chance used (0 when cancelled/whiffed). */
+  /** Post-facing/effect hit chance used (0 when cancelled/whiffed or area). */
   hitChance: number;
-  /** Damage dealt (0 unless resolution === "hit"). */
+  /** Damage dealt — the single target's, or the SUM over an area's targets. */
   damage: number;
-  /** True only on the hit that drops the target to 0 HP. */
+  /** True if ANY resolved unit was dropped to 0 HP. */
   ko: boolean;
+  /**
+   * Per-target breakdown for an AREA charge (`effect.aoe !== null`), in the
+   * declared id-ascending order the hit rolls were drawn. Absent for a
+   * single-target charge, so the single-target outcome shape is unchanged.
+   */
+  perTarget?: ChargeTargetHit[];
 }
 
 export interface ChargeResolveResult {
@@ -216,6 +248,82 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     return {
       state,
       outcome: { ...base, resolution: "cancelled", targetId: null, hitChance: 0, damage: 0, ko: false },
+    };
+  }
+
+  // 1a. AREA BRANCH — an area charge resolves every FOE in the box around the
+  //     target tile, one at a time, in the box's DECLARED id-ascending order
+  //     (unitsInAoeBox). Each target draws ONE magic hit roll then its own
+  //     magnitude (recomputed per unit: Faith/Zodiac/Shell differ). Charges are
+  //     magic damage, so only enemies are ever caught — no friendly fire. Empty
+  //     box → whiff, no draw. A `null` aoe falls through to the single-target
+  //     path below, byte-identical (the no-op invariant).
+  if (effect.aoe !== null) {
+    const foes = unitsInAoeBox(state.grid, state.units, targetTile, effect.aoe).filter(
+      (u) => u.teamId !== caster.teamId,
+    );
+    if (foes.length === 0) {
+      dequeue();
+      state.turnLog.push({ tick: state.tick, unitId: sourceUnitId, action: `charge ${chargeId} aoe whiff` });
+      return {
+        state,
+        outcome: { ...base, resolution: "whiff", targetId: null, hitChance: 0, damage: 0, ko: false, perTarget: [] },
+      };
+    }
+
+    const rng = rngFor(state);
+    const perTarget: ChargeTargetHit[] = [];
+    let anyHit = false;
+    let anyKo = false;
+    let totalDamage = 0;
+    for (const foeRef of foes) {
+      // Re-find on the live (mutating) clone so a KO earlier in the box is seen.
+      const foe = state.units.find((u) => u.id === foeRef.id)!;
+      const chance = applyMagicEvasion(effect.accuracy, foe.evasion.magicEv);
+      const hitOne = rng.chance(chance); // ONE draw per target, id order.
+      let dmg = 0;
+      let koOne = false;
+      if (hitOne) {
+        anyHit = true;
+        // MAGNITUDE — same floor order as the single-target path, per target.
+        let m = magicDamage(caster.ma, effect.power, caster.faith, foe.faith);
+        m = applyZodiac(m, zodiacCompatibility(caster.zodiac, foe.zodiac));
+        if (foe.statuses.some((st) => st.id === "shell")) m = applyShell(m);
+        if (m < 0) m = 0;
+        dmg = m;
+        totalDamage += dmg;
+        const newHp = Math.max(0, foe.hp - dmg);
+        const wasAlive = foe.hp > 0;
+        foe.hp = newHp;
+        if (newHp === 0 && wasAlive) {
+          foe.crystalTimer = CRYSTAL_TIMER_START;
+          koOne = true;
+          anyKo = true;
+        }
+      }
+      perTarget.push({ targetId: foe.id, hitChance: chance, hit: hitOne, damage: dmg, ko: koOne });
+    }
+
+    state.rngCounter = rng.count;
+    dequeue();
+    const hits = perTarget.filter((p) => p.hit).length;
+    const kos = perTarget.filter((p) => p.ko).length;
+    state.turnLog.push({
+      tick: state.tick,
+      unitId: sourceUnitId,
+      action: `charge ${chargeId} aoe ${hits} hit / ${kos} ko`,
+    });
+    return {
+      state,
+      outcome: {
+        ...base,
+        resolution: anyHit ? "hit" : "miss",
+        targetId: null,
+        hitChance: 0,
+        damage: totalDamage,
+        ko: anyKo,
+        perTarget,
+      },
     };
   }
 

@@ -43,12 +43,19 @@
  *     PERMANENT (non-decaying) `remainingCT`, so a migrated save preserves P0's
  *     never-expiring behavior byte-for-byte, and stamps every charge `interrupted:
  *     false`. Not additive (the shape changes), but behavior-preserving.
+ *   - v8 (AoE slice): abilities and charge effects gain an `aoe` box (nullable;
+ *     `null` = single-target, mirroring `speed`). A matured charge / instant act
+ *     with a non-null `aoe` resolves against every appropriate unit in the box
+ *     (charge.ts / resolve.ts). The 7→8 migration stamps `aoe: null` onto every
+ *     serialized unit's `abilities[]` AND every `chargeQueue[].effect` — so a
+ *     migrated save keeps the exact single-target behavior (additive, no roll or
+ *     result shift). Real records are born at the current version.
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 import { ElementSchema } from "./element.js";
-import { BattleAbilitySchema, type BattleAbility } from "./ability.js";
+import { BattleAbilitySchema, RangeBoxSchema, type BattleAbility } from "./ability.js";
 import { StatusKindSchema, type StatusEffect } from "./status.js";
 
 // Re-export the element enum from its leaf module so existing
@@ -57,7 +64,7 @@ import { StatusKindSchema, type StatusEffect } from "./status.js";
 export { ElementSchema, type Element } from "./element.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -302,6 +309,14 @@ export const ChargeEffectSchema = z
     element: ElementSchema,
     /** Base hit % before facing/faith/zodiac (docs/01 §6). [UNVERIFIED] */
     accuracy: PercentSchema,
+    /**
+     * Area of effect (docs/05 §6): `null` ⇒ single-target (the occupant of the
+     * matured charge's tile); a box ⇒ every FOE within Chebyshev `h`/vertical `v`
+     * of the tile is resolved in id order (charge.ts). Mirrors
+     * {@link BattleAbilitySchema}'s `aoe`; charges are magic-damage only, so an
+     * area charge never friendly-fires.
+     */
+    aoe: RangeBoxSchema.nullable(),
   })
   .strict();
 export type ChargeEffect = z.infer<typeof ChargeEffectSchema>;
@@ -411,6 +426,7 @@ export function basicAttackFrom(weapon: Weapon): BattleAbility {
     range: { h: 1, v: 1 },
     inflicts: [],
     speed: null,
+    aoe: null,
   };
 }
 
@@ -631,6 +647,29 @@ const migrate6to7: Migration = (s) => {
 };
 
 /**
+ * v7 → v8: abilities and charge effects gain a nullable `aoe` box. A v7 record
+ * had no area concept, so stamp `aoe: null` (single-target) onto every unit's
+ * `abilities[]` entry AND every `chargeQueue[].effect` — byte-for-byte the same
+ * single-target resolution a v7 save had (additive; no roll or result shifts).
+ * Real records are born at the current version via {@link basicAttackFrom} /
+ * build.ts and declareCharge.
+ */
+const migrate7to8: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    abilities: (u["abilities"] as Array<Record<string, unknown>>).map((a) => ({
+      ...a,
+      aoe: null,
+    })),
+  }));
+  const chargeQueue = (s["chargeQueue"] as Array<Record<string, unknown>>).map((c) => ({
+    ...c,
+    effect: { ...(c["effect"] as Record<string, unknown>), aoe: null },
+  }));
+  return { ...s, schemaVersion: 8, units, chargeQueue };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -641,6 +680,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   4: migrate4to5,
   5: migrate5to6,
   6: migrate6to7,
+  7: migrate7to8,
 };
 
 export class SchemaVersionError extends Error {

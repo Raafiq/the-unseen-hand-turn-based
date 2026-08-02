@@ -15,7 +15,7 @@ import {
 import { applyStatusToUnit, statusInterruptsCharge } from "./charge.js";
 import { StatusEffectSchema } from "./status.js";
 
-const MAGIC: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100 };
+const MAGIC: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null };
 
 interface SceneOpts {
   caster?: Partial<UnitState>;
@@ -139,7 +139,7 @@ describe("resolveCharge — matures against the target tile (AC-04 / AC-S4)", ()
 
   it("a MISS (hit roll fails) deals no damage but still consumes the roll", () => {
     const { state, outcome } = resolveCharge(
-      scene({ charge: { effect: { kind: "magic", power: 10, element: "none", accuracy: 0 } } }),
+      scene({ charge: { effect: { kind: "magic", power: 10, element: "none", accuracy: 0, aoe: null } } }),
       "chg",
     );
     expect(outcome.resolution).toBe("miss");

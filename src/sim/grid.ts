@@ -127,6 +127,43 @@ export function inAbilityRange(
 }
 
 /**
+ * The LIVING units caught in an ability's AoE box centered on `center` (docs/01
+ * §7, docs/05 §6): Chebyshev horizontal reach ≤ `aoe.h` AND absolute height delta
+ * vs the CENTER TILE ≤ `aoe.v` — the same reach/height gate as
+ * {@link inAbilityRange}, applied to every unit. The center tile is included
+ * (`h = 0` passes). KO'd units (`hp ≤ 0`) are never returned.
+ *
+ * DETERMINISM (sim-determinism-guard): returned sorted by `id` ASCENDING — the
+ * DECLARED TOTAL ORDER the AoE resolvers consume one hit roll per unit in, so the
+ * Nth draw is a pure function of state and never depends on `units` array /
+ * Map / Set order. Pure: reads state, allocates a fresh array.
+ */
+export function unitsInAoeBox(
+  grid: GridState,
+  units: readonly UnitState[],
+  center: Position,
+  aoe: RangeBox,
+): UnitState[] {
+  const centerTile = tileAt(grid, center.x, center.y);
+  // A charge's targetTile is validated in-bounds at declare and an instant's aim
+  // tile passes the range gate, so the center tile normally exists; height 0 is a
+  // safe fallback for a degenerate off-grid center (no unit can stand there anyway).
+  const centerHeight = centerTile ? centerTile.height : 0;
+  const hit: UnitState[] = [];
+  for (const u of units) {
+    if (u.hp <= 0) continue;
+    const h = Math.max(Math.abs(u.pos.x - center.x), Math.abs(u.pos.y - center.y));
+    if (h > aoe.h) continue;
+    const uTile = tileAt(grid, u.pos.x, u.pos.y);
+    const uHeight = uTile ? uTile.height : 0;
+    if (Math.abs(uHeight - centerHeight) > aoe.v) continue;
+    hit.push(u);
+  }
+  hit.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return hit;
+}
+
+/**
  * Which face of `target` an attacker standing at `from` strikes (docs/01 §5c):
  *   - `front` — attacker is on the side the target faces,
  *   - `rear`  — attacker is directly behind,

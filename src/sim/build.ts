@@ -108,6 +108,7 @@ function toBattleAbility(ability: Ability): BattleAbility {
     range: ability.range ?? { h: 1, v: 1 },
     inflicts: ability.inflicts ?? [],
     speed: ability.speed ?? null,
+    aoe: ability.aoe ?? null,
   };
 }
 

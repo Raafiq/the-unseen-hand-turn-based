@@ -23,7 +23,7 @@
 
 import { z } from "zod";
 import { advanceToNextTurn, settleTurn } from "./scheduler.js";
-import { resolveAttack, resolveAbility, tickCrystal } from "./resolve.js";
+import { resolveAttack, resolveAbility, resolveAbilityAoe, tickCrystal } from "./resolve.js";
 import { declareCharge, resolveCharge } from "./charge.js";
 import { moveRange, inAbilityRange } from "./grid.js";
 import { PositionSchema, type BattleState, type Position } from "./state.js";
@@ -182,9 +182,19 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
 
       // DISPATCH by charge speed (docs/01 §3).
       if (ability.speed === null) {
-        // INSTANT — resolve now. A basic weapon swing (formula "physical") delegates
-        // to resolveAttack so its rolls are byte-identical to the pre-Slice-5 path;
-        // every other instant reads its magnitude from the ability projection.
+        // INSTANT — resolve now.
+        if (ability.aoe !== null) {
+          // AREA — resolve every appropriate unit in the box around the aim TILE
+          // (foes for damage, allies incl. self for heal — TARGETED, no friendly
+          // fire). A tile target is legal for an area act, so the unit-target
+          // requirement below is relaxed here.
+          const after = resolveAbilityAoe(state, unitId, targetTile, ability.id).state;
+          return settleTurn(after, unitId, { didMove: false, didAct: true });
+        }
+        // SINGLE-TARGET — a basic weapon swing (formula "physical") delegates to
+        // resolveAttack so its rolls are byte-identical to the pre-Slice-5 path;
+        // every other instant reads its magnitude from the ability projection. A
+        // single-target instant still requires a locked unit target.
         if (!targetUnitId) {
           throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
         }
@@ -205,6 +215,7 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Batt
           power: ability.power,
           element: ability.element,
           accuracy: ability.accuracy,
+          aoe: ability.aoe,
         },
       });
     }

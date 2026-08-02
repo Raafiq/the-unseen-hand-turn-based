@@ -14,7 +14,7 @@
  * Protect → clamp ≥ 0.
  */
 
-import { relativeFacing } from "./grid.js";
+import { relativeFacing, unitsInAoeBox } from "./grid.js";
 import {
   applyProtect,
   applyShell,
@@ -26,7 +26,7 @@ import {
   type Facing,
 } from "./formulas.js";
 import { CT_COST_WAIT } from "./scheduler.js";
-import { rngFor, type BattleState, type UnitState } from "./state.js";
+import { rngFor, type BattleState, type Position, type UnitState } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 
 export interface AttackOptions {
@@ -193,6 +193,128 @@ export function resolveAbility(
   });
 
   return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+}
+
+/** One affected unit's result inside an area act (id-sorted in {@link AoeOutcome.perTarget}). */
+export interface AoeTargetOutcome {
+  targetId: string;
+  facing: Facing;
+  hitChance: number;
+  hit: boolean;
+  /** Damage dealt (or HP restored, for a heal); 0 on a miss. */
+  amount: number;
+  ko: boolean;
+}
+
+export interface AoeOutcome {
+  attackerId: string;
+  abilityId: string;
+  targetTile: Position;
+  /** True for a restorative (heal) ability — `amount` is HP restored, not damage. */
+  heal: boolean;
+  /** Per-target results in the DECLARED id-ascending order the rolls were drawn. */
+  perTarget: AoeTargetOutcome[];
+  /** Units the roll landed on. */
+  hits: number;
+  /** Units dropped to 0 HP (0 for a heal). */
+  kos: number;
+  /** Σ damage dealt / HP restored over all targets. */
+  total: number;
+}
+
+export interface AoeResolveResult {
+  state: BattleState;
+  outcome: AoeOutcome;
+}
+
+/**
+ * Resolve an INSTANT AREA ability against every appropriate unit in its `aoe` box
+ * around `targetTile` — the multi-target generalization of {@link resolveAbility}
+ * (docs/05 §2, §6). TARGETED policy (no friendly fire this slice): a DAMAGE
+ * ability hits the caster's FOES; a HEAL hits the caster's ALLIES incl. self.
+ *
+ * DETERMINISM (sim-determinism-guard): the affected units are enumerated in the
+ * box's DECLARED TOTAL ORDER — sorted by `id` ASCENDING ({@link unitsInAoeBox}),
+ * never `units` array / Map / Set order — and each consumes exactly ONE hit roll,
+ * in that order, followed by its own magnitude (recomputed per target, since
+ * facing/Faith/Zodiac/Protect/Shell differ per unit). So the Nth draw is a pure
+ * function of state. An EMPTY box consumes NO draw. Pure: clones + returns state.
+ *
+ * Per-target resolution MIRRORS the single-target dispatch exactly so the AI's
+ * estimate ({@link estMagnitude}) never drifts from the pipeline: a `physical`
+ * ability uses the weapon-accuracy hit + {@link attackDamage} (as
+ * {@link resolveAttack} does), everything else uses the ability-accuracy hit +
+ * {@link abilityDamage} (as {@link resolveAbility} does).
+ */
+export function resolveAbilityAoe(
+  input: BattleState,
+  attackerId: string,
+  targetTile: Position,
+  abilityId: string,
+): AoeResolveResult {
+  const state = structuredClone(input);
+  const attacker = state.units.find((u) => u.id === attackerId);
+  if (!attacker) throw new Error(`resolveAbilityAoe: unknown attacker ${attackerId}`);
+  const ability = attacker.abilities.find((a) => a.id === abilityId);
+  if (!ability) throw new Error(`resolveAbilityAoe: ${attackerId} has no ability ${abilityId}`);
+  if (ability.aoe === null) throw new Error(`resolveAbilityAoe: ${abilityId} is not an area ability`);
+
+  const heal = ability.formula === "heal";
+  const physical = ability.formula === "physical";
+  const base = { attackerId, abilityId, targetTile: { x: targetTile.x, y: targetTile.y }, heal };
+
+  // TARGETED enumeration (id-ascending). Damage → foes; heal → allies incl. self.
+  const affected = unitsInAoeBox(state.grid, state.units, targetTile, ability.aoe).filter((u) =>
+    heal ? u.teamId === attacker.teamId : u.teamId !== attacker.teamId,
+  );
+  if (affected.length === 0) {
+    state.turnLog.push({
+      tick: state.tick,
+      unitId: attackerId,
+      action: `aoe ${abilityId} 0 hit / 0 ${heal ? "healed" : "ko"}`,
+    });
+    return { state, outcome: { ...base, perTarget: [], hits: 0, kos: 0, total: 0 } };
+  }
+
+  const rng = rngFor(state);
+  const perTarget: AoeTargetOutcome[] = [];
+  let total = 0;
+  for (const ref of affected) {
+    // Re-find on the live (mutating) clone so an earlier KO in the box is seen.
+    const target = state.units.find((u) => u.id === ref.id)!;
+    const facing = relativeFacing(target, attacker.pos);
+    const accuracy = physical ? attacker.weapon.accuracy : ability.accuracy;
+    const chance = hitChance(accuracy, target.evasion, facing);
+    const hit = rng.chance(chance); // ONE draw per target, id order.
+    let amount = 0;
+    let ko = false;
+    if (hit) {
+      amount = physical ? attackDamage(attacker, target) : abilityDamage(attacker, target, ability);
+      if (heal) {
+        target.hp = Math.min(target.maxHp, target.hp + amount);
+      } else {
+        const newHp = Math.max(0, target.hp - amount);
+        const wasAlive = target.hp > 0;
+        target.hp = newHp;
+        if (newHp === 0 && wasAlive) {
+          target.crystalTimer = CRYSTAL_TIMER_START;
+          ko = true;
+        }
+      }
+      total += amount;
+    }
+    perTarget.push({ targetId: target.id, facing, hitChance: chance, hit, amount, ko });
+  }
+
+  state.rngCounter = rng.count;
+  const hits = perTarget.filter((p) => p.hit).length;
+  const kos = perTarget.filter((p) => p.ko).length;
+  state.turnLog.push({
+    tick: state.tick,
+    unitId: attackerId,
+    action: `aoe ${abilityId} ${hits} hit / ${kos} ${heal ? "healed" : "ko"}`,
+  });
+  return { state, outcome: { ...base, perTarget, hits, kos, total } };
 }
 
 /**

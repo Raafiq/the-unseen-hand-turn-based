@@ -101,6 +101,14 @@ export const BattleAbilitySchema = z
     inflicts: z.array(z.string().min(1)),
     /** null ⇒ instant; positive int ⇒ charged action speed (docs/01 §3). */
     speed: IntSchema.min(1).nullable(),
+    /**
+     * Area of effect (docs/01 §7, docs/05 §6): `null` ⇒ single-target (the
+     * occupant of the aim tile only), a box ⇒ every appropriate unit within
+     * Chebyshev `h`/vertical `v` of the aim tile is resolved. Mirrors the `speed`
+     * nullable pattern. Resolution is TARGETED: an area damages the caster's foes
+     * / heals the caster's allies only (no friendly fire this slice).
+     */
+    aoe: RangeBoxSchema.nullable(),
   })
   .strict();
 export type BattleAbility = z.infer<typeof BattleAbilitySchema>;

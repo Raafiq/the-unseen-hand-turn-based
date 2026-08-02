@@ -183,7 +183,7 @@ describe("scheduler — pinned tie-break (AC-S3, docs/05 §1a)", () => {
       ct: 95,
       speed: 10,
       targetTile: { x: 0, y: 0 },
-      effect: { kind: "magic", power: 0, element: "none", accuracy: 100 },
+      effect: { kind: "magic", power: 0, element: "none", accuracy: 100, aoe: null },
       interrupted: false,
     });
     const { active } = advanceToNextTurn(s);
