@@ -56,6 +56,7 @@ Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
 - **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
 - **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
 - **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+- **State dashboard:** `npm run state` (regenerate the generated, drift-proof "state of the engine" page → `state/index.html`, published to `/state/`; derives all counts + a LIVE diversity-gate run, prose lives in `scripts/state-content.ts`; CI fails if the committed copy drifted)
 - **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
 - **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)
 

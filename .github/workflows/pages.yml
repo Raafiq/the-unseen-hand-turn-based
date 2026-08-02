@@ -47,6 +47,13 @@ jobs:
       - name: Add the visual gallery
         run: cp -r visual-artifacts/gallery dist/visual
 
+      # Regenerate the state dashboard (deterministic) and fold it in under /state/.
+      - name: Add the state dashboard
+        run: |
+          npm run state
+          mkdir -p dist/state
+          cp state/index.html dist/state/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
