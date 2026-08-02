@@ -28,13 +28,17 @@ import {
   MEASURABLE,
   EXCLUDED,
   OPPOSITION_BUILD_IDS,
+  OPPOSITIONS,
+  REFERENCE_OPPOSITION_ID,
   FILLER_BUILD_ID,
   CANDIDATE_SLOT,
   DEFAULT_BAND,
   DIVERSITY_TARGET_N,
   WIN_CEIL_TICKS,
+  VIABLE_MIN_MAPS,
   type GauntletMap,
   type GauntletRun,
+  type Opposition,
 } from "./gauntlet.js";
 
 // ── fixtures (test-layer IO) ────────────────────────────────────────────────
@@ -80,6 +84,7 @@ function run(over: Partial<GauntletRun> & { buildId: string; mapId: string }): G
   return {
     archetypeId: over.buildId,
     signaturePrefix: `${over.buildId}.`,
+    oppositionId: REFERENCE_OPPOSITION_ID,
     outcome: "victory",
     ticks: 40,
     turns: 12,
@@ -96,14 +101,19 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
   it(`asserts ≥ N=${DIVERSITY_TARGET_N} distinct measurable identities and no hard-dominance`, () => {
     const rep = computeDiversityReport(frozenRuns);
     expect(rep.pass).toBe(true);
+    expect(rep.distinctMeasurableArchetypes).toBe(DIVERSITY_TARGET_N);
     expect(rep.distinctMeasurableArchetypes).toBeGreaterThanOrEqual(DIVERSITY_TARGET_N);
     expect(rep.distinctSignatures).toEqual(["aim.", "black-magic.", "geomancy.", "punch-art."]);
-    // Threshold-free relative dominance: no build is fastest-or-tied on all six.
+    // Threshold-free relative dominance over {maps × oppositions}: no build sweeps
+    // every cell (each measurable build folds to the Coven's magic somewhere).
     expect(rep.dominantBuilds).toEqual([]);
-    // Several builds DO clear all six maps against this single opposition — that is
-    // EXPECTED (geometry varies, threat does not) and is surfaced, not failed.
-    expect(rep.winsAllInBand.length).toBeGreaterThan(0);
-    expect(rep.winsAllInBand).toContain("bld-longshot");
+    // Under MULTI-MATCHUP opposition no build clears EVERY {map × opposition} cell —
+    // magic is a real threat — so the strict every-cell sweep is empty.
+    expect(rep.winsAllInBand).toEqual([]);
+    // But `noLosingMatchup` is the LOOSER anti-convergence signal (viable ≥ viableMin
+    // on every opposition): longshot clears phys 6/6 AND magic 4/6, so it pays no
+    // opportunity cost across the axes and is SURFACED here (not failed).
+    expect(rep.noLosingMatchup).toEqual(["bld-longshot"]);
   });
 
   it("credits exactly the builds whose signature landed while viable (arcane is sub-viable → not counted directly)", () => {
@@ -126,8 +136,9 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
 // ── manifest completeness (no build silently dropped) ───────────────────────
 describe("diversity gate — manifest: every shipped build is measured or has a named blocker", () => {
   it("partitions all archetype builds into MEASURABLE ∪ EXCLUDED, each EXCLUDED tagged", () => {
-    // The two gauntlet CONTROL fixtures are not archetype builds under test.
-    const controls = new Set([FILLER_BUILD_ID, "bld-glass-bruiser"]);
+    // The gauntlet CONTROL fixtures (filler, opposition bruiser/caster) are not
+    // archetype builds under test.
+    const controls = new Set([FILLER_BUILD_ID, "bld-glass-bruiser", "bld-hedge-caster"]);
     const archetypeBuilds = Object.keys(records).filter((id) => !controls.has(id));
     for (const id of archetypeBuilds) {
       const inManifest = id in MEASURABLE || id in EXCLUDED;
@@ -323,12 +334,102 @@ describe("diversity gate — TEST 5: an inert candidate carried to a win is NOT 
 
 // ── opposition/filler sanity (the frozen instrument is what we think it is) ──
 describe("diversity gate — the frozen instrument", () => {
-  it("fixes a 3-unit mixed-defense opposition and a signature-free filler", () => {
+  it("fixes a 3-unit mixed-defense REFERENCE opposition and a signature-free filler", () => {
     expect(OPPOSITION_BUILD_IDS.length).toBe(3);
+    // OPPOSITION_BUILD_IDS is the REFERENCE (phys) opposition's build ids.
+    const ref = OPPOSITIONS.find((o) => o.id === REFERENCE_OPPOSITION_ID)!;
+    expect(ref.buildIds).toEqual(OPPOSITION_BUILD_IDS);
     // The filler shares no candidate signature prefix (it has only basic.attack).
     const fillerAbilities = records[FILLER_BUILD_ID]!.learned;
     for (const { signaturePrefix } of Object.values(MEASURABLE)) {
       expect(fillerAbilities.some((a) => a.startsWith(signaturePrefix))).toBe(false);
     }
+  });
+
+  it("ships MULTI-MATCHUP opposition: a phys REFERENCE axis and a magic (Coven) axis", () => {
+    const ids = OPPOSITIONS.map((o) => o.id);
+    expect(ids).toContain("phys");
+    expect(ids).toContain("magic");
+    expect(REFERENCE_OPPOSITION_ID).toBe("phys");
+    const magic = OPPOSITIONS.find((o) => o.id === "magic")!;
+    expect(magic.kind).toBe("magic");
+    // The Coven fields the hedge-caster; its kit is single-target INSTANT geomancy only
+    // — no charged/black-magic, no AoE (anti spawn-wipe / anti-clump constraints).
+    expect(magic.buildIds).toContain("bld-hedge-caster");
+    const hc = records["bld-hedge-caster"]!;
+    expect(hc.currentJob).toBe("geomancer");
+    for (const ab of hc.learned) {
+      expect(ab.startsWith("geomancy.")).toBe(true);
+      expect(ab).not.toContain("sandstorm"); // no AoE
+      expect(ab).not.toContain("quicksand"); // no slow-rider confound
+    }
+    // NO one-shot: a single water-ball must not KO a 72-effHp Faith-50 filler.
+    // (magicDamage scales by target Faith; here it does ~32 vs Faith-50 → 3 casts to KO.)
+    // Proven behaviourally by the straddle/losing-matchup tests below.
+    expect(hc.faith).toBeLessThan(50);
+  });
+});
+
+// ── the must-fail straddle: Faith is the pivot (anti-mage cliff) ─────────────
+describe("diversity gate — the must-fail straddle: Faith-5 survives magic, Faith-50 does not", () => {
+  it("a Faith-5 unit is viable vs the Coven while its Faith-50 twin is not (the anti-mage cliff)", () => {
+    // Two candidates identical in EVERY stat except Faith. Faith is the ONLY pivot, so
+    // if the property (magic damage scales by TARGET Faith) holds they must straddle;
+    // a uniform wipe (both lose) or uniform spare (both win) is the degenerate tie this
+    // test rejects (CLAUDE.md discriminating-case rule).
+    const monk = records["bld-faithzero-monk"]!;
+    expect(monk.faith).toBe(5);
+    const twin50: UnitRecord = { ...monk, id: "bld-monk-faith50", faith: 50 };
+    const res2: EncounterResolver = { registry, records: { ...records, [twin50.id]: twin50 } };
+
+    // Isolate Faith as the pivot: 1 filler (not 2, so the candidate itself is a magic
+    // target) vs a caster-HEAVY Coven (3 casters, no warden) that piles magic on the
+    // lone-ish candidate. The real-roster gate keeps its 2-filler fixture (untouched).
+    const coven: Opposition = {
+      id: "magic",
+      buildIds: ["bld-hedge-caster", "bld-hedge-caster", "bld-hedge-caster"],
+      kind: "magic",
+      note: "straddle fixture (caster-heavy, Faith is the pivot)",
+    };
+    const runs = runGauntlet({
+      resolver: res2,
+      maps,
+      candidateIds: ["bld-faithzero-monk", "bld-monk-faith50"],
+      oppositions: [coven],
+      fillerCount: 1,
+      signatureOf: () => "punch-art.",
+    });
+    const viableMaps = (id: string): number =>
+      runs.filter((r) => r.buildId === id && inBand(r, DEFAULT_BAND)).length;
+    const faith5 = viableMaps("bld-faithzero-monk");
+    const faith50 = viableMaps("bld-monk-faith50");
+
+    // BOTH halves are mandatory (the discriminating assertion):
+    expect(faith5).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS); // Faith-5 resists magic → viable
+    expect(faith50).toBeLessThan(maps.length / 2); // Faith-50 folds on a MAJORITY of maps
+    // …and they genuinely differ (not a tie): Faith-5 clears strictly more maps.
+    expect(faith5).toBeGreaterThan(faith50);
+  });
+});
+
+// ── a real losing matchup exists on the honest roster (non-uniform matrix) ───
+describe("diversity gate — opportunity cost is now visible (non-uniform matchup matrix)", () => {
+  it("≥1 shipped measurable build has a non-empty losingMatchups (folds to the Coven)", () => {
+    const rep = computeDiversityReport(frozenRuns);
+    const measurable = rep.perBuild.filter((b) => b.measurableIdentity);
+    const withLoss = measurable.filter((b) => b.losingMatchups.length > 0);
+    // Non-uniform: at least one measurable build folds to a threat axis (magic).
+    expect(withLoss.length).toBeGreaterThan(0);
+    expect(withLoss.some((b) => b.losingMatchups.includes("magic"))).toBe(true);
+    // And the matrix is genuinely non-uniform — NOT every measurable build loses the
+    // same matchup (some build clears both axes ≥ viableMin), so magic is a real
+    // opportunity cost, not a blanket wipe.
+    // KNIFE-EDGE (intentional, per CLAUDE.md "calibrate to DETECT"): today the ONLY
+    // build keeping the matrix non-uniform is longshot at magic == VIABLE_MIN_MAPS
+    // (exactly 4/6) — the healthy-state margin is zero. If a future recalibration drops
+    // longshot to 3/6, all measurable builds fold to magic and this flips to failure;
+    // that is the gate correctly detecting a real convergence, not a spurious break —
+    // re-tune the Coven (weaker) rather than relaxing this assertion.
+    expect(withLoss.length).toBeLessThan(measurable.length);
   });
 });
