@@ -59,7 +59,7 @@ The AI must be good enough that **counterplay actually happens** — otherwise "
 ## Acceptance Criteria (SDD-ready)
 
 - **AC-E1 (benchmark exists):** A named benchmark suite covering the §2 archetypes SHALL exist and be runnable headlessly for balance verification.
-- **AC-E2 (diversity gate):** On the benchmark suite, ≥ 8 `docs/03` archetypes SHALL clear within the efficiency band and no single build SHALL clear all encounters at top efficiency.
+- **AC-E2 (diversity gate):** On the benchmark suite, ≥ 8 `docs/03` archetypes SHALL clear within the efficiency band and no single build SHALL clear all encounters at top efficiency. **Phased (ADR-0014):** the greedy 1-ply probe can measure a *distinct identity* for only ~5 of the shipped archetypes today (the rest field as masked brawlers or need capabilities that don't exist — support-aware AI, provoke, reaction-as-live). The CI gate therefore enforces `distinctMeasurableArchetypes ≥ N` (N=5 now) **plus** the dominance ban, with a committed `MEASURABLE`/`EXCLUDED` manifest naming each blocker; `≥ 8` remains the release bar and `N` rises as those capabilities land.
 - **AC-E3 (AI counterplay):** Enemy AI SHALL demonstrably (a) attack from side/rear when reachable, (b) focus the lowest-effective-HP valid target, and (c) select damage/status types that counter the opposing unit's defenses, in scripted test scenarios.
 - **AC-E4 (determinism):** Given a fixed seed and player command log, AI decisions SHALL be reproducible (draws from the seeded stream only).
 - **AC-E5 (difficulty without inflation):** Raising a difficulty tier SHALL first change AI behavior/threat budget; raw stat multipliers SHALL be a bounded, secondary lever.
