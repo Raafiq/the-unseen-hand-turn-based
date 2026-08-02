@@ -5,28 +5,57 @@
  *
  * WHAT THIS GATE PROVES (and only this):
  *   (a) ≥ N distinct measurable build identities each LAND their signature action and
- *       stay VIABLE (win in band on ≥ viableMin of the 6 maps); AND
+ *       stay VIABLE (win in band on ≥ viableMin of the 6 maps) against the REFERENCE
+ *       (phys) opposition — the diversity COUNT keys on that axis ONLY; AND
  *   (b) a gross-over-tuning check — no build STRICTLY OUTCLASSES the whole measurable
- *       field (fastest-or-tied on every map while clearing all six).
+ *       field (fastest-or-tied on EVERY cell while clearing all of {maps × oppositions}).
  *
- * WHAT IT DOES NOT YET PROVE — opportunity-cost / anti-convergence (docs/02 B5). The
- * single FIXED bruiser opposition varies GEOMETRY (map to map), not THREAT: nothing
- * on the opposing side casts magic, provokes, or reacts. So a build's threat-specific
- * identity is NEVER exercised here — e.g. `bld-faithzero-monk`'s ANTI-MAGE identity
- * (low Faith → resists magic) is credited on plain melee, because no foe casts. A
- * build clearing ALL SIX maps against this one opposition is therefore EXPECTED and
- * is NOT a dominance fail (it is surfaced as {@link DiversityReport.winsAllInBand} for
- * visibility). Real anti-convergence pressure requires MULTI-MATCHUP opposition
- * (varied threat profiles) — the named next step; only then does "wins every matchup"
- * become a meaningful convergence signal and the dominance verdict tighten.
+ * MULTI-MATCHUP OPPOSITION (the current slice): the gauntlet now fields each candidate
+ * against MORE THAN ONE threat profile — `phys` (a mixed-DEFENCE bruiser team, the
+ * REFERENCE) and `magic` (THE COVEN: glassy single-target geomancers casting instant
+ * Faith-scaling magic). Threat, not just geometry, now varies. Consequences:
+ *   - A build can LOSE to a threat it is weak to (docs/02 B5 opportunity cost): its
+ *     {@link BuildGateStat.losingMatchups} names the oppositions it is NOT viable
+ *     against, so the matchup MATRIX is non-uniform (e.g. spellblade/terrain-geo clear
+ *     phys but fold to the Coven's magic, while longshot clears both axes).
+ *   - {@link DiversityReport.noLosingMatchup} is now a REAL anti-convergence signal —
+ *     a MEASURABLE build viable (≥ viableMin) against EVERY opposition, i.e. one that
+ *     pays no opportunity cost across the threat axes. It is SURFACED, not failed
+ *     (clearing everything without OUTCLASSING the field is not over-tuning). It is
+ *     DISTINCT from {@link DiversityReport.winsAllInBand} (in band on every single
+ *     {map × opposition} cell — the stricter sweep the dominance ban keys on).
+ *   - DOMINANCE tightened: it now ranges over the full {maps × oppositions} cell set —
+ *     a build must clear BOTH axes on every map AND be fastest-or-tied everywhere, so
+ *     the ban is strictly harder to trip and stays a gross-over-tune detector.
+ * The COVEN'S KIT is deliberately constrained (see {@link OPPOSITIONS}): single-target
+ * INSTANT geomancy only — NO charged/`black-magic.*` (charge-whiff / spawn-wipe on the
+ * small clustered maps), NO AoE (a box on a clustered spawn is a spawn-swamp), and NO
+ * one-shot (a cast must not KO a 72-HP Faith-50 body), so the melee race stays honest.
+ *
+ * WHAT THE MAGIC AXIS ACTUALLY MEASURES — READ THIS BEFORE READING `losingMatchups`.
+ * On the shipped roster the magic axis is NOT an isolated candidate-Faith test, and a
+ * `losingMatchups: ["magic"]` entry does NOT mean "weak to magic personally". Every
+ * candidate is fielded with the SAME two Faith-50 filler allies, victory is
+ * team-elimination, and the greedy probe focuses the highest-MAGNITUDE target — so the
+ * casters kill the Faith-50 allies (~32/cast) long before any low-Faith body (~3/cast),
+ * and the axis rewards TEMPO/RANGE (burst the glass casters before your allies fall) as
+ * much as personal Faith. That is why `bld-faithzero-monk` — the ANTI-MAGE build — still
+ * shows `losingMatchups: ["magic"]` (its personal magic resistance cannot save its
+ * Faith-50 allies, and the 1-ply probe cannot protect them: the support-aware-AI
+ * limitation, ADR-0014's family) while ranged `bld-longshot` (Faith 50) does not fold.
+ * The magic axis's job here is to be a SECOND, DISTINCT threat that makes opportunity
+ * cost non-uniform — not to credit the anti-mage's resistance. The isolated Faith cliff
+ * (magic damage ∝ target Faith) is proved by the must-fail straddle TEST (a lone Faith-5
+ * vs its Faith-50 twin, on a candidate-targeting fixture), NOT the aggregate roster gate.
+ * WHAT IT STILL DOES NOT PROVE: the count keys on the phys REFERENCE only, so N is not
+ * raised by magic viability; and only TWO threat axes exist.
  *
  * METHOD (ADR-0014 / docs/plans/slice-4-diversity-gate.md): hold everything constant
  * except ONE candidate. Field `{candidate + 2 fixed filler bruisers}` (team 0) against
- * a FIXED 3-unit mixed-DEFENCE opposition (team 1) across the 6 shipped maps — reusing
- * each map's grid + seed + halting caps, substituting only the placements and
- * NORMALISING the objective to team-elimination (a unit-specific objective like
- * behead-the-warlord's cannot survive placement substitution). A clear is then
- * ATTRIBUTABLE to the candidate.
+ * EACH opposition (team 1) across the 6 shipped maps — reusing each map's grid + seed +
+ * halting caps, substituting only the placements and NORMALISING the objective to
+ * team-elimination (a unit-specific objective like behead-the-warlord's cannot survive
+ * placement substitution). A clear is then ATTRIBUTABLE to the candidate.
  *
  * HONESTY LINCHPIN: a candidate counts under its archetype only when its SIGNATURE
  * action actually LANDED (`RunReport.contributionByUnit[cand].signatureActionsLanded
@@ -40,9 +69,9 @@
  * 4, not 5 — ADR-0014; see {@link DIVERSITY_TARGET_N}).
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
- * gerrymander): a build is dominant only if it clears all six maps AND no other
- * measurable build clears ANY map faster than it (fastest-or-tied everywhere). See
- * {@link computeDiversityReport}.
+ * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
+ * AND no other measurable build clears ANY cell faster than it (fastest-or-tied
+ * everywhere, across both threat axes). See {@link computeDiversityReport}.
  *
  * DETERMINISM (P0): every run is a seeded, headless `runEncounter`; this module is
  * PURE (no IO, no clock, no RNG) — the test layer injects the parsed content /
@@ -99,30 +128,73 @@ export const EXCLUDED: Readonly<Record<string, string>> = {
 export const FILLER_BUILD_ID = "bld-filler-bruiser";
 export const FILLER_COUNT = 2;
 
+/** One threat-profile the whole candidate field is measured against. */
+export interface Opposition {
+  /** Stable id — a run's {@link GauntletRun.oppositionId} and the report's cell axis. */
+  id: string;
+  /** The 3-unit team fielded (team 1) on every map, byte-identical across runs. */
+  buildIds: readonly string[];
+  /** Coarse threat class — reporting/rationale only. */
+  kind: "phys" | "magic";
+  note: string;
+}
+
 /**
- * The FIXED 3-unit MIXED-DEFENCE opposition, byte-identical across every run: one
- * FRAGILE bruiser (`bld-glass-bruiser`, 36 raw HP → ~43 effective after knight
- * growth) + two STURDY bruisers (`bld-filler-bruiser`, 60 raw HP → ~72 effective).
- * Held constant so a clearance difference is a candidate difference, never an
- * opposition difference. This mix varies DEFENCE (HP), not THREAT — see the module
- * docstring for the anti-convergence caveat that follows from that.
- *
- * WHY this composition (calibrated): the engine is rocket-tag lethal and the probe
- * is greedy 1-ply, so a UNIFORM soft opposition (3 fillers) lets the initiative-first
- * team sweep every map at the minimum tick, while a UNIFORM firm opposition starves
- * the WEAK single-target casters (geomancy) of a killable target. The
- * fragile-bruiser-plus-two-sturdy mix threads that needle: the fragile ~43-HP target
- * gives a weak caster a securable kill (making geomancy VIABLE), while the two ~72-HP
- * bruisers keep the fight non-trivial. Plain physical bruisers (not casters) on
- * purpose: a caster opposition's charged AoE resolves as an engine step and wipes the
- * fragile candidate team before it closes, swamping the candidate signal. RECALIBRATE
- * if docs/01 constants or the maps change.
+ * The MULTI-MATCHUP opposition manifest (P2 multi-matchup slice, ADR-0014). Each
+ * candidate is fielded against EVERY opposition here, on every map — so the gauntlet
+ * now varies THREAT (phys vs magic), not just GEOMETRY. The count still keys on the
+ * REFERENCE (`phys`) opposition ({@link REFERENCE_OPPOSITION_ID}); the extra
+ * oppositions turn `winsAllInBand` into a real no-losing-matchup signal and expose
+ * opportunity cost (docs/02 B5) — a build can now LOSE to a threat it is weak to.
  */
-export const OPPOSITION_BUILD_IDS: readonly string[] = [
-  "bld-glass-bruiser",
-  "bld-filler-bruiser",
-  "bld-filler-bruiser",
+export const OPPOSITIONS: readonly Opposition[] = [
+  {
+    id: "phys",
+    // [BASELINE] the original FIXED 3-unit MIXED-DEFENCE team: one FRAGILE bruiser
+    // (`bld-glass-bruiser`, 36 raw HP → ~43 effective after knight growth) + two
+    // STURDY bruisers (`bld-filler-bruiser`, 60 raw HP → ~72 effective). The fragile
+    // ~43-HP target gives a WEAK single-target caster (geomancy) a securable kill
+    // (keeping geomancy VIABLE), while the two ~72-HP bruisers keep the fight
+    // non-trivial. Plain physical bruisers on purpose — this axis varies DEFENCE (HP),
+    // not threat. RECALIBRATE if docs/01 constants or the maps change.
+    buildIds: ["bld-glass-bruiser", "bld-filler-bruiser", "bld-filler-bruiser"],
+    kind: "phys",
+    note: "REFERENCE opposition [BASELINE] — the diversity count keys on this axis (mixed-defence physical).",
+  },
+  {
+    id: "magic",
+    // THE COVEN — a MAGIC threat: 2× `bld-hedge-caster` (glassy geomancers casting
+    // single-target instant magic — water-ball/static-shock/pitfall) + 1 warden
+    // (`bld-filler-bruiser`, ~72 effHp) whose body the candidate melee must grind
+    // through first, buying the casters casting turns. Damage scales by TARGET Faith
+    // (`magicDamage`): a Faith-50 body takes the full cast (~32), a Faith-5 body takes
+    // ~3. This is a SECOND, DISTINCT threat axis (not raw physical HP) that makes
+    // opportunity cost non-uniform — NOT an isolated candidate-Faith test: with shared
+    // Faith-50 fillers + team-elimination + magnitude-focus targeting, it rewards
+    // tempo/range as much as personal Faith (see the module docstring; the isolated
+    // Faith cliff is the straddle TEST's job).
+    // KIT CONSTRAINTS (calibrated): (1) NO charged/`black-magic.*` spells — a charge
+    // whiffs/spawn-wipes on the small clustered maps (the ADR's rocket-tag failure);
+    // (2) NO AoE (`geomancy.sandstorm`) — a box on a clustered spawn is a spawn-swamp;
+    // (3) NO one-shot — a single cast must not KO a 72-HP Faith-50 body (≥2 casts), so
+    // the melee race stays honest and the caster's damage is a race, not a wipe.
+    buildIds: ["bld-hedge-caster", "bld-hedge-caster", "bld-filler-bruiser"],
+    kind: "magic",
+    note: "The Coven — a MAGIC threat that exercises the anti-mage identity (damage scales by target Faith).",
+  },
 ];
+
+/**
+ * The REFERENCE opposition id (ADR-0014): the diversity COUNT keys on this axis ONLY.
+ * A build is *supposed* to lose to some threat, so requiring viability against every
+ * opposition would collapse the count — keying on the reference keeps N stable and
+ * moves the multi-matchup signal into `losingMatchups` / `winsAllInBand` instead.
+ */
+export const REFERENCE_OPPOSITION_ID = "phys";
+
+/** Back-compat: the REFERENCE opposition's build ids (the original fixed team). */
+export const OPPOSITION_BUILD_IDS: readonly string[] =
+  OPPOSITIONS.find((o) => o.id === REFERENCE_OPPOSITION_ID)!.buildIds;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Band + gate thresholds — CALIBRATED-THEN-FROZEN (ADR-0014). Only WIN_CEIL is a
@@ -132,15 +204,18 @@ export const OPPOSITION_BUILD_IDS: readonly string[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A run is IN BAND only if it WON by this tick. [UNCERTAIN] — CALIBRATED from the
- * CURRENT frozen distribution (regenerated after the committed AoE/charge engine):
- * every legitimate victory clears by ≤ 95 ticks (the slowest legit win is terrain-geo
- * on the-long-march at 95), and the grind tail — a pure-caster charge-whiff loop —
- * only ever TIMES OUT (≥ 570 ticks, never a victory). 300 sits in that wide gap:
- * comfortably above the slowest real win, far below the grind/maxTicks (3000) tail.
- * Its only job is to reject a would-be grind VICTORY near maxTicks; on the current
- * roster no such victory exists, so this threshold has ample slack. RECALIBRATE when
- * docs/01 constants or the maps change.
+ * A run is IN BAND only if it WON by this tick. [UNCERTAIN] — CALIBRATED-THEN-FROZEN
+ * from the CURRENT frozen distribution, now over BOTH threat axes (phys + magic; the
+ * multi-matchup slice). Observed victory-tick distribution across all
+ * {candidate × map × opposition} cells: every legitimate victory still clears by
+ * ≤ 95 ticks (the slowest legit win remains terrain-geo on the-long-march vs the PHYS
+ * opposition at 95; the MAGIC matchup adds NO slower win — its victories top out
+ * ~63t). The grind/stall tail only ever TIMES OUT (≥ 570 ticks: a pure-caster
+ * charge-whiff loop, or a stalled magic matchup — up to 1110t — never a victory).
+ * 300 sits in that wide [95, 570] gap: comfortably above the slowest real win, far
+ * below the grind/maxTicks (3000) tail — a coarse victory-vs-grind separator with
+ * ample slack whose only job is to reject a would-be grind VICTORY near maxTicks.
+ * RECALIBRATE when docs/01 constants, the maps, or the OPPOSITIONS change.
  */
 export const WIN_CEIL_TICKS = 300;
 
@@ -221,6 +296,7 @@ export function buildGauntletEncounter(
   opposition: readonly string[] = OPPOSITION_BUILD_IDS,
   fillerId: string = FILLER_BUILD_ID,
   fillerCount: number = FILLER_COUNT,
+  oppositionId: string = REFERENCE_OPPOSITION_ID,
 ): Encounter {
   const team0Count = 1 + fillerCount;
   const left = pickEdgeTiles(source.grid, team0Count, "left", new Set());
@@ -247,7 +323,7 @@ export function buildGauntletEncounter(
 
   const def = {
     encounterSchemaVersion: 1,
-    id: `gauntlet:${source.id}:${candidateId}`,
+    id: `gauntlet:${oppositionId}:${source.id}:${candidateId}`,
     seed: source.seed,
     grid: source.grid,
     teams: [
@@ -277,6 +353,8 @@ export interface GauntletRun {
   archetypeId: string;
   signaturePrefix: string;
   mapId: string;
+  /** Which {@link OPPOSITIONS} entry this run was fought against (the threat axis). */
+  oppositionId: string;
   outcome: RunReport["outcome"];
   ticks: number;
   turns: number;
@@ -299,21 +377,37 @@ export interface RunGauntletParams {
   maps: readonly GauntletMap[];
   /** Candidate build ids to field (default: the MEASURABLE allow-list). */
   candidateIds?: readonly string[];
+  /**
+   * The threat axes to run each candidate against (default: all {@link OPPOSITIONS}).
+   * The loop is candidate × map × opposition.
+   */
+  oppositions?: readonly Opposition[];
+  /**
+   * SINGLE-opposition override (a raw build-id list) — a convenience for tests that
+   * want one custom opposition. When set it REPLACES `oppositions` with a single
+   * REFERENCE (`phys`) opposition of those ids, so the diversity count still sees it.
+   */
   opposition?: readonly string[];
   fillerId?: string;
+  /** Filler allies fielded WITH the candidate (default {@link FILLER_COUNT}). */
+  fillerCount?: number;
   /** Per-candidate signature prefix; defaults to {@link MEASURABLE}'s entry. */
   signatureOf?: (buildId: string) => string;
   archetypeOf?: (buildId: string) => string;
 }
 
 /**
- * Run the full gauntlet: every candidate × every map → one deterministic, headless
- * run, tagged with the candidate's landed contribution. Pure over the injected data.
+ * Run the full gauntlet: every candidate × every map × every opposition → one
+ * deterministic, headless run, tagged with the candidate's landed contribution and
+ * the opposition it faced. Pure over the injected data.
  */
 export function runGauntlet(params: RunGauntletParams): GauntletRun[] {
   const candidateIds = params.candidateIds ?? Object.keys(MEASURABLE);
-  const opposition = params.opposition ?? OPPOSITION_BUILD_IDS;
+  const oppositions: readonly Opposition[] = params.opposition
+    ? [{ id: REFERENCE_OPPOSITION_ID, buildIds: params.opposition, kind: "phys", note: "test override" }]
+    : params.oppositions ?? OPPOSITIONS;
   const fillerId = params.fillerId ?? FILLER_BUILD_ID;
+  const fillerCount = params.fillerCount ?? FILLER_COUNT;
   const signatureOf = params.signatureOf ?? ((id) => MEASURABLE[id]?.signaturePrefix ?? "");
   const archetypeOf = params.archetypeOf ?? ((id) => MEASURABLE[id]?.archetypeId ?? id);
 
@@ -321,30 +415,33 @@ export function runGauntlet(params: RunGauntletParams): GauntletRun[] {
   for (const buildId of candidateIds) {
     const prefix = signatureOf(buildId);
     for (const map of params.maps) {
-      const enc = buildGauntletEncounter(map.encounter, buildId, opposition, fillerId);
-      const { report } = runEncounterDetailed(enc, params.resolver, undefined, {
-        signaturePrefixes: { [CANDIDATE_SLOT]: prefix },
-      });
-      const c = report.contributionByUnit[CANDIDATE_SLOT] ?? {
-        damageDealt: 0,
-        healingDone: 0,
-        kos: 0,
-        signatureActionsLanded: 0,
-      };
-      const team0 = report.teams.find((t) => t.teamId === 0);
-      runs.push({
-        buildId,
-        archetypeId: archetypeOf(buildId),
-        signaturePrefix: prefix,
-        mapId: map.id,
-        outcome: report.outcome,
-        ticks: report.ticks,
-        turns: report.turns,
-        hpFraction: team0?.hpFraction ?? 0,
-        candidateDamage: c.damageDealt,
-        candidateHealing: c.healingDone,
-        candidateSignatureLanded: c.signatureActionsLanded,
-      });
+      for (const opposition of oppositions) {
+        const enc = buildGauntletEncounter(map.encounter, buildId, opposition.buildIds, fillerId, fillerCount, opposition.id);
+        const { report } = runEncounterDetailed(enc, params.resolver, undefined, {
+          signaturePrefixes: { [CANDIDATE_SLOT]: prefix },
+        });
+        const c = report.contributionByUnit[CANDIDATE_SLOT] ?? {
+          damageDealt: 0,
+          healingDone: 0,
+          kos: 0,
+          signatureActionsLanded: 0,
+        };
+        const team0 = report.teams.find((t) => t.teamId === 0);
+        runs.push({
+          buildId,
+          archetypeId: archetypeOf(buildId),
+          signaturePrefix: prefix,
+          mapId: map.id,
+          oppositionId: opposition.id,
+          outcome: report.outcome,
+          ticks: report.ticks,
+          turns: report.turns,
+          hpFraction: team0?.hpFraction ?? 0,
+          candidateDamage: c.damageDealt,
+          candidateHealing: c.healingDone,
+          candidateSignatureLanded: c.signatureActionsLanded,
+        });
+      }
     }
   }
   return runs;
@@ -376,30 +473,45 @@ export function inBand(run: GauntletRun, band: BandConfig): boolean {
   );
 }
 
-/** Per-build gate accounting over its 6 map runs. */
+/** Per-build gate accounting over its map × opposition runs. */
 export interface BuildGateStat {
   buildId: string;
   archetypeId: string;
   signaturePrefix: string;
+  /** In-band maps against the REFERENCE (phys) opposition — the axis the COUNT keys on. */
   inBandMaps: string[];
-  /** In-band maps on which the SIGNATURE also landed — the archetype-exercised clears. */
+  /** Reference-opposition in-band maps on which the SIGNATURE also landed. */
   signatureBandMaps: string[];
   /**
-   * A distinct measurable identity: VIABLE (in band on ≥ viableMin maps) AND its
-   * signature LANDED on ≥ 1 (NOT all) of those in-band clears. The ≥ 1 is a deliberate
-   * INTERIM-FLOOR insensitivity: it excludes a fully-masked brawler (signatureBandMaps
-   * empty) and an inert carried candidate (inBandMaps empty — contributed nothing), but
-   * it does NOT require the build to fight as its archetype on EVERY clear. Do not
-   * mistake it for a stronger "always exercised" guarantee; tightening it to a majority
-   * of clears waits on the multi-matchup opposition (module docstring).
+   * A distinct measurable identity: VIABLE against the REFERENCE opposition (in band on
+   * ≥ viableMin of its maps) AND its signature LANDED on ≥ 1 (NOT all) of those in-band
+   * clears. Keyed on the REFERENCE axis, NOT every opposition — a build is supposed to
+   * lose to some threat (see the module docstring), so requiring viability everywhere
+   * would collapse the count. The ≥ 1 is a deliberate INTERIM-FLOOR insensitivity: it
+   * excludes a fully-masked brawler (signatureBandMaps empty) and an inert carried
+   * candidate (inBandMaps empty — contributed nothing), but it does NOT require the
+   * build to fight as its archetype on EVERY clear.
    */
   measurableIdentity: boolean;
-  /** Clears EVERY map in band (no losing matchup) — the near-dominance signal. */
+  /**
+   * Clears EVERY cell ({map × opposition}) in band — no losing matchup ANYWHERE. Under
+   * multi-matchup opposition this is a real convergence signal (a build that beats
+   * both threat axes on every map), not the geometry-only artefact it was under a
+   * single opposition.
+   */
   winsAll: boolean;
   /**
-   * RELATIVE hard-dominance (a gate FAIL): this build clears all six maps AND no OTHER
-   * measurable build clears ANY map faster than it (fastest-or-tied everywhere) — it
-   * strictly outclasses the measurable field. Threshold-free (no calibrated tick cut).
+   * The opposition ids this build is NOT viable against — in band on < `viableMin`
+   * maps of that opposition. Non-empty ⇒ a real losing matchup / opportunity cost
+   * (docs/02 B5): the build has something to lose to. Id-sorted.
+   */
+  losingMatchups: string[];
+  /**
+   * RELATIVE hard-dominance (a gate FAIL): this build clears EVERY cell ({maps ×
+   * oppositions}) AND, on every cell, no OTHER measurable build clears it faster
+   * (fastest-or-tied everywhere) — it strictly outclasses the measurable field across
+   * BOTH threat axes. Threshold-free (no calibrated tick cut); strictly harder to trip
+   * than the single-opposition version, so it stays a gross-over-tune detector.
    */
   dominant: boolean;
 }
@@ -414,35 +526,55 @@ export interface DiversityReport {
   /** Builds flagged by the RELATIVE hard-dominance rule — a gate FAIL when non-empty. */
   dominantBuilds: string[];
   /**
-   * NEAR-DOMINANCE REPORT (NOT a fail): builds that clear all six maps in band (no
-   * losing matchup). Against the SINGLE fixed opposition this is EXPECTED (the maps
-   * vary geometry, not threat), so it is surfaced for visibility only. It becomes a
-   * real anti-convergence signal once MULTI-MATCHUP opposition exists (module docstring).
+   * WINS-EVERY-CELL REPORT: builds in band on EVERY single {map × opposition} cell.
+   * This is the STRICT sweep the dominance ban keys on (a dominant build must first
+   * clear every cell), NOT the anti-convergence signal — a build can have no losing
+   * matchup (viable ≥ viableMin on every opposition) yet miss a cell or two and be
+   * absent here (e.g. longshot: phys 6/6, magic 4/6). SURFACED, not failed. Id-sorted.
    */
   winsAllInBand: string[];
-  /** distinctMeasurableArchetypes ≥ targetN AND no hard-dominant build. */
+  /**
+   * NO-LOSING-MATCHUP: the MEASURABLE builds whose per-build {@link
+   * BuildGateStat.losingMatchups} is EMPTY — viable (in band on ≥ viableMin maps) against
+   * EVERY opposition, i.e. an identity that pays no opportunity cost across the threat
+   * axes (docs/02 B5). This is the real anti-convergence signal, DISTINCT from (and
+   * looser than) {@link winsAllInBand}'s every-cell sweep. SURFACED for design review,
+   * NOT a fail — a well-rounded build is a design conversation, not a gate failure; only
+   * strict RELATIVE dominance fails the gate. Id-sorted.
+   */
+  noLosingMatchup: string[];
+  /** distinctMeasurableArchetypes(reference) ≥ targetN AND no hard-dominant build. */
   pass: boolean;
 }
 
 /**
  * Fold gauntlet runs into the gate verdict. `distinctMeasurableArchetypes` counts
  * DISTINCT signature prefixes among builds that QUALIFY (in band with the signature
- * landed on ≥ 1 clear) on ≥ `viableMin` maps — so the shared-`black-magic.` builds
- * collapse to one identity and a masked/inert candidate contributes none.
+ * landed on ≥ 1 clear) on ≥ `viableMin` maps of the REFERENCE (`referenceOppositionId`,
+ * default `phys`) opposition ONLY — so the shared-`black-magic.` builds collapse to one
+ * identity, a masked/inert candidate contributes none, and a build LOSING a non-
+ * reference matchup (the whole point of multi-matchup opposition) does not drop the
+ * count. Per-build `losingMatchups` records the oppositions it is NOT viable against.
  *
- * DOMINANCE is THRESHOLD-FREE and RELATIVE (no tick cut-off to gerrymander): a build
- * is hard-dominant iff it clears ALL maps AND, on every map, NO OTHER measurable build
- * clears it faster (fastest-or-tied everywhere) — i.e. it strictly outclasses the
- * measurable field. On the honest roster no build is fastest-or-tied on all six
- * (spellblade beats longshot on the-breach, longshot beats spellblade on skirmish-a,
- * …) so `dominantBuilds` is empty; a gross-over-tuned build (e.g. doubled Speed) that
- * clears every map faster than the whole field trips it. Clearing all six WITHOUT
- * outclassing the field is only surfaced (`winsAllInBand`), never failed.
+ * DOMINANCE is THRESHOLD-FREE and RELATIVE (no tick cut-off to gerrymander) and now
+ * ranges over the full {maps × oppositions} CELL set: a build is hard-dominant iff it
+ * clears EVERY cell AND, on every cell, NO OTHER measurable build clears it faster
+ * (fastest-or-tied everywhere) — i.e. it strictly outclasses the measurable field on
+ * BOTH threat axes. On the honest roster no build clears every cell (each measurable
+ * build folds to the Coven's magic on some map), so `winsAllInBand` — and therefore
+ * `dominantBuilds` — is empty; a gross-over-tuned build (e.g. doubled Speed) that
+ * sweeps every cell faster than the whole field trips it. Clearing every cell WITHOUT
+ * outclassing the field is only surfaced (`winsAllInBand` / `noLosingMatchup`), never
+ * failed.
  *
- * Deterministic: builds are folded in run order; `distinctSignatures`, `dominantBuilds`
- * and `winsAllInBand` are id/prefix-sorted.
+ * Deterministic: builds are folded in run order; `distinctSignatures`, `dominantBuilds`,
+ * `winsAllInBand`, `noLosingMatchup` and each `losingMatchups` are id/prefix-sorted.
  */
-export function computeDiversityReport(runs: readonly GauntletRun[], band: BandConfig = DEFAULT_BAND): DiversityReport {
+export function computeDiversityReport(
+  runs: readonly GauntletRun[],
+  band: BandConfig = DEFAULT_BAND,
+  referenceOppositionId: string = REFERENCE_OPPOSITION_ID,
+): DiversityReport {
   const byBuild = new Map<string, GauntletRun[]>();
   for (const r of runs) {
     const list = byBuild.get(r.buildId);
@@ -450,16 +582,33 @@ export function computeDiversityReport(runs: readonly GauntletRun[], band: BandC
     else byBuild.set(r.buildId, [r]);
   }
   const mapIds = new Set(runs.map((r) => r.mapId));
+  const oppositionIds = [...new Set(runs.map((r) => r.oppositionId))].sort();
+  // A CELL is one (map × opposition) combination present in the run set. `winsAll`
+  // and dominance range over every cell, so multi-matchup opposition tightens both.
+  const cellKey = (mapId: string, oppId: string): string => `${mapId} ${oppId}`;
+  const allCells = new Set(runs.map((r) => cellKey(r.mapId, r.oppositionId)));
 
-  // Per-build in-band clear TICKS by map (undefined ⇒ did not clear that map in band).
-  const inBandTicks = new Map<string, Map<string, number>>();
+  // Per-build in-band clear TICKS by cell (undefined ⇒ did not clear that cell in band).
+  const inBandCellTicks = new Map<string, Map<string, number>>();
 
   const stats: BuildGateStat[] = [];
   for (const [buildId, buildRuns] of byBuild) {
     const inBandRuns = buildRuns.filter((r) => inBand(r, band));
-    const inBandMaps = inBandRuns.map((r) => r.mapId);
-    const signatureBandMaps = inBandRuns.filter((r) => r.candidateSignatureLanded > 0).map((r) => r.mapId);
-    inBandTicks.set(buildId, new Map(inBandRuns.map((r) => [r.mapId, r.ticks])));
+    // The COUNT keys on the REFERENCE opposition ONLY (ADR-0014): a build is supposed
+    // to lose to some threat, so measurability is judged on the reference axis, not
+    // every opposition (that would collapse the count).
+    const refInBand = inBandRuns.filter((r) => r.oppositionId === referenceOppositionId);
+    const inBandMaps = refInBand.map((r) => r.mapId);
+    const signatureBandMaps = refInBand.filter((r) => r.candidateSignatureLanded > 0).map((r) => r.mapId);
+
+    inBandCellTicks.set(buildId, new Map(inBandRuns.map((r) => [cellKey(r.mapId, r.oppositionId), r.ticks])));
+    const inBandCells = new Set(inBandRuns.map((r) => cellKey(r.mapId, r.oppositionId)));
+
+    // Losing matchups: an opposition on which the build is in band on < viableMin maps.
+    const losingMatchups = oppositionIds
+      .filter((oppId) => inBandRuns.filter((r) => r.oppositionId === oppId).length < band.viableMin)
+      .sort();
+
     stats.push({
       buildId,
       archetypeId: buildRuns[0]?.archetypeId ?? buildId,
@@ -467,25 +616,26 @@ export function computeDiversityReport(runs: readonly GauntletRun[], band: BandC
       inBandMaps,
       signatureBandMaps,
       measurableIdentity: inBandMaps.length >= band.viableMin && signatureBandMaps.length > 0,
-      winsAll: mapIds.size > 0 && inBandMaps.length === mapIds.size,
+      winsAll: allCells.size > 0 && [...allCells].every((c) => inBandCells.has(c)),
+      losingMatchups,
       dominant: false, // filled below (needs the whole measurable field)
     });
   }
 
-  // RELATIVE hard-dominance: a build that clears all maps AND is fastest-or-tied vs
-  // every OTHER measurable build on every map. Needs ≥ 1 other measurable competitor
-  // (a lone build cannot "outclass the field").
+  // RELATIVE hard-dominance: a build that clears EVERY cell AND is fastest-or-tied vs
+  // every OTHER measurable build on every cell. Needs ≥ 1 other measurable competitor
+  // (a lone build cannot "outclass the field"). Ranges over {maps × oppositions}.
   const measurable = stats.filter((s) => s.measurableIdentity);
   for (const b of stats) {
     if (!b.winsAll) continue;
     const others = measurable.filter((o) => o.buildId !== b.buildId);
     if (others.length === 0) continue;
-    const bTicks = inBandTicks.get(b.buildId)!;
+    const bTicks = inBandCellTicks.get(b.buildId)!;
     let beatenSomewhere = false;
-    for (const mapId of mapIds) {
-      const bt = bTicks.get(mapId)!; // winsAll ⇒ present for every map
+    for (const cell of allCells) {
+      const bt = bTicks.get(cell)!; // winsAll ⇒ present for every cell
       for (const o of others) {
-        const ot = inBandTicks.get(o.buildId)!.get(mapId);
+        const ot = inBandCellTicks.get(o.buildId)!.get(cell);
         if (ot !== undefined && ot < bt) {
           beatenSomewhere = true;
           break;
@@ -499,6 +649,14 @@ export function computeDiversityReport(runs: readonly GauntletRun[], band: BandC
   const distinctSignatures = [...new Set(measurable.map((b) => b.signaturePrefix))].sort();
   const dominantBuilds = stats.filter((b) => b.dominant).map((b) => b.buildId).sort();
   const winsAllInBand = stats.filter((b) => b.winsAll).map((b) => b.buildId).sort();
+  // The honest anti-convergence signal: a MEASURABLE identity with NO losing matchup
+  // (viable on ≥ viableMin maps of every opposition — per-build `losingMatchups` empty).
+  // DISTINCT from `winsAllInBand`'s stricter every-cell sweep (longshot has an empty
+  // `losingMatchups` but does not sweep every cell, so it belongs here, not there).
+  const noLosingMatchup = measurable
+    .filter((b) => b.losingMatchups.length === 0)
+    .map((b) => b.buildId)
+    .sort();
 
   return {
     mapCount: mapIds.size,
@@ -508,6 +666,7 @@ export function computeDiversityReport(runs: readonly GauntletRun[], band: BandC
     distinctMeasurableArchetypes: distinctSignatures.length,
     dominantBuilds,
     winsAllInBand,
+    noLosingMatchup,
     pass: distinctSignatures.length >= band.targetN && dominantBuilds.length === 0,
   };
 }

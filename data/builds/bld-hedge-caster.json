@@ -1,0 +1,24 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-hedge-caster",
+  "name": "Hedge Caster",
+  "level": 10,
+  "currentJob": "geomancer",
+  "raw": { "pa": 6, "ma": 8, "speed": 8, "hp": 40, "mp": 24 },
+  "brave": 70,
+  "faith": 45,
+  "ap": 0,
+  "learned": [
+    "geomancy.water-ball",
+    "geomancy.static-shock",
+    "geomancy.pitfall"
+  ],
+  "mastered": ["geomancer"],
+  "loadout": {
+    "secondary": null,
+    "reaction": null,
+    "support": null,
+    "movement": null,
+    "traits": []
+  }
+}

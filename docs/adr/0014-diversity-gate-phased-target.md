@@ -89,6 +89,51 @@ different names — the exact **masked-identity** failure CLAUDE.md warns about 
   move its builds EXCLUDED→MEASURABLE, raise `N`, and amend this ADR. When `N` reaches 8, AC-E2 is met and
   this phasing retires.
 
+## Amendment (2026-08-02): multi-matchup opposition landed
+
+The "named next step" flagged in the calibration-outcome note above — **multi-matchup opposition** — is now
+implemented (`src/sim/gauntlet.ts`). It **advances** this ADR's phasing; it does not reverse any decision here.
+
+- **What shipped.** The single fixed opposition became an **`OPPOSITIONS` manifest** of distinct *threat*
+  profiles: `phys` (the original mixed-defence bruiser team, now the **REFERENCE**) + `magic` (the **Coven**:
+  two glassy geomancers casting single-target **instant** Faith-scaling magic + one warden). `runGauntlet`
+  loops **candidate × map × opposition**; the report gains per-build `losingMatchups` and a report-level
+  `noLosingMatchup`, and both `winsAllInBand` and the relative dominance ban now range over the full
+  `{maps × oppositions}` cell set.
+- **The diversity COUNT still keys on the REFERENCE (`phys`) opposition ONLY.** This is load-bearing and
+  deliberate: a build is *supposed* to lose to some threat (docs/02 B5), so requiring viability against
+  every opposition would make diversity and anti-convergence fight each other and collapse the count. `N`
+  stays 4, keyed on the reference; the "`N` rises only with a new signature prefix or an EXCLUDED capability"
+  rule and the `≥8` release bar are **untouched**. A *magic* regression therefore cannot fail `pass` — it is
+  surfaced, not enforced (below).
+- **What the magic axis actually measures — honesty correction.** It is **not** an isolated candidate-Faith
+  test, and a `losingMatchups: ["magic"]` entry does **not** mean "personally weak to magic". Every candidate
+  is fielded with the same **Faith-50** filler allies, victory is **team-elimination**, and the greedy probe
+  focuses the highest-**magnitude** target — so the casters kill the Faith-50 allies (~32/cast) long before
+  any low-Faith body (~3/cast), and the axis rewards **tempo/range** (burst the glass casters before your
+  allies fall) as much as personal Faith. Consequently `bld-faithzero-monk` — the **anti-mage** build — still
+  shows `losingMatchups: ["magic"]` (its personal resistance cannot save its Faith-50 allies, and the 1-ply
+  probe cannot protect them — the **support-aware-AI limitation**, this ADR's family), while ranged
+  `bld-longshot` (Faith 50) clears both axes. The magic axis's job is to be a **second, distinct threat that
+  makes opportunity cost non-uniform**, not to credit the anti-mage's resistance. The **isolated Faith cliff**
+  (magic damage ∝ target Faith) is proved by a must-fail **straddle test** (a lone Faith-5 vs its Faith-50
+  twin, on a candidate-targeting fixture), not the aggregate roster gate. Fully isolating the anti-mage
+  identity in the *aggregate* gate needs support-aware AI (protect/position allies) — tracked with the other
+  EXCLUDED capabilities.
+- **Anti-convergence: surfaced, not enforced.** With only two threat axes, a build with *no* losing matchup
+  usually means "we haven't built the threat that punishes it yet" — the same phased-capability logic this
+  ADR codifies — so auto-failing it would be the "gerrymander the gate into unpassability" trap CLAUDE.md
+  names, and would false-fail a legitimately well-rounded build (e.g. `bld-longshot`, surfaced in
+  `noLosingMatchup`). The **sole hard fail stays relative dominance** (now over `{maps × oppositions}`,
+  strictly harder to trip). Revisit *enforcing* only once ≥3 distinct threat axes exist AND a specific
+  `noLosingMatchup` build is confirmed a genuine design problem rather than a coverage gap.
+- **CI teeth added.** Two discriminating tests give the magic axis real failure modes even though it does not
+  gate `pass`: the Faith straddle (must straddle — a uniform wipe/spare fails it) and a non-uniform-matrix
+  assertion (≥1 measurable build folds to magic AND not all do).
+- **Outcome (honest roster):** `distinctMeasurableArchetypes = 4`, `dominantBuilds = []`, `winsAllInBand = []`,
+  `noLosingMatchup = ["bld-longshot"]`, `pass = true`. `losingMatchups`: spellblade/terrain-geo/faithzero-monk
+  each `["magic"]`, longshot `[]` — a non-uniform matrix (real opportunity cost is now visible).
+
 ## References
 
 - `docs/06` §4 + AC-E2 (diversity gate) + the two Implementation-status notes (AI limits, AoE/measurement gap)
