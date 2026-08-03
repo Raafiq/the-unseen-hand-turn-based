@@ -110,6 +110,8 @@ function conditionResolvable(cond: Condition, teamIds: ReadonlySet<number>, slot
       return cond.teams.every((t) => teamIds.has(t));
     case "defeatUnit":
       return slotIds.has(cond.unitId);
+    case "survive":
+      return teamIds.has(cond.teamId);
   }
 }
 
@@ -172,6 +174,32 @@ export const EncounterSchema = z
     {
       message: "defeat condition references a team or unit with no placement",
       path: ["defeat"],
+    },
+  )
+  .refine(
+    // Achievability (COARSE guard): a `survive` VICTORY threshold ABOVE the tick cap is
+    // (normally) unreachable — the clock hits `maxTicks` and forces a `timeout` while
+    // `won` is still false, so the objective never fires. `ticks === maxTicks` is NOT
+    // rejected: `evalTerminal` checks `won` BEFORE the timeout cap, so a victory on the
+    // very tick the clock reaches the threshold pre-empts timeout (see the
+    // objective-outranks-cap test) — that encounter is winnable. Hence `<=`, not `<`.
+    // COARSE because scheduler ticks can OVERSHOOT the exact threshold, so precise
+    // achievability is fuzzy; this only catches the gross "threshold beyond the cap"
+    // author error. Guards only `victory` — a survive DEFEAT ("you lose if the enemy
+    // survives N ticks", the defeat-within-N objective, docs/06) with a too-high
+    // threshold merely makes that defeat clause dead, NOT the encounter unwinnable (its
+    // victory path still resolves), so it needs no achievability guard.
+    // NOT GUARDED HERE: the `maxTurns` decision cap. `timeout` also fires on
+    // `turns >= maxTurns`, and turns↔ticks is dynamic (roster Speed / Stop), so no
+    // static bound is correct — a too-low `maxTurns` can time out a survive map before
+    // tick N. Author guidance (docs/06): set `maxTurns` generously and `maxTicks` only
+    // slightly above `ticks`, so `ticks`/`maxTicks` is the binding cap and `timeout`
+    // stays a genuine "something's wrong" signal, never the intended defender win.
+    (e) => e.victory.kind !== "survive" || e.victory.ticks <= e.maxTicks,
+    {
+      message:
+        "survive victory threshold (ticks) must not exceed maxTicks (else the tick cap forces timeout before victory)",
+      path: ["victory"],
     },
   );
 export type Encounter = z.infer<typeof EncounterSchema>;

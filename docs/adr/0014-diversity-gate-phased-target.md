@@ -192,6 +192,15 @@ to this ADR's phasing. It does not reverse any decision above.
   identity), **provoke/threat** (aggro-tank), and a **`surviveTurns` condition** (Defend/survive-N). The
   `≥ 8` release bar is untouched.
 
+## Amendment (2026-08-03): `survive` condition landed — an archetype ENABLER, does NOT raise `N`
+
+The **`surviveTurns` condition** flagged as a tracked follow-up in the support-aware-AI amendment above is now implemented (`src/sim/condition.ts`), as `survive {teamId, ticks}`. It **enables** the Defend / survive-N archetype; it does **not** change the gate count.
+
+- **What shipped.** A third additive arm on the `Condition` discriminated union: a team wins by keeping ≥1 unit alive until the CT clock (`state.tick`) reaches `ticks`. Keyed on **`ticks` (the CT clock), NOT the global `turns` decision counter** — `turns` perversely decelerates the survive timer as units die and is not on `BattleState`; `ticks` is roster-independent, on-state (so `evalCondition` stays `(state, cond)`), and is the honest duration unit. The `alive` survivor clause makes a survive VICTORY and its `eliminateTeams{[teamId]}` DEFEAT exact logical complements (no spurious draw); winner attribution credits the objective's **beneficiary** in either slot (the symmetric `survive`-as-DEFEAT is the baseline **defeat-within-N-ticks** objective). Additive: **no `ENCOUNTER_SCHEMA_VERSION` bump, no `BattleState` change, no frozen-golden regen, no `ai.ts`/gauntlet change.**
+- **Tag: `[ENHANCEMENT]`, not `[BASELINE]`.** fft-fidelity could not confirm a canonical vanilla PSX FFT win-BY-survival map — that framing is FFTA/FFTA2 (not our version baseline). The turn/CT-bounded objective *category* is baseline (protect-until / defeat-within-N); the survive *victory* is an enhancement layered on it.
+- **`N` is UNCHANGED (still 5).** This slice adds the *condition* only — no survive-objective encounter or build is wired into the gauntlet, so the diversity count and the live `npm run state` gate output are byte-identical. Defend becomes a **measured** archetype (and its sustain identity countable) only when a later slice adds a survive encounter/build to the gate — tracked, still toward `≥ 8`.
+- **Remaining follow-ups toward `≥ 8` (unchanged):** predictive charge-targeting (summoner), support-aware positioning/escort, reaction-as-live (counter-wall, reraise-cleric's sustain), provoke/threat (aggro-tank), and now a **Defend benchmark encounter** that exercises the landed `survive` condition.
+
 ## References
 
 - `docs/06` §4 + AC-E2 (diversity gate) + the two Implementation-status notes (AI limits, AoE/measurement gap)
