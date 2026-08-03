@@ -125,8 +125,16 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
  * greedy 1-ply probe can exercise yet. N rises as each capability lands.
  */
 export const EXCLUDED: Readonly<Record<string, string>> = {
+  // TAG CORRECTED 2026-08-03 (ADR-0014 amendment): the old "charge-whiff loop → needs
+  // predictive charge-targeting" tag was EMPIRICALLY DISPROVEN — the summon whiffs ZERO
+  // times on all 6 maps, and forcing a faster summon is still 1/6. The real blocker is
+  // STRUCTURAL SURVIVABILITY: the short-range (~h4/v2) glass summoner advances into melee
+  // to reach cast range, then is focus-fired mid-charge → charge cancelled → 0 contribution.
+  // Body-screening SHIPPED (ai.ts tryScreen) but is INSUFFICIENT: reachability-screening
+  // can't wall a corner-seated caster with 2 fillers vs 3 bruisers on multi-lane maps (only
+  // the choke-map holds → 1/6). NOT support-AI and NOT charge-targeting.
   "bld-glass-summoner":
-    "charged-AoE tile-targeting / charge-whiff loop on open maps (phys/counting axis — needs predictive/cluster-aware charge targeting, NOT support-AI) + focus-fire death vs magic (needs protect-the-enabler, non-counting axis)",
+    "structural survivability: short-range glass caster advances into melee to reach cast range, then focus-fired mid-charge (charge cancelled). Body-screening shipped but can't wall it 2-filler-vs-3-bruiser on multi-lane maps (1/6). Needs a survivability lever OUTSIDE the 1-ply AI — tankier chassis / faster-maturing or longer-range summon that lands before contact — or multi-body wall coordination. NOT charge-whiff (0 whiffs measured), NOT support-AI",
   "bld-aggro-tank": "provoke/threat mechanic (the probe ignores threat)",
   "bld-counter-wall": "reaction-as-live modeling (Counter is a passive reaction)",
   "bld-battle-cleric":

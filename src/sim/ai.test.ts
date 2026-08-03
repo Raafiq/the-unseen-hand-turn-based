@@ -4,10 +4,38 @@ import {
   createBattleState,
   defaultUnit,
   legacyActiveStatus,
+  serialize,
   type BattleState,
+  type ChargedActionState,
   type UnitState,
 } from "./state.js";
 import type { BattleAbility } from "./ability.js";
+
+/** A minimal MAGIC charge owned by `sourceUnitId` — the mid-charge marker tryScreen reads. */
+function midCharge(sourceUnitId: string, targetTile = { x: 0, y: 0 }): ChargedActionState {
+  return {
+    id: `c.${sourceUnitId}`,
+    sourceUnitId,
+    ct: 40,
+    speed: 20,
+    targetTile,
+    effect: { kind: "magic", power: 20, element: "none", accuracy: 100, aoe: null },
+    interrupted: false,
+  };
+}
+
+/** field(), but with a charge queue seeded (for screening fixtures). */
+function fieldWithCharge(
+  units: UnitState[],
+  charges: ChargedActionState[],
+  seed = 1,
+  w = 6,
+  h = 6,
+): BattleState {
+  const s = createBattleState({ seed, grid: { width: w, height: h }, units });
+  s.chargeQueue.push(...charges);
+  return s;
+}
 
 const HEAL_ABILITY: BattleAbility = {
   id: "heal.cure",
@@ -179,5 +207,147 @@ describe("decideBalanceProbe — movement + passivity", () => {
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, hp: 100, maxHp: 100 });
     const s = field([hero, foe]);
     expect(decideBalanceProbe(s, "hero")).toEqual(decideBalanceProbe(s, "hero"));
+  });
+});
+
+describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, movement fallback)", () => {
+  it("T1: interposes on the on-path adjacent-to-P tile, NOT the moveTowardPrime tile", () => {
+    // S has NO in-range action → movement fallback. A mid-charge ally P at (5,3) is
+    // threatened by E at (1,3) (its far/west side). A SEPARATE lower-HP prime enemy sits
+    // at the NW corner (0,0) in a DIFFERENT direction, so moveTowardPrime would pull S
+    // toward (0,0) — but screening must instead body-block the E→P path at (4,3) (on-path,
+    // adjacent to P). The two rules DISAGREE by construction: the assertion (4,3) can only
+    // come from the interpose keys, never from chasing the prime.
+    const s = defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 });
+    const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
+    const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
+    const cmd = decideBalanceProbe(fieldWithCharge([s, p, e, prime], [midCharge("P")], 1, 7, 6), "S");
+    expect(cmd).toEqual({ kind: "move", to: { x: 4, y: 3 } });
+  });
+
+  it("T2: an in-range action ALWAYS beats screening (LETHAL kill, no move)", () => {
+    // S can one-shot an adjacent foe (LETHAL) AND has a mid-charge fragile ally. The
+    // action return is strictly above screening → S kills, never screens.
+    const s = defaultUnit("S", 0, { pos: { x: 2, y: 2 }, pa: 10, hp: 100, maxHp: 100 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 5, maxHp: 5 });
+    const p = defaultUnit("P", 0, { pos: { x: 0, y: 5 }, hp: 40, maxHp: 72 });
+    const cmd = decideBalanceProbe(fieldWithCharge([s, foe, p], [midCharge("P")]), "S");
+    expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+  });
+
+  it("T2 (chip variant): even a non-lethal CHIP beats screening", () => {
+    // Same board, but the foe is unkillable this turn (CHIP, not LETHAL). A CHIP is still
+    // an in-range action → it outranks screening; S attacks, does not move.
+    const s = defaultUnit("S", 0, { pos: { x: 2, y: 2 }, pa: 10, hp: 100, maxHp: 100 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500 });
+    const p = defaultUnit("P", 0, { pos: { x: 0, y: 5 }, hp: 40, maxHp: 72 });
+    const cmd = decideBalanceProbe(fieldWithCharge([s, foe, p], [midCharge("P")]), "S");
+    expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+  });
+
+  it("T3: screens the MID-CHARGE ally, not a nearer/lower-effHp non-charging ally", () => {
+    // Two fragile allies: `ally-near` (hp 20, NOT charging, nearer S at (2,0)) and
+    // `ally-charge` (hp 40, MID-CHARGE, farther at (6,2)). A wrong "nearest/lowest-effHp
+    // fragile" rule would screen ally-near and interpose near (2,0) (→ (3,0)); the correct
+    // MID-CHARGE rule interposes on the E→ally-charge path at (5,2). The keys DISAGREE.
+    const s = defaultUnit("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
+    const allyCharge = defaultUnit("ally-charge", 0, { pos: { x: 6, y: 2 }, hp: 40, maxHp: 72 });
+    const allyNear = defaultUnit("ally-near", 0, { pos: { x: 2, y: 0 }, hp: 20, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 3, y: 2 }, hp: 100, maxHp: 100 });
+    const cmd = decideBalanceProbe(
+      fieldWithCharge([s, allyCharge, allyNear, e], [midCharge("ally-charge")], 1, 8, 5),
+      "S",
+    );
+    expect(cmd).toEqual({ kind: "move", to: { x: 5, y: 2 } });
+  });
+
+  it("HOLD: already on the optimal on-path tile → WAITS (does not abandon the screen)", () => {
+    // THE discriminator for the oscillation fix. S already stands on the on-path tile
+    // adjacent to the mid-charge P (4,3) — the optimal screen. A SEPARATE lower-HP prime
+    // sits at the NW corner. Correct → WAIT (hold the post). The pre-fix bug returned null
+    // here → moveTowardPrime walks S off (4,3) toward the prime → a MOVE (then it re-screens
+    // next turn and oscillates). Assert wait, NOT a move: right ≠ plausible-wrong.
+    const s = defaultUnit("S", 0, { pos: { x: 4, y: 3 }, move: 3, hp: 100, maxHp: 100 });
+    const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
+    const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
+    const cmd = decideBalanceProbe(fieldWithCharge([s, p, e, prime], [midCharge("P")], 1, 7, 6), "S");
+    expect(cmd).toEqual({ kind: "wait" });
+  });
+
+  it("screener-hp guard: a body squishier than the charger does NOT screen (→ moveTowardPrime)", () => {
+    // The geometry is a valid screen (S could interpose at (4,3)), but S (hp 30) is
+    // SQUISHIER than the mid-charge P (hp 40) → the guard declines. Discriminating: a
+    // no-guard bug would interpose at (4,3); the guard falls through to moveTowardPrime.
+    // Proven by equality with the SAME board minus the charge (no protectee → same path).
+    const s = defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 30, maxHp: 100 });
+    const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
+    const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
+    const board = [s, p, e, prime];
+    const guarded = decideBalanceProbe(fieldWithCharge(board, [midCharge("P")], 1, 7, 6), "S");
+    const noCharge = decideBalanceProbe(field(board, 1, 7, 6), "S"); // empty queue → no protectee
+    expect(guarded).not.toEqual({ kind: "move", to: { x: 4, y: 3 } }); // NOT the interpose
+    expect(guarded).toEqual(noCharge); // identical to the no-screen moveTowardPrime path
+  });
+
+  it("no reachable on-path tile → moveTowardPrime fall-through (identical to no-screen)", () => {
+    // S (move 1, boxed in the corner) can reach no on-path tile of the E→P line → tryScreen
+    // returns null → moveTowardPrime. Discriminating: byte-identical to the same board with
+    // no charge (screening cannot have engaged), and a MOVE toward the prime, not a wait.
+    const s = defaultUnit("S", 0, { pos: { x: 0, y: 0 }, move: 1, hp: 100, maxHp: 100 });
+    const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
+    const prime = defaultUnit("prime", 1, { pos: { x: 2, y: 0 }, hp: 10, maxHp: 100 });
+    const board = [s, p, e, prime];
+    const withCharge = decideBalanceProbe(fieldWithCharge(board, [midCharge("P")], 1, 7, 6), "S");
+    const noCharge = decideBalanceProbe(field(board, 1, 7, 6), "S");
+    expect(withCharge).toEqual({ kind: "move", to: { x: 1, y: 0 } }); // steps toward the prime
+    expect(withCharge).toEqual(noCharge); // screen did not engage
+  });
+
+  it("blast-radius (a): no mid-charge ally → byte-identical to the moveTowardPrime path", () => {
+    // With NO ally mid-charge, tryScreen returns null and the command is exactly the
+    // pre-screening moveTowardPrime output. An ENEMY-owned charge is not an ally
+    // mid-charge, so it changes nothing.
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 6, y: 0 }, hp: 100, maxHp: 100 });
+    const expected = { kind: "move", to: { x: 3, y: 0 } };
+    expect(decideBalanceProbe(field([hero, foe], 1, 7, 1), "hero")).toEqual(expected);
+    const withEnemyCharge = fieldWithCharge([hero, foe], [midCharge("foe")], 1, 7, 1);
+    expect(decideBalanceProbe(withEnemyCharge, "hero")).toEqual(expected);
+  });
+
+  it("blast-radius (b): an instant-caster ally (no charge) never triggers screening", () => {
+    // Identical board; the ONLY difference is whether the ally owns a charge. A Coven-
+    // shaped INSTANT caster produces no chargeQueue entry, so screening never fires
+    // (S falls through to moveTowardPrime). Add the charge → screening fires → (5,2).
+    const s = defaultUnit("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
+    const ally = defaultUnit("P", 0, { pos: { x: 6, y: 2 }, hp: 40, maxHp: 72 });
+    const e = defaultUnit("E", 1, { pos: { x: 3, y: 2 }, hp: 100, maxHp: 100 });
+    const interpose = { kind: "move", to: { x: 5, y: 2 } };
+    const charging = fieldWithCharge([s, ally, e], [midCharge("P")], 1, 8, 5);
+    const instant = field([s, ally, e], 1, 8, 5);
+    expect(decideBalanceProbe(charging, "S")).toEqual(interpose); // mid-charge → screens
+    expect(decideBalanceProbe(instant, "S")).not.toEqual(interpose); // instant → no screen
+  });
+
+  it("determinism: the screening decision is pure and draws ZERO rng", () => {
+    const mkBoard = (): UnitState[] => [
+      defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 }),
+      defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 }),
+      defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 }),
+    ];
+    const s1 = fieldWithCharge(mkBoard(), [midCharge("P")], 1, 7, 6);
+    const s2 = fieldWithCharge(mkBoard(), [midCharge("P")], 1, 7, 6);
+    expect(serialize(s1)).toBe(serialize(s2)); // identical serialized inputs
+    expect(decideBalanceProbe(s1, "S")).toEqual(decideBalanceProbe(s2, "S"));
+    expect(decideBalanceProbe(s1, "S")).toEqual({ kind: "move", to: { x: 4, y: 3 } }); // it screened
+    // A pure decide never mutates state / consumes the seed.
+    const snap = serialize(s1);
+    decideBalanceProbe(s1, "S");
+    expect(serialize(s1)).toBe(snap);
+    expect(s1.rngCounter).toBe(0);
   });
 });
