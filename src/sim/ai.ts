@@ -27,7 +27,7 @@
  * yet (the class scaffold is kept for when status infliction lands).
  */
 
-import type { BattleState, UnitState } from "./state.js";
+import type { BattleState, UnitState, Position } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 import type { Command } from "./driver.js";
 import { inAbilityRange, moveRange, relativeFacing, unitsInAoeBox } from "./grid.js";
@@ -304,10 +304,151 @@ function moveTowardPrime(state: BattleState, actor: UnitState): Command {
   return { kind: "move", to: { x: bestTile.x, y: bestTile.y } };
 }
 
+/** The (onPath, distToP, distToE) sort key of a tile w.r.t. a threat E and protectee P. */
+interface ScreenKey {
+  /** 0 iff the tile lies ON a shortest Manhattan path E→P (blocks that traversal), else 1. */
+  onPath: number;
+  /** Manhattan distance to the protectee (ASC — hug the charger). */
+  distToP: number;
+  /** Manhattan distance to the threat (ASC — meet the attacker earlier). */
+  distToE: number;
+}
+
+/**
+ * SUPPORT-AWARE SCREENING ("protect-the-enabler / body-screen", docs/06 AC-E3 family,
+ * ADR-0014). A PURE, zero-RNG MOVEMENT-FALLBACK helper — reached only when the actor
+ * has NO in-range action, so it is STRICTLY BELOW the action return: a screener that
+ * can land a kill/chip/heal always acts instead (this never enters
+ * {@link compareCandidate} and creates no candidate).
+ *
+ * MECHANISM is REACHABILITY, not zone-of-control: the actor steps onto a tile that lies
+ * on the enemy's shortest traversal path to a mid-charge ally. Because {@link moveRange}
+ * treats occupied tiles as impassable / forbids ending on them, the screener's body then
+ * blocks that approach and makes the screener the only in-range foe when the greedy
+ * attacker arrives — buying the slow charger time to mature. Effectiveness is
+ * GEOMETRY-bound: it holds on a constrained map (the body is the only passable approach)
+ * and LEAKS on an open map (the enemy routes around) — expected, not a defect. CAPABILITY
+ * GAP: when the threat is ADJACENT to the charger (`distEP === 1`), the only on-path tiles
+ * are E and P themselves — both occupied, so excluded by moveRange — and no screen can
+ * form (returns null → moveTowardPrime); screening only helps while the attacker is still
+ * approaching.
+ *
+ * Returns a {@link Command}: an interpose Move onto a strictly-better on-path tile, OR a
+ * `wait` to HOLD an on-path tile the actor already stands on (never a null there — a null
+ * would let moveTowardPrime walk the screener off its post and oscillate), OR `null` to
+ * fall through to {@link moveTowardPrime} (no mid-charge ally / too-squishy screener / no
+ * threat / no reachable on-path tile — behaviour then byte-identical to the pre-screening
+ * AI).
+ */
+function tryScreen(state: BattleState, actor: UnitState): Command | null {
+  // PROTECTEE — a living ALLY (never self) that is MID-CHARGE, i.e. owns a chargeQueue
+  // entry (`sourceUnitId`). Only charging units qualify, so on the shipped roster only
+  // the glass summoner / a charging black-mage is ever a protectee (fillers do not
+  // charge). Rank effHp (= hp, the D2 convention) ASC then id ASC: screen the neediest
+  // charger. (TIER B — widening this to "owns a charged ability" so fillers pre-position
+  // from turn 1 — was measured and did NOT improve summoner survival: on the 2-filler /
+  // 3-bruiser candidate teams the single-lane body-block still leaks the OTHER approach
+  // to the corner-seated summoner, so pre-positioning changes nothing. Kept as Tier A
+  // only, minimal blast radius; see the measurement report.)
+  let protectee: UnitState | null = null;
+  for (const ally of state.units) {
+    if (ally.id === actor.id || ally.hp <= 0 || ally.teamId !== actor.teamId) continue;
+    if (!state.chargeQueue.some((c) => c.sourceUnitId === ally.id)) continue;
+    if (protectee === null) {
+      protectee = ally;
+      continue;
+    }
+    if (ally.hp !== protectee.hp) {
+      if (ally.hp < protectee.hp) protectee = ally;
+      continue;
+    }
+    if (ally.id < protectee.id) protectee = ally;
+  }
+  if (!protectee) return null; // no mid-charge ally → moveTowardPrime (behaviour unchanged)
+
+  // SCREENER GUARD — don't send a body with less RAW CURRENT hp than the charger to tank
+  // for it. Compares raw `hp` (not maxHp / effHp), so it fails SAFE: a chipped-but-sturdy
+  // filler that dips below the charger's hp simply declines to screen (a conservative
+  // false-negative), never the reverse. Since only charging units are protectees, in
+  // practice only the summoner's healthier fillers screen.
+  if (actor.hp < protectee.hp) return null;
+
+  // THREAT E — the enemy nearest (Manhattan) to the protectee P; tie-break id ASC.
+  let threat: UnitState | null = null;
+  for (const e of state.units) {
+    if (e.hp <= 0 || e.teamId === actor.teamId) continue;
+    if (threat === null) {
+      threat = e;
+      continue;
+    }
+    const de = manhattan(e.pos, protectee.pos);
+    const dt = manhattan(threat.pos, protectee.pos);
+    if (de !== dt) {
+      if (de < dt) threat = e;
+      continue;
+    }
+    if (e.id < threat.id) threat = e;
+  }
+  if (!threat) return null;
+
+  const P = protectee.pos;
+  const E = threat.pos;
+  const distEP = manhattan(E, P);
+  const keyOf = (t: Position): ScreenKey => ({
+    onPath: manhattan(E, t) + manhattan(t, P) === distEP ? 0 : 1,
+    distToP: manhattan(t, P),
+    distToE: manhattan(t, E),
+  });
+  const better = (a: ScreenKey, b: ScreenKey): boolean =>
+    a.onPath !== b.onPath
+      ? a.onPath < b.onPath
+      : a.distToP !== b.distToP
+        ? a.distToP < b.distToP
+        : a.distToE < b.distToE;
+
+  // INTERPOSE TILE — the ASC-best over the actor's reachable tiles (moveRange is already
+  // (y,x)-sorted, so keeping the FIRST tile that ties the key reproduces moveTowardPrime's
+  // final tie-break). Pure integer math; no Map/Set iteration decides anything.
+  const tiles = moveRange(state.grid, state.units, actor.id);
+  let best: Position | null = null;
+  let bestKey: ScreenKey | null = null;
+  for (const t of tiles) {
+    const k = keyOf(t);
+    if (bestKey === null || better(k, bestKey)) {
+      best = t;
+      bestKey = k;
+    }
+  }
+  if (!best || !bestKey) return null; // no reachable tile → moveTowardPrime (likely Wait)
+
+  // ACTIVATION GUARD — interpose ONLY if the best reachable tile actually blocks the
+  // E→P path (`onPath === 0`) AND strictly improves (onPath, distToP) over the actor's
+  // CURRENT tile. If the best reachable tile is off-path, there is no screen to form →
+  // null → moveTowardPrime.
+  if (bestKey.onPath !== 0) return null;
+  const cur = keyOf(actor.pos);
+  const strictlyImproves =
+    bestKey.onPath < cur.onPath || (bestKey.onPath === cur.onPath && bestKey.distToP < cur.distToP);
+  if (!strictlyImproves) {
+    // HOLD THE SCREEN — not a null fall-through. This branch is ONLY reachable when the
+    // actor is ALREADY on an optimal on-path tile: `bestKey.onPath === 0`, so
+    // `!strictlyImproves` forces `cur.onPath === 0` (were it 1, `0 < 1` would strictly
+    // improve) AND `cur.distToP <= bestKey.distToP`. Returning `null` here would fall
+    // through to moveTowardPrime, which walks the screener OFF its post toward the prime
+    // — then it re-screens next turn and OSCILLATES, abandoning the charger every other
+    // turn. `wait` therefore always means "hold the on-path tile I'm standing on".
+    return { kind: "wait" };
+  }
+
+  return { kind: "move", to: { x: best.x, y: best.y } };
+}
+
 /**
  * Decide ONE {@link Command} for the unit whose turn it is (docs/06). Pure, zero
  * RNG. Order: disabled → wait; else the best in-range action (lexicographic order
- * above); else step toward the prime enemy; else wait.
+ * above); else try to SCREEN a mid-charge ally ({@link tryScreen}); else step toward
+ * the prime enemy; else wait. Screening is STRICTLY below the action return — any
+ * in-range action always wins — and never enters {@link compareCandidate}.
  */
 export function decideBalanceProbe(state: BattleState, unitId: string): Command {
   const actor = state.units.find((u) => u.id === unitId);
@@ -321,5 +462,8 @@ export function decideBalanceProbe(state: BattleState, unitId: string): Command 
     const best = cands.reduce((acc, c) => (compareCandidate(c, acc) < 0 ? c : acc));
     return toActCommand(best);
   }
-  return moveTowardPrime(state, actor);
+  // MOVEMENT FALLBACK (no in-range action): screen a mid-charge ally if we can, else
+  // close on the prime enemy. compareCandidate / the action path are untouched.
+  const screen = tryScreen(state, actor);
+  return screen ?? moveTowardPrime(state, actor);
 }
