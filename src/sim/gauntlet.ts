@@ -1,6 +1,6 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 4). This is the HONEST INTERIM FLOOR, not the full anti-convergence
+ * ADR-0014, N = 5). This is the HONEST INTERIM FLOOR, not the full anti-convergence
  * proof.
  *
  * WHAT THIS GATE PROVES (and only this):
@@ -65,8 +65,10 @@
  *
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
- * when both fight as black-mages they COLLAPSE to one identity (the honest count is
- * 4, not 5 — ADR-0014; see {@link DIVERSITY_TARGET_N}).
+ * when both fight as black-mages they COLLAPSE to one identity. The honest observed
+ * count is now 5 distinct viable prefixes — `aim.`, `black-magic.`, `geomancy.`,
+ * `punch-art.`, `white-magic.` (reraise-cleric's OFFENSIVE white-magic, `holy`, on the
+ * phys reference axis) — ADR-0014; see {@link DIVERSITY_TARGET_N}.
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
@@ -100,6 +102,12 @@ export interface MeasurableEntry {
  * arcane-artillery: they are separate BUILDS but ONE distinct identity in the count
  * (the collapse ADR-0014 predicts). Both remain listed — both are measured — but the
  * distinct-identity count keys on the prefix, so they contribute one identity.
+ *
+ * `bld-reraise-cleric` is measured as its OFFENSIVE `white-magic.` identity (it casts
+ * `white-magic.holy` on the phys reference axis, never heals there), so its archetype is
+ * `white-mage`, NOT "reraise-cleric" — its reaction/sustain identity (Reraise, cure) is
+ * still unmodeled, but its offensive white-magic was always measurable and was
+ * mis-excluded before this slice.
  */
 export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
   "bld-spellblade": { archetypeId: "spellblade", signaturePrefix: "black-magic." },
@@ -107,6 +115,7 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
   "bld-terrain-geo": { archetypeId: "geomancer", signaturePrefix: "geomancy." },
   "bld-longshot": { archetypeId: "longshot", signaturePrefix: "aim." },
   "bld-faithzero-monk": { archetypeId: "anti-mage", signaturePrefix: "punch-art." },
+  "bld-reraise-cleric": { archetypeId: "white-mage", signaturePrefix: "white-magic." },
 };
 
 /**
@@ -116,11 +125,12 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
  * greedy 1-ply probe can exercise yet. N rises as each capability lands.
  */
 export const EXCLUDED: Readonly<Record<string, string>> = {
-  "bld-glass-summoner": "charged-AoE survival / support-aware AI (summon is focus-fired before it matures)",
+  "bld-glass-summoner":
+    "charged-AoE tile-targeting / charge-whiff loop on open maps (phys/counting axis — needs predictive/cluster-aware charge targeting, NOT support-AI) + focus-fire death vs magic (needs protect-the-enabler, non-counting axis)",
   "bld-aggro-tank": "provoke/threat mechanic (the probe ignores threat)",
   "bld-counter-wall": "reaction-as-live modeling (Counter is a passive reaction)",
-  "bld-reraise-cleric": "reaction-as-live modeling + support-aware AI (Reraise is a reaction; heal is AI-limited)",
-  "bld-battle-cleric": "support-aware AI (the probe heals only when no foe is reachable)",
+  "bld-battle-cleric":
+    "signature-prefix collapse (cure→white-magic. shares reraise-cleric; punch-art.→shares faithzero-monk) + reference axis has no sustained ally damage; heal-triage makes cure land when allies are hurt but adds no DISTINCT prefix",
   "bld-warlord": "boss chassis, not an archetype (the assassinate target, not a diversity build)",
 };
 
@@ -224,12 +234,31 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
  * The interim distinct-identity target (ADR-0014). Set to the HONEST OBSERVED count:
- * 4 distinct signature prefixes are viable on the frozen gauntlet —
- * `black-magic.` (spellblade; arcane-artillery COLLAPSES onto the same prefix and is
- * sub-viable here anyway), `geomancy.`, `aim.`, `punch-art.`. `≥ 8` (full AC-E2)
+ * 5 distinct signature prefixes are viable on the frozen gauntlet —
+ * `aim.`, `black-magic.` (spellblade; arcane-artillery COLLAPSES onto the same prefix
+ * and is sub-viable here anyway), `geomancy.`, `punch-art.`, and `white-magic.`
+ * (reraise-cleric's OFFENSIVE white-magic via `holy` on the phys reference axis).
+ * reraise-cleric was previously MIS-EXCLUDED: its offensive white-magic identity was
+ * always measurable on the counting axis; only its UNMODELED reaction/sustain identity
+ * (Reraise, cure) was blocked, which is not what the count keys on. `≥ 8` (full AC-E2)
  * stays the release bar, marked BLOCKED; N rises as the EXCLUDED capabilities land.
+ *
+ * ⚠ N=5 IS NOT A DURABLE FLOOR — IT IS CONTINGENT ON MP BEING UNENFORCED (ADR-0014
+ * amendment 2026-08-03, reviewer HIGH). The `white-magic.` identity rides ENTIRELY on
+ * `white-magic.holy` (the cleric never heals on the phys reference axis — its allies take
+ * no sustained damage before the fight ends). But `holy` costs 56 MP and the cleric has a
+ * 24-MP budget; the sim does not consume or check MP anywhere yet, so holy casts freely.
+ * When MP enforcement lands (a plausible EXCLUDED-capability slice — it is a core FFT
+ * cost), holy becomes unaffordable, `cure` does NOT backfill on the phys axis (nothing to
+ * heal there, so heal-triage cannot carry the count), and this identity REGRESSES → N
+ * drops 5→4 and the gate FAILS until a durable `white-magic.` carrier or an MP fix lands.
+ * So unlike the other EXCLUDED capabilities (which RAISE N as they land), MP enforcement
+ * LOWERS it. ZERO SLACK: exactly 5 prefixes exist, so all 5 must stay viable — healthy
+ * calibrate-to-detect for a DETERMINISTIC gate (TEST 2/TEST 5 prove it can fail), but it
+ * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
+ * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 4;
+export const DIVERSITY_TARGET_N = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).

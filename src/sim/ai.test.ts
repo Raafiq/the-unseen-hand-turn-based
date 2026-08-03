@@ -95,6 +95,40 @@ describe("decideBalanceProbe — class order", () => {
   });
 });
 
+describe("decideBalanceProbe — HEAL is a TRIAGE (focus) rule, not biggest-heal", () => {
+  it("T1: heals the LOWEST-effHp ally over the BIGGER heal (triage ≠ big-heal)", () => {
+    // The discriminating case where effHp and magnitude POINT DIFFERENT WAYS (an equal-
+    // magnitude fixture is degenerate — the OLD comparator's SECOND key was already effHp
+    // ASC, so both rules would agree). Raw heal = magicDamage(ma, q, casterFaith,
+    // TARGET-faith), so it scales by the ALLY's Faith — we use that to make the DYING
+    // ally's heal SMALLER than the less-hurt ally's:
+    //   healer ma10 faith100, HEAL_ABILITY power12  → raw = floor(120·targetFaith/100)
+    //   ally-b: hp 10 (dying), faith 10 → raw 12, missing 62 → magnitude 12,  effHp 10
+    //   ally-a: hp 40 (hurt),  faith 50 → raw 60, missing 32 → magnitude 32,  effHp 40
+    // Both in cure range; no foe interferes. magnitude and effHp DISAGREE, so the order
+    // of the two keys IS the test:
+    //   NEW (triage, effHp first):     effHp 10 < 40 → heal ally-b.  ✔ (save the dying one)
+    //   OLD (big-heal, magnitude first): mag 32 > 12 → heal ally-a.  ✗ (overheals; discriminating)
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, ma: 10, faith: 100 }, [HEAL_ABILITY]);
+    const allyA = defaultUnit("ally-a", 0, { pos: { x: 2, y: 3 }, hp: 40, maxHp: 72, faith: 50 });
+    const allyB = defaultUnit("ally-b", 0, { pos: { x: 2, y: 1 }, hp: 10, maxHp: 72, faith: 10 });
+    const cmd = decideBalanceProbe(field([healer, allyA, allyB]), "healer");
+    expect(cmd).toEqual({ kind: "act", abilityId: "heal.cure", target: { unitId: "ally-b" } });
+  });
+
+  it("T2: takes a LETHAL over healing a wounded ally (class order LETHAL 0 < HEAL 2 preserved)", () => {
+    // A wounded ally in cure range (HEAL candidate exists) AND a foe the actor one-shots
+    // (LETHAL exists). Heal-triage must NOT be read as promoting HEAL above LETHAL — the
+    // class order is unchanged, so the securable kill wins. Discriminating: if triage had
+    // leaked into a cross-class key, the AI would panic-heal instead of killing.
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, pa: 10, ma: 10, faith: 50, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } }, [HEAL_ABILITY]);
+    const ally = defaultUnit("ally", 0, { pos: { x: 2, y: 1 }, hp: 20, maxHp: 100 });
+    const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 30, maxHp: 30 });
+    const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
+    expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+  });
+});
+
 describe("decideBalanceProbe — movement + passivity", () => {
   it("steps toward the prime enemy when nothing is in range", () => {
     const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3 });
