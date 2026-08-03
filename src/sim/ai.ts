@@ -194,8 +194,9 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
  * ability index asc. The last two keys make every (target, ability) pair unique, so
  * there is always a SINGULAR winner (no Map/Set fallback).
  *
- * The focus keys differ by class because AC-E3(b) is a FOCUS rule, not a big-hit
- * rule:
+ * The focus keys are shape-shared by CHIP and HEAL (both apply AC-E3(b) as a FOCUS
+ * rule — a foe to finish, an ally to save) and differ for LETHAL (already a kill), not
+ * a big-hit rule:
  *   - CHIP (non-lethal damage): effHp ASC first, then magnitude DESC — focus the
  *     lowest-effective-HP foe even when a Zodiac/Protect asymmetry makes a higher-HP
  *     foe the bigger hit (docs/06 §4). Applied UNIFORMLY to single-target and area
@@ -207,24 +208,34 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
  *     preferred cluster size over focus and could rank a 2-for-1-damage tap above a
  *     near-lethal single-target chip; reviewer S2. Uniform effHp→magnitude keeps the
  *     comparator a single transitive total order and preserves AC-E3(b).]
+ *   - HEAL: effHp ASC first, then magnitude DESC — TRIAGE the dying ally. AC-E3(b) is
+ *     a FOCUS rule and it applies on the ally side too: heal the LOWEST-effective-HP
+ *     ally (the one closest to death), and only AMONG ties on urgency prefer the bigger
+ *     effective heal. Identical SHAPE to CHIP, mirrored onto allies — never a "biggest
+ *     heal wins" rule that would overheal a lightly-wounded ally while a dying one falls.
+ *     Applied UNIFORMLY to single-target and area heals (an area heal carries the LOWEST
+ *     effHp among the allies it restores and its SUMMED effective heal). NOTE the class
+ *     order is UNCHANGED: LETHAL (0) still outranks HEAL (2), so this is never a
+ *     panic-heal-over-kill — a securable kill always beats healing a hurt ally.
  *   - LETHAL: magnitude DESC first (unchanged) — every lethal already kills, so
  *     rank by overkill margin (summed, for an area act) then effHp.
- *   - HEAL: magnitude DESC first (unchanged) — its magnitude IS "HP restored", so
- *     the biggest effective (summed, for an area act) heal wins.
  * Comparisons only reach the focus keys when `a.cls === b.cls`, so branching on the
- * (shared) class is well-defined.
+ * (shared) class is well-defined; the focus keys are reached for CHIP and HEAL and never
+ * mix classes (no bucket-first/cross-class key), preserving a single transitive total order.
  */
 function compareCandidate(a: Candidate, b: Candidate): number {
   if (a.cls !== b.cls) return a.cls - b.cls;
-  if (a.cls === ACTION_CLASS.CHIP) {
-    // Non-lethal offensive: focus the lowest effHp first (AC-E3(b)), then prefer the
-    // bigger total chip. UNIFORM for single-target and area acts (an area act carries
-    // its lowest-affected effHp and summed magnitude), so a wide-but-weak tap can
-    // never out-rank a focus on a lower-HP foe — see the docstring (reviewer S2).
+  if (a.cls === ACTION_CLASS.CHIP || a.cls === ACTION_CLASS.HEAL) {
+    // FOCUS/TRIAGE: lowest effHp first (AC-E3(b)), then bigger total magnitude. CHIP
+    // focuses the lowest-HP FOE; HEAL triages the lowest-HP ALLY — the same shape on the
+    // ally side. UNIFORM for single-target and area acts (an area act carries its
+    // lowest-affected effHp and summed magnitude), so a wide-but-weak tap can never
+    // out-rank a focus on a lower-HP unit — see the docstring (reviewer S2). Reached only
+    // when a.cls === b.cls, so CHIP and HEAL never compare against each other here.
     if (a.targetEffHp !== b.targetEffHp) return a.targetEffHp - b.targetEffHp;
     if (a.magnitude !== b.magnitude) return b.magnitude - a.magnitude;
   } else {
-    // LETHAL (kills) and HEAL (HP restored): magnitude-first (unchanged).
+    // LETHAL (kills): magnitude-first (unchanged) — rank by overkill margin, then effHp.
     if (a.magnitude !== b.magnitude) return b.magnitude - a.magnitude;
     if (a.targetEffHp !== b.targetEffHp) return a.targetEffHp - b.targetEffHp;
   }

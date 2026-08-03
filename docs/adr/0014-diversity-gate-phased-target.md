@@ -134,6 +134,64 @@ implemented (`src/sim/gauntlet.ts`). It **advances** this ADR's phasing; it does
   `noLosingMatchup = ["bld-longshot"]`, `pass = true`. `losingMatchups`: spellblade/terrain-geo/faithzero-monk
   each `["magic"]`, longshot `[]` — a non-uniform matrix (real opportunity cost is now visible).
 
+## Amendment (2026-08-03): support-aware AI slice — `N` raised 4 → 5 (`white-magic.` joins)
+
+The **support-aware AI** slice was scoped. Its investigation reversed the slice's own premise ("teach
+the probe to value support → +3 builds → N≈7"), and the honest finding is codified here as an amendment
+to this ADR's phasing. It does not reverse any decision above.
+
+- **What actually shipped.** (1) A **heal-triage** refinement to the balance-probe comparator
+  (`ai.ts` `compareCandidate`): the `HEAL` class now sorts `targetEffHp` ASC → `magnitude` DESC (was
+  magnitude-first), so the probe heals the **lowest-effective-HP ally** — AC-E3(b)'s focus rule mirrored
+  onto allies — instead of the biggest-overheal target. It stays one uniform transitive total order
+  (the `CHIP`/`HEAL` focus branch is reached only within a shared class; the class order is unchanged, so
+  `LETHAL` still outranks `HEAL` — no panic-heal-over-kill), draws zero RNG, and is snapshot-neutral (no
+  existing MEASURABLE build or opposition unit heals). (2) **`bld-reraise-cleric` moves EXCLUDED →
+  MEASURABLE** as `archetypeId: "white-mage"`, `signaturePrefix: "white-magic."`, and
+  `DIVERSITY_TARGET_N` rises **4 → 5**.
+- **Why the premise did not survive contact.** Of the three builds the slice targeted:
+  - **`bld-reraise-cleric` was MIS-EXCLUDED, not unblocked by support AI.** It fights as its **primary**
+    job (priest / white-magic), casting `white-magic.holy` (offensive magic) 2–3×/map on the phys
+    reference axis and winning 6/6 in band — its offensive white-magic identity was **always** measurable;
+    only its (unmodeled) reaction/sustain identity was blocked, which is not what the count keys on. It
+    needed a **manifest relabel**, not an AI change. **Honesty:** it is credited as `white-mage`
+    (offensive white-magic), **NOT** "reraise-cleric" — the Reraise/sustain fantasy remains a tracked
+    EXCLUDED sub-note (blocker: reaction-as-live). `white-magic.` is a genuinely new 5th prefix.
+  - **`bld-battle-cleric` is structurally uncountable (prefix collapse).** Its only white-magic action is
+    `cure` → `white-magic.` (shares reraise-cleric) and its punch-art → `punch-art.` (shares
+    faithzero-monk); no AI sophistication can give it a *distinct* prefix. Heal-triage makes its `cure`
+    LAND when allies are hurt (honesty improved) but adds **zero** to the distinct count. Stays EXCLUDED
+    with the refined tag.
+  - **`bld-glass-summoner` stays EXCLUDED (two-part blocker, neither is support-AI).** Its counting-axis
+    blocker is a **charge-whiff loop** on the open phys maps (the aim tile empties before the charged AoE
+    matures → timeout) — a predictive/cluster-aware **charge-targeting** problem, not support. Its magic
+    death is focus-fire, which "protect-the-enabler" would touch but only on the **non-counting** axis.
+- **⚠ N=5 IS NOT A DURABLE FLOOR — it is CONTINGENT on MP being UNENFORCED (reviewer HIGH; disclosed,
+  not hidden).** `white-magic.holy` costs **56 MP**; the cleric's budget is **24 MP**; the sim does not
+  consume or check MP anywhere, so holy casts freely. When **MP enforcement** lands (a plausible
+  EXCLUDED-capability slice — a core FFT cost), holy becomes unaffordable, and `cure` does **not** backfill
+  on the phys axis (allies take no sustained damage there, so heal-triage cannot carry the count) → the
+  `white-magic.` identity REGRESSES → N drops 5 → 4 and the gate FAILS until a durable `white-magic.`
+  carrier or an MP fix lands. So, uniquely among the phased capabilities, **MP enforcement LOWERS N** rather
+  than raising it. **Zero slack:** exactly 5 prefixes exist, so all 5 must stay viable — a healthy
+  calibrate-to-detect state for a deterministic gate (TEST 2 / TEST 5 prove it can fail), but the MP
+  landing flips the whole gate, not one identity. This is recorded so the regression is *expected and
+  understood*, not a surprise — the "credit an identity a missing model props up" trap, surfaced.
+- **CI teeth.** Two new discriminating AI tests (heal-triage picks the dying ally over the bigger heal via
+  Faith-scaled magnitude; `LETHAL` still beats `HEAL`) + a tightened gauntlet TEST 3 (reraise-cleric must
+  land `white-magic.holy` **specifically** and heal 0 on the phys axis — so it cannot pass on the unmodeled
+  sustain/`cure` identity) + TEST 5 (removing reraise-cleric flips `distinctMeasurableArchetypes` 5 → 4 →
+  `pass=false`).
+- **Outcome (honest roster):** `distinctMeasurableArchetypes = 5`, `distinctSignatures =
+  ["aim.","black-magic.","geomancy.","punch-art.","white-magic."]`, `dominantBuilds = []`,
+  `winsAllInBand = []`, `noLosingMatchup = ["bld-longshot"]` (reraise-cleric folds to magic, so it is NOT
+  a no-losing-matchup build), `pass = true`.
+- **Follow-ups still tracked toward `≥ 8`:** support-aware **positioning/escort** (protect-the-enabler —
+  helps summoner on the magic axis, unlocks the Escort archetype), **predictive charge-targeting** (the
+  summoner's counting-axis blocker), **reaction-as-live** (counter-wall, and reraise-cleric's *sustain*
+  identity), **provoke/threat** (aggro-tank), and a **`surviveTurns` condition** (Defend/survive-N). The
+  `≥ 8` release bar is untouched.
+
 ## References
 
 - `docs/06` §4 + AC-E2 (diversity gate) + the two Implementation-status notes (AI limits, AoE/measurement gap)

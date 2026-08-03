@@ -99,8 +99,8 @@ export const content = {
     gateHonesty:
       "* Honesty note: the magic axis is a real second threat that makes cost non-uniform, but on the " +
       "aggregate roster it rewards tempo/range as much as personal Faith — the anti-mage's <em>own</em> " +
-      "magic resistance can't save its Faith-50 allies without support-aware AI, so it still shows a " +
-      "team-level magic loss. The isolated Faith cliff is proved by a separate must-fail straddle test. " +
+      "magic resistance can't save its Faith-50 allies without support-aware positioning, so it still shows " +
+      "a team-level magic loss. The isolated Faith cliff is proved by a separate must-fail straddle test. " +
       'The <span class="mono">8-archetype</span> release bar (AC-E2) stays the goal; N rises as new jobs ' +
       "and AI capabilities land.",
     roadmap:
@@ -190,13 +190,16 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Support-aware AI",
+      title: "Support-aware positioning &amp; charge-targeting",
       badge: "recommended",
       body:
-        "The biggest single unlock: moves the summoner + both clerics from excluded to measurable (N " +
-        "toward ~7), lets the anti-mage protect its allies so its identity is real in the gate, and opens " +
-        "the Defend / Escort encounter archetypes.",
-      chip: "+3 builds",
+        "Heal-triage landed (the probe now saves the dying ally first) and moved reraise-cleric to " +
+        "measurable as the <em>white-mage</em> identity — but its investigation showed the summoner and " +
+        "battle-cleric were <em>not</em> support-blocked: the summoner needs <b>predictive/cluster-aware " +
+        "charge-targeting</b> (its whiff loop, the only genuinely-new prefix left, <span class=\"mono\">summon.</span>), " +
+        "and <b>protect-the-enabler positioning</b> to survive magic and open the Escort archetype. " +
+        "battle-cleric collapses onto existing prefixes and adds no distinct identity.",
+      chip: "+1 build (summon.)",
       recommended: true,
     },
     {
@@ -216,7 +219,8 @@ export const content = {
       badge: null,
       body:
         "Independent medium slices: a threat mechanic unlocks the aggro-tank; modeling reactions as live " +
-        "actions unlocks the counter-wall and reraise-cleric. Each retires named manifest exclusions.",
+        "actions unlocks the counter-wall (and reraise-cleric's still-unmodeled <em>sustain</em> identity). " +
+        "Each retires named manifest exclusions.",
       chip: "+1–3 builds",
       recommended: false,
     },
