@@ -190,38 +190,40 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Support-aware positioning &amp; charge-targeting",
+      title: "Anti-convergence: surfaced &rarr; enforced",
       badge: "recommended",
       body:
-        "Heal-triage landed (the probe now saves the dying ally first) and moved reraise-cleric to " +
-        "measurable as the <em>white-mage</em> identity — but its investigation showed the summoner and " +
-        "battle-cleric were <em>not</em> support-blocked: the summoner needs <b>predictive/cluster-aware " +
-        "charge-targeting</b> (its whiff loop, the only genuinely-new prefix left, <span class=\"mono\">summon.</span>), " +
-        "and <b>protect-the-enabler positioning</b> to survive magic and open the Escort archetype. " +
-        "battle-cleric collapses onto existing prefixes and adds no distinct identity.",
-      chip: "+1 build (summon.)",
+        "The gauntlet fields two threat axes (physical, magic), so a build can lose to something — but with " +
+        "only two, a build with <em>no</em> losing matchup is still ambiguous (genuinely well-rounded, or a " +
+        "threat we haven't built?). A <b>third distinct threat axis</b> makes " +
+        "<span class=\"mono\">noLosingMatchup</span> a real fail signal, moving anti-convergence from " +
+        "<em>surfaced</em> to <em>enforced</em>. Small and self-contained.",
+      chip: "tighten gate",
       recommended: true,
     },
     {
       rank: "02",
-      title: "A third threat axis (mixed opposition)",
+      title: "Provoke / threat &amp; reaction-as-live",
       badge: null,
       body:
-        "Small and self-contained. With three distinct axes, anti-convergence can move from " +
-        "<em>surfaced</em> to <em>enforced</em> — a build with no losing matchup becomes a meaningful " +
-        "signal rather than a coverage gap.",
-      chip: "tighten gate",
+        "Independent medium slices that retire named manifest exclusions: a <b>threat</b> mechanic unlocks the " +
+        "aggro-tank; modeling <b>reactions as live</b> actions unlocks the counter-wall (and reraise-cleric's " +
+        "still-unmodeled <em>sustain</em> identity). Each hardens the gate's teeth; N gain is build-dependent.",
+      chip: "+1–2 builds",
       recommended: false,
     },
     {
       rank: "03",
-      title: "Provoke / threat &amp; reaction-as-live",
+      title: "Beyond the job roster",
       badge: null,
       body:
-        "Independent medium slices: a threat mechanic unlocks the aggro-tank; modeling reactions as live " +
-        "actions unlocks the counter-wall (and reraise-cleric's still-unmodeled <em>sustain</em> identity). " +
-        "Each retires named manifest exclusions.",
-      chip: "+1–3 builds",
+        "With the glass summoner landed (a range enhancement that lets it open <span class=\"mono\">summon.</span> " +
+        "from the backline), <b>6 of the 8 authored jobs</b> are measured identities and the job roster is being " +
+        "deprioritized. The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
+        "signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
+        "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
+        "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",
+      chip: "pivot",
       recommended: false,
     },
   ] satisfies NextStep[],
