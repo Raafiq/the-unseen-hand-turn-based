@@ -1,6 +1,6 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 5). This is the HONEST INTERIM FLOOR, not the full anti-convergence
+ * ADR-0014, N = 6). This is the HONEST INTERIM FLOOR, not the full anti-convergence
  * proof.
  *
  * WHAT THIS GATE PROVES (and only this):
@@ -66,9 +66,11 @@
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
  * when both fight as black-mages they COLLAPSE to one identity. The honest observed
- * count is now 5 distinct viable prefixes — `aim.`, `black-magic.`, `geomancy.`,
- * `punch-art.`, `white-magic.` (reraise-cleric's OFFENSIVE white-magic, `holy`, on the
- * phys reference axis) — ADR-0014; see {@link DIVERSITY_TARGET_N}.
+ * count is now 6 distinct viable prefixes — `aim.`, `black-magic.`, `geomancy.`,
+ * `punch-art.`, `summon.` (glass-summoner's offensive summons, opened from the backline
+ * after the h4→h6 range fix — a REAL new prefix, no other build signatures on it), and
+ * `white-magic.` (reraise-cleric's OFFENSIVE white-magic, `holy`, on the phys reference
+ * axis) — ADR-0014; see {@link DIVERSITY_TARGET_N}.
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
@@ -116,6 +118,7 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
   "bld-longshot": { archetypeId: "longshot", signaturePrefix: "aim." },
   "bld-faithzero-monk": { archetypeId: "anti-mage", signaturePrefix: "punch-art." },
   "bld-reraise-cleric": { archetypeId: "white-mage", signaturePrefix: "white-magic." },
+  "bld-glass-summoner": { archetypeId: "summoner", signaturePrefix: "summon." },
 };
 
 /**
@@ -125,16 +128,14 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
  * greedy 1-ply probe can exercise yet. N rises as each capability lands.
  */
 export const EXCLUDED: Readonly<Record<string, string>> = {
-  // TAG CORRECTED 2026-08-03 (ADR-0014 amendment): the old "charge-whiff loop → needs
-  // predictive charge-targeting" tag was EMPIRICALLY DISPROVEN — the summon whiffs ZERO
-  // times on all 6 maps, and forcing a faster summon is still 1/6. The real blocker is
-  // STRUCTURAL SURVIVABILITY: the short-range (~h4/v2) glass summoner advances into melee
-  // to reach cast range, then is focus-fired mid-charge → charge cancelled → 0 contribution.
-  // Body-screening SHIPPED (ai.ts tryScreen) but is INSUFFICIENT: reachability-screening
-  // can't wall a corner-seated caster with 2 fillers vs 3 bruisers on multi-lane maps (only
-  // the choke-map holds → 1/6). NOT support-AI and NOT charge-targeting.
-  "bld-glass-summoner":
-    "structural survivability: short-range glass caster advances into melee to reach cast range, then focus-fired mid-charge (charge cancelled). Body-screening shipped but can't wall it 2-filler-vs-3-bruiser on multi-lane maps (1/6). Needs a survivability lever OUTSIDE the 1-ply AI — tankier chassis / faster-maturing or longer-range summon that lands before contact — or multi-body wall coordination. NOT charge-whiff (0 whiffs measured), NOT support-AI",
+  // bld-glass-summoner MOVED → MEASURABLE (2026-08-05, this slice). The named blocker was
+  // "structural survivability: short-range (~h4/v2) glass caster advances into melee to
+  // reach cast range, then focus-fired mid-charge". The DELIVERED lever is the one the tag
+  // named — a longer-range offensive summon that LANDS BEFORE CONTACT: the four offensive
+  // summons (shiva/ifrit/ramuh/bahamut) went h4→h6 (v2 unchanged), the empirically-minimal
+  // range that opens `summon.` from the backline. Result: 4/6 phys maps with `summon.`
+  // landed, losingMatchups still ["magic"] (anti-convergence guardrail intact). Heal summons
+  // (golem/moogle) were NOT touched. See DIVERSITY_TARGET_N.
   "bld-aggro-tank": "provoke/threat mechanic (the probe ignores threat)",
   "bld-counter-wall": "reaction-as-live modeling (Counter is a passive reaction)",
   "bld-battle-cleric":
@@ -242,31 +243,42 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
  * The interim distinct-identity target (ADR-0014). Set to the HONEST OBSERVED count:
- * 5 distinct signature prefixes are viable on the frozen gauntlet —
+ * 6 distinct signature prefixes are viable on the frozen gauntlet —
  * `aim.`, `black-magic.` (spellblade; arcane-artillery COLLAPSES onto the same prefix
- * and is sub-viable here anyway), `geomancy.`, `punch-art.`, and `white-magic.`
- * (reraise-cleric's OFFENSIVE white-magic via `holy` on the phys reference axis).
- * reraise-cleric was previously MIS-EXCLUDED: its offensive white-magic identity was
- * always measurable on the counting axis; only its UNMODELED reaction/sustain identity
- * (Reraise, cure) was blocked, which is not what the count keys on. `≥ 8` (full AC-E2)
- * stays the release bar, marked BLOCKED; N rises as the EXCLUDED capabilities land.
+ * and is sub-viable here anyway), `geomancy.`, `punch-art.`, `summon.` (glass-summoner's
+ * offensive summons on the phys reference axis), and `white-magic.` (reraise-cleric's
+ * OFFENSIVE white-magic via `holy` on the phys reference axis). `≥ 8` (full AC-E2) stays
+ * the release bar, marked BLOCKED; N rises as the EXCLUDED capabilities land.
  *
- * ⚠ N=5 IS NOT A DURABLE FLOOR — IT IS CONTINGENT ON MP BEING UNENFORCED (ADR-0014
- * amendment 2026-08-03, reviewer HIGH). The `white-magic.` identity rides ENTIRELY on
- * `white-magic.holy` (the cleric never heals on the phys reference axis — its allies take
- * no sustained damage before the fight ends). But `holy` costs 56 MP and the cleric has a
- * 24-MP budget; the sim does not consume or check MP anywhere yet, so holy casts freely.
- * When MP enforcement lands (a plausible EXCLUDED-capability slice — it is a core FFT
- * cost), holy becomes unaffordable, `cure` does NOT backfill on the phys axis (nothing to
- * heal there, so heal-triage cannot carry the count), and this identity REGRESSES → N
- * drops 5→4 and the gate FAILS until a durable `white-magic.` carrier or an MP fix lands.
- * So unlike the other EXCLUDED capabilities (which RAISE N as they land), MP enforcement
- * LOWERS it. ZERO SLACK: exactly 5 prefixes exist, so all 5 must stay viable — healthy
+ * `summon.` IS A REAL NEW PREFIX (2026-08-05, this slice) — NOT a collapse onto an
+ * existing identity (no other build signatures on `summon.`), so unblocking the summoner
+ * genuinely raises the distinct count 5→6. The blocker was structural survivability (the
+ * short-range ~h4/v2 caster walked into melee and was focus-fired mid-charge, 1/6 maps);
+ * the delivered lever is a longer-range offensive summon (h4→h6, v2 unchanged) that lands
+ * before contact → 4/6 phys maps with `summon.` landed. Its anti-convergence guardrail
+ * holds: `losingMatchups: ["magic"]` (a Faith-50 glass caster still folds to the Coven),
+ * so it pays real opportunity cost and is NOT in `noLosingMatchup` — a summoner that also
+ * cleared the magic axis would be the FAILURE STATE, and the calibrated minimal range
+ * avoids it.
+ *
+ * ⚠ THE `white-magic.` IDENTITY IS CONTINGENT ON MP BEING UNENFORCED (ADR-0014
+ * amendment 2026-08-03, reviewer HIGH). It rides ENTIRELY on `white-magic.holy` (the
+ * cleric never heals on the phys reference axis — its allies take no sustained damage
+ * before the fight ends). But `holy` costs 56 MP and the cleric has a 24-MP budget; the
+ * sim does not consume or check MP anywhere yet, so holy casts freely. When MP enforcement
+ * lands (a plausible EXCLUDED-capability slice — it is a core FFT cost), holy becomes
+ * unaffordable, `cure` does NOT backfill on the phys axis (nothing to heal there, so
+ * heal-triage cannot carry the count), and this identity REGRESSES → N drops 6→5 and the
+ * gate FAILS until a durable `white-magic.` carrier or an MP fix lands. So unlike the other
+ * EXCLUDED capabilities (which RAISE N as they land), MP enforcement LOWERS it. NOTE the
+ * summoner's `summon.` also has an unenforced-MP contingency (each summon costs 14–30 MP
+ * off a 24 budget), so MP enforcement could bite it too — re-verify BOTH on any MP change.
+ * ZERO SLACK: exactly 6 prefixes exist, so all 6 must stay viable — healthy
  * calibrate-to-detect for a DETERMINISTIC gate (TEST 2/TEST 5 prove it can fail), but it
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 5;
+export const DIVERSITY_TARGET_N = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).

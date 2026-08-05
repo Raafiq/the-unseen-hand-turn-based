@@ -109,6 +109,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
       "black-magic.",
       "geomancy.",
       "punch-art.",
+      "summon.",
       "white-magic.",
     ]);
     // Threshold-free relative dominance over {maps × oppositions}: no build sweeps
@@ -119,8 +120,27 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     expect(rep.winsAllInBand).toEqual([]);
     // But `noLosingMatchup` is the LOOSER anti-convergence signal (viable ≥ viableMin
     // on every opposition): longshot clears phys 6/6 AND magic 4/6, so it pays no
-    // opportunity cost across the axes and is SURFACED here (not failed).
+    // opportunity cost across the axes and is SURFACED here (not failed). The newly-
+    // measurable glass-summoner MUST NOT appear here — it folds to magic (Faith-50 glass
+    // caster), which is the anti-convergence guardrail this slice preserves.
     expect(rep.noLosingMatchup).toEqual(["bld-longshot"]);
+    expect(rep.noLosingMatchup).not.toContain("bld-glass-summoner");
+  });
+
+  it("the newly-measurable glass-summoner pays opportunity cost: losingMatchups = [magic]", () => {
+    // ANTI-CONVERGENCE GUARDRAIL (this slice). The h4→h6 offensive-summon range fix
+    // opens `summon.` from the backline on the phys axis WITHOUT letting the Faith-50
+    // glass caster also beat the Coven — a summoner that cleared magic too would be the
+    // FAILURE STATE (a no-opportunity-cost build). Discriminating: it is viable on the
+    // phys REFERENCE axis (measurable identity) yet NOT viable vs magic, so its
+    // losingMatchups is exactly ["magic"] — a REAL cost, not a blanket fold.
+    const rep = computeDiversityReport(frozenRuns);
+    const summoner = rep.perBuild.find((b) => b.buildId === "bld-glass-summoner")!;
+    expect(summoner.measurableIdentity).toBe(true);
+    expect(summoner.signaturePrefix).toBe("summon.");
+    expect(summoner.losingMatchups).toEqual(["magic"]);
+    expect(summoner.losingMatchups).toContain("magic");
+    expect(rep.noLosingMatchup).not.toContain("bld-glass-summoner");
   });
 
   it("credits exactly the builds whose signature landed while viable (arcane is sub-viable → not counted directly)", () => {
@@ -128,6 +148,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     const measurable = rep.perBuild.filter((b) => b.measurableIdentity).map((b) => b.buildId).sort();
     expect(measurable).toEqual([
       "bld-faithzero-monk",
+      "bld-glass-summoner",
       "bld-longshot",
       "bld-reraise-cleric",
       "bld-spellblade",
@@ -252,30 +273,36 @@ describe("diversity gate — TEST 1: an over-tuned dominator trips the RELATIVE 
 // ── TEST 2: diversity floor bites ───────────────────────────────────────────
 describe("diversity gate — TEST 2: dropping a measurable identity below band FAILS the gate", () => {
   it("keys on the BAND, not victory: a build that WINS all 6 but only past WIN_CEIL is not counted", () => {
-    // FIVE synthetic identities (N=5 target). Ticks are IN band but CROSSED per map (a
+    // SIX synthetic identities (N=6 target). Ticks are IN band but CROSSED per map (a
     // Latin-ish offset) so no build is fastest-or-tied everywhere → nobody is falsely
     // flagged hard-dominant; the pass/fail turns purely on the count. One (geo) wins
     // every map but SLOWLY (past the ceiling) in the failing variant.
-    const prefixes = { aimer: "aim.", monk: "punch-art.", mage: "black-magic.", cleric: "white-magic.", geo: "geomancy." };
+    const prefixes = { aimer: "aim.", monk: "punch-art.", mage: "black-magic.", cleric: "white-magic.", summoner: "summon.", geo: "geomancy." };
     const crossed = (b: number, m: number): number => 100 + ((b + m) % 3) * 20; // in band, no uniform winner
     const rowsFor = (buildId: keyof typeof prefixes, b: number, tick?: (m: number) => number): GauntletRun[] =>
       MAP_IDS.map((m, mi) =>
         run({ buildId, signaturePrefix: prefixes[buildId], mapId: m, ticks: tick ? tick(mi) : crossed(b, mi) }),
       );
-    const fast = [...rowsFor("aimer", 0), ...rowsFor("monk", 1), ...rowsFor("mage", 2), ...rowsFor("cleric", 4)];
+    const fast = [
+      ...rowsFor("aimer", 0),
+      ...rowsFor("monk", 1),
+      ...rowsFor("mage", 2),
+      ...rowsFor("cleric", 4),
+      ...rowsFor("summoner", 5),
+    ];
     const geoFast = rowsFor("geo", 3);
     const geoSlow = rowsFor("geo", 3, () => WIN_CEIL_TICKS + 200); // still a VICTORY, just past the ceiling
     // Discriminating: geoSlow still WINS every map (outcome victory) — only the tick
-    // ceiling separates it. With fast geo the gate passes (5 identities); with slow geo
-    // geomancy drops → 4 < N=5 → it fails.
+    // ceiling separates it. With fast geo the gate passes (6 identities); with slow geo
+    // geomancy drops → 5 < N=6 → it fails.
     expect(computeDiversityReport([...fast, ...geoFast]).pass).toBe(true);
     const slow = computeDiversityReport([...fast, ...geoSlow]);
     expect(slow.distinctSignatures).not.toContain("geomancy.");
-    expect(slow.distinctMeasurableArchetypes).toBe(4);
+    expect(slow.distinctMeasurableArchetypes).toBe(5);
     expect(slow.pass).toBe(false);
   });
 
-  it("real engine: degrading terrain-geo (MA→0) drops geomancy → distinct=4 (< N=5) → FAIL", () => {
+  it("real engine: degrading terrain-geo (MA→0) drops geomancy → distinct=5 (< N=6) → FAIL", () => {
     const deadGeo: UnitRecord = {
       ...records["bld-terrain-geo"]!,
       raw: { ...records["bld-terrain-geo"]!.raw, ma: 0 },
@@ -381,18 +408,79 @@ describe("diversity gate — TEST 3: reraise-cleric is a real white-magic. ident
   });
 });
 
-// ── TEST 5: the bumped N=5 gate can FAIL (calibrated to DETECT, not to pass) ──
-describe("diversity gate — TEST 5: N=5 detects the loss of the white-magic. identity", () => {
-  it("dropping reraise-cleric from the candidate set collapses distinct 5→4 → FAIL", () => {
+// ── TEST 3 (summoner): glass-summoner is a real summon. identity on the phys axis ──
+describe("diversity gate — TEST 3: glass-summoner lands summon. on ≥4/6 phys maps", () => {
+  it("opens summon. from the backline (h6 range) — viable + signature landed + casts summon.*", () => {
+    // The h4→h6 offensive-summon range fix lets the ~40-effHp glass caster open `summon.`
+    // BEFORE it is focus-fired. Run it alone over the 6 maps vs the phys reference
+    // opposition; the count keys on `summon.` landing (not merely "some action"), so this
+    // is DISCRIMINATING vs a masked build casting its borrowed black-magic.fire secondary.
+    const runs = runGauntlet({
+      resolver,
+      maps,
+      candidateIds: ["bld-glass-summoner"],
+      opposition: OPPOSITION_BUILD_IDS, // single phys reference opposition
+    });
+    const stat = computeDiversityReport(runs).perBuild[0]!;
+    expect(stat.signaturePrefix).toBe("summon.");
+    expect(stat.measurableIdentity).toBe(true);
+    expect(stat.inBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+    // The SIGNATURE (`summon.`) specifically landed on ≥4/6 phys maps — the AC.
+    expect(stat.signatureBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+    const inBandRuns = runs.filter((r) => inBand(r, DEFAULT_BAND));
+    expect(inBandRuns.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+    expect(inBandRuns.every((r) => r.candidateSignatureLanded > 0)).toBe(true);
+    // Its slowest legit in-band win is well under WIN_CEIL (WIN_CEIL still valid).
+    expect(inBandRuns.every((r) => r.ticks <= WIN_CEIL_TICKS)).toBe(true);
+    // DISCRIMINATING per-map check vs the masked/wrong-job case: on an in-band phys map
+    // the candidate actually CASTS a summon.* ability (not just its black-magic.fire
+    // secondary). Pin an offensive summon usage > 0, mirroring reraise TEST-3's holy pin.
+    const inBandMapId = inBandRuns[0]!.mapId;
+    const enc = buildGauntletEncounter(
+      maps.find((m) => m.id === inBandMapId)!.encounter,
+      "bld-glass-summoner",
+    );
+    const { report } = runEncounterDetailed(enc, resolver, undefined, {
+      signaturePrefixes: { [CANDIDATE_SLOT]: "summon." },
+    });
+    const summonCasts = Object.entries(report.abilityUsage)
+      .filter(([id]) => id.startsWith("summon."))
+      .reduce((s, [, n]) => s + n, 0);
+    expect(summonCasts).toBeGreaterThan(0);
+    expect(report.contributionByUnit[CANDIDATE_SLOT]!.signatureActionsLanded).toBeGreaterThan(0);
+  });
+});
+
+// ── TEST 5 (summoner): N=6 detects the loss of the summon. identity ──
+describe("diversity gate — TEST 5: N=6 detects the loss of the summon. identity", () => {
+  it("dropping glass-summoner from the candidate set collapses distinct 6→5 → FAIL", () => {
+    // Same frozen runs, but glass-summoner excluded. `summon.` is a REAL new prefix (no
+    // other build carries it), so removing it drops the honest count 6→5 < targetN=6 →
+    // pass=false. Proves N=6 is calibrated to DETECT the summoner's loss, not frozen just
+    // under a flip: with it present the gate passes at exactly 6 (the frozen pass test).
+    const withoutSummoner = frozenRuns.filter((r) => r.buildId !== "bld-glass-summoner");
+    const rep = computeDiversityReport(withoutSummoner, DEFAULT_BAND);
+    expect(rep.distinctSignatures).not.toContain("summon.");
+    expect(rep.distinctMeasurableArchetypes).toBe(5);
+    expect(rep.distinctMeasurableArchetypes).toBeLessThan(DIVERSITY_TARGET_N);
+    expect(rep.pass).toBe(false);
+    // Not a spurious fail via dominance — it fails purely on the count.
+    expect(rep.dominantBuilds).toEqual([]);
+  });
+});
+
+// ── TEST 5: the bumped N=6 gate can FAIL (calibrated to DETECT, not to pass) ──
+describe("diversity gate — TEST 5: N=6 detects the loss of the white-magic. identity", () => {
+  it("dropping reraise-cleric from the candidate set collapses distinct 6→5 → FAIL", () => {
     // Same frozen runs, but reraise-cleric excluded. Without its white-magic. identity
-    // the honest count is 4 (aim./black-magic./geomancy./punch-art.), below targetN=5 →
-    // pass=false. Proves N=5 is calibrated to DETECT the loss, not frozen just under a
-    // flip: with reraise-cleric present the same gate passes at exactly 5 (see the frozen
-    // pass test above), and removing it flips the verdict.
+    // the honest count is 5 (aim./black-magic./geomancy./punch-art./summon.), below
+    // targetN=6 → pass=false. Proves N=6 is calibrated to DETECT the loss, not frozen
+    // just under a flip: with reraise-cleric present the same gate passes at exactly 6
+    // (see the frozen pass test above), and removing it flips the verdict.
     const withoutReraise = frozenRuns.filter((r) => r.buildId !== "bld-reraise-cleric");
     const rep = computeDiversityReport(withoutReraise, DEFAULT_BAND);
     expect(rep.distinctSignatures).not.toContain("white-magic.");
-    expect(rep.distinctMeasurableArchetypes).toBe(4);
+    expect(rep.distinctMeasurableArchetypes).toBe(5);
     expect(rep.distinctMeasurableArchetypes).toBeLessThan(DIVERSITY_TARGET_N);
     expect(rep.pass).toBe(false);
     // Not a spurious fail via dominance — it fails purely on the count.

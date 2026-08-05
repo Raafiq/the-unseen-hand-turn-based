@@ -83,9 +83,10 @@ describe("benchmark suite — AC-E1: every §2 encounter runs headlessly to a de
       // The AI draws NO rng: replaying its issued command log (no AI) against a fresh
       // load, then applying the SAME trailing advanceToDecision the run's terminal check
       // performs, reproduces the final state byte-for-byte. (runFromState's returned
-      // state is post-terminal-advance — which matters here because enc-mixed-company
-      // ends with a summon charge still mid-flight: that advance cancels it and ticks
-      // the crystal timers, so a bare replay would stop one advance short.)
+      // state is post-terminal-advance — which matters whenever an encounter ends with an
+      // action still mid-flight, e.g. a charge queued at the terminal check: that advance
+      // resolves/cancels it and ticks the crystal timers, so a bare replay would stop one
+      // advance short.)
       const replayed = advanceToDecision(replay(loadEncounter(def, resolver), a.commands)).state;
       expect(serialize(replayed)).toBe(serialize(a.state));
       expect(replayed.rngCounter).toBe(a.report.finalRngCounter);
