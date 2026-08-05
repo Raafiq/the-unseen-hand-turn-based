@@ -91,10 +91,14 @@ function renderTimeline(): void {
 function renderStatus(): void {
   const act = last?.active;
   const who = !act ? "—" : act.kind === "charge" ? "⚡ Spell" : (UNIT_META[act.id]?.label ?? act.id);
+  const unit = act?.kind === "unit" ? state.units.find((u) => u.id === act.id) : undefined;
+  const statuses =
+    unit && unit.statuses.length > 0 ? unit.statuses.map((s) => s.id).join(", ") : "—";
   statusEl.innerHTML =
     `<span><b>Tick</b> ${state.tick}</span>` +
     `<span><b>Turns</b> ${turnCount}</span>` +
     `<span><b>Last actor</b> ${who}</span>` +
+    `<span><b>Statuses</b> ${statuses}</span>` +
     `<span><b>Seed</b> ${state.seed}</span>`;
 }
 
@@ -108,7 +112,13 @@ function renderLog(): void {
         t${e.tick} · ${meta?.label ?? e.unitId} · ${e.action}</li>`;
     })
     .join("");
-  logEl.innerHTML = rows || `<li class="muted">No turns yet — press Step.</li>`;
+  // Surface a status GAINED this step as a leading row (buff = green, debuff = red).
+  const si = last?.statusInflicted;
+  const inflictRow = si
+    ? `<li><span class="dot" style="background:${si.kind === "buff" ? "#5cc98d" : "#e05563"}"></span>
+        ${UNIT_META[si.unitId]?.label ?? si.unitId} gained ${si.statusId} · ${si.kind}</li>`
+    : "";
+  logEl.innerHTML = inflictRow + rows || `<li class="muted">No turns yet — press Step.</li>`;
 }
 
 function doStep(): void {

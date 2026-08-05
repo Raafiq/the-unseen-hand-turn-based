@@ -23,6 +23,10 @@ export interface Theme {
   highlightEdge: string;
   active: string;
   text: string;
+  /** Status-badge fill for beneficial statuses (buff). */
+  buff: string;
+  /** Status-badge fill for harmful statuses (debuff). */
+  debuff: string;
 }
 
 export const DARK_THEME: Theme = {
@@ -36,6 +40,8 @@ export const DARK_THEME: Theme = {
   highlightEdge: "#e2a948",
   active: "#f4d06a",
   text: "#e8ecf5",
+  buff: "#5cc98d",
+  debuff: "#e05563",
 };
 
 /** Project a tile/height to the canvas point of the top-face centre. */
@@ -266,4 +272,76 @@ function drawUnit(
   ctx.fillRect(cx - w / 2, cy - 24, w, 4);
   ctx.fillStyle = frac > 0.5 ? "#5cc98d" : frac > 0.25 ? "#e2a948" : "#e2603c";
   ctx.fillRect(cx - w / 2, cy - 24, w * frac, 4);
+
+  // Active-status chips, above the HP bar (buff = green, debuff = red).
+  drawStatusBadges(ctx, u, cx, cy, theme);
+}
+
+/** One-glyph label per status id; falls back to the id's first letter. */
+const STATUS_GLYPH: Record<string, string> = {
+  haste: "H", slow: "S", stop: "X", protect: "P", shell: "E",
+  sleep: "Z", "dont-act": "D", petrify: "T", silence: "!", charm: "C",
+};
+
+function statusGlyph(id: string): string {
+  return STATUS_GLYPH[id] ?? (id[0]?.toUpperCase() ?? "?");
+}
+
+function roundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/**
+ * A compact horizontal row of status chips above the unit's HP bar. Pure function
+ * of `UnitState.statuses`: one chip per active status, coloured by buff/debuff,
+ * with a single-glyph label. Sits at `cy - 38` so it never overlaps the HP bar
+ * (`cy - 24`), the token, the facing pip, the active ring, or the KO crystal.
+ */
+function drawStatusBadges(
+  ctx: CanvasRenderingContext2D,
+  u: UnitState,
+  cx: number,
+  cy: number,
+  theme: Theme,
+): void {
+  const statuses = u.statuses;
+  if (statuses.length === 0) return;
+
+  const chipW = 11;
+  const chipH = 12;
+  const gap = 3;
+  const totalW = statuses.length * chipW + (statuses.length - 1) * gap;
+  let x = cx - totalW / 2;
+  // Clamp off the top edge so a unit on the back row still shows its chips.
+  // TODO(status-overflow): the row is unbounded horizontally — with 3+ statuses
+  // on one unit the centred chips can overrun neighbouring tokens. When a slice
+  // renders that many at once, add a wrap or a "+N" overflow chip. The demo caps
+  // at one status/unit, so this is latent, not live.
+  const y = Math.max(2, cy - 38);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 9px ui-monospace, monospace";
+  for (const st of statuses) {
+    roundedRect(ctx, x, y, chipW, chipH, 3);
+    ctx.fillStyle = st.kind === "buff" ? theme.buff : theme.debuff;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#0b0f1c";
+    ctx.stroke();
+    ctx.fillStyle = "#0b0f1c";
+    ctx.fillText(statusGlyph(st.id), x + chipW / 2, y + chipH / 2 + 0.5);
+    x += chipW + gap;
+  }
+  ctx.restore();
 }
