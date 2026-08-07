@@ -22,4 +22,6 @@ move-range highlight.
 
 ## Video (stepped run)
 
-[`run.webm`](run.webm) — GitHub shows an inline player on the blob page.
+[`run.mp4`](run.mp4) — H.264, playable everywhere including the GitHub mobile
+app (`.webm` does not play on mobile). The original [`run.webm`](run.webm) is
+kept as the Playwright-native capture.
