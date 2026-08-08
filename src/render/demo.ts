@@ -13,9 +13,11 @@
 
 import {
   advanceToNextTurn,
+  applyStatusToUnit,
   createBattleState,
   declareCharge,
   defaultUnit,
+  legacyActiveStatus,
   makeFlatTiles,
   moveRange,
   resolveAttack,
@@ -29,6 +31,7 @@ import {
   type ChargeOutcome,
   type Facing,
   type Position,
+  type StatusKind,
   type UnitState,
 } from "../sim/index.js";
 
@@ -99,7 +102,14 @@ export function makeDemoBattle(): BattleState {
   const mage = units.find((u) => u.id === "mage")!;
   mage.abilities = [...mage.abilities, MAGE_SPELL_ABILITY];
 
-  return createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
+  const state = createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
+
+  // Showcase a BUFF from the opening frame: the Knight is a defender who steps in
+  // already under Protect (docs/01 §6 — reduces incoming physical damage). Applied
+  // through the sim's exported helper (never a hand-built status object) and kept
+  // PERMANENT so the badge is visible in the initial screenshot and never decays.
+  // The mage's cast pairs this with a DEBUFF (Slow) during the run (see stepDemo).
+  return applyStatusToUnit(state, "knight", legacyActiveStatus("protect"));
 }
 
 /** The Mage's charged spell: a slow nuke (low speed → dodgeable, docs/01 §3). */
@@ -137,6 +147,8 @@ export interface StepResult {
   attack: AttackOutcome | null;
   /** A charged spell that RESOLVED this step, if any (land / whiff / cancel). */
   charge: ChargeOutcome | null;
+  /** A status a unit GAINED this step, if any (for the turn-log "gained" row). */
+  statusInflicted: { unitId: string; statusId: string; kind: StatusKind } | null;
 }
 
 const adjacent = (a: Position, b: Position): boolean => manhattan(a, b) === 1;
@@ -151,7 +163,7 @@ const adjacent = (a: Position, b: Position): boolean => manhattan(a, b) === 1;
 export function stepDemo(input: BattleState): StepResult {
   const { state: adv, active } = advanceToNextTurn(input);
   const idle = (state: BattleState): StepResult => ({
-    state, active, activeRange: [], moved: false, attack: null, charge: null,
+    state, active, activeRange: [], moved: false, attack: null, charge: null, statusInflicted: null,
   });
   if (!active) return idle(adv);
 
@@ -190,12 +202,24 @@ export function stepDemo(input: BattleState): StepResult {
     // speed/element/power/accuracy come from the loadout projection, not a payload.
     const spell = me().abilities.find((a) => a.id === MAGE_SPELL_ID)!;
     me().facing = faceToward(me().pos, target.pos);
-    const next = declareCharge(state, "mage", {
+    // Showcase a DEBUFF: the Mage is a hexer — casting also hexes the target with
+    // Slow (docs/01 §6 — halves CT accrual). This is render-DEMO scripting via the
+    // sim's exported helper; the sim's own inflict-on-hit resolution is deferred
+    // (charge.ts docstring), so we apply it here, deterministically (no RNG), and
+    // keep it PERMANENT so the badge persists across the frames a step captures.
+    // Only hex a target that isn't already Slowed — the helper doesn't dedupe, and
+    // re-casting each turn would otherwise stack redundant chips on one unit.
+    const alreadySlowed = target.statuses.some((s) => s.id === "slow");
+    const hexed = alreadySlowed ? state : applyStatusToUnit(state, target.id, legacyActiveStatus("slow"));
+    const next = declareCharge(hexed, "mage", {
       targetTile: { x: target.pos.x, y: target.pos.y },
       speed: spell.speed ?? 1,
       effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy, aoe: spell.aoe },
     });
-    return { state: next, active, activeRange: range, moved: false, attack: null, charge: null };
+    return {
+      state: next, active, activeRange: range, moved: false, attack: null, charge: null,
+      statusInflicted: alreadySlowed ? null : { unitId: target.id, statusId: "slow", kind: "debuff" },
+    };
   }
 
   // Otherwise close the distance (Mage repositions to get in range; others melee).
@@ -231,7 +255,7 @@ export function stepDemo(input: BattleState): StepResult {
   if (attack === null) {
     settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: moved ? "move" : "wait" });
   }
-  return { state: settled, active, activeRange: range, moved, attack, charge: null };
+  return { state: settled, active, activeRange: range, moved, attack, charge: null, statusInflicted: null };
 }
 
 /** Forecast the next `n` actors without mutating state (turn-order timeline). */
