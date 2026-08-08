@@ -20,13 +20,20 @@ move-range highlight.
 
 ![Combat](03-combat.png)
 
-## Video (stepped run)
+## Stepped run — filmstrip (the mobile-readable motion format)
 
-![Stepped run (animated)](run.gif)
+The GitHub **mobile app** displays no motion format for private-repo files —
+no player for committed videos, and GIF tap-through does not animate (verified
+on-device). Static images are the only medium it shows, so the run is also
+committed as a contact sheet (10 frames, ~0.5s apart, read left-to-right):
 
-Three formats, because each viewing surface needs a different one:
+![Stepped run filmstrip](run-filmstrip.png)
 
-- [`run.gif`](run.gif) — animates as an image, including via tap-through in the
-  GitHub **mobile app** (whose blob viewer has no player for committed videos).
+## Motion formats (desktop)
+
+- [`run.gif`](run.gif) — animates inline in the PR body / this README on desktop web.
 - [`run.mp4`](run.mp4) — H.264, for desktop browsers and downloads.
-- [`run.webm`](run.webm) — the Playwright-native capture (does not play on mobile).
+- [`run.webm`](run.webm) — the Playwright-native capture.
+
+After merge, the full gallery (including playable video) deploys to GitHub
+Pages under `/visual/` — a plain webpage, playable in any browser.
