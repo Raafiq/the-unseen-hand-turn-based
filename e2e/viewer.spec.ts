@@ -53,8 +53,15 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
     await step.click();
     taken = await turns(page);
     await page.waitForTimeout(HOLD_MS); // hold each turn long enough to read
+    // The beats are chosen so each gallery CAPTION is true of its frame, measured
+    // against this build's watch-mode run rather than assumed:
+    //   i=5  Knight (5,1) / Archer (5,5) / Brawler (6,3) — everyone has closed,
+    //        nobody has landed a blow yet. "Closing in" is literally the board.
+    //   i=11 the Knight's strike lands: a −105 damage popup is ON SCREEN and the
+    //        Brawler drops 120 → 15. The old i=10 was a WHIFF frame, so the
+    //        caption's "with damage popups" was false of the image it labelled.
     if (i === 5) await page.screenshot({ path: `${SHOTS}/02-closing-in.png`, fullPage: true });
-    if (i === 10) await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
+    if (i === 11) await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
   }
 
   // Real turns were committed, and each Step committed exactly one command.
