@@ -23,6 +23,14 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src", "scripts", "vite.config.ts", "vitest.config.ts", "eslint.config.js"],
+  "include": [
+    "src",
+    "scripts",
+    "e2e",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "eslint.config.js"
+  ],
   "exclude": ["node_modules", "dist"]
 }

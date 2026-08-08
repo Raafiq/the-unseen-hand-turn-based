@@ -22,6 +22,16 @@ export interface Theme {
   highlight: string;
   highlightEdge: string;
   active: string;
+  /** Ring colour for an AI-controlled active unit (distinct from the player's). */
+  activeAi: string;
+  /** Fill/edge for the STAGED move destination (the ghost's tile). */
+  staged: string;
+  stagedEdge: string;
+  /** Fill/edge for a tile holding a legal act target. */
+  target: string;
+  targetEdge: string;
+  /** Keyboard tile-cursor outline. */
+  cursor: string;
   text: string;
   /** Status-badge fill for beneficial statuses (buff). */
   buff: string;
@@ -39,6 +49,12 @@ export const DARK_THEME: Theme = {
   highlight: "#e2a94833",
   highlightEdge: "#e2a948",
   active: "#f4d06a",
+  activeAi: "#ff7a3c",
+  staged: "#7fd7ff3d",
+  stagedEdge: "#7fd7ff",
+  target: "#e0556340",
+  targetEdge: "#e05563",
+  cursor: "#ffffff",
   text: "#e8ecf5",
   buff: "#5cc98d",
   debuff: "#e05563",
@@ -140,13 +156,31 @@ function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
 export interface DamagePopup {
   pos: Position;
   text: string;
-  hit: boolean;
+  kind: "damage" | "heal" | "miss";
 }
 
+/**
+ * Everything the viewer can ask the renderer to show. `draw` stays PURE — a
+ * function of `(state, opts)` with no reads of session/DOM/clock — so a frame is
+ * fully reproducible from the two arguments.
+ */
 export interface DrawOptions {
   activeId?: string | undefined;
+  /**
+   * Who controls the active unit. `"player"` draws the solid gold ring;
+   * `"ai"` a distinct DASHED warm ring, so "can I act?" is legible at a glance
+   * and never inferred from the timeline alone.
+   */
+  activeControl?: "player" | "ai" | undefined;
+  /** Legal move destinations (from the sim's `moveRange`). */
   range?: readonly Position[];
-  popup?: DamagePopup | undefined;
+  /** Tiles holding a legal act target FROM the staged position. */
+  targets?: readonly Position[];
+  /** The staged move destination: marker + a translucent ghost of the actor. */
+  staged?: Position | null | undefined;
+  /** Keyboard tile cursor; drawn only when the canvas has focus. */
+  cursor?: Position | null | undefined;
+  popups?: readonly DamagePopup[];
   theme?: Theme;
 }
 
@@ -164,7 +198,12 @@ export function draw(
   ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.lineJoin = "round";
 
-  const rangeSet = new Set((opts.range ?? []).map((p) => `${p.x},${p.y}`));
+  const key = (p: Position): string => `${p.x},${p.y}`;
+  const rangeSet = new Set((opts.range ?? []).map(key));
+  const targetSet = new Set((opts.targets ?? []).map(key));
+  const stagedKey = opts.staged ? key(opts.staged) : null;
+  const cursorKey = opts.cursor ? key(opts.cursor) : null;
+  const ghost = opts.staged && opts.activeId ? state.units.find((u) => u.id === opts.activeId) : undefined;
   const unitAt = new Map<string, UnitState>();
   for (const u of state.units) unitAt.set(`${u.pos.x},${u.pos.y}`, u);
 
@@ -204,8 +243,10 @@ export function draw(
     ctx.strokeStyle = theme.grid;
     ctx.stroke();
 
+    const k = `${x},${y}`;
+
     // Move-range highlight.
-    if (rangeSet.has(`${x},${y}`)) {
+    if (rangeSet.has(k)) {
       diamond(ctx, top);
       ctx.fillStyle = theme.highlight;
       ctx.fill();
@@ -214,9 +255,55 @@ export function draw(
       ctx.stroke();
     }
 
+    // Legal act target — a distinct warm tint so "I can hit this" never reads as
+    // "I can walk here".
+    if (targetSet.has(k)) {
+      diamond(ctx, top);
+      ctx.fillStyle = theme.target;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = theme.targetEdge;
+      ctx.stroke();
+    }
+
+    // STAGED move destination (pure UI intent — nothing has moved in the sim).
+    if (stagedKey === k) {
+      diamond(ctx, top);
+      ctx.fillStyle = theme.staged;
+      ctx.fill();
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = theme.stagedEdge;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Keyboard tile cursor.
+    if (cursorKey === k) {
+      diamond(ctx, top);
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = theme.cursor;
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Unit on this tile.
-    const u = unitAt.get(`${x},${y}`);
-    if (u) drawUnit(ctx, u, top, u.id === opts.activeId, theme);
+    const u = unitAt.get(k);
+    if (u) {
+      const control = u.id === opts.activeId ? (opts.activeControl ?? "player") : "none";
+      drawUnit(ctx, u, top, control, theme);
+    }
+
+    // The GHOST of the actor standing on its staged tile: same token, faded, no
+    // active ring — the actor's real body stays where the sim has it.
+    if (stagedKey === k && ghost) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      drawUnit(ctx, ghost, top, "none", theme);
+      ctx.restore();
+    }
   }
 
   // Pending charged-spell target reticles (docs/01 §3): a charge resolves against
@@ -240,17 +327,18 @@ export function draw(
     ctx.restore();
   }
 
-  // Damage / miss popup, drawn last so it sits above everything.
-  if (opts.popup) {
-    const t = state.grid.tiles[opts.popup.pos.y * width + opts.popup.pos.x];
-    const p = project(opts.popup.pos.x, opts.popup.pos.y, t?.height ?? 0, origin);
+  // Damage / heal / miss popups, drawn last so they sit above everything.
+  for (const popup of opts.popups ?? []) {
+    const t = state.grid.tiles[popup.pos.y * width + popup.pos.x];
+    const p = project(popup.pos.x, popup.pos.y, t?.height ?? 0, origin);
     ctx.font = "700 20px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#0b0f1c";
-    ctx.fillStyle = opts.popup.hit ? "#ff5d5d" : "#9aa4bb";
-    ctx.strokeText(opts.popup.text, p.x, p.y - 40);
-    ctx.fillText(opts.popup.text, p.x, p.y - 40);
+    ctx.fillStyle =
+      popup.kind === "damage" ? "#ff5d5d" : popup.kind === "heal" ? theme.buff : "#9aa4bb";
+    ctx.strokeText(popup.text, p.x, p.y - 40);
+    ctx.fillText(popup.text, p.x, p.y - 40);
     ctx.textAlign = "start";
   }
 }
@@ -259,7 +347,7 @@ function drawUnit(
   ctx: CanvasRenderingContext2D,
   u: UnitState,
   top: Position,
-  active: boolean,
+  active: "none" | "player" | "ai",
   theme: Theme,
 ): void {
   const meta = UNIT_META[u.id];
@@ -294,14 +382,20 @@ function drawUnit(
     return;
   }
 
-  if (active) {
+  // Active-unit ring. PLAYER = solid gold ("you may act"); AI = dashed warm ring
+  // ("watch"). Two different treatments, not two shades of one.
+  if (active !== "none") {
+    const ring = active === "player" ? theme.active : theme.activeAi;
+    ctx.save();
     ctx.beginPath();
     ctx.arc(cx, top.y, 15, 0, Math.PI * 2);
-    ctx.fillStyle = theme.active + "44";
+    ctx.fillStyle = ring + "44";
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = theme.active;
+    ctx.strokeStyle = ring;
+    if (active === "ai") ctx.setLineDash([4, 4]);
     ctx.stroke();
+    ctx.restore();
   }
 
   // Base shadow.

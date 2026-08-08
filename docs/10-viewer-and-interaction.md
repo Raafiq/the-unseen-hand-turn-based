@@ -36,8 +36,16 @@ Two consequences are binding:
 ## 2. Control assignment
 
 The encounter schema already carries `controller: "ai" | "player"` per team
-(`EncounterSchema`). The viewer reads it — team 0 is the player, team 1 is AI, and a
-future encounter can set this per battle without a code change.
+(`EncounterSchema.teams[].controller`), so a future encounter can set this per battle
+without a code change.
+
+> **Not yet wired, stated rather than implied.** `controller` lives on the `Encounter`,
+> but the viewer's demo battle is built directly via `createBattleState`, and
+> **`BattleState` carries no controller field** — so there is nothing for the viewer to
+> read at battle time. The player team is currently a `PLAYER_TEAM = 0` constant in
+> `demo.ts` with a TODO naming the field and the `loadEncounter` path. Wiring it means
+> either threading the encounter through to the viewer or adding controller to
+> `BattleState` (a schema bump). Deferred, not done.
 
 `[BASELINE]` Player-controlled units accept input. AI-controlled units resolve via
 `decide(state, unitId)` → `applyCommand`, with input inert.

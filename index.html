@@ -25,8 +25,19 @@
       h1 { font-size: 1.55rem; margin: 0 0 6px; letter-spacing: -.01em; }
       header p { margin: 0; color: var(--ink-soft); max-width: 62ch; font-size: .95rem; }
       .stage { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-      canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border-radius: 10px; }
+      canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border-radius: 10px; cursor: crosshair; }
+      canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+      button[disabled] { opacity: .42; cursor: not-allowed; }
+      .reason { margin-top: 12px; font-family: var(--mono); font-size: .82rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
+      .reason.warn { border-color: #e05563; color: #ffb3b8; }
+      .reason.fatal { border-color: #e05563; background: #3a1b21; color: #ffd7da; }
+      .prow { display: flex; justify-content: space-between; gap: 14px; padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: .86rem; }
+      .prow:last-of-type { border-bottom: none; }
+      .prow .pk { color: var(--ink-faint); font-family: var(--mono); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
+      .prow .pv { color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+      .prow.lethal .pv { color: #ff8b8b; font-weight: 700; }
+      .phint { margin: 12px 0 0; font-size: .76rem; color: var(--ink-faint); }
       button { font-family: var(--sans); font-size: .9rem; font-weight: 600; color: #10151f; background: var(--accent); border: none; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
       button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
       button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -39,7 +50,7 @@
       .chip.lead { border-color: var(--c); color: var(--ink); box-shadow: 0 0 0 1px var(--c) inset; }
       .chip.spell { border-style: dashed; }
       .cols { display: grid; gap: 16px; margin-top: 22px; grid-template-columns: 1fr; }
-      @media (min-width: 720px) { .cols { grid-template-columns: 1.4fr 1fr; } }
+      @media (min-width: 720px) { .cols { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); } }
       .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
       .panel h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); margin: 0 0 12px; font-family: var(--mono); }
       ul.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-family: var(--mono); font-size: .84rem; color: var(--ink-soft); }
@@ -88,21 +99,30 @@
     <div class="wrap">
       <header>
         <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
-        <h1>CT scheduler &amp; isometric grid — live</h1>
-        <p>The real headless sim, running in your browser. Press <b>Step</b> to advance the clock: units move within Move/Jump range and <b>attack when they reach an enemy</b> (real hit rolls, facing, damage from the FFT formulas), and the <b>Mage casts a charged spell</b> that builds on the turn-order timeline (⚡) and then <b>lands — or whiffs</b> if the target walks off the reticle before it matures. Everything is deterministic from the seed.</p>
+        <h1>Play a turn — CT scheduler &amp; isometric grid, live</h1>
+        <p>The real headless sim, running in your browser. <b>You command Team A.</b> On your turn, click a highlighted tile to <b>stage a move</b> (nothing touches the sim yet — cancel is free), then click an enemy to <b>strike from there</b>: one command, one turn, <b>−100 CT</b>. Or <b>End Turn</b> to pay only for what you used. Every number in the <b>Resolution preview</b> — hit %, the facing arc that produced it, the exact damage, the CT price — is computed before you commit. Press <b>Step</b> to watch the AI resolve a turn. Everything is deterministic from the seed.</p>
       </header>
 
       <div class="stage">
-        <canvas id="grid" width="900" height="440" data-testid="grid"></canvas>
+        <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
+                role="application"
+                aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
         <div class="controls">
-          <button id="btn-step" data-testid="step">Step turn ▸</button>
+          <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
+          <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
+          <button id="btn-step" class="ghost" data-testid="step">Step turn ▸</button>
           <button id="btn-reset" class="ghost" data-testid="reset">Reset</button>
           <div id="status" data-testid="status"></div>
         </div>
+        <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
         <div id="timeline" class="timeline" data-testid="timeline"></div>
       </div>
 
       <div class="cols">
+        <div class="panel">
+          <h2>Resolution preview</h2>
+          <div id="preview" data-testid="preview"></div>
+        </div>
         <div class="panel">
           <h2>Turn log</h2>
           <ul id="log" class="log"></ul>
@@ -110,10 +130,12 @@
         <div class="panel">
           <h2>Legend</h2>
           <div class="legend">
-            <div class="row"><span class="sw" style="background:#4f8cff"></span> Team A — Knight, Archer</div>
-            <div class="row"><span class="sw" style="background:#e2603c"></span> Team B — Brawler, Mage</div>
-            <div class="row"><span class="sw" style="background:#e2a948"></span> Move range of the active unit</div>
-            <div class="row"><span class="sw" style="background:#ff7a3c"></span> A charging spell's target tile (reticle) — ⚡ on the timeline; lands or WHIFFs</div>
+            <div class="row"><span class="sw" style="background:#4f8cff"></span> Team A — Knight, Archer (<b>you</b>)</div>
+            <div class="row"><span class="sw" style="background:#e2603c"></span> Team B — Brawler, Mage (AI)</div>
+            <div class="row"><span class="sw" style="background:#e2a948"></span> Move range of the active unit · solid gold ring = your turn</div>
+            <div class="row"><span class="sw" style="background:#7fd7ff"></span> Staged move (pure intent — nothing has moved yet)</div>
+            <div class="row"><span class="sw" style="background:#e05563"></span> A legal target from the staged tile</div>
+            <div class="row"><span class="sw" style="background:#ff7a3c"></span> Dashed ring = AI's turn · a charging spell's target tile (reticle)</div>
             <div class="row"><span class="sw" style="background:#ff5d5d"></span> Damage / miss popup · a crystal marks a KO'd unit</div>
             <div class="row"><span class="sw" style="background:#6a2f2f"></span> Impassable tile · raised tiles = terrain height</div>
           </div>
