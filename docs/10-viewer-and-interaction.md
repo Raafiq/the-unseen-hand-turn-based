@@ -62,8 +62,21 @@ previews honest, and speculation impossible.
 | `AWAIT_ACTOR` | — | `advanceToDecision` → player team ⇒ `PLAYER_IDLE`; AI team ⇒ `AI_TURN`; `terminal:"stalemate"` ⇒ `ENDED` |
 | `PLAYER_IDLE` | tiles in `moveRange`; enemies in `inAbilityRange` from the **current** tile | tile ⇒ `MOVE_STAGED`; enemy ⇒ **COMMIT** act-only (−80); End Turn ⇒ **COMMIT** `wait` (−60) |
 | `MOVE_STAGED` | enemies in `inAbilityRange` from the **staged** tile; the staged tile (click = unstage) | enemy ⇒ **COMMIT** `{kind:"act", …, move:{to, order:"before"}}` (−100); End Turn ⇒ **COMMIT** `{kind:"move", to}` (−80); Cancel ⇒ `PLAYER_IDLE` |
-| `AI_TURN` | — (input inert) | `decide` → `applyCommand` → `AWAIT_ACTOR` |
+| `AI_TURN` | — (input inert) | **Step** → `decide` → `applyCommand` → `AWAIT_ACTOR` |
 | `ENDED` | — | terminal banner |
+
+> **An AI turn advances only on Step — there is no auto-resolve, deliberately.** A
+> wall-clock timer racing with an explicit step would make "how many commands have been
+> applied by now" a function of elapsed time, which is nondeterministic and would break
+> both the visual baseline and any e2e. So `AI_TURN` is a real observable phase the player
+> steps through, and the button relabels to `Enemy turn ▸ Resolve`. A paced auto-advance
+> would need an epoch guard and is not in this slice.
+>
+> **The `ENDED` transition is wider than the sim's verdict.** The table's `terminal:
+> "stalemate"` is the only terminal state the *sim* models. The viewer additionally ends
+> on a wiped team and shows Victory/Defeat — a **viewer-level** reading, not a sim
+> verdict, because no encounter victory/defeat condition is evaluated here. Listed under
+> §5's limitations rather than left implicit.
 
 - **Confirm model:** selecting the *target* IS the confirm gesture. By then the preview
   (§4) has already shown hit %, damage and the CT price, so there is no blind commit and
@@ -93,6 +106,15 @@ commit-click, and computed for the **staged** position, the player SHALL see:
 7. **The CT price of the turn as staged** (−100 / −80 / −60), the actor's resulting CT,
    and its resulting slot in the timeline. Non-negotiable — this is `docs/00`'s "CT
    forecast", and the only thing that makes the fold's opportunity cost visible.
+   > **Known modelling assumption — the timeline slot is a PROJECTION, not a fact.** It
+   > comes from `forecast()`, which settles every *future* actor at `{didMove:false,
+   > didAct:true}` — i.e. it assumes every subsequent turn on the field costs **−80**,
+   > the very model ADR-0015 exists to disprove. The actor's own price is exact; the
+   > *slot* is not. This is currently harmless because `ai.ts` really does emit single
+   > sub-phases — but the named follow-up slice (teaching `ai.ts` the fold) makes every
+   > displayed slot silently wrong, and nothing tests forecast accuracy against a real
+   > replay. **That slice must fix `forecast` or drop the row.** The row is labelled
+   > projected in the UI so the claim on screen matches the claim here.
 8. The target's active statuses.
 
 `[ENHANCEMENT]` The Zodiac / Faith contribution line (`zodiacCompatibility` is already
@@ -119,6 +141,14 @@ Known limitations of the shipped demo roster, stated rather than hidden:
   in-range enemy" means "click an adjacent enemy", so this slice cannot demonstrate the
   range/tempo asymmetry that motivates the fold. Fixing it is a fidelity change with
   golden vectors attached — not this slice.
+- **Victory/Defeat is a viewer-level reading, not a sim verdict.** The viewer ends the
+  battle when a team is wiped, but the sim models only `terminal: "stalemate"`; no
+  encounter victory/defeat condition is evaluated in the viewer path. A battle that an
+  encounter would call won for another reason will not be recognised here.
+- **`order: "after"` (act-then-move) is unreachable from the UI.** It exists in the
+  command schema and the driver (ADR-0015) and is covered headlessly, but the viewer only
+  ever constructs `order: "before"`. Exposing it would force the player to pick a retreat
+  tile before seeing whether the attack hit — a pillar-4 regression.
 
 ## 6. Acceptance Criteria (SDD-ready)
 
@@ -155,17 +185,25 @@ reasons, both load-bearing:
    `makeDemoBattle()`. AC-V7 depends on this: the demo map cannot express a
    jump-exclusion, so the fixture has to be purpose-built.
 
-**Exactly one internal mutator.** There is a single entry point
+**Exactly one TILE-DRIVEN mutator.** Every path that turns a *tile selection* into draft
+state goes through a single entry point:
 
 ```ts
-function onPick(tile: Position | null): void   // the ONLY mutator of TurnDraft/session
+function onPick(tile: Position | null): void   // the ONE tile-driven mutator
 ```
 
-The canvas listener is `ev => onPick(pickTile(state, cx, cy, w, h))`; the test seam
-`clickTile(x, y)` is `onPick({x, y})`. Nothing else may mutate the draft. This is what
+The canvas listener is `ev => onPick(pickTile(state, cx, cy, w, h))`; the keyboard Enter
+path is `onPick(cursor)`; the test seam `clickTile(x, y)` is `onPick({x, y})`. This is what
 makes the test seam *provably* the same path a real pointer event takes rather than
 parallel logic that can drift — AC-V10 covers the one edge (`pickTile` itself) that
 `clickTile` skips.
+
+> **Stated precisely, because an earlier draft overstated it.** `onPick` is not the only
+> mutator of the session *at all* — `cancel()`, `commitAct()`, `commit()`, `step()` and
+> `reset()` also mutate, and `endTurn()` is a **second command-emitting path** reachable
+> from the seam without touching `onPick`. The invariant that matters, and the one the
+> tests rely on, is narrower: **no tile selection reaches the draft except through
+> `onPick`.**
 
 **Proving a cancelled draft left no trace** (AC-V9) needs three assertions, all required:
 

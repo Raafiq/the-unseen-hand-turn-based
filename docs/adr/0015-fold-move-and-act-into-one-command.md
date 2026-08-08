@@ -146,6 +146,15 @@ in the `applyToUnit` docstring.
 
 **Costs / limits — stated plainly**
 
+- **The follow-up slice inherits a landmine: `forecast()` assumes −80 for everyone.**
+  The viewer's turn-order timeline and the preview's "next slot" row are computed by
+  settling every *future* actor at `{didMove:false, didAct:true}` — the −80 model this
+  ADR disproves. That is harmless *today* precisely because `ai.ts` really does emit
+  single sub-phases. The moment the follow-up slice teaches `ai.ts` the fold, every
+  displayed timeline slot becomes silently wrong, and **nothing tests forecast accuracy
+  against a real replay**. That slice must fix `forecast` or drop the row; it is recorded
+  in `docs/10` §4 item 7 so it cannot be missed. Flagged here because a distortion that is
+  currently invisible is exactly the kind a later session ships without noticing.
 - **The gate's tempo distortion is not fixed by this ADR.** Because `ai.ts` still emits
   single sub-phases, the benchmark continues to under-measure every closer archetype.
   This ADR *stops the distortion from becoming the player-facing rule*; it does not
@@ -170,7 +179,7 @@ in the `applyToUnit` docstring.
 
 ## Acceptance criteria
 
-Recorded in full in `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V9) — the doc is
+Recorded in full in `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V10) — the doc is
 authoritative and outranks this ADR if they ever disagree. The load-bearing ones here:
 
 - **AC-V1** — replaying `GOLDEN_LOG` under the extended schema serializes to the existing
@@ -187,7 +196,7 @@ authoritative and outranks this ADR if they ever disagree. The load-bearing ones
 
 - `docs/01-combat-system.md` §1 (CT table), §2 (action economy), AC-02
 - `docs/05-simulation-and-state-model.md` §3b (command-replay substrate), AC-S1 / AC-S7
-- `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V9)
+- `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V10)
 - ADR-0004 (determinism as a P0 invariant), ADR-0007 (sim/render split),
   ADR-0010 (deferred resolution scope), ADR-0013 (facing-on-move deferred),
   ADR-0014 (diversity-gate phased target — untouched by this slice)

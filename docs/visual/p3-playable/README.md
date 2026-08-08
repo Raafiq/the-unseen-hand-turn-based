@@ -4,8 +4,16 @@ The viewer stops being watch-only. The player drives **team 0**: click a highlig
 to *stage* a move, click an in-range enemy to *commit* the whole turn as **one folded
 command** (ADR-0015). Team 1 stays AI.
 
-Every frame below is captured by a Playwright test that **asserts the claim in the same
-test that takes the shot** — the images are test output, not screenshots taken by hand.
+Every frame below is captured by a Playwright test, so the images are **test output**, not
+screenshots taken by hand: the state each frame shows was reached by driving the shipped
+input seam, and the numeric claims (hit %, arc, CT price, HP) are asserted in the same test
+that takes the shot.
+
+> **Scope of that guarantee, stated precisely.** It covers the *values* in the panel, not
+> every visual detail in the frame. A reviewer caught this README asserting a tint that no
+> test checked and that was in fact absent (see frame 10 below). Where a caption describes
+> something the test does not assert, this README now says so rather than borrowing the
+> tests' credibility for it.
 
 ---
 
@@ -39,8 +47,19 @@ modeled zero the engine cannot back up (`docs/10` §4, pillar 4).
 
 ![Fold filmstrip — idle, staged with preview, committed](fold-filmstrip.png)
 
-1. **`PLAYER_IDLE`** — the Archer's real `moveRange` painted in gold, the one reachable
-   enemy tinted red, `End Turn · Wait · −60 CT`.
+1. **`PLAYER_IDLE`** — the Archer's real `moveRange` painted in gold, and **no enemy in
+   reach at all**: `basic.attack` is range `{h:1,v:1}`, and from (5,5) both foes are two
+   tiles away, so the valid-target set is *empty* and `End Turn` offers only
+   `Wait · −60 CT`. That is precisely the decision the fold exists for — the Archer must
+   spend its move to buy an attack, and the next panel prices that at −100.
+   > The dark-red parallelogram near the Brawler is **not** a target tint. It is the
+   > **charge reticle** — the enemy Mage's in-flight spell marking the tile it will hit
+   > (`#ff7a3c`, per the legend). Target tints are `#e05563` and appear only once a move
+   > is staged. An earlier draft of this README called it "the one enemy it could reach",
+   > which was wrong: a reviewer's probe showed the target set is empty in this frame, so
+   > the caption would have had readers parse an incoming-nuke warning as an attack
+   > option. The floating `WHIFF` is the residue of that same spell missing on a previous
+   > tick.
 2. **`MOVE_STAGED`** — the ghost sits on (7,3) and the preview resolves *from there*:
    `REAR arc · 100% · 100 damage · 120 → 20 HP · Move + Act · −100 CT · CT 107 → 7`.
    Nothing has touched the sim yet.
@@ -59,7 +78,7 @@ produced by any replay-legal command log.
 
 | file | what it shows |
 |---|---|
-| `10-player-turn.png` | Player turn: gold move range, reachable enemy tinted, priced End Turn button |
+| `10-player-turn.png` | Player turn: gold move range, **no enemy in reach**, priced End Turn button |
 | `11-preview-a.png` | Staged (5,3) → FRONT arc, 75% |
 | `12-preview-b.png` | Staged (7,3) → REAR arc, 100% |
 | `13-illegal.png` | An illegal click: red *Out of Move range* chip, board unchanged |
