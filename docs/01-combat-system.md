@@ -48,7 +48,7 @@ Rules: Move and Act are each used at most once, in either order (a real tactical
 > motionless until the spell activates" most likely describes *subsequent* turns. Primary
 > sources (AeroStar, FFHacktics) are egress-blocked in this environment, so this is
 > secondary-source only. Until resolved, the engine takes the **conservative** reading:
-> a charged act locks the other sub-phase (`docs/10` AC-P5). Do not code declare-then-move
+> a charged act locks the other sub-phase (`docs/10` AC-V5). Do not code declare-then-move
 > without verifying first.
 
 ---

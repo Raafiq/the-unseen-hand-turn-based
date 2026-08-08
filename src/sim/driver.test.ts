@@ -236,14 +236,14 @@ describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () 
     expect(actual).toBe(GOLDEN);
   });
 
-  // AC-P1 (move+act fold is INERT on the unfolded path). GOLDEN_LOG is entirely
+  // AC-V1 (move+act fold is INERT on the unfolded path). GOLDEN_LOG is entirely
   // single-sub-phase (move-only / act-only / wait), so the fold slice MUST replay
   // it to the byte-identical literal above — this golden is the fold's TRIPWIRE,
   // not a maintenance item. If it ever drifts, the shared path changed and the
   // cause must be fixed, NOT the literal regenerated. The structural assertion
   // below keeps that guarantee honest: a future edit that quietly adds a `move`
   // clause to GOLDEN_LOG would make the byte-equality above vacuous.
-  it("AC-P1: GOLDEN_LOG carries NO fold, so the golden proves the unfolded path is untouched", () => {
+  it("AC-V1: GOLDEN_LOG carries NO fold, so the golden proves the unfolded path is untouched", () => {
     expect(GOLDEN_LOG.some((c) => c.kind === "act")).toBe(true); // it does exercise `act`
     expect(GOLDEN_LOG.every((c) => c.kind !== "act" || c.move === undefined)).toBe(true);
     expect(serialize(replay(goldenBattle(), GOLDEN_LOG))).toBe(GOLDEN);
@@ -590,7 +590,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     move: { to: { x: 2, y: 2 }, order: "before" },
   };
 
-  it("AC-P2: ONE combined command settles at −100 (ct 108 → 8); move-only is −80 (→ 28)", () => {
+  it("AC-V2: ONE combined command settles at −100 (ct 108 → 8); move-only is −80 (→ 28)", () => {
     // DISCRIMINATOR is (ct, command count), not "the attack happened": a two-command
     // move-then-attack ALSO ends up attacking, but pays 80+80 across TWO turns.
     const steps = replaySteps(foldBattle(), [FOLDED]);
@@ -612,7 +612,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     expect(ctOf(folded, "a")).not.toBe(28);
   });
 
-  it("AC-P3: the act resolves from the POST-move tile (rear arc), not the origin", () => {
+  it("AC-V3: the act resolves from the POST-move tile (rear arc), not the origin", () => {
     // Target faces N. The actor starts in its FRONT arc and OUT of reach; the
     // destination is REAR-adjacent. The target has REAL directional evasion
     // (classEv 50), so front ≠ rear — a zero-evasion target is the tie trap this
@@ -667,7 +667,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     expect(fromFront.turnLog.some((e) => e.action === "miss t")).toBe(true);
   });
 
-  it("AC-P4: order 'after' resolves from the ORIGIN, then retreats (hit-and-run)", () => {
+  it("AC-V4: order 'after' resolves from the ORIGIN, then retreats (hit-and-run)", () => {
     // In reach FROM THE ORIGIN, out of reach FROM THE DESTINATION — so an
     // implementation that always moves first throws "out of range" here.
     const mk = (): BattleState => {
@@ -714,7 +714,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     ).toThrow(/out of range/);
   });
 
-  it("AC-P5: a move + CHARGED act is priced −100; a charged act + move-'after' is rejected", () => {
+  it("AC-V5: a move + CHARGED act is priced −100; a charged act + move-'after' is rejected", () => {
     const mk = (): BattleState => {
       const c = spellUnit("c", 0, { pos: { x: 1, y: 1 }, ct: 108, speed: 10, move: 3 });
       const dummy = defaultUnit("dummy", 1, {
@@ -757,7 +757,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     ).toThrow(/locks the move sub-phase/);
   });
 
-  it("AC-P9: a command log containing COMBINED commands replays byte-for-byte", () => {
+  it("AC-V9: a command log containing COMBINED commands replays byte-for-byte", () => {
     const log: Command[] = [
       FOLDED, // move-before + attack
       { kind: "wait" },

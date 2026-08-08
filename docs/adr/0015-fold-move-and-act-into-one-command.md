@@ -170,16 +170,16 @@ in the `applyToUnit` docstring.
 
 ## Acceptance criteria
 
-Recorded in full in `docs/10-viewer-and-interaction.md` (AC-P1 … AC-P9) — the doc is
+Recorded in full in `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V9) — the doc is
 authoritative and outranks this ADR if they ever disagree. The load-bearing ones here:
 
-- **AC-P1** — replaying `GOLDEN_LOG` under the extended schema serializes to the existing
+- **AC-V1** — replaying `GOLDEN_LOG` under the extended schema serializes to the existing
   committed golden literal, unregenerated.
-- **AC-P2** — an actor at ct 108 issuing one combined move+act settles to **ct 8** having
+- **AC-V2** — an actor at ct 108 issuing one combined move+act settles to **ct 8** having
   consumed **one** command; move-only settles to **ct 28**.
-- **AC-P3** — the act resolves from the **post-move** tile (rear-arc fixture with non-zero
+- **AC-V3** — the act resolves from the **post-move** tile (rear-arc fixture with non-zero
   directional evasion, so front ≠ rear and the tie trap is avoided).
-- **AC-P5** — move + charged act settles at −100 (the old hard-coded `didMove:false`
+- **AC-V5** — move + charged act settles at −100 (the old hard-coded `didMove:false`
   yields ct 28 instead of 8 — that is the discriminator); charged act + `order:"after"`
   is rejected.
 
@@ -187,7 +187,7 @@ authoritative and outranks this ADR if they ever disagree. The load-bearing ones
 
 - `docs/01-combat-system.md` §1 (CT table), §2 (action economy), AC-02
 - `docs/05-simulation-and-state-model.md` §3b (command-replay substrate), AC-S1 / AC-S7
-- `docs/10-viewer-and-interaction.md` (AC-P1 … AC-P9)
+- `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V9)
 - ADR-0004 (determinism as a P0 invariant), ADR-0007 (sim/render split),
   ADR-0010 (deferred resolution scope), ADR-0013 (facing-on-move deferred),
   ADR-0014 (diversity-gate phased target — untouched by this slice)

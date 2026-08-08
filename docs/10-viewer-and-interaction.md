@@ -118,22 +118,73 @@ Each fixture below is built so that the **plausible wrong behaviour gives a diff
 answer** (CLAUDE.md: an AC test must exercise the discriminating case — never a tie or
 degenerate fixture where all orderings coincide).
 
-- **AC-P1 (the fold is inert):** Replaying `GOLDEN_LOG` under the extended command schema SHALL serialize to the **existing committed golden literal, unregenerated**. *Discriminator:* any non-additive change to the shared act/move path shifts the roll cursor or the settle and breaks the literal. **The golden is a tripwire on this slice, not a maintenance item** — if it moves, the fold was not additive.
-- **AC-P2 (the combined turn is priced at −100):** An actor at CT 108 issuing one combined move+act SHALL settle to **CT 8** having consumed **one** command; the same actor issuing move-only SHALL settle to **CT 28**. *Discriminator:* asserts (CT, command count) — "the attack happened" is degenerate, since both paths eventually attack.
-- **AC-P3 (the act resolves from the POST-move tile):** With the target facing N, the actor starting in the target's **front** arc and out of reach, and a **rear-adjacent** tile inside `moveRange`, a combined command SHALL resolve in the rear arc with a **strictly greater** hit chance than acting from the origin. *Discriminator:* the plausible bug (resolving before applying the move) yields the front arc and a lower number. The fixture MUST give the target non-zero directional evasion so front ≠ rear — a zero-evasion target is the tie trap.
-- **AC-P4 (order is honored):** With `order:"after"`, on a fixture where the target is in range **from the origin and out of range from the destination** (hit-and-retreat), the act SHALL resolve, the final position SHALL be the retreat tile, and the settle SHALL be −100. *Discriminator:* an implementation that always moves first throws "out of range".
-- **AC-P5 (charged acts lock the other sub-phase):** An `act` with a charged ability plus `order:"after"` SHALL be rejected (`docs/01` §2). Move + charged act (`order:"before"`) SHALL settle the caster at **−100**. *Discriminator:* `charge.ts`'s previously hard-coded `didMove:false` produces CT 28 instead of 8.
-- **AC-P6 (preview purity):** Any sequence of hovers, stagings and cancels SHALL leave `rngCounter` and `tick` unchanged; only a committed command advances them. *Discriminator:* a preview implemented via `resolveAttack` bumps `rngCounter` once per hover; a preview via speculative `applyCommand` advances `tick`.
-- **AC-P7 (the sim owns legality):** A click on a tile the sim excludes SHALL be a no-op. *Discriminator:* the demo map's **impassable rock at (6,2)** and a height-2 plateau tile beyond `jump` are both inside a naive Manhattan/radius check but outside `moveRange` — a viewer that re-derives legality passes a radius test and fails this one.
-- **AC-P8 (no viewer/harness divergence):** For an AI turn, the viewer's resulting state SHALL serialize identically to the headless harness's from the same input state.
-- **AC-P9 (a played session is replayable):** The viewer's recorded `(seed, commands)` — including at least one **combined** command and at least one **cancelled** draft — replayed through `replay()` SHALL reproduce the live final state byte-for-byte, and a rewind-to-K-then-replay SHALL match. *Discriminator:* the cancelled draft must leave no trace in the log.
-- **AC-P10 (screen→tile picking respects height):** A canvas click SHALL resolve to the tile actually drawn on top at that point. *Discriminator:* on a map with a raised plateau, a height-ignoring inverse projection returns a different tile than the one the player sees — the test asserts the drawn-on-top tile and fails against the naive inverse.
+> **Namespace:** these are **AC-V** (viewer). `docs/07` already owns `AC-P1…AC-P5` for
+> pacing, so an `AC-P` name here would make `grep AC-P5` ambiguous across two specs. Each
+> doc owns a letter: `01`→AC-0*, `02`→AC-J*, `05`→AC-S*, `06`→AC-E*, `07`→AC-P*,
+> `10`→AC-V*.
 
-## 7. Determinism risks specific to this layer
+- **AC-V1 (the fold is inert):** Replaying `GOLDEN_LOG` under the extended command schema SHALL serialize to the **existing committed golden literal, unregenerated**. *Discriminator:* any non-additive change to the shared act/move path shifts the roll cursor or the settle and breaks the literal. **The golden is a tripwire on this slice, not a maintenance item** — if it moves, the fold was not additive.
+- **AC-V2 (the combined turn is priced at −100):** An actor at CT 108 issuing one combined move+act SHALL settle to **CT 8** having consumed **one** command; the same actor issuing move-only SHALL settle to **CT 28**. *Discriminator:* asserts (CT, command count) — "the attack happened" is degenerate, since both paths eventually attack.
+- **AC-V3 (the act resolves from the POST-move tile):** With the target facing N, the actor starting in the target's **front** arc and out of reach, and a **rear-adjacent** tile inside `moveRange`, a combined command SHALL resolve in the rear arc with a **strictly greater** hit chance than acting from the origin. *Discriminator:* the plausible bug (resolving before applying the move) yields the front arc and a lower number. The fixture MUST give the target non-zero directional evasion so front ≠ rear — a zero-evasion target is the tie trap.
+- **AC-V4 (order is honored):** With `order:"after"`, on a fixture where the target is in range **from the origin and out of range from the destination** (hit-and-retreat), the act SHALL resolve, the final position SHALL be the retreat tile, and the settle SHALL be −100. *Discriminator:* an implementation that always moves first throws "out of range".
+- **AC-V5 (charged acts lock the other sub-phase):** An `act` with a charged ability plus `order:"after"` SHALL be rejected (`docs/01` §2). Move + charged act (`order:"before"`) SHALL settle the caster at **−100**. *Discriminator:* `charge.ts`'s previously hard-coded `didMove:false` produces CT 28 instead of 8.
+- **AC-V6 (preview purity):** Any sequence of hovers, stagings and cancels SHALL leave `rngCounter` and `tick` unchanged; only a committed command advances them. *Discriminator:* a preview implemented via `resolveAttack` bumps `rngCounter` once per hover; a preview via speculative `applyCommand` advances `tick`.
+- **AC-V7 (the sim owns legality):** A click on a tile the sim excludes SHALL be a no-op, on all three exclusion grounds — **impassable**, **beyond `jump`** (height delta), and **occupied**. *Discriminator:* each fixture tile MUST lie **inside** a naive Manhattan `move`-radius and **outside** `moveRange`, and the test MUST assert both halves — `expect(naiveRadius).toContainEqual(tile)` as a non-degeneracy guard, then `expect(moveTargets()).not.toContainEqual(tile)`. Without the first assertion the test passes against the buggy radius-viewer too, and proves nothing.
+  > **These fixtures MUST be purpose-built grids, not the demo map.** An exhaustive scan of `makeDemoBattle()` found its maximum orthogonal height delta is **1** while the lowest `jump` on the field is **1** — so **no tile on the demo map is excluded by `jump` for any unit**, and the rock at (6,2) is outside every unit's move range on the opening turns. A jump-exclusion test written against the demo map is *unrealizable*: it would pass against a naive-radius viewer. This is why the turn state machine lives in a DOM-free `session.ts` constructible over an **arbitrary** `BattleState` — so a test can build a grid with an explicit, named height delta (e.g. an unskirted height-4 spire adjacent to a `jump:1` unit) instead of hoping the demo map happens to discriminate. The jump fixture must additionally assert `tile.passable === true`, or it is only re-testing the impassable case.
+- **AC-V8 (no viewer/harness divergence):** For an AI turn, the viewer's resulting state SHALL serialize identically to the headless harness's from the same input state.
+- **AC-V9 (a played session is replayable):** The viewer's recorded `(seed, commands)` — including at least one **combined** command and at least one **cancelled** draft — replayed through `replay()` SHALL reproduce the live final state byte-for-byte, and a rewind-to-K-then-replay SHALL match. *Discriminator:* the cancelled draft must leave no trace in the log.
+- **AC-V10 (screen→tile picking respects height):** A canvas click SHALL resolve to the tile actually drawn on top at that point. *Discriminator:* on a map with a raised plateau, a height-ignoring inverse projection returns a different tile than the one the player sees — the test asserts the drawn-on-top tile and fails against the naive inverse.
+
+## 7. Required module shape
+
+The turn state machine lives in a **DOM-free `src/render/session.ts`**; `main.ts` is
+reduced to DOM wiring, and `window.tuh` is a thin adapter over the session object. Two
+reasons, both load-bearing:
+
+1. **The discriminating logic becomes unit-testable** under vitest instead of only through
+   Playwright — `src/**/*.test.ts` is already globbed, so no config change is needed.
+2. **A session must be constructible over an ARBITRARY `BattleState`**, not only
+   `makeDemoBattle()`. AC-V7 depends on this: the demo map cannot express a
+   jump-exclusion, so the fixture has to be purpose-built.
+
+**Exactly one internal mutator.** There is a single entry point
+
+```ts
+function onPick(tile: Position | null): void   // the ONLY mutator of TurnDraft/session
+```
+
+The canvas listener is `ev => onPick(pickTile(state, cx, cy, w, h))`; the test seam
+`clickTile(x, y)` is `onPick({x, y})`. Nothing else may mutate the draft. This is what
+makes the test seam *provably* the same path a real pointer event takes rather than
+parallel logic that can drift — AC-V10 covers the one edge (`pickTile` itself) that
+`clickTile` skips.
+
+**Proving a cancelled draft left no trace** (AC-V9) needs three assertions, all required:
+
+1. **State identity** — `serialize()` before staging `===` after cancel. Catches
+   speculative-apply-and-rollback, since `tick`, `rngCounter` and `turnLog` all live in
+   that string.
+2. **Log identity** — the command log is unchanged in length *and* no command anywhere in
+   it names the cancelled destination. So the cancel fixture must use a tile **never
+   committed elsewhere in the session**.
+3. **Non-vacuity** — between stage and cancel, the draft was non-null with the staged
+   destination, and the valid-target set differed from the idle set. Without this, a
+   viewer that ignores staging entirely passes 1 and 2.
+
+**Typing.** `e2e/` must be added to `tsconfig.json`'s `include`, and the viewer API type
+declared where both `src/render` and `e2e` can see it — otherwise the whole seam is
+untyped in the specs. `exactOptionalPropertyTypes` is on: use it, so the `[DEFERRED]`
+preview fields are **genuinely absent** from the type rather than `| undefined`. That
+makes the compiler enforce §4's honesty rule.
+
+**`turn()` counts COMMANDS COMMITTED**, not Step clicks — a matured charge or a crystal
+tick is absorbed inside `advanceToDecision` and consumes no command.
+
+## 8. Determinism risks specific to this layer
 
 - **Never preview by resolving.** `resolveAttack` consumes the seeded stream. Previews use
   only pure exported helpers (`hitChance`, `attackDamage`, `abilityDamage`,
-  `relativeFacing`, `moveRange`, `inAbilityRange`). AC-P6 is the guard.
+  `relativeFacing`, `moveRange`, `inAbilityRange`). AC-V6 is the guard.
 - **Never speculatively `applyCommand` and discard** — it advances the clock and can
   mature a charge.
 - **Input timing must not reach state.** `src/render/**` may use wall-clock for animation
@@ -141,13 +192,13 @@ degenerate fixture where all orderings coincide).
   `(seed, commands)` alone.
 - **Player-input e2e must not click raw canvas pixels.** The tests drive a
   grid-coordinate seam routed through the same handler as a real pointer event, and the
-  pointer→tile mapping is covered by **one** separate assertion (AC-P10). Otherwise every
+  pointer→tile mapping is covered by **one** separate assertion (AC-V10). Otherwise every
   camera/iso tweak breaks the whole interaction suite for no behavioural reason.
 - **A scripted, deterministic path is retained** for the Playwright baseline: the Step
   affordance resolves the active unit via `decide` → `applyCommand` regardless of team,
   so the frame-by-frame visual baseline survives in shape.
 
-## 8. References
+## 9. References
 
 - `docs/00` pillars 3 & 4 · `docs/01` §1–§2 + AC-02 (the CT table this layer prices) ·
   `docs/04` §3 (resolution transparency) and §7 (accessibility) ·
