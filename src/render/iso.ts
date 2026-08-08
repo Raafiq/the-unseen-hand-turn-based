@@ -60,6 +60,74 @@ export function originFor(state: BattleState, canvasW: number, canvasH: number):
   return { x: canvasW / 2 - midX / 2, y: (canvasH - spanY) / 2 + TILE_H };
 }
 
+/**
+ * Painter's order for a grid: back (low `x + y`) to front, so a tall tile in
+ * front paints over the tiles behind it. Cells are generated y-major / x-minor
+ * and sorted with a STABLE sort, so ties on `x + y` keep ascending-y order — a
+ * pinned tie-break, not an accident of the sort implementation.
+ *
+ * Shared by {@link draw} (walks it forward) and {@link pickTile} (walks it
+ * backward) so the two can never disagree about which tile is on top.
+ */
+export function paintOrder(width: number, height: number): Position[] {
+  const cells: Position[] = [];
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) cells.push({ x, y });
+  cells.sort((a, b) => a.x + a.y - (b.x + b.y));
+  return cells;
+}
+
+/**
+ * Is a canvas point inside the top-face diamond centred at `c`? The diamond is
+ * TILE_W wide and TILE_H tall, so its interior is the L1 ball of the axis-scaled
+ * offset. Edges count as inside (`<= 1`); the reverse-painter walk in
+ * {@link pickTile} resolves the resulting shared-edge overlap deterministically.
+ */
+export function pointInDiamond(px: number, py: number, c: Position): boolean {
+  return Math.abs(px - c.x) / (TILE_W / 2) + Math.abs(py - c.y) / (TILE_H / 2) <= 1;
+}
+
+/**
+ * Inverse of {@link project}: the grid tile a canvas point selects, or `null`
+ * for a point on no tile.
+ *
+ * NOT an algebraic inverse of the (x−y, x+y) isometric transform. `project`
+ * lifts a tile UP the screen by `height * HEIGHT_STEP`, so several tiles of
+ * different heights can cover the same screen point and the one drawn LAST
+ * (largest `x + y`) occludes the rest. A height-ignoring inverse therefore
+ * mis-picks wherever the map has relief — on the demo map, the centre of the
+ * height-2 plateau (4,3) also falls inside the flat tile (3,2)'s diamond.
+ *
+ * So we hit-test in REVERSE {@link paintOrder} (front-to-back) and return the
+ * first tile whose TOP FACE contains the point: exactly the tile the user sees
+ * on top, by construction.
+ *
+ * Vertical SIDE faces (the height skirt) are deliberately NOT pickable — only
+ * top faces select a tile. Clicking a plateau's wall therefore yields whatever
+ * top face is painted at that point (often the nearer, lower tile drawn over the
+ * wall) or `null` when no top face covers it. Rationale: a top face is the
+ * unambiguous "stand here" surface; a wall belongs to two tiles at once.
+ */
+export function pickTile(
+  state: BattleState,
+  canvasX: number,
+  canvasY: number,
+  canvasW: number,
+  canvasH: number,
+): Position | null {
+  const origin = originFor(state, canvasW, canvasH);
+  const { width, height, tiles } = state.grid;
+  const cells = paintOrder(width, height);
+  for (let i = cells.length - 1; i >= 0; i--) {
+    const cell = cells[i];
+    if (!cell) continue;
+    const tile = tiles[cell.y * width + cell.x];
+    if (!tile) continue;
+    const top = project(cell.x, cell.y, tile.height, origin);
+    if (pointInDiamond(canvasX, canvasY, top)) return { x: cell.x, y: cell.y };
+  }
+  return null;
+}
+
 function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.beginPath();
   ctx.moveTo(c.x, c.y - TILE_H / 2);
@@ -101,11 +169,8 @@ export function draw(
   for (const u of state.units) unitAt.set(`${u.pos.x},${u.pos.y}`, u);
 
   // Painter's order: back (low x+y) to front so height overlaps correctly.
-  const cells: Position[] = [];
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) cells.push({ x, y });
-  cells.sort((a, b) => a.x + a.y - (b.x + b.y));
-
-  for (const { x, y } of cells) {
+  // `pickTile` walks this SAME list in reverse — keep them sharing `paintOrder`.
+  for (const { x, y } of paintOrder(width, height)) {
     const tile = tiles[y * width + x];
     if (!tile) continue;
     const top = project(x, y, tile.height, origin);

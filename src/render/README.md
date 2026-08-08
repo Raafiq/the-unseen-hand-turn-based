@@ -13,7 +13,13 @@ Contents:
   chips read straight off `UnitState.statuses`), the active unit's move-range
   highlight, in-flight charged-spell target reticles, and the damage / miss /
   whiff popup. The grid's height and facing live in `BattleState`, so any
-  renderer can consume them.
+  renderer can consume them. It also exposes the **inverse**, `pickTile(state,
+  canvasX, canvasY, canvasW, canvasH)` → `Position | null`: not an algebraic
+  inverse, because height lifts a tile up the screen and lets a tall tile occlude
+  the ones behind it, so it hit-tests top faces in **reverse painter's order**
+  (the shared `paintOrder()` that `draw()` walks forward) and returns the tile
+  drawn on top. Only top faces are pickable — a click on a height skirt selects
+  whatever top face is painted there, or `null`. Covered by `iso.test.ts`.
 - `demo.ts` — a demo battle plus a **deterministic** step policy (no
   `Math.random`, no wall-clock) so the viewer produces identical frames every
   run and the Playwright screenshots are a stable baseline. It also scripts a
