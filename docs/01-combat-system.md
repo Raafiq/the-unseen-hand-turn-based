@@ -41,6 +41,16 @@ An Active Turn is a sequence of sub-phases:
 
 Rules: Move and Act are each used at most once, in either order (a real tactical choice). **Wait** ends early (cheaper CT). Some actions end the turn immediately or lock the other sub-phase (charged spells, Jump, Perform).
 
+> **`[UNCERTAIN]` — the exception clause above.** *Move-then-declare* a charged spell is
+> well corroborated. *Declare-then-move* is not settled: one walkthrough implies a caster
+> may still move (and even leave the target's range) after declaring, naming the Archer's
+> **Aim** as the explicit counter-example, while the commonly repeated "a mage must stand
+> motionless until the spell activates" most likely describes *subsequent* turns. Primary
+> sources (AeroStar, FFHacktics) are egress-blocked in this environment, so this is
+> secondary-source only. Until resolved, the engine takes the **conservative** reading:
+> a charged act locks the other sub-phase (`docs/10` AC-P5). Do not code declare-then-move
+> without verifying first.
+
 ---
 
 ## 3. Charged (Slow) actions on the shared timeline
