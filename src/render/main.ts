@@ -23,9 +23,10 @@
  */
 
 import type { ActiveActor, Position } from "../sim/index.js";
-import { UNIT_META, forecast } from "./demo.js";
+import { ASSUMED_FUTURE_TURN_COST, UNIT_META, forecast } from "./demo.js";
 import { draw, pickTile } from "./iso.js";
 import { mountPrep } from "./prep.js";
+import type { TurnCost } from "./preview.js";
 import { Session, type Phase } from "./session.js";
 import type { ViewerApi } from "./viewer-api.js";
 
@@ -77,25 +78,45 @@ function render(): void {
   renderReason();
 }
 
-function chip(actor: ActiveActor, leading: boolean): string {
+function chip(actor: ActiveActor, leading: boolean, projected: boolean): string {
+  const cls = `chip${leading ? " lead" : ""}${projected ? " proj" : ""}`;
+  const title = projected
+    ? `Projected — this slot assumes every turn ahead of it costs −${ASSUMED_FUTURE_TURN_COST} CT`
+    : "Exact — no actor ahead of this slot takes a second turn first";
   if (actor.kind === "charge") {
     const charge = session.state.chargeQueue.find((c) => c.id === actor.id);
     const caster = charge ? UNIT_META[charge.sourceUnitId] : undefined;
     const color = caster?.color ?? "#ff7a3c";
     const text = caster ? `⚡ ${caster.label}` : "⚡ Spell";
-    return `<span class="chip spell${leading ? " lead" : ""}" style="--c:${color}">
+    return `<span class="${cls} spell" style="--c:${color}" title="${title}">
       <span class="swatch"></span>${text}</span>`;
   }
   const meta = UNIT_META[actor.id];
   const color = meta?.color ?? "#9aa4bb";
-  return `<span class="chip${leading ? " lead" : ""}" style="--c:${color}">
+  return `<span class="${cls}" style="--c:${color}" title="${title}">
     <span class="swatch"></span>${meta?.label ?? actor.id}</span>`;
 }
 
+/**
+ * The turn-order strip, split at the forecast's honesty boundary (docs/10 §4
+ * item 7). Chips BEFORE `assumedFrom` are facts — no guessed CT cost is in their
+ * path. From the divider on they are projections priced at
+ * {@link ASSUMED_FUTURE_TURN_COST}, and they LOOK different, because pillar 4
+ * forbids presenting a projection as a fact. The divider carries the reason, so
+ * the claim on screen matches the claim in `Forecast.assumedFrom`.
+ */
 function renderTimeline(): void {
-  const upcoming = forecast(session.state, 8);
+  const { entries, assumedFrom } = forecast(session.state, 8);
+  const divider =
+    assumedFrom >= entries.length
+      ? ""
+      : `<span class="tl-split" title="From here on, a Wait (−60) or a move+act fold (−100) by anyone ahead moves the order">
+          projected · −${ASSUMED_FUTURE_TURN_COST}/turn ▸</span>`;
   timelineEl.innerHTML =
-    `<span class="tl-label">Next up</span>` + upcoming.map((a, i) => chip(a, i === 0)).join("");
+    `<span class="tl-label">Next up</span>` +
+    entries
+      .map((a, i) => (i === assumedFrom ? divider : "") + chip(a, i === 0, i >= assumedFrom))
+      .join("");
 }
 
 function renderStatus(): void {
@@ -168,16 +189,33 @@ function renderPreview(): void {
         ` · CT ${p.turn.ctBefore} → ${p.turn.ctAfter}`,
     ) +
     row(
-      "Next slot (projected)",
+      p.turn.timelineSlotExact ? "Next slot" : "Next slot (projected)",
       p.turn.timelineSlot === null
         ? "beyond the next 8 turns"
-        : `≈ #${p.turn.timelineSlot + 1} in the timeline`,
+        : `${p.turn.timelineSlotExact ? "" : "≈ "}#${p.turn.timelineSlot + 1} in the timeline`,
     ) +
     `<p class="phint">Not modeled yet, so not shown: crit, reactions, status-on-hit, elemental
-     weak/half/absorb, AoE spread, line of sight (ADR-0010). “Next slot” is a
-     <b>projection, not a fact</b>: the forecast assumes every actor ahead of you spends a
-     plain −80 turn, so a Wait (−60) or a move+act fold (−100) anywhere in between moves it.
-     The CT price above it <i>is</i> exact.</p>`;
+     weak/half/absorb, AoE spread, line of sight (ADR-0010). ${slotHonesty(p.turn)}</p>`;
+}
+
+/**
+ * WHY the "Next slot" row is (or is not) exact — docs/10 §4 item 7 forbids
+ * presenting a projection as a fact, so the disclaimer has to track the actual
+ * value, not sit there as boilerplate. Exact means the slot lands inside
+ * `Forecast.assumedFrom`: no guessed CT cost is in its path. The cast caveat is
+ * stated in BOTH branches because no forecast can anticipate a charge nobody has
+ * declared yet.
+ */
+function slotHonesty(turn: TurnCost): string {
+  if (turn.timelineSlotExact) {
+    return `“Next slot” is <b>exact</b>: nobody ahead of you takes a second turn first, so no
+      guessed CT cost is in its path (it can still shift if an actor ahead begins a charged
+      cast — that adds an actor to the timeline). The CT price above it is exact too.`;
+  }
+  return `“Next slot” is a <b>projection, not a fact</b>: it sits past the point where the
+    forecast starts assuming every turn ahead costs a plain −${ASSUMED_FUTURE_TURN_COST} CT, so a
+    Wait (−60) or a move+act fold (−100) anywhere in between moves it. The CT price above it
+    <i>is</i> exact.`;
 }
 
 function renderLog(): void {

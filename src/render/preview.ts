@@ -60,19 +60,31 @@ export interface TurnCost {
   /** CT after this turn settles — the remainder carries. */
   ctAfter: number;
   /**
-   * The actor's PROJECTED slot in the next-8 timeline (0 = acts next), or `null`
-   * when it falls beyond the forecast horizon. Computed by settling a THROWAWAY
-   * clone and re-running the pure `forecast`; no RNG, no real clock movement.
+   * The actor's slot in the next-8 timeline (0 = acts next), or `null` when it
+   * falls beyond the forecast horizon. Computed by settling a THROWAWAY clone
+   * and re-running the pure `forecast`; no RNG, no real clock movement.
    *
-   * A PROJECTION, NOT A FACT — and the renderer must label it as one. `forecast`
-   * settles every FUTURE actor at `{didMove:false, didAct:true}`, i.e. it assumes
-   * each of them spends exactly −80. That is the very model ADR-0015 exists to
-   * disprove: a Wait costs −60 and a move+act fold costs −100, so any such turn
-   * ahead of the actor shifts this slot. The `cost`/`ctAfter` fields above are
-   * exact (they price only THIS turn); only the slot is speculative. When `ai.ts`
-   * learns the fold, this number moves without any change here.
+   * The `cost`/`ctAfter` fields above are ALWAYS exact — they price only THIS
+   * turn, which the player has just staged. The slot is the part that may not
+   * be: see {@link timelineSlotExact}.
    */
   timelineSlot: number | null;
+  /**
+   * Is {@link timelineSlot} independent of the forecast's one guess
+   * (`ASSUMED_FUTURE_TURN_COST` = −80 per future turn)?
+   *
+   * True when the slot lands inside `Forecast.assumedFrom` — i.e. no actor ahead
+   * of it takes a SECOND turn first, so no guessed cost is in the path and the
+   * slot is a fact, modulo a cast nobody has declared yet (see `Forecast`).
+   * False when it lands beyond the boundary: then a Wait (−60) or a move+act
+   * fold (−100) anywhere ahead moves it, and the renderer must say so rather
+   * than present it as a fact (docs/10 §4 item 7).
+   *
+   * `false` when `timelineSlot` is `null`: "beyond the horizon" is itself a
+   * consequence of the guessed pacing, so it is not something to present as
+   * settled either.
+   */
+  timelineSlotExact: boolean;
 }
 
 /** docs/10 §4 — the minimum honest set, computed for the STAGED position. */
@@ -180,9 +192,12 @@ function routeMagnitude(attacker: UnitState, target: UnitState, ability: BattleA
 
 /**
  * The CT price of the turn as staged, plus where it lands the actor on the
- * timeline. PURE: `settleTurn` clones its input and consumes no RNG, and
- * {@link forecast} is itself a clone-only preview — the caller's state is never
- * touched (AC-V6).
+ * timeline AND whether that slot is a fact or a projection. PURE: `settleTurn`
+ * clones its input and consumes no RNG, and {@link forecast} is itself a
+ * clone-only preview — the caller's state is never touched (AC-V6).
+ *
+ * The price is exact; the slot is exact only inside `Forecast.assumedFrom`. Both
+ * facts travel together so the renderer can never show one without the other.
  */
 export function turnCost(
   state: BattleState,
@@ -199,13 +214,25 @@ export function turnCost(
         : CT_COST_WAIT;
 
   let timelineSlot: number | null = null;
+  let timelineSlotExact = false;
   if (actor && ctBefore >= cost) {
     const settled = settleTurn(state, actorId, opts);
-    const idx = forecast(settled, 8).findIndex((a) => a.kind === "unit" && a.id === actorId);
+    const { entries, assumedFrom } = forecast(settled, 8);
+    const idx = entries.findIndex((a) => a.kind === "unit" && a.id === actorId);
     timelineSlot = idx === -1 ? null : idx;
+    // Exact iff the slot sits inside the stretch no guessed cost can move.
+    timelineSlotExact = idx !== -1 && idx < assumedFrom;
   }
 
-  return { cost, didMove: opts.didMove, didAct: opts.didAct, ctBefore, ctAfter: ctBefore - cost, timelineSlot };
+  return {
+    cost,
+    didMove: opts.didMove,
+    didAct: opts.didAct,
+    ctBefore,
+    ctAfter: ctBefore - cost,
+    timelineSlot,
+    timelineSlotExact,
+  };
 }
 
 /**

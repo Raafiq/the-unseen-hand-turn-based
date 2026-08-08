@@ -106,15 +106,36 @@ commit-click, and computed for the **staged** position, the player SHALL see:
 7. **The CT price of the turn as staged** (−100 / −80 / −60), the actor's resulting CT,
    and its resulting slot in the timeline. Non-negotiable — this is `docs/00`'s "CT
    forecast", and the only thing that makes the fold's opportunity cost visible.
-   > **Known modelling assumption — the timeline slot is a PROJECTION, not a fact.** It
-   > comes from `forecast()`, which settles every *future* actor at `{didMove:false,
-   > didAct:true}` — i.e. it assumes every subsequent turn on the field costs **−80**,
-   > the very model ADR-0015 exists to disprove. The actor's own price is exact; the
-   > *slot* is not. This is currently harmless because `ai.ts` really does emit single
-   > sub-phases — but the named follow-up slice (teaching `ai.ts` the fold) makes every
-   > displayed slot silently wrong, and nothing tests forecast accuracy against a real
-   > replay. **That slice must fix `forecast` or drop the row.** The row is labelled
-   > projected in the UI so the claim on screen matches the claim here.
+   > **The timeline is split at an explicit honesty boundary — facts, then projections.**
+   > A forecast cannot know what a future actor will *choose* (move? act? both? wait?),
+   > so it cannot know what that turn will cost; `forecast()` therefore guesses exactly
+   > once, in one named constant (`ASSUMED_FUTURE_TURN_COST` = **−80**, the model
+   > ADR-0015 disproves). Guessing *better* is not available — but the boundary is:
+   > **a unit's CT cost only ever moves its own NEXT turn**, so every slot before the
+   > first point at which an already-listed unit could come round again is independent
+   > of the guess. `forecast()` returns that index as `Forecast.assumedFrom`, computed at
+   > the *cheapest* legal turn (−60) so it is a lower bound and never overclaims.
+   >
+   > The viewer SHALL present the two halves differently: slots below `assumedFrom` as
+   > fact, slots from it on visually distinguished behind a divider naming the assumed
+   > price, and the "next slot" row labelled `(projected)` **only when the value actually
+   > is** — with the disclaimer stating *why* in either case (AC-V11).
+   >
+   > **Residual approximation, stated rather than hidden:** the boundary covers the CT
+   > *cost* model only. A future actor's choice can also change the timeline's
+   > *composition* — beginning a charged cast inserts a new actor no forecast can
+   > anticipate, and a crystallizing KO removes one — so the leading stretch is exact
+   > with respect to cost, still contingent on nobody ahead starting a cast. The UI hint
+   > says this. A KO'd unit's turn is likewise a crystal tick priced −60, not −80: a case
+   > the assumption gets provably wrong, and one the boundary already covers (it is a
+   > *second* turn for that unit) rather than one the forecast pretends about.
+   >
+   > **Forecast accuracy is now tested against a real replay** (`src/render/forecast.test.ts`):
+   > the oracle advances the sim with real commands and compares the realized actor order
+   > with the order forecast beforehand. Measured on the shipped demo state, the exact
+   > prefix is **3 of 8 slots**. The follow-up `ai.ts`-fold slice inherits a green/red
+   > signal instead of a landmine — it must keep the prefix exact under the −100 model,
+   > and the only thing it may need to touch is the one constant.
 8. The target's active statuses.
 
 `[ENHANCEMENT]` The Zodiac / Faith contribution line (`zodiacCompatibility` is already
@@ -172,6 +193,7 @@ degenerate fixture where all orderings coincide).
 - **AC-V8 (no viewer/harness divergence):** For an AI turn, the viewer's resulting state SHALL serialize identically to the headless harness's from the same input state.
 - **AC-V9 (a played session is replayable):** The viewer's recorded `(seed, commands)` — including at least one **combined** command and at least one **cancelled** draft — replayed through `replay()` SHALL reproduce the live final state byte-for-byte, and a rewind-to-K-then-replay SHALL match. *Discriminator:* the cancelled draft must leave no trace in the log.
 - **AC-V10 (screen→tile picking respects height):** A canvas click SHALL resolve to the tile actually drawn on top at that point. *Discriminator:* on a map with a raised plateau, a height-ignoring inverse projection returns a different tile than the one the player sees — the test asserts the drawn-on-top tile and fails against the naive inverse.
+- **AC-V11 (the forecast declares where it stops being a fact):** `forecast()` SHALL return the index `assumedFrom` from which its entries depend on `ASSUMED_FUTURE_TURN_COST`, and a **forecast-vs-replay oracle** SHALL assert that driving the sim with real commands realizes the forecast order over `[0, assumedFrom)` under **both** the −80 and the −100 cost model. The viewer SHALL mark slots `≥ assumedFrom` as projected, and the preview's "next slot" row SHALL be labelled projected **iff** its slot falls outside the prefix. *Discriminator:* the fixture must be one where the two cost models give a **different actor order** — measured, the shipped demo state does **not** (its first eight slots are identical under −80 and −100), so the oracle uses a purpose-built speed ladder in which one folded −100 command flips slot 3 from `hasty` to `slow`. A test that passes under both cost models certifies nothing here; a boundary computed from the *assumed* walk instead of the cheapest one overclaims by a slot and must fail.
 
 ## 7. Required module shape
 

@@ -12,9 +12,17 @@
  * ADR-0010) — which docs/00 pillar 4 forbids. The Knight's opening **Protect**
  * survives because it is applied at battle construction through the sim's own
  * exported helper, so it is a real status the resolvers actually read.
+ *
+ * {@link forecast} lives here too, and it is the one thing in the viewer that
+ * cannot be exact: it must price turns nobody has chosen yet. It therefore
+ * returns its own honesty boundary ({@link Forecast.assumedFrom}) alongside the
+ * entries, keeps its single guess in {@link ASSUMED_FUTURE_TURN}, and is held to
+ * a forecast-vs-replay oracle in `forecast.test.ts`.
  */
 
 import {
+  CT_COST_ONE,
+  CT_COST_WAIT,
   advanceToNextTurn,
   applyStatusToUnit,
   createBattleState,
@@ -137,15 +145,91 @@ const MAGE_SPELL_ABILITY: BattleAbility = {
   aoe: null,
 };
 
+/** Which sub-phases a turn is priced as having used (the `settleTurn` opts). */
+export interface FutureTurn {
+  didMove: boolean;
+  didAct: boolean;
+}
+
 /**
- * Forecast the next `n` actors without mutating state (turn-order timeline).
+ * ============== THE ONE ASSUMPTION IN THE WHOLE FORECAST =====================
  *
- * PURE PREVIEW: `advanceToNextTurn` and `settleTurn` both clone their input, so
- * the caller's state is never touched, and neither consumes the seeded RNG — the
- * forecast can be recomputed on every hover without moving `rngCounter` or the
- * real `tick` (docs/10 AC-V6).
+ * A forecast CANNOT know what a future actor will choose — move? act? both?
+ * wait? — so it cannot know what that turn will cost. This constant is the
+ * single place where {@link forecast} guesses, and it guesses **one sub-phase**:
+ * `{didMove:false, didAct:true}` ⇒ {@link ASSUMED_FUTURE_TURN_COST} = −80 CT.
+ *
+ * IT IS THE MODEL ADR-0015 EXISTS TO DISPROVE. A real turn costs −100 when both
+ * sub-phases are used (the fold), −80 for one, −60 for a Wait; and a KO'd unit's
+ * turn is a crystal tick, which `tickCrystal` prices at −60. So this guess is
+ * wrong for any of those. It is *currently* harmless only because `ai.ts` still
+ * emits single sub-phases — the moment the follow-up slice teaches `ai.ts` the
+ * fold, every turn on the field costs −100 and the guess is wrong for **all** of
+ * them (ADR-0015 Consequences).
+ *
+ * THE FIX FOR THAT SLICE IS NOT "GUESS BETTER" — guessing harder only moves the
+ * lie around. The fix is the boundary this module already computes and the UI
+ * already labels: {@link Forecast.assumedFrom}. What the follow-up slice owes is
+ * a re-run of `forecast.test.ts` (the forecast-vs-replay oracle), which asserts
+ * the realized order matches the forecast over `[0, assumedFrom)` under BOTH
+ * cost models — so it goes green when the fold lands and red if the boundary
+ * ever stops holding.
+ * =============================================================================
  */
-export function forecast(input: BattleState, n = 8): ActiveActor[] {
+export const ASSUMED_FUTURE_TURN: FutureTurn = { didMove: false, didAct: true };
+
+/** The CT {@link ASSUMED_FUTURE_TURN} prices a future turn at (−80). */
+export const ASSUMED_FUTURE_TURN_COST = CT_COST_ONE;
+
+/**
+ * The CHEAPEST turn any actor can legally take (a Wait, −60). Not a second
+ * assumption — a bound. A unit that just acted returns to the top of the order
+ * SOONEST when its turn was the cheapest one, so walking the timeline at this
+ * cost finds the EARLIEST index at which any already-forecast unit can possibly
+ * come round again. That index is {@link Forecast.assumedFrom}.
+ */
+const CHEAPEST_FUTURE_TURN: FutureTurn = { didMove: false, didAct: false };
+
+/**
+ * The CT a {@link CHEAPEST_FUTURE_TURN} costs (−60). Exported so the oracle test
+ * can assert the bound it rests on — `CHEAPEST ≤ ASSUMED ≤ CT_COST_MOVE_AND_ACT`
+ * — rather than taking this comment's word for it.
+ */
+export const CHEAPEST_FUTURE_TURN_COST = CT_COST_WAIT;
+
+/** The turn-order timeline: the next actors, plus where the guessing starts. */
+export interface Forecast {
+  /** The next `n` actors, in order. `entries[0]` is whoever acts next. */
+  entries: ActiveActor[];
+  /**
+   * THE HONESTY BOUNDARY. `entries[0 … assumedFrom)` do NOT depend on
+   * {@link ASSUMED_FUTURE_TURN_COST}. A unit's CT cost only ever moves **its own
+   * next** turn, and no unit is listed twice inside that stretch — so no slot in
+   * it sits downstream of a guessed price, and they come out identical whatever
+   * each turn actually ends up costing. From `assumedFrom` on, at least one slot
+   * is downstream of the guess and can move.
+   *
+   * `assumedFrom` is computed at {@link CHEAPEST_FUTURE_TURN} — the earliest any
+   * actor can return — so it is a *lower* bound on where the guess can first
+   * bite; it never claims exactness it cannot back.
+   *
+   * WHAT IT DOES **NOT** COVER (stated rather than hidden): a future actor's
+   * *choice* can change the timeline's COMPOSITION, not just its clock. Beginning
+   * a charged cast inserts a brand-new actor (`chargeQueue`) that no forecast can
+   * anticipate, and a crystallizing KO removes one. So the leading stretch is
+   * exact **with respect to the CT-cost model**; it is still contingent on nobody
+   * ahead of it starting a cast. The UI hint says exactly this.
+   */
+  assumedFrom: number;
+}
+
+/**
+ * Walk the shared timeline `n` actors forward, pricing every future unit turn at
+ * `turn`. Charges are spliced out (preview only — the real resolution happens in
+ * the driver). Pure: `advanceToNextTurn` and `settleTurn` both clone, so the
+ * caller's state is never touched and no RNG is consumed.
+ */
+function walk(input: BattleState, n: number, turn: FutureTurn): ActiveActor[] {
   let state = input;
   const out: ActiveActor[] = [];
   for (let i = 0; i < n; i++) {
@@ -153,14 +237,47 @@ export function forecast(input: BattleState, n = 8): ActiveActor[] {
     if (!active) break;
     out.push(active);
     if (active.kind === "unit") {
-      state = settleTurn(adv, active.id, { didMove: false, didAct: true });
+      state = settleTurn(adv, active.id, turn);
     } else {
       // Preview only: drop the matured charge so the forecast advances past it
       // (the real resolution happens in the driver, not here).
-      const i = adv.chargeQueue.findIndex((c) => c.id === active.id);
-      if (i !== -1) adv.chargeQueue.splice(i, 1);
+      const idx = adv.chargeQueue.findIndex((c) => c.id === active.id);
+      if (idx !== -1) adv.chargeQueue.splice(idx, 1);
       state = adv;
     }
   }
   return out;
+}
+
+/** Index of the first actor that has already appeared, or `actors.length`. */
+function firstRepeat(actors: readonly ActiveActor[]): number {
+  const seen = new Set<string>();
+  for (let i = 0; i < actors.length; i++) {
+    const key = `${actors[i]!.kind}:${actors[i]!.id}`;
+    if (seen.has(key)) return i;
+    seen.add(key);
+  }
+  return actors.length;
+}
+
+/**
+ * Forecast the next `n` actors without mutating state (turn-order timeline),
+ * WITH the index at which it stops being a fact and starts being a projection.
+ *
+ * PURE PREVIEW: nothing here resolves, rolls or advances the real clock, so the
+ * forecast can be recomputed on every hover without moving `rngCounter` or the
+ * real `tick` (docs/10 AC-V6).
+ *
+ * See {@link Forecast.assumedFrom} for what the boundary does and does not
+ * claim, and {@link ASSUMED_FUTURE_TURN} for the single guess it bounds.
+ *
+ * @param assumed EXPOSED FOR THE ORACLE TEST ONLY (`forecast.test.ts` re-walks
+ *   the same timeline at −60 / −80 / −100 to prove `assumedFrom` really is the
+ *   invariance boundary). Production callers must not pass it — a second call
+ *   site with a different guess would be a second lie to keep in sync.
+ */
+export function forecast(input: BattleState, n = 8, assumed = ASSUMED_FUTURE_TURN): Forecast {
+  const entries = walk(input, n, assumed);
+  const earliest = firstRepeat(walk(input, n, CHEAPEST_FUTURE_TURN));
+  return { entries, assumedFrom: Math.min(earliest, entries.length) };
 }

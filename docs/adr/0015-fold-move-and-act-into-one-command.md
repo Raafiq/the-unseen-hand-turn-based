@@ -146,15 +146,14 @@ in the `applyToUnit` docstring.
 
 **Costs / limits — stated plainly**
 
-- **The follow-up slice inherits a landmine: `forecast()` assumes −80 for everyone.**
-  The viewer's turn-order timeline and the preview's "next slot" row are computed by
-  settling every *future* actor at `{didMove:false, didAct:true}` — the −80 model this
-  ADR disproves. That is harmless *today* precisely because `ai.ts` really does emit
-  single sub-phases. The moment the follow-up slice teaches `ai.ts` the fold, every
-  displayed timeline slot becomes silently wrong, and **nothing tests forecast accuracy
-  against a real replay**. That slice must fix `forecast` or drop the row; it is recorded
-  in `docs/10` §4 item 7 so it cannot be missed. Flagged here because a distortion that is
-  currently invisible is exactly the kind a later session ships without noticing.
+- **~~The follow-up slice inherits a landmine: `forecast()` assumes −80 for everyone.~~
+  DEFUSED — see the amendment below.** As originally recorded: the viewer's turn-order
+  timeline and the preview's "next slot" row were computed by settling every *future*
+  actor at `{didMove:false, didAct:true}` — the −80 model this ADR disproves — harmless
+  only because `ai.ts` emits single sub-phases, with **nothing testing forecast accuracy
+  against a real replay**, so teaching `ai.ts` the fold would have made every displayed
+  slot silently wrong. The instruction was "that slice must fix `forecast` or drop the
+  row". It was neither: the forecast now **declares where it stops being a fact**.
 - **The gate's tempo distortion is not fixed by this ADR.** Because `ai.ts` still emits
   single sub-phases, the benchmark continues to under-measure every closer archetype.
   This ADR *stops the distortion from becoming the player-facing rule*; it does not
@@ -177,6 +176,57 @@ in the `applyToUnit` docstring.
   keep it without the UI asserting a status the sim never inflicted — which pillar 4
   forbids. The Knight's opening Protect survives (applied at battle construction).
 
+## Amendment (2026-08-08) — the `forecast()` landmine, defused
+
+The first consequence above is resolved, in the slice immediately after this ADR and
+*before* `ai.ts` learns the fold. `docs/10` §4 item 7 and **AC-V11** are authoritative;
+this is the summary.
+
+**Why "fix `forecast`" was the wrong instruction.** A forecast cannot know what a future
+actor will *choose* — move, act, both, or wait — so it cannot know what that turn will
+cost. There is no better guess to make; a cleverer one only moves the lie around. But
+part of the answer *is* knowable: **a unit's CT cost only ever moves its own NEXT turn.**
+So the forecast is exact right up to the first point at which an already-listed unit
+could come round again, and only from there on is the guess load-bearing.
+
+What shipped:
+
+1. **The boundary is explicit.** `forecast()` returns `{ entries, assumedFrom }`.
+   `entries[0 … assumedFrom)` are invariant to the cost model; `assumedFrom` is computed
+   by walking the same timeline at the *cheapest* legal turn (−60), so it is a lower
+   bound and never overclaims. On the shipped demo state the exact prefix is **3 of 8**.
+2. **The assumption is ONE named constant** — `ASSUMED_FUTURE_TURN` / 
+   `ASSUMED_FUTURE_TURN_COST` in `demo.ts`, with a docstring saying what it assumes and
+   why it is wrong under the fold. That is the single place the follow-up slice may need
+   to touch.
+3. **The UI stops presenting a projection as a fact** (`docs/00` pillar 4): the strip
+   splits at a divider naming the assumed price, projected chips are dimmed/dotted, and
+   the preview's "next slot" row is labelled `(projected)` **only when it actually is**,
+   with a disclaimer that states *why* in either case.
+4. **The oracle exists** — `src/render/forecast.test.ts` drives the sim with real
+   commands and compares the realized actor order against the forecast made beforehand.
+   Its discriminating case commits a folded −100 command and asserts the forecast
+   **diverges** from reality (slot 3 flips `hasty` → `slow`), while the identical
+   sequence *without* the move clause realizes the forecast exactly — so the −80
+   assumption is proven load-bearing and the oracle is proven able to see it. Measured
+   and worth recording: on the **demo** state the −80 and −100 models produce the *same*
+   first eight slots, so the natural fixture would have passed under both models and
+   certified nothing; the oracle uses a purpose-built speed ladder instead.
+
+**Residual approximation, stated plainly.** The boundary covers the CT *cost* model only.
+A future actor's choice can also change the timeline's *composition* — beginning a
+charged cast inserts an actor nothing can anticipate; a crystallizing KO removes one — so
+the exact prefix is exact *with respect to cost*, still contingent on nobody ahead
+starting a cast. The UI hint says so. Separately, a KO'd unit's turn is a crystal tick
+priced −60, which the assumption gets provably wrong; that case is a *second* turn for
+that unit, so it already falls beyond the boundary rather than inside the claimed-exact
+prefix.
+
+**What the follow-up `ai.ts`-fold slice now inherits:** a green/red signal instead of a
+landmine. The oracle already asserts the prefix holds under both cost models, so that
+slice gets a passing test if it is right and a failing one if the boundary stops holding.
+`ai.ts` and the diversity-gate records are untouched by this amendment.
+
 ## Acceptance criteria
 
 Recorded in full in `docs/10-viewer-and-interaction.md` (AC-V1 … AC-V10) — the doc is
@@ -191,6 +241,9 @@ authoritative and outranks this ADR if they ever disagree. The load-bearing ones
 - **AC-V5** — move + charged act settles at −100 (the old hard-coded `didMove:false`
   yields ct 28 instead of 8 — that is the discriminator); charged act + `order:"after"`
   is rejected.
+- **AC-V11** (added by the amendment above) — `forecast()` declares `assumedFrom`, the
+  forecast-vs-replay oracle holds over the exact prefix under **both** cost models, and
+  the discriminating fixture is one where the two models genuinely disagree.
 
 ## References
 

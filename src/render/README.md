@@ -22,8 +22,9 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
 - `preview.ts` — the docs/10 §4 **resolution transparency** payload: hit %, the
   named facing tier, the exact integer damage, target HP before→after and
   lethality, the CT price of the turn as staged (−100 / −80 / −60) with the
-  actor's resulting CT and timeline slot, the target's statuses, and the Zodiac
-  tier. Computed **only** from pure, RNG-free sim helpers (`hitChance`,
+  actor's resulting CT and timeline slot (plus `timelineSlotExact`, so the row
+  can be labelled projected only when it actually is), the target's statuses, and
+  the Zodiac tier. Computed **only** from pure, RNG-free sim helpers (`hitChance`,
   `attackDamage`/`abilityDamage`, `relativeFacing`, `inAbilityRange`,
   `moveRange`, `settleTurn` on a throwaway clone) — **never by resolving**.
   Deferred rows (crit, reactions, status-on-hit, elemental, AoE, LoS, charge
@@ -42,7 +43,13 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
   `paintOrder()` that `draw()` walks forward) and returns the tile drawn on top.
   Only top faces are pickable. Covered by `iso.test.ts`.
 - `demo.ts` — the demo battle, its presentation metadata, and a pure turn-order
-  `forecast`. **No step policy lives here any more** (see below).
+  `forecast`. **No step policy lives here any more** (see below). `forecast()` is
+  the one thing the viewer cannot compute exactly — it must price turns nobody
+  has chosen yet — so it returns `{ entries, assumedFrom }`: the slots below
+  `assumedFrom` are independent of its single guess (`ASSUMED_FUTURE_TURN_COST`,
+  −80), the rest are projections and the UI shows them as such (docs/10 §4 item
+  7, AC-V11). `forecast.test.ts` is the **forecast-vs-replay oracle** that keeps
+  that claim honest.
 - `main.ts` — DOM wiring only: pointer/keyboard adapters onto `Session`, the
   painting call, and `window.tuh`.
 - `viewer-api.ts` — the `window.tuh` seam's **type**, shared by `main.ts` and the

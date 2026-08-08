@@ -49,6 +49,10 @@
       .chip .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
       .chip.lead { border-color: var(--c); color: var(--ink); box-shadow: 0 0 0 1px var(--c) inset; }
       .chip.spell { border-style: dashed; }
+      /* A PROJECTED slot is not a fact (docs/10 §4 item 7): dimmed, hollow and
+         behind an explicit divider, so it can never read as a certainty. */
+      .chip.proj { opacity: .5; background: transparent; border-style: dotted; }
+      .tl-split { font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); border-left: 1px dashed var(--border); padding-left: 10px; margin-left: 2px; }
       .cols { display: grid; gap: 16px; margin-top: 22px; grid-template-columns: 1fr; }
       @media (min-width: 720px) { .cols { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); } }
       .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
