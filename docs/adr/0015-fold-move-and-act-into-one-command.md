@@ -110,9 +110,25 @@ manifest, `DIVERSITY_TARGET_N`, ADR-0014, `docs/06` AC-E2 and the generated
 
 `charge.ts` hard-coded `settleTurn(state, casterId, { didMove: false, didAct: true })`
 (commented *"cost 80 — one action, no move phase here"*). A move-then-charge would have
-settled at −80 instead of −100. The `didMove` flag is now threaded through. A charged act
-combined with `order: "after"` is **rejected** — `docs/01` §2: charged spells lock the
-other sub-phase.
+settled at −80 instead of −100.
+
+**Resolution: `declareCharge` no longer settles at all — the driver owns the settle.**
+The obvious fix (thread a `didMove` flag into `declareCharge`) was rejected because it
+keeps the bug class alive: a second CT-cost decision hidden inside a helper that cannot
+see the whole turn. With the settle removed, the driver's `act` case has **exactly one**
+`settleTurn` at the bottom covering all four sub-branches (instant single, instant AoE,
+charged, folded), so *"one command = one settled turn"* is structurally enforced rather
+than maintained by convention. `charge.ts` no longer imports the scheduler and no longer
+knows any CT constant. Blast radius was three call sites (driver, `demo.ts`,
+`charge.test.ts`); every pre-existing test passes unchanged.
+
+A charged act combined with `order: "after"` is **rejected** — `docs/01` §2: charged
+spells lock the other sub-phase.
+
+**Unspecified detail resolved during implementation:** with `order: "after"`, the move is
+validated against the **post-act** board — a body the act just dropped still blocks
+traversal, exactly as it would for a separate `move` command issued afterwards. Recorded
+in the `applyToUnit` docstring.
 
 ## Consequences
 

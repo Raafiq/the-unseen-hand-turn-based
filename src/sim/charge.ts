@@ -39,7 +39,6 @@
  */
 
 import { magicDamage, applyZodiac, applyShell, applyMagicEvasion, zodiacCompatibility } from "./formulas.js";
-import { settleTurn } from "./scheduler.js";
 import { CRYSTAL_TIMER_START } from "./resolve.js";
 import { inBounds, unitsInAoeBox } from "./grid.js";
 import {
@@ -154,9 +153,19 @@ export interface DeclareChargeInput {
 
 /**
  * Declare a charged action (docs/05 §2 DECLARE): enqueue a ChargedAction with a
- * deterministic id and END the caster's turn (settle, cost 80 — a cast locks
- * the act sub-phase, docs/01 §2). Pure: clones the input, returns a new state.
- * Consumes no RNG (declaration is not a random event).
+ * deterministic id. Pure: clones the input, returns a new state. Consumes no RNG
+ * (declaration is not a random event).
+ *
+ * TURN ECONOMY IS THE CALLER'S (driver.ts) — this function does NOT settle.
+ * It used to end the caster's turn itself at a hard-coded cost 80 ("no move
+ * phase here"), which silently mis-priced a MOVE-then-CHARGE turn at −80 instead
+ * of the −100 docs/01 §1 mandates. Settling belongs to whoever owns the turn, so
+ * that ONE command settles exactly ONCE with the actual `didMove`/`didAct` it
+ * performed; a helper deciding a CT cost from an assumption it cannot see is the
+ * bug class itself. Callers must follow a declare with a single
+ * `settleTurn` (the driver's `act` case does; docs/01 §2 still forbids
+ * pairing a charged act with a move-AFTER, so a charged turn is either −80 or,
+ * with a move-before, −100).
  *
  * The charge id is derived deterministically from caster + tick (with a numeric
  * disambiguator scanning the queue), never a counter or timestamp — so replay
@@ -189,8 +198,8 @@ export function declareCharge(
   });
   state.turnLog.push({ tick: state.tick, unitId: casterId, action: `charge ${id}` });
 
-  // The cast ends the caster's turn (cost 80 — one action, no move phase here).
-  return settleTurn(state, casterId, { didMove: false, didAct: true });
+  // NO settle here — the caller ends the turn with the real (didMove, didAct).
+  return state;
 }
 
 /** Deterministic, collision-free charge id from caster + tick. */

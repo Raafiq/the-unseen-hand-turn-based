@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { declareCharge, resolveCharge, type ChargeOutcome } from "./charge.js";
-import { advanceToNextTurn } from "./scheduler.js";
+import { advanceToNextTurn, settleTurn } from "./scheduler.js";
 import { magicDamage, applyZodiac, applyShell } from "./formulas.js";
 import {
   createBattleState,
@@ -55,8 +55,8 @@ function scene({ caster = {}, target = {}, charge = {}, seed = 1 }: SceneOpts = 
 
 const hpOf = (s: BattleState, id: string): number => s.units.find((u) => u.id === id)!.hp;
 
-describe("declareCharge — enqueue + end turn (docs/05 §2 DECLARE)", () => {
-  it("enqueues a ChargedAction at ct 0 with the target tile and effect, and settles the caster", () => {
+describe("declareCharge — enqueue only; the CALLER settles (docs/05 §2 DECLARE)", () => {
+  it("enqueues a ChargedAction at ct 0 with the target tile and effect, and does NOT settle", () => {
     const cst = defaultUnit("caster", 0, { pos: { x: 0, y: 0 }, ct: 100, speed: 5 });
     const base = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [cst] });
 
@@ -70,8 +70,15 @@ describe("declareCharge — enqueue + end turn (docs/05 §2 DECLARE)", () => {
     const c = after.chargeQueue[0]!;
     expect(c).toMatchObject({ sourceUnitId: "caster", ct: 0, speed: 25, targetTile: { x: 3, y: 1 } });
     expect(c.effect).toEqual(MAGIC);
-    // Cast ends the turn as one action (cost 80): 100 → 20.
-    expect(after.units[0]?.ct).toBe(20);
+    // Turn economy is NOT declareCharge's job any more: it cannot know whether the
+    // turn also MOVED, and hard-coding cost 80 here mis-priced a move-then-charge
+    // turn (the driver folds move+act and settles ONCE — driver.test.ts AC-P5).
+    // So ct is untouched by the declare itself...
+    expect(after.units[0]?.ct).toBe(100);
+    // ...and the caller prices the turn: one action, no move → cost 80 (100 → 20).
+    expect(settleTurn(after, "caster", { didMove: false, didAct: true }).units[0]?.ct).toBe(20);
+    // ...or, folded with a move, the full move+act cost 100 (100 → 0).
+    expect(settleTurn(after, "caster", { didMove: true, didAct: true }).units[0]?.ct).toBe(0);
     expect(after.rngCounter).toBe(0); // declaration consumes no RNG
   });
 

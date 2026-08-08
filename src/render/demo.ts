@@ -211,11 +211,14 @@ export function stepDemo(input: BattleState): StepResult {
     // re-casting each turn would otherwise stack redundant chips on one unit.
     const alreadySlowed = target.statuses.some((s) => s.id === "slow");
     const hexed = alreadySlowed ? state : applyStatusToUnit(state, target.id, legacyActiveStatus("slow"));
-    const next = declareCharge(hexed, "mage", {
+    const declared = declareCharge(hexed, "mage", {
       targetTile: { x: target.pos.x, y: target.pos.y },
       speed: spell.speed ?? 1,
       effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy, aoe: spell.aoe },
     });
+    // declareCharge no longer ends the turn itself (turn economy belongs to
+    // whoever owns the turn — see charge.ts); the cast is one action, no move.
+    const next = settleTurn(declared, "mage", { didMove: false, didAct: true });
     return {
       state: next, active, activeRange: range, moved: false, attack: null, charge: null,
       statusInflicted: alreadySlowed ? null : { unitId: target.id, statusId: "slow", kind: "debuff" },
