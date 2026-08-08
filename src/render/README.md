@@ -6,7 +6,7 @@ so it stays deterministic and unit-testable. Swap this layer to change the look
 without touching the engine.
 
 The authoritative spec for this layer is **`docs/10-viewer-and-interaction.md`**
-(the turn state machine in §3, the transparency set in §4, AC-P1…AC-P10 in §6,
+(the turn state machine in §3, the transparency set in §4, AC-V1…AC-V10 in §6,
 the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
 
 ## Contents

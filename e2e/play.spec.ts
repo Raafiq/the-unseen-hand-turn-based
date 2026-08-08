@@ -289,6 +289,52 @@ test("playable: an illegal click is refused with a reason and changes nothing", 
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
+// 4b. docs/10 §1: a viewer/sim FORK reaches the SCREEN, not just the console.
+// ───────────────────────────────────────────────────────────────────────────────
+
+test("playable: a viewer/sim fork paints the fatal chip instead of freezing the board", async ({
+  page,
+}) => {
+  await playToFlankDecision(page);
+  const chipBefore = await page.getByTestId("reason").textContent();
+
+  // CONSTRUCTING A GENUINE FORK. There is none in normal play, by design: the
+  // viewer and the driver both ask `moveRange` on the same state. So we make them
+  // disagree about WHO IS ACTING — `applyCommand` re-runs `advanceToDecision`
+  // internally, and `getState()` hands back the LIVE state object, so raising the
+  // Mage's CT gives the turn to the Mage while the viewer still holds the
+  // Archer's move range on screen. The Archer's legal destination is then applied
+  // to a unit four steps away with `move: 3`, and the driver really throws.
+  const thrown = await page.evaluate(() => {
+    const live = window.tuh.getState();
+    window.tuh.clickTile(2, 5); // inside the ARCHER's moveRange
+    if (window.tuh.phase() !== "MOVE_STAGED") return `not staged: ${window.tuh.phase()}`;
+    const mage = live.units.find((u) => u.id === "mage");
+    if (!mage) return "no mage";
+    mage.ct = 500;
+    try {
+      window.tuh.endTurn();
+      return "no throw";
+    } catch (err) {
+      return String(err);
+    }
+  });
+
+  // The sim really rejected it — the fork is genuine, not simulated by a stub.
+  expect(thrown).toMatch(/illegal move for mage/);
+
+  // ── THE DISCRIMINATOR. `Session.commit` records `fatal` and RETHROWS; the DOM
+  // handler must still repaint on the way out. A handler written as
+  // `session.endTurn(); refresh();` skips that repaint, leaving the player with
+  // the STALE chip below and a frozen board while the message goes only to the
+  // console — which is precisely "swallowed" in the sense docs/10 §1 forbids.
+  await expect(page.getByTestId("reason")).toHaveClass(/fatal/);
+  await expect(page.getByTestId("reason")).toContainText("viewer/sim fork");
+  await expect(page.getByTestId("reason")).toContainText("illegal move for mage");
+  expect(await page.getByTestId("reason").textContent()).not.toBe(chipBefore);
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
 // 5. Accessibility: keyboard-reachable End Turn, Escape cancels for free.
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -407,10 +453,27 @@ test.describe("playable — the static proof sheet", () => {
     await mkdir(SHOTS, { recursive: true });
     await playToFlankDecision(page);
 
-    // ── 10: the player's turn. Move range painted, End Turn states its price.
+    // ── 10: the player's turn. Move range painted, End Turn states its price, and
+    // NO enemy is in reach — which is the frame's actual argument: `basic.attack`
+    // is range 1 and both foes are two tiles from (5,5), so the Archer has to
+    // spend its move to buy an attack. Asserted, because an earlier caption on
+    // this frame claimed "the one enemy it could reach is tinted red" — there is
+    // no target tint here at all; the red/orange parallelogram is the enemy Mage's
+    // in-flight charge reticle, aimed at the tile the Archer is standing on.
     await expect(page.getByTestId("status")).toContainText("Active Archer (you)");
     await expect(page.getByTestId("end-turn")).toContainText("End Turn · Wait · −60 CT");
     expect(await page.evaluate(() => window.tuh.getState().units.length)).toBe(4);
+    const reach = await page.evaluate(() => {
+      const s = window.tuh.getState();
+      window.tuh.hoverTile(6, 3); // hovering a foe yields no preview: none is targetable
+      return {
+        preview: window.tuh.preview(),
+        charge: s.chargeQueue.map((c) => c.targetTile),
+        archer: s.units.find((u) => u.id === "archer")?.pos,
+      };
+    });
+    expect(reach.preview).toBeNull(); // the target set really is empty
+    expect(reach.charge).toEqual([reach.archer]); // the reticle is the Mage's cast
     await clipShot(page, "10-player-turn.png", [STAGE]);
 
     // ── 13: an illegal click, from a clean idle board. Reason chip up, nothing
@@ -452,9 +515,25 @@ test.describe("playable — the static proof sheet", () => {
     expect(post.units.find((u) => u.id === "brawler")?.hp).toBe(20);
     // The turn log is included here and only here: it is the one place a STILL can
     // show that the move and the strike were ONE turn ("move 7,3" then "hit
-    // brawler −100" at the same tick t17), which is the whole claim of the fold.
-    await expect(page.locator(LOG_PANEL)).toContainText("Archer · move 7,3");
-    await expect(page.locator(LOG_PANEL)).toContainText("Archer · hit brawler −100");
+    // brawler −100" at the same tick), which is the whole claim of the fold.
+    //
+    // THE SAME TICK IS THE CLAIM, SO IT IS ASSERTED — not left to the caption.
+    // Both halves of the fold land at one tick because neither sub-phase advances
+    // the clock; that is cheap to assert and it is exactly what a regression to
+    // two separate commands would break.
+    const foldEntries = post.turnLog.filter((e) => e.unitId === "archer").slice(-2);
+    expect(foldEntries.map((e) => e.action)).toEqual(["move 7,3", "hit brawler −100"]);
+    const foldTick = foldEntries[0]!.tick;
+    expect(foldEntries[1]!.tick).toBe(foldTick);
+    // Non-vacuity: the log's ticks are NOT all the same, so the equality above is
+    // a property of THIS turn rather than of a clock that never moves.
+    expect(new Set(post.turnLog.map((e) => e.tick)).size).toBeGreaterThan(1);
+    // …and the FRAME shows that tick on both rows, so the caption cannot drift
+    // from the picture it describes.
+    await expect(page.locator(LOG_PANEL)).toContainText(`t${foldTick} · Archer · move 7,3`);
+    await expect(page.locator(LOG_PANEL)).toContainText(
+      `t${foldTick} · Archer · hit brawler −100`,
+    );
     await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL]);
 
     // ── 15: an AI turn, with input inert. Reached by ending the Knight's turn;

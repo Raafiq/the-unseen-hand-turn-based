@@ -143,7 +143,7 @@ const MAGE_SPELL_ABILITY: BattleAbility = {
  * PURE PREVIEW: `advanceToNextTurn` and `settleTurn` both clone their input, so
  * the caller's state is never touched, and neither consumes the seeded RNG — the
  * forecast can be recomputed on every hover without moving `rngCounter` or the
- * real `tick` (docs/10 AC-P6).
+ * real `tick` (docs/10 AC-V6).
  */
 export function forecast(input: BattleState, n = 8): ActiveActor[] {
   let state = input;

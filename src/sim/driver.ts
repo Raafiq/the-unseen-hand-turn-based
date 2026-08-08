@@ -387,8 +387,9 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
       // left to move in. A move-BEFORE is legal (walk up, then begin the cast).
       if (ability.speed !== null && fold !== undefined && fold.order === "after") {
         throw new Error(
-          `applyCommand: charged ability ${command.abilityId} locks the move sub-phase; ` +
-            `a move cannot follow the cast (use order "before")`,
+          `applyCommand: charged ability ${command.abilityId} locks the SUBSEQUENT move ` +
+            `sub-phase; a move cannot follow the cast. Moving BEFORE it is legal — ` +
+            `use order "before"`,
         );
       }
 

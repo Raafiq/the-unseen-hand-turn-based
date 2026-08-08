@@ -745,8 +745,9 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
     expect(bare.chargeQueue).toHaveLength(1);
     expect(ctOf(bare, "c")).toBe(28); // 108 − 80
 
-    // docs/01 §2/§3: a charged spell LOCKS the other sub-phase — the cast ends the
-    // turn, so no move can follow it.
+    // docs/01 §2/§3: a charged spell locks the SUBSEQUENT move sub-phase — the
+    // cast ends the turn, so no move can follow it. (Moving BEFORE the cast is
+    // legal, and is exercised by the −100 assertion above.)
     expect(() =>
       applyCommand(mk(), {
         kind: "act",
@@ -754,7 +755,7 @@ describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
         target: { x: 3, y: 3 },
         move: { to: { x: 2, y: 2 }, order: "after" },
       }),
-    ).toThrow(/locks the move sub-phase/);
+    ).toThrow(/locks the SUBSEQUENT move sub-phase/);
   });
 
   it("AC-V9: a command log containing COMBINED commands replays byte-for-byte", () => {

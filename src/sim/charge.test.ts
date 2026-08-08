@@ -72,7 +72,7 @@ describe("declareCharge — enqueue only; the CALLER settles (docs/05 §2 DECLAR
     expect(c.effect).toEqual(MAGIC);
     // Turn economy is NOT declareCharge's job any more: it cannot know whether the
     // turn also MOVED, and hard-coding cost 80 here mis-priced a move-then-charge
-    // turn (the driver folds move+act and settles ONCE — driver.test.ts AC-P5).
+    // turn (the driver folds move+act and settles ONCE — driver.test.ts AC-V5).
     // So ct is untouched by the declare itself...
     expect(after.units[0]?.ct).toBe(100);
     // ...and the caller prices the turn: one action, no move → cost 80 (100 → 20).

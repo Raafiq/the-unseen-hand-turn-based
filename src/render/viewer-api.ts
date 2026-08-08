@@ -8,7 +8,7 @@
  *
  * WHY A SEAM AT ALL: docs/10 §7 forbids the interaction suite from clicking raw
  * canvas pixels. Tests drive GRID coordinates through `clickTile`; the
- * pointer→tile mapping gets exactly ONE assertion via `clickCanvas` (AC-P10).
+ * pointer→tile mapping gets exactly ONE assertion via `clickCanvas` (AC-V10).
  * Otherwise every camera/iso tweak would break the whole suite for no
  * behavioural reason. Both entry points bottom out in the same `Session.onPick`
  * a real `pointerdown` uses — the seam is not a parallel implementation.
@@ -35,12 +35,12 @@ export interface ViewerApi {
   turn: () => number;
   /** Activate a tile by GRID coordinate — the interaction suite's seam. */
   clickTile: (x: number, y: number) => void;
-  /** Activate a tile by CANVAS PIXEL — the one AC-P10 pointer→tile assertion. */
+  /** Activate a tile by CANVAS PIXEL — the one AC-V10 pointer→tile assertion. */
   clickCanvas: (px: number, py: number) => void;
   /** Hover a tile by GRID coordinate (drives the preview; never touches the sim). */
   hoverTile: (x: number, y: number) => void;
   /**
-   * The tile the last pick RESOLVED TO — how AC-P10 observes the pointer→tile
+   * The tile the last pick RESOLVED TO — how AC-V10 observes the pointer→tile
    * mapping end-to-end: `clickCanvas` at the plateau's projected centre must
    * leave this on the plateau, not on the flat tile a height-ignoring inverse
    * would return. Also the keyboard tile cursor's position.
@@ -48,7 +48,7 @@ export interface ViewerApi {
   cursor: () => Position | null;
   /** The current pure-UI-intent draft, or null. */
   draft: () => TurnDraft | null;
-  /** The recorded command log, in order — AC-P9 replays it. */
+  /** The recorded command log, in order — AC-V9 replays it. */
   commands: () => Command[];
   cancel: () => void;
   endTurn: () => void;

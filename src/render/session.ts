@@ -16,9 +16,9 @@
  * THE DRAFT IS PURE UI INTENT. Staging a move, hovering a target and cancelling
  * touch NOTHING in the sim: no clone is applied, no roll is drawn, no tick moves.
  * Exactly ONE command is emitted per player turn, at COMMIT. That is what makes
- * cancel free, previews honest (AC-P6) and speculation impossible.
+ * cancel free, previews honest (AC-V6) and speculation impossible.
  *
- * THE SIM OWNS LEGALITY (docs/10 §1, AC-P7). Move tiles come from `moveRange`;
+ * THE SIM OWNS LEGALITY (docs/10 §1, AC-V7). Move tiles come from `moveRange`;
  * targets come from `inAbilityRange` + the unit's own `abilities` projection.
  * There is no radius or Manhattan test anywhere in this file. If a click passes
  * the viewer's check and `applyCommand` then throws, that is the viewer/sim fork
@@ -101,7 +101,7 @@ export class Session {
   phase: Phase = "AWAIT_ACTOR";
   activeUnitId: string | null = null;
   draft: TurnDraft | null = null;
-  /** The recorded command log — AC-P9 replays `(state.seed, this.log)`. */
+  /** The recorded command log — AC-V9 replays `(state.seed, this.log)`. */
   private log: Command[] = [];
   /** Committed turns (one per command); the status line's "Turns". */
   turnCount = 0;
@@ -233,7 +233,7 @@ export class Session {
     return this.draft?.move ? { ...this.draft.move.to } : null;
   }
 
-  /** Legal move destinations — straight from `moveRange` (AC-P7). */
+  /** Legal move destinations — straight from `moveRange` (AC-V7). */
   moveTiles(): Position[] {
     const a = this.actor();
     if (!a || !this.accepting()) return [];
@@ -350,7 +350,17 @@ export class Session {
       return;
     }
 
-    // A unit on the tile ⇒ act if the SIM says it is a legal target.
+    // A DOWNED unit still holds its tile: `moveRange` builds its occupancy map
+    // from every unit regardless of `hp` (grid.ts), so the crystal really does
+    // block the tile — but falling through to "Out of Move range" would name the
+    // wrong rule over a tile that visibly holds a crystal. Say what is true.
+    const body = this.state.units.find((u) => u.pos.x === p.x && u.pos.y === p.y);
+    if (body && body.hp <= 0) {
+      this.refuse("A crystal blocks that tile");
+      return;
+    }
+
+    // A living unit on the tile ⇒ act if the SIM says it is a legal target.
     const occupant = this.state.units.find((u) => u.pos.x === p.x && u.pos.y === p.y && u.hp > 0);
     if (occupant) {
       const option = this.targets().find((t) => t.unit.id === occupant.id);
@@ -365,7 +375,7 @@ export class Session {
     }
 
     // An empty tile ⇒ stage a move if `moveRange` contains it. NOTHING touches
-    // the sim: staging is pure intent (AC-P6).
+    // the sim: staging is pure intent (AC-V6).
     if (this.moveTiles().some((t) => t.x === p.x && t.y === p.y)) {
       this.draft = { actorId: actor.id, move: { to: { x: p.x, y: p.y } }, act: null };
       this.phase = "MOVE_STAGED";

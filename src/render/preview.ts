@@ -1,7 +1,7 @@
 /**
  * Resolution transparency (docs/10 §4, docs/00 pillar 4, docs/04 §3).
  *
- * ============================ AC-P6: PREVIEW PURITY ==========================
+ * ============================ AC-V6: PREVIEW PURITY ==========================
  * NOTHING in this module may resolve anything. Every number below is computed
  * with the sim's PURE, RNG-FREE exported helpers:
  *
@@ -13,7 +13,7 @@
  * sequence of hovers/stagings/cancels leaves `rngCounter` and `tick` byte-equal.
  * The two forbidden shortcuts — calling `resolveAttack`/`resolveAbility` to read
  * an outcome, or speculatively `applyCommand`-ing and discarding — are what
- * AC-P6 exists to catch: the first bumps `rngCounter` once per hover, the second
+ * AC-V6 exists to catch: the first bumps `rngCounter` once per hover, the second
  * advances `tick` and can mature a charge. Neither is imported here.
  * =============================================================================
  *
@@ -60,9 +60,17 @@ export interface TurnCost {
   /** CT after this turn settles — the remainder carries. */
   ctAfter: number;
   /**
-   * The actor's resulting slot in the next-8 timeline (0 = acts next), or `null`
+   * The actor's PROJECTED slot in the next-8 timeline (0 = acts next), or `null`
    * when it falls beyond the forecast horizon. Computed by settling a THROWAWAY
    * clone and re-running the pure `forecast`; no RNG, no real clock movement.
+   *
+   * A PROJECTION, NOT A FACT — and the renderer must label it as one. `forecast`
+   * settles every FUTURE actor at `{didMove:false, didAct:true}`, i.e. it assumes
+   * each of them spends exactly −80. That is the very model ADR-0015 exists to
+   * disprove: a Wait costs −60 and a move+act fold costs −100, so any such turn
+   * ahead of the actor shifts this slot. The `cost`/`ctAfter` fields above are
+   * exact (they price only THIS turn); only the slot is speculative. When `ai.ts`
+   * learns the fold, this number moves without any change here.
    */
   timelineSlot: number | null;
 }
@@ -128,7 +136,7 @@ function isClickTargetable(ability: BattleAbility): boolean {
  * Every unit the actor could act on FROM `from`, with the ability that would do
  * it — THE SIM DECIDES: membership comes from `inAbilityRange` and the unit's own
  * `abilities` projection, never from a viewer-side radius or Manhattan test
- * (docs/10 §1, AC-P7). Damage abilities target foes; heals target allies.
+ * (docs/10 §1, AC-V7). Damage abilities target foes; heals target allies.
  *
  * Deterministic: iterates `units` in array order and, per unit, takes the FIRST
  * matching ability in `abilities` order.
@@ -174,7 +182,7 @@ function routeMagnitude(attacker: UnitState, target: UnitState, ability: BattleA
  * The CT price of the turn as staged, plus where it lands the actor on the
  * timeline. PURE: `settleTurn` clones its input and consumes no RNG, and
  * {@link forecast} is itself a clone-only preview — the caller's state is never
- * touched (AC-P6).
+ * touched (AC-V6).
  */
 export function turnCost(
   state: BattleState,
@@ -205,7 +213,7 @@ export function turnCost(
  * acts on `target` with `ability`" — docs/10 §4 items 3–8.
  *
  * Every value is read from a pure helper; nothing here resolves, rolls or
- * settles the real state (AC-P6).
+ * settles the real state (AC-V6).
  */
 export function computeActPreview(
   state: BattleState,

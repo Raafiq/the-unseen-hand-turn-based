@@ -13,7 +13,7 @@
  * `pointerdown` ends. Only `clickCanvas` performs the pixel→tile mapping
  * (`pickTile`), which is why the
  * interaction suite drives GRID coordinates and the pointer mapping is covered
- * by one separate assertion (AC-P10) — otherwise every camera tweak would break
+ * by one separate assertion (AC-V10) — otherwise every camera tweak would break
  * the whole suite for no behavioural reason.
  *
  * Wall-clock: this layer MAY use it for animation pacing, but nothing derived
@@ -168,11 +168,16 @@ function renderPreview(): void {
         ` · CT ${p.turn.ctBefore} → ${p.turn.ctAfter}`,
     ) +
     row(
-      "Next slot",
-      p.turn.timelineSlot === null ? "beyond the next 8 turns" : `#${p.turn.timelineSlot + 1} in the timeline`,
+      "Next slot (projected)",
+      p.turn.timelineSlot === null
+        ? "beyond the next 8 turns"
+        : `≈ #${p.turn.timelineSlot + 1} in the timeline`,
     ) +
     `<p class="phint">Not modeled yet, so not shown: crit, reactions, status-on-hit, elemental
-     weak/half/absorb, AoE spread, line of sight (ADR-0010).</p>`;
+     weak/half/absorb, AoE spread, line of sight (ADR-0010). “Next slot” is a
+     <b>projection, not a fact</b>: the forecast assumes every actor ahead of you spends a
+     plain −80 turn, so a Wait (−60) or a move+act fold (−100) anywhere in between moves it.
+     The CT price above it <i>is</i> exact.</p>`;
 }
 
 function renderLog(): void {
@@ -193,6 +198,26 @@ function refresh(): void {
   renderLog();
 }
 
+/**
+ * Run a session mutation and ALWAYS repaint — even when it throws.
+ *
+ * docs/10 §1 requires a viewer/sim fork (the sim rejecting a pick the viewer
+ * allowed) to be surfaced LOUDLY, never swallowed. `Session.commit` records it in
+ * `session.fatal` and RETHROWS, and {@link renderReason} paints it as the `fatal`
+ * chip — but a bare `session.x(); refresh();` handler SKIPS that repaint on the
+ * throw, so the one screen the message was written for never receives it: the
+ * player is left with a stale chip over a frozen board while the only trace goes
+ * to the console. `finally` guarantees the paint happens; the error still
+ * propagates, so nothing is swallowed. EVERY handler below goes through this.
+ */
+function guard(mutate: () => void): void {
+  try {
+    mutate();
+  } finally {
+    refresh();
+  }
+}
+
 // ─── input adapters ─────────────────────────────────────────────────────────
 
 /** Client pixels → CANVAS pixels (the canvas is CSS-scaled to its container). */
@@ -209,8 +234,7 @@ function toCanvasPoint(ev: { clientX: number; clientY: number }): Position {
  * this adds over the grid seam, which is exactly the split docs/10 §7 asks for.
  */
 function pickAtCanvas(px: number, py: number): void {
-  session.onPick(pickTile(session.state, px, py, canvas.width, canvas.height));
-  refresh();
+  guard(() => session.onPick(pickTile(session.state, px, py, canvas.width, canvas.height)));
 }
 
 canvas.addEventListener("pointerdown", (ev) => {
@@ -234,19 +258,16 @@ canvas.addEventListener("pointermove", (ev) => {
   const p = toCanvasPoint(ev);
   const tile = pickTile(session.state, p.x, p.y, canvas.width, canvas.height);
   if (sameTile(tile, session.hover)) return;
-  session.onTileHover(tile);
-  refresh();
+  guard(() => session.onTileHover(tile));
 });
 
 canvas.addEventListener("pointerleave", () => {
-  session.onTileHover(null);
-  refresh();
+  guard(() => session.onTileHover(null));
 });
 
 canvas.addEventListener("contextmenu", (ev) => {
   ev.preventDefault();
-  session.cancel();
-  refresh();
+  guard(() => session.cancel());
 });
 
 canvas.addEventListener("focus", () => {
@@ -276,80 +297,55 @@ canvas.addEventListener("keydown", (ev) => {
   const stepVec = CURSOR_STEP[ev.key];
   if (stepVec) {
     ev.preventDefault();
-    session.moveCursor(stepVec.x, stepVec.y);
-    refresh();
+    guard(() => session.moveCursor(stepVec.x, stepVec.y));
     return;
   }
   if (ev.key === "Enter" || ev.key === " ") {
     ev.preventDefault();
-    session.onPick(session.cursor); // the SAME mutator a pointer click uses
-    refresh();
+    guard(() => session.onPick(session.cursor)); // the SAME mutator a click uses
     return;
   }
   if (ev.key === "Escape") {
     ev.preventDefault();
-    session.cancel();
-    refresh();
+    guard(() => session.cancel());
   }
 });
 
 document.addEventListener("keydown", (ev) => {
   // Escape cancels from anywhere — the draft is UI intent, so this is free.
   if (ev.key === "Escape" && ev.target !== canvas) {
-    session.cancel();
-    refresh();
+    guard(() => session.cancel());
   }
 });
 
 stepBtn.addEventListener("click", () => {
-  session.step();
-  refresh();
+  guard(() => session.step());
 });
 document.getElementById("btn-reset")?.addEventListener("click", () => {
-  session.reset();
-  refresh();
+  guard(() => session.reset());
 });
 endTurnBtn.addEventListener("click", () => {
-  session.endTurn();
-  refresh();
+  guard(() => session.endTurn());
 });
 cancelBtn.addEventListener("click", () => {
-  session.cancel();
-  refresh();
+  guard(() => session.cancel());
 });
 
 /** The shipped seam, typed by the shared {@link ViewerApi} contract. */
 const api: ViewerApi = {
-  step: () => {
-    session.step();
-    refresh();
-  },
-  reset: () => {
-    session.reset();
-    refresh();
-  },
+  step: () => guard(() => session.step()),
+  reset: () => guard(() => session.reset()),
   getState: () => session.state,
   turn: () => session.turnCount,
-  clickTile: (x, y) => {
-    session.onPick({ x, y }); // the SAME mutator a real pointerdown ends in
-    refresh();
-  },
+  // The SAME mutator a real pointerdown ends in, under the same repaint guard.
+  clickTile: (x, y) => guard(() => session.onPick({ x, y })),
   clickCanvas: (px, py) => pickAtCanvas(px, py),
-  hoverTile: (x, y) => {
-    session.onTileHover({ x, y });
-    refresh();
-  },
+  hoverTile: (x, y) => guard(() => session.onTileHover({ x, y })),
   cursor: () => session.cursor,
   draft: () => session.draft,
   commands: () => session.commands(),
-  cancel: () => {
-    session.cancel();
-    refresh();
-  },
-  endTurn: () => {
-    session.endTurn();
-    refresh();
-  },
+  cancel: () => guard(() => session.cancel()),
+  endTurn: () => guard(() => session.endTurn()),
   phase: () => session.phase,
   preview: () => session.preview(),
   reason: () => session.reason,
