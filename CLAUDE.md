@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `the-unseen-hand-turn-based` is the systems/combat game for a turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around **deep character customization** and an **intensive job system**. Narrative content will come from a **separate story repo** (not started); this repo stays narrative-agnostic and loads story battles as data.
 
-**Status: planning / pre-code.** The repository currently contains **design documentation only** — no application code, build tooling, or tests yet. The docs are the deliverable and the source of truth for the code that follows.
+**Status: P3 — playable.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The docs in `docs/` are still the **source of truth and outrank the code** when the two disagree — a mismatch means the code is wrong, or the doc needs an explicit, recorded change.
 
 ## Source of truth — read these first
 
@@ -18,10 +18,11 @@ Design lives in `docs/`. Read in this order before proposing changes:
 - `docs/02-job-and-customization-system.md` — **the core doc**: job system + customization, baseline and enhancement layers.
 - `docs/05-simulation-and-state-model.md` — the authoritative engine/state model (scheduler, resolution pipeline, determinism, schemas).
 - `docs/06-encounters-and-ai.md` — encounter design + AI as the balance test-harness.
+- `docs/10-viewer-and-interaction.md` — the authoritative **viewer** spec: player input as a command source, the turn state machine, the resolution-transparency set, and the AC-V criteria.
 - Also: `03` build-fantasy catalog, `04` improvements/differentiators, `07` economy/pacing, `08` roadmap/scope/onboarding, `09` tech-stack/tooling.
 - `docs/adr/` — Architecture/Any Decision Records. Read these to see *why* settled decisions were made; add a new ADR (via the `decision-record` skill) rather than relitigating one.
 
-`docs/01`, `02`, `05`, `06` each end with an **Acceptance Criteria (SDD-ready)** section — treat those as the testable spec for the corresponding code.
+`docs/01`, `02`, `05`, `06`, `07` and `10` each end with an **Acceptance Criteria (SDD-ready)** section — treat those as the testable spec for the corresponding code. Each doc owns an AC letter (`01`→AC-0*, `02`→AC-J*, `05`→AC-S*, `06`→AC-E*, `07`→AC-P*, `10`→AC-V*).
 
 ## Locked decisions (do not relitigate without discussion)
 
@@ -89,14 +90,14 @@ Development uses a **Product-Owner-orchestrated** team. Because the main session
 
 Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `reviewer` (adversarial) — active now; `combat-engineer`, `content-author`, `qe-tester` (test plans now; running tests + screenshots at P0), and `playtester` (spawn 2–3 personas) — full value at P0+. Design/review agents are read-only and return findings; only `combat-engineer`/`content-author` edit code/data. See `.claude/agents/README.md` for the full contract and personas.
 
-## Tooling & workflow (for the P0 implementation phase)
+## Tooling & workflow
 
 - **Retrospective before every PR.** Before opening a PR (or requesting a merge), run the `retrospective` skill: capture any durable lessons from the work and **propose** (approval-gated) updates to CLAUDE.md / the docs / an ADR / a skill. This is the checkpoint where lessons get codified so the same mistake isn't repeated in a future session — it replaces the old per-turn Stop-hook nudge, which fired too often to be useful.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). When something misbehaves, verify with a direct check *before* explaining it: fetch the stored object, A/B against the working precedent, probe with the authenticated API — and say plainly what the sandbox *cannot* verify (e.g. how a private repo's page renders for a logged-in viewer) instead of asserting a cause. The PR-18 visual-proof incident asserted two wrong root-causes before an A/B against PR #8 plus a device screenshot found the real ones. Corollary: the agent automates the fix; suggesting the human do it by hand (drag-drop uploads, manual edits) is a failure mode, not a fallback.
 - **Visual proof in a PR (verified recipe).** Commit frames/video under `docs/visual/<slice>/` (cf. `docs/visual/p1`, PR #8) and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>` — renders inline on desktop web for this private repo; re-fetch the stored body afterwards to confirm no mangling. Do NOT use `raw.githubusercontent.com` (404s on private repos) and do NOT embed images via API-posted *comments* (that path corrupted URLs with stray backticks, and comments cannot be edited or deleted by the tooling). Verified limits (on-device, PR #18): the GitHub **mobile app** displays NO motion format for private-repo files — it never inlines images (alt-text link only), has no player for committed videos (mp4 verified byte-perfect and served as `video/mp4` — the app, not the file), and GIF tap-through does not animate either; **static images via tap-through are the only medium it shows**. So for mobile-readable motion, commit a **filmstrip contact-sheet PNG** (ffmpeg `fps=N,scale,tile`); keep an H.264 **`run.mp4`** + GIF for desktop (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static` via npm). Playable video for any browser lives on the Pages gallery (`/visual/`) after merge.
 - **Present implementation plans as a readable HTML artifact.** Whenever you produce a non-trivial implementation/kickoff plan for the human's review, render it as a clean, scannable, theme-aware HTML artifact (via the `Artifact` tool + `artifact-design` skill) **in addition to** the plain plan file — the plan file stays the source of truth; the artifact is the review medium. Do this by default; don't wait to be asked.
-- **Spec-driven development (hybrid):** at P0/P1, initialize **GitHub Spec Kit** (`specify init`, integrates with Claude Code). Port `docs/00` → `/speckit.constitution`, and each buildable-system doc (`01`, `02`, `05`, `06`) → a `/speckit.specify` feature spec using its Acceptance Criteria section. See `docs/08` §5.
-- **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP (Serena or a local-first graph), **disabled until P0** — a code graph over a docs-only repo adds noise, and can cost more tokens than it saves if misconfigured. Enable and measure once code exists.
+- **Spec-driven development (hybrid):** **GitHub Spec Kit is initialized** — `.specify/` and `specs/` exist and the `speckit-*` skills are available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec using its Acceptance Criteria section. See `docs/08` §5.
+- **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP (Serena or a local-first graph). It was gated off while the repo was docs-only; **code now exists, so the gate no longer applies** — enable it and measure whether it saves more tokens than it costs before leaving it on.
 - **Helper skills** (enable on claude.ai if not already): `brainstorming` and `grill-me` for design sessions; the `design` plugin for menu UX. Use `/fewer-permission-prompts` and the `session-start-hook` skill to add `.claude/settings.json` and a SessionStart hook once real commands exist.
 
 ## Remote-session signals ≠ user intent

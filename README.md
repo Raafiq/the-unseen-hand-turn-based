@@ -2,7 +2,7 @@
 
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
-> **Status: Planning.** This repository currently contains design documentation only — no game code yet. The tech stack is deliberately deferred (see `docs/09`).
+> **Status: P3 — playable.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007). The docs in `docs/` remain the source of truth and outrank the code where they disagree.
 
 ## Design pillars (in priority order)
 
@@ -37,7 +37,7 @@ To avoid "ten shallow systems sharing a menu," three axes are the identity. Ever
 
 ## How these docs feed the code (spec-driven, hybrid)
 
-These documents are the **authoritative, SDD-ready source of truth**, but no game code exists yet. We use a **hybrid approach**:
+These documents are the **authoritative, SDD-ready source of truth**, and they outrank the code where the two disagree. We use a **hybrid approach**:
 
 - **Now (planning):** write these as design docs. `docs/00` is the seed for a project **constitution**; the buildable-system docs (`01`, `02`, `05`, `06`) each end with an explicit **Acceptance Criteria (SDD-ready)** section written as testable, EARS-flavored statements.
 - **At implementation (P0/P1):** initialize **[GitHub Spec Kit](https://github.com/github/spec-kit)** (installs into Claude Code natively), port `docs/00` → constitution and each system doc → `specs/<feature>/spec.md`, and generate `plan.md`/`tasks.md` per feature then.
