@@ -1,0 +1,70 @@
+# `src/render/` — the thin viewer
+
+Rules that apply while **editing viewer code**. The root `CLAUDE.md` still governs; this
+file holds what only matters in here. `README.md` next to this file describes what each
+module *is* — this one says what you must not break.
+
+**`docs/10-viewer-and-interaction.md` is the authoritative spec** and outranks both this
+file and any ADR that contradicts it (AC-V1 … AC-V11).
+
+## The two directional rules
+
+- **Render imports sim, never the reverse** (ADR-0007). The sim has zero render deps, which
+  is what keeps it deterministic and unit-testable.
+- **Player input is a command SOURCE, not a parallel engine.** A human clicking a tile and
+  the balance-probe AI choosing one produce the same `Command`, through the same
+  `applyCommand`, into the same replayable log — that is why player battles inherit rewind,
+  save and build-sharing for free. `advanceToDecision` is the single "who acts next"
+  primitive shared with the headless harness, so the two cannot diverge. **The sim owns
+  legality**: ask `moveRange` / `inAbilityRange` / the equipped `unit.abilities` projection;
+  never re-derive reachability with a radius or Manhattan check.
+
+## Determinism still applies here
+
+`npm run check:rng` only scans `src/sim`, but **`session.ts` is state-bearing** — it emits
+the command log — so it must be hand-checked. It is currently clean: no wall-clock, no
+timers, and AI turns advance on an explicit **Step** rather than a racing timer, precisely
+so "how many commands have been applied by now" is never a function of elapsed time.
+`main.ts` and `iso.ts` may use wall-clock for animation pacing; nothing derived from it may
+enter `BattleState`.
+
+- **Never preview by resolving.** `resolveAttack` consumes the seeded stream. `preview.ts`
+  deliberately does not *import* the resolvers or `applyCommand` at all, so the two ways to
+  break preview purity are unreachable rather than merely avoided (AC-V6).
+- **Never speculatively `applyCommand` and discard** — it advances the clock and can mature
+  a charge.
+- **Exactly one tile-driven mutator.** `pointerdown`, keyboard Enter, `clickTile` and
+  `clickCanvas` all bottom out in `Session.onPick`; `clickCanvas` adds exactly one thing over
+  `clickTile` — `pickTile`. That is what makes the test seam provably the path a real click
+  takes rather than parallel logic that drifts.
+
+## Honesty rules the UI must hold (pillar 4)
+
+- **Unmodeled things are ABSENT, never shown as zero.** Crit, reactions, status-on-hit,
+  elemental, AoE spread and LoS are deferred (ADR-0010); printing "Crit 0%" would assert a
+  modeled zero the engine cannot back up. `exactOptionalPropertyTypes` is on — keep those
+  fields genuinely absent from the type so the compiler enforces it.
+- **Never render a state the sim did not produce.** The demo once applied a scripted Slow
+  purely in the render layer, asserting a status the sim never inflicts; it was removed.
+  Damage popups are derived by *diffing HP* across a transition, so a popup can only report
+  a change the sim actually made.
+- **The timeline splits at an honesty boundary.** `forecast()` cannot know what a future
+  actor will *choose*, so it guesses once (`ASSUMED_FUTURE_TURN_COST` = −80). Slots below
+  `Forecast.assumedFrom` are fact; from it on they are projections and must render as such.
+  `assumedFrom` is computed at the *cheapest* legal turn (−60) so it is a lower bound and
+  never overclaims. **When `ai.ts` learns the move+act fold, this assumption breaks** —
+  `forecast.test.ts` is the oracle that will go red rather than let the UI lie quietly.
+- **`pickTile` is not an algebraic inverse.** Per-tile height shifts a tile's screen position
+  and taller tiles occlude those behind, so it walks reverse painter's order. A naive inverse
+  picks the wrong tile on any raised terrain.
+
+## Testing
+
+The turn state machine lives in a **DOM-free `session.ts`** constructible over an arbitrary
+`BattleState` — that is what lets legality tests build purpose-built grids instead of hoping
+the demo map discriminates (it frequently does not; see the root's evidence principle).
+Interaction tests drive the grid-coordinate seam, never raw canvas pixels — exactly one
+assertion (AC-V10) covers the pointer→tile mapping.
+
+`npm run test:visual` (build + Playwright). Chromium is **pre-installed** at
+`/opt/pw-browsers`; never run `playwright install`.
