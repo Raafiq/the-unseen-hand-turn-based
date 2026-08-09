@@ -2,7 +2,7 @@
 
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
-> **Status: P3 — playable.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007). The docs in `docs/` remain the source of truth and outrank the code where they disagree.
+> **Status: P2 — customization depth, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007). **P2's open exit criterion is the build-diversity gate, at N=6 against a release bar of ≥8.** The docs in `docs/` remain the source of truth and outrank the code where they disagree.
 
 ## Design pillars (in priority order)
 

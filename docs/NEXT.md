@@ -1,4 +1,4 @@
-<!-- written-against: 226d186 -->
+<!-- written-against: f6a2495 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -19,7 +19,11 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P3 — playable.** 428 tests / 25 files, 10 Playwright specs, CI + Pages green.
+**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI +
+Pages green. **P2's open exit criterion is the diversity gate at N=6 vs a release bar of
+≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
+are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
+started.
 
 Two PRs merged in the last session:
 

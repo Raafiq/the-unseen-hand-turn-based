@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `the-unseen-hand-turn-based` is the systems/combat game for a turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around **deep character customization** and an **intensive job system**. Narrative content will come from a **separate story repo** (not started); this repo stays narrative-agnostic and loads story battles as data.
 
-**Status: P3 — playable.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The docs in `docs/` are still the **source of truth and outrank the code** when the two disagree — a mismatch means the code is wrong, or the doc needs an explicit, recorded change.
+**Status: P2 — customization depth, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. **P2's open exit criterion is the build-diversity gate, at N=6 against a release bar of ≥8** (`docs/06` AC-E2, ADR-0014). The viewer's resolution-transparency previews are a P2 deliverable, not P3 — P3 (`docs/08` §1) is hybrid/fusion jobs, rewind UI, scan and the speed toggle, and none of the last three are shipped. The docs in `docs/` are the **source of truth and outrank the code** when the two disagree — a mismatch means the code is wrong, or the doc needs an explicit, recorded change.
 
 ## Source of truth — read these first
 

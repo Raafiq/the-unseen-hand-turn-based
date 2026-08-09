@@ -16,6 +16,44 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 | **P3 — Enhancements** | Differentiators | Hybrid/fusion jobs, **rewind UI**, scan, speed toggle; evaluate `[OPTIONAL]` sockets against `docs/03` | Cut-line decisions get made here |
 | **P4 — Content, balance, polish** | Ship-shape | Encounter suite, balance passes vs. the metric, difficulty toggles, onboarding, accessibility, build-sharing | New Game+ if scope allows |
 
+### 1a. Progress against the phases
+
+> **This is an authored checklist, not a derived one.** `npm run state` renders the phase
+> timeline from `scripts/state-content.ts`, and CI fails if the committed dashboard drifts
+> from that source — but that check proves *the HTML matches the source*, *not* that the
+> source matches reality. A phase marked done stays marked done until a human corrects it.
+> Re-check this list whenever you touch the roadmap, and treat a tick as a claim that needs
+> evidence (a shipped file, a passing AC), not as proof. Last reconciled against the code
+> on **2026-08-09**; a stale header here once claimed "pre-code" against 428 passing tests,
+> and a later one claimed P3 while P3's own deliverables were unshipped.
+
+**P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
+RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
+(`docs/05` §3b).
+
+**P1 — Chassis + data · LANDED.** 5-slot loadout, base job set, data-driven
+job/ability/encounter schemas, AP purchase, Spec Kit initialized (`.specify/`, `specs/`).
+
+**P2 — Customization depth · IN PROGRESS.** The current phase.
+
+- [x] Per-job trees, mastery bonuses, free respec (AC-J4)
+- [x] **Resolution-transparency previews** — hit %, named facing arc, exact damage, HP
+      before→after, and the CT price of the turn as staged (`docs/10` §4). Shipped with the
+      playable viewer; this is a **P2** deliverable, not P3.
+- [x] Build-diversity gate exists, runs live in CI, and can FAIL (ADR-0014)
+- [ ] **The gate reaches the release bar — N ≥ 8. Currently N = 6.** This is P2's open exit
+      criterion. Remaining EXCLUDED identities: `aggro-tank` (provoke/threat), `counter-wall`
+      (reaction-as-live), `battle-cleric` (prefix-collapse — structurally uncountable),
+      `warlord` (boss).
+- [ ] MP enforcement. Blocked, deliberately: two of six counted prefixes ride unenforced MP,
+      so enforcing it today would drop **N 6→4**. Needs durable carriers first.
+
+**P3 — Enhancements · NOT STARTED.** Hybrid/fusion jobs (partial sim support in `job.ts`;
+no player-facing path), **rewind UI** (the substrate exists, the UI does not), scan, speed
+toggle.
+
+**P4 — Content, balance, polish · NOT STARTED.**
+
 ## 2. Scope & cut-lines (for a small/solo team)
 
 The single most important discipline. **Minimum viable job system that still delivers the fantasy = the three spine axes + a handful of jobs.** Everything else is negotiable.
