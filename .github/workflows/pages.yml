@@ -25,6 +25,48 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # PREFLIGHT — assert Pages is actually wired to Actions BEFORE spending four
+      # minutes building an artifact nothing will deploy.
+      #
+      # Why this exists: for 17 consecutive runs (2026-07-30 … 2026-08-09) `build`
+      # was green and only `deploy` failed, so the run looked "mostly fine" while
+      # the site had never once existed. Worse, GitHub changed the failure mode
+      # partway through: the later runs are rejected at the environment gate before
+      # a runner is ever assigned, so `deploy` fails in ONE SECOND with no steps and
+      # ZERO log bytes — the log download 404s. A failure with no error text reads
+      # like an infra blip rather than a misconfiguration.
+      #
+      # `build_type` is the discriminating field, and it comes out the other way:
+      #   "workflow" → Settings→Pages→Source = "GitHub Actions"   (deploy can work)
+      #   "legacy"   → Source = "Deploy from a branch"            (deploy ALWAYS fails)
+      #   404        → Pages not enabled at all                   (deploy ALWAYS fails)
+      # A green preflight therefore means something; it cannot pass while the site
+      # is unreachable, which is exactly what the old silent-green build did.
+      - name: Preflight — Pages must be enabled with Source = "GitHub Actions"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pages")
+          echo "GET /pages -> HTTP $code"; cat /tmp/pages.json; echo
+          if [ "$code" = "404" ]; then
+            echo "::error::GitHub Pages is NOT enabled for this repository. Enable it at Settings → Pages, and set Build and deployment → Source = \"GitHub Actions\"."
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::Could not read Pages configuration (HTTP $code). Refusing to build an artifact that may not deploy."
+            exit 1
+          fi
+          build_type=$(python3 -c 'import json;print(json.load(open("/tmp/pages.json")).get("build_type") or "")')
+          echo "Pages build_type = '$build_type'"
+          if [ "$build_type" != "workflow" ]; then
+            echo "::error::Pages is enabled but Source is '$build_type', not 'workflow'. actions/deploy-pages CANNOT deploy in this mode — the deploy job is rejected at the environment gate with no logs. Fix: Settings → Pages → Build and deployment → Source = \"GitHub Actions\"."
+            exit 1
+          fi
+          echo "Pages is wired to GitHub Actions — deploy can proceed."
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
