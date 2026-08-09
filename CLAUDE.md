@@ -81,9 +81,10 @@ Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
 - **Typecheck:** `npm run typecheck` (`tsc --noEmit`)
 - **Lint:** `npm run lint` (`eslint .` — bans unseeded RNG / wall-clock in `src/sim/**`)
 - **Determinism guard:** `npm run check:rng` (greps `src/sim` for banned nondeterminism)
+- **Handoff freshness:** `npm run check:handoff` — fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or more than 20 commits behind. CI enforces it on push events only (a `pull_request` event checks out a *merge* ref, which would count base commits the branch never authored).
 - **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
 - **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
-- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + check:handoff + test)
 - **State dashboard:** `npm run state` (regenerate the generated, drift-proof "state of the engine" page → `state/index.html`, published to `/state/`; derives all counts + a LIVE diversity-gate run, prose lives in `scripts/state-content.ts`; CI fails if the committed copy drifted)
 - **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
 - **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)

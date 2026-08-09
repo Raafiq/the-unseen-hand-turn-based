@@ -1,4 +1,4 @@
-<!-- written-against: f6a2495 -->
+<!-- written-against: 5aa0c4a -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -13,7 +13,10 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 > the evidence principle in `CLAUDE.md` exists to close.
 >
 > **Update this file as part of the retrospective before every PR**, while the context is
-> hot. Re-stamp `written-against` to the branch's head commit.
+> hot. Re-stamp `written-against` to the branch's head commit, then run
+> `npm run check:handoff`. **CI enforces this** (`check:handoff`, push events only): the
+> stamp must resolve, be an ancestor of HEAD, and be no more than 20 commits behind — so
+> this file cannot quietly rot into something that still reads as authoritative.
 
 ---
 

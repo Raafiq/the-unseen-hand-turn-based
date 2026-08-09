@@ -56,6 +56,9 @@ As the last step of the retrospective, before the PR:
    detonate, standing constraints that outlive this slice, and explicitly what is **not**
    green-lit (so the next session asks rather than assumes).
 2. Re-stamp its `<!-- written-against: <sha> -->` to the branch head.
+3. Run `npm run check:handoff`. CI enforces this on every push — the handoff may not fall
+   more than 20 commits behind HEAD, so the convention cannot decay into a stale file that
+   still reads as authoritative.
 
 Keep it to intent a machine cannot derive. Branch state, merge state and unpushed work are
 printed by the SessionStart hook from live git — never restate them here, or the file
