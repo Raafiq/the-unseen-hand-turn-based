@@ -89,11 +89,13 @@ produced by any replay-legal command log.
 | `run-filmstrip.png` | Tiled contact sheet of the recorded run |
 | `run.mp4`, `run.gif` | Motion, for desktop viewers |
 
-**On formats:** the GitHub **mobile app** displays no motion format for a private repo —
-it does not inline images, has no player for a committed video, and will not animate a
-GIF. Static images via tap-through are the only medium it shows, which is why the
-argument above is carried by `preview-pair.png` and `fold-filmstrip.png` rather than by
-`run.mp4`. Playable video lives on the Pages gallery (`/visual/`) after merge.
+**On formats:** the GitHub **mobile app** displayed no motion format back when this repo
+was **private** — it did not inline images, had no player for a committed video, and
+would not animate a GIF. That is why the argument above is carried by `preview-pair.png`
+and `fold-filmstrip.png` rather than by `run.mp4`. The repo went **public on 2026-08-09**
+and that finding was private-repo-specific, so it is now an unverified hypothesis rather
+than a measured limit. The static frames still carry the argument regardless. Playable
+video lives on the Pages gallery (`/visual/`) after merge.
 
 ---
 

@@ -95,6 +95,17 @@ sim, never the reverse). CI runs `npm run check` + a visual-tests job on every
 push/PR (`.github/workflows/ci.yml`); merges to `main` deploy the viewer + the
 visual gallery (`/visual/`) to GitHub Pages (`.github/workflows/pages.yml`).
 
+**Pages is a two-part system and the halves fail independently.** `pages.yml`'s
+`build` job can be green while the site does not exist — that was true for 17
+consecutive runs (2026-07-30 … 2026-08-09), because Pages had never been enabled
+on the repo and only the `deploy` job failed. Since 2026-08-09 GitHub rejects a
+misconfigured `deploy` at the environment gate *before assigning a runner*, so it
+fails in one second with no steps and **no downloadable logs at all** — which
+reads like an infra blip rather than a misconfiguration. The `build` job now opens
+with a preflight asserting `GET /repos/{owner}/{repo}/pages` returns 200 with
+`build_type == "workflow"`; treat a red Pages badge in the README as "the site is
+stale", never as flakiness, and never assert the deploy works without checking it.
+
 ## Project skills (in `.claude/skills/`)
 
 Committed, project-scoped skills for agent-first work — invoke by name:
