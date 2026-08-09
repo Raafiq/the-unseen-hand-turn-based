@@ -102,7 +102,17 @@ jobs:
             exit 0
           fi
           msg="Branch '$GITHUB_REF_NAME' is NOT in the github-pages environment's deployment-branch policy, so the deploy job will be refused at the environment gate with NO logs. Fix: Settings → Environments → github-pages → Deployment branches — add '$GITHUB_REF_NAME' (and drop any stale feature-branch entries)."
-          if [ "$GITHUB_REF_NAME" = "${{ github.event.repository.default_branch }}" ]; then
+          # Read the default branch from the API, NOT from github.event.repository — an
+          # event whose payload omits `repository` would leave that expression empty, the
+          # comparison would be false, and the guard would quietly downgrade to a warning
+          # on the one branch that actually publishes. Fail closed if it cannot be read.
+          default_branch=$(api "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}" | jq -r '.default_branch // empty')
+          if [ -z "$default_branch" ]; then
+            echo "::error::Could not determine the default branch; refusing to downgrade this to a warning."
+            exit 1
+          fi
+          echo "default branch = $default_branch"
+          if [ "$GITHUB_REF_NAME" = "$default_branch" ]; then
             echo "::error::$msg"
             exit 1
           fi

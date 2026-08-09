@@ -22,8 +22,10 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI +
-Pages green. **P2's open exit criterion is the diversity gate at N=6 vs a release bar of
+**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI
+green. **The Pages deploy has NEVER succeeded** — see the incident note below; the README
+formerly claimed it was green, which is why it went unnoticed for ten days. **P2's open
+exit criterion is the diversity gate at N=6 vs a release bar of
 ≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
 are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
 started.
@@ -90,6 +92,36 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
 
 ---
 
+## OPEN — the Pages deploy needs ONE manual setting change
+
+**Blocked on the human; no code will fix it.** `pages.yml` is correct and its `build` job
+has always been green. The site has still never existed, for two sequential reasons:
+
+1. **2026-07-30 → 2026-08-09:** GitHub Pages was never enabled. `actions/deploy-pages`
+   got `404 … Ensure GitHub Pages has been enabled`. **Now fixed** — Pages is enabled, the
+   repo was made public to allow it on a free plan, and `/pages` reports
+   `build_type: "workflow"`.
+2. **Still open:** the `github-pages` **environment** carries a custom deployment-branch
+   policy whose only entry is `claude/fft-combat-design-e32fm1` — a feature branch dead
+   since 2026-07-30. `main` is not on the list, so the deploy job is refused at the
+   environment gate **before a runner is assigned**: one second, no steps, no annotation,
+   and no downloadable log at all (the log endpoint 404s). Nothing in the run says why.
+
+**The fix (repo Settings, browser):** Settings → Environments → `github-pages` →
+Deployment branches — add `main`, and delete the stale `claude/fft-combat-design-e32fm1`
+entry. While there, Settings → Pages still shows that same dead branch as the source
+branch; harmless under `build_type: workflow`, worth clearing.
+
+**Why an agent cannot do this:** editing environments needs `administration: write`, which
+is not among the scopes a workflow's `GITHUB_TOKEN` can request, and this sandbox's proxy
+blocks `/repos/*/pages`, `/environments` and `/deployments` outright (403). Reading those
+endpoints from *inside a runner* works and is how the policy was finally found — that trick
+is reusable for any settings question the sandbox cannot answer.
+
+After the setting changes, dispatch `pages.yml` on `main` and confirm `deploy` gets a
+runner. `raafiq.github.io` is egress-blocked from the sandbox, so the site itself must be
+eyeballed from a browser — the agent cannot verify the final page renders.
+
 ## Standing constraints that outlive any one slice
 
 - **MP is unenforced for two of six gate prefixes** (`white-magic.holy` 56 vs 24;
@@ -114,6 +146,14 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
   hypothesis — subagents do not inherit the main session's environment knowledge.
 - **Use the check-runs API for CI.** The legacy commit-status endpoint reports
   `pending / total_count: 0` because nothing posts there; that is not a failure.
+- **A job that fails in ~1s with `runner_id: 0`, no `steps`, and a 404 on its logs was
+  never dispatched** — it was refused at the environment gate. Do not read that as an
+  infra blip and do not go hunting in the job's log; there is none. Query the environment
+  (`/environments/<name>`, `/deployment-branch-policies`) from inside a runner instead.
+- **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` (403) and
+  all `*.github.io` egress**, but a *runner* can reach them with `${{ github.token }}`.
+  When a repo-settings question is unanswerable from here, add a temporary workflow step
+  and read the answer out of the log rather than guessing or asking the human to look.
 - **GitHub auto-merge is NOT enabled** on this repo, so "enable auto-merge" fails — watch
   the checks and merge.
 - `claude.com` is egress-blocked; `github.com` is reachable.
