@@ -67,6 +67,25 @@ jobs:
           fi
           echo "Pages is wired to GitHub Actions — deploy can proceed."
 
+      # TEMPORARY DIAGNOSTIC — remove before merge. The deploy job is rejected at
+      # the environment gate with no runner and no logs; dump what the gate sees.
+      - name: TEMP diagnostic — github-pages environment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for p in "environments" "environments/github-pages" \
+                   "environments/github-pages/deployment-branch-policies" \
+                   "environments/github-pages/deployment_protection_rules" \
+                   "pages"; do
+            echo "===== GET /$p ====="
+            curl -sS -w '\n[HTTP %{http_code}]\n' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/$p" | head -c 2000
+            echo
+          done
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
