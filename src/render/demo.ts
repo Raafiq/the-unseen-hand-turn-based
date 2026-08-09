@@ -1,37 +1,38 @@
 /**
- * Demo battle + a DETERMINISTIC step policy for the viewer.
+ * The demo battle + its presentation metadata + a pure turn-order forecast.
  *
- * Render-layer glue, not sim code — but kept fully deterministic (no Math.random,
- * no wall-clock) so the viewer produces identical frames every run and the
- * Playwright screenshots are stable.
+ * Render-layer glue, not sim code. There is deliberately NO step policy here any
+ * more: `stepDemo` was a SECOND turn-settling implementation (it called
+ * `settleTurn` directly, outside the driver) and therefore a fork of the
+ * `(seed, ordered commands)` substrate. Per ADR-0015 the viewer now advances with
+ * `advanceToDecision` and commits with `applyCommand` — see `session.ts`.
  *
- * Shows: the CT clock driving turn order; units maneuvering within Move/Jump
- * range and attacking (real damage / KO / crystals, PR3); and the Mage casting a
- * CHARGED spell at a target tile that builds on the shared timeline and then
- * lands — or WHIFFS if the target walks off the tile before it matures (PR4).
+ * Also gone with it: the scripted Slow hex. It was render-layer FICTION — the UI
+ * asserting a status the sim never inflicts (inflict-on-hit is deferred,
+ * ADR-0010) — which docs/00 pillar 4 forbids. The Knight's opening **Protect**
+ * survives because it is applied at battle construction through the sim's own
+ * exported helper, so it is a real status the resolvers actually read.
+ *
+ * {@link forecast} lives here too, and it is the one thing in the viewer that
+ * cannot be exact: it must price turns nobody has chosen yet. It therefore
+ * returns its own honesty boundary ({@link Forecast.assumedFrom}) alongside the
+ * entries, keeps its single guess in {@link ASSUMED_FUTURE_TURN}, and is held to
+ * a forecast-vs-replay oracle in `forecast.test.ts`.
  */
 
 import {
+  CT_COST_ONE,
+  CT_COST_WAIT,
   advanceToNextTurn,
   applyStatusToUnit,
   createBattleState,
-  declareCharge,
   defaultUnit,
   legacyActiveStatus,
   makeFlatTiles,
-  moveRange,
-  resolveAttack,
-  resolveCharge,
   settleTurn,
-  tickCrystal,
   type ActiveActor,
-  type AttackOutcome,
   type BattleAbility,
   type BattleState,
-  type ChargeOutcome,
-  type Facing,
-  type Position,
-  type StatusKind,
   type UnitState,
 } from "../sim/index.js";
 
@@ -48,6 +49,20 @@ export const UNIT_META: Record<string, DemoUnitMeta> = {
   brawler: { label: "Brawler", color: "#e2603c", role: "Team B · Spd 8" },
   mage: { label: "Mage", color: "#c86ee0", role: "Team B · Spd 13" },
 };
+
+/**
+ * The PLAYER-controlled team of the demo battle.
+ *
+ * TODO(controller): read this from the encounter instead. `EncounterSchema`
+ * already carries it per team as `Encounter.teams[].controller`
+ * (`"ai" | "player"`, see `src/sim/encounter.ts`), but the demo builds a
+ * `BattleState` DIRECTLY via `createBattleState` rather than through
+ * `loadEncounter`, and `BattleState` itself carries no controller field — so the
+ * value is genuinely not reachable here. When the viewer loads a real encounter,
+ * derive this from `teams.find(t => t.controller === "player").teamId` and delete
+ * the constant (docs/10 §2).
+ */
+export const PLAYER_TEAM = 0;
 
 const unit = (id: string, teamId: number, over: Partial<UnitState>): UnitState =>
   defaultUnit(id, teamId, { jump: 2, ...over });
@@ -97,8 +112,9 @@ export function makeDemoBattle(): BattleState {
   ];
 
   // The Mage's charged spell is a LOADOUT-DERIVED ability (Slice 5): it lives in
-  // the mage's `abilities` projection alongside its auto basic attack, and
-  // stepDemo sources the cast's speed/effect from it — not an inline constant.
+  // the mage's `abilities` projection alongside its auto basic attack, so the
+  // driver sources the cast's speed/effect from the loadout, not an inline
+  // constant — and the balance-probe AI can select it like any other action.
   const mage = units.find((u) => u.id === "mage")!;
   mage.abilities = [...mage.abilities, MAGE_SPELL_ABILITY];
 
@@ -108,7 +124,8 @@ export function makeDemoBattle(): BattleState {
   // already under Protect (docs/01 §6 — reduces incoming physical damage). Applied
   // through the sim's exported helper (never a hand-built status object) and kept
   // PERMANENT so the badge is visible in the initial screenshot and never decays.
-  // The mage's cast pairs this with a DEBUFF (Slow) during the run (see stepDemo).
+  // It is a REAL status: `attackDamage` reads it, so the previewed and the dealt
+  // number both include the reduction.
   return applyStatusToUnit(state, "knight", legacyActiveStatus("protect"));
 }
 
@@ -128,138 +145,91 @@ const MAGE_SPELL_ABILITY: BattleAbility = {
   aoe: null,
 };
 
-const manhattan = (a: Position, b: Position): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-
-function faceToward(from: Position, to: Position): Facing {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "E" : "W";
-  return dy >= 0 ? "S" : "N";
+/** Which sub-phases a turn is priced as having used (the `settleTurn` opts). */
+export interface FutureTurn {
+  didMove: boolean;
+  didAct: boolean;
 }
-
-export interface StepResult {
-  state: BattleState;
-  active: ActiveActor | null;
-  /** Move-range available to the active unit this turn (for the highlight). */
-  activeRange: Position[];
-  moved: boolean;
-  /** A melee attack made this turn, if any (for the damage popup). */
-  attack: AttackOutcome | null;
-  /** A charged spell that RESOLVED this step, if any (land / whiff / cancel). */
-  charge: ChargeOutcome | null;
-  /** A status a unit GAINED this step, if any (for the turn-log "gained" row). */
-  statusInflicted: { unitId: string; statusId: string; kind: StatusKind } | null;
-}
-
-const adjacent = (a: Position, b: Position): boolean => manhattan(a, b) === 1;
 
 /**
- * Advance one active turn (deterministic policy):
- *   - a matured CHARGE resolves against its target tile (land / whiff / cancel);
- *   - a KO'd unit's turn ticks its crystal counter;
- *   - the Mage casts a charged spell at the nearest enemy's tile when in range;
- *   - everyone else closes and melees when adjacent.
+ * ============== THE ONE ASSUMPTION IN THE WHOLE FORECAST =====================
+ *
+ * A forecast CANNOT know what a future actor will choose — move? act? both?
+ * wait? — so it cannot know what that turn will cost. This constant is the
+ * single place where {@link forecast} guesses, and it guesses **one sub-phase**:
+ * `{didMove:false, didAct:true}` ⇒ {@link ASSUMED_FUTURE_TURN_COST} = −80 CT.
+ *
+ * IT IS THE MODEL ADR-0015 EXISTS TO DISPROVE. A real turn costs −100 when both
+ * sub-phases are used (the fold), −80 for one, −60 for a Wait; and a KO'd unit's
+ * turn is a crystal tick, which `tickCrystal` prices at −60. So this guess is
+ * wrong for any of those. It is *currently* harmless only because `ai.ts` still
+ * emits single sub-phases — the moment the follow-up slice teaches `ai.ts` the
+ * fold, every turn on the field costs −100 and the guess is wrong for **all** of
+ * them (ADR-0015 Consequences).
+ *
+ * THE FIX FOR THAT SLICE IS NOT "GUESS BETTER" — guessing harder only moves the
+ * lie around. The fix is the boundary this module already computes and the UI
+ * already labels: {@link Forecast.assumedFrom}. What the follow-up slice owes is
+ * a re-run of `forecast.test.ts` (the forecast-vs-replay oracle), which asserts
+ * the realized order matches the forecast over `[0, assumedFrom)` under BOTH
+ * cost models — so it goes green when the fold lands and red if the boundary
+ * ever stops holding.
+ * =============================================================================
  */
-export function stepDemo(input: BattleState): StepResult {
-  const { state: adv, active } = advanceToNextTurn(input);
-  const idle = (state: BattleState): StepResult => ({
-    state, active, activeRange: [], moved: false, attack: null, charge: null, statusInflicted: null,
-  });
-  if (!active) return idle(adv);
+export const ASSUMED_FUTURE_TURN: FutureTurn = { didMove: false, didAct: true };
 
-  // A matured charge resolves against its target tile (docs/01 §3).
-  if (active.kind === "charge") {
-    const res = resolveCharge(adv, active.id);
-    return { ...idle(res.state), charge: res.outcome };
-  }
+/** The CT {@link ASSUMED_FUTURE_TURN} prices a future turn at (−80). */
+export const ASSUMED_FUTURE_TURN_COST = CT_COST_ONE;
 
-  let state = adv;
-  const actorId = active.id;
-  const me = (): UnitState => state.units.find((u) => u.id === actorId)!;
+/**
+ * The CHEAPEST turn any actor can legally take (a Wait, −60). Not a second
+ * assumption — a bound. A unit that just acted returns to the top of the order
+ * SOONEST when its turn was the cheapest one, so walking the timeline at this
+ * cost finds the EARLIEST index at which any already-forecast unit can possibly
+ * come round again. That index is {@link Forecast.assumedFrom}.
+ */
+const CHEAPEST_FUTURE_TURN: FutureTurn = { didMove: false, didAct: false };
 
-  // A KO'd unit's turn ticks its crystal counter instead of acting (docs/01 §11).
-  if (me().hp <= 0) return idle(tickCrystal(state, actorId).state);
+/**
+ * The CT a {@link CHEAPEST_FUTURE_TURN} costs (−60). Exported so the oracle test
+ * can assert the bound it rests on — `CHEAPEST ≤ ASSUMED ≤ CT_COST_MOVE_AND_ACT`
+ * — rather than taking this comment's word for it.
+ */
+export const CHEAPEST_FUTURE_TURN_COST = CT_COST_WAIT;
 
-  const enemies = (): UnitState[] => state.units.filter((u) => u.teamId !== me().teamId && u.hp > 0);
-  const range = moveRange(state.grid, state.units, actorId);
-  const foes = enemies();
-  if (foes.length === 0) {
-    const settled = settleTurn(state, actorId, { didMove: false, didAct: false });
-    settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: "wait" });
-    return { ...idle(settled), activeRange: range };
-  }
-
-  const target = [...foes].sort(
-    (a, b) => manhattan(me().pos, a.pos) - manhattan(me().pos, b.pos) || (a.id < b.id ? -1 : 1),
-  )[0]!;
-
-  // The Mage casts a charged spell at the target's CURRENT tile when in range and
-  // not already charging. It builds on the timeline; by the time it matures the
-  // target may have walked off → whiff. (declareCharge ends the caster's turn.)
-  const mageBusy = state.chargeQueue.some((c) => c.sourceUnitId === "mage");
-  if (actorId === "mage" && !mageBusy && manhattan(me().pos, target.pos) <= MAGE_CAST_RANGE) {
-    // Source the cast from the mage's equipped spell ability (Slice 5): its
-    // speed/element/power/accuracy come from the loadout projection, not a payload.
-    const spell = me().abilities.find((a) => a.id === MAGE_SPELL_ID)!;
-    me().facing = faceToward(me().pos, target.pos);
-    // Showcase a DEBUFF: the Mage is a hexer — casting also hexes the target with
-    // Slow (docs/01 §6 — halves CT accrual). This is render-DEMO scripting via the
-    // sim's exported helper; the sim's own inflict-on-hit resolution is deferred
-    // (charge.ts docstring), so we apply it here, deterministically (no RNG), and
-    // keep it PERMANENT so the badge persists across the frames a step captures.
-    // Only hex a target that isn't already Slowed — the helper doesn't dedupe, and
-    // re-casting each turn would otherwise stack redundant chips on one unit.
-    const alreadySlowed = target.statuses.some((s) => s.id === "slow");
-    const hexed = alreadySlowed ? state : applyStatusToUnit(state, target.id, legacyActiveStatus("slow"));
-    const next = declareCharge(hexed, "mage", {
-      targetTile: { x: target.pos.x, y: target.pos.y },
-      speed: spell.speed ?? 1,
-      effect: { kind: "magic", power: spell.power, element: spell.element, accuracy: spell.accuracy, aoe: spell.aoe },
-    });
-    return {
-      state: next, active, activeRange: range, moved: false, attack: null, charge: null,
-      statusInflicted: alreadySlowed ? null : { unitId: target.id, statusId: "slow", kind: "debuff" },
-    };
-  }
-
-  // Otherwise close the distance (Mage repositions to get in range; others melee).
-  let moved = false;
-  if (!adjacent(me().pos, target.pos)) {
-    const here = manhattan(me().pos, target.pos);
-    const best = [...range].sort(
-      (p, q) => manhattan(p, target.pos) - manhattan(q, target.pos) || p.y - q.y || p.x - q.x,
-    )[0];
-    if (best && manhattan(best, target.pos) < here) {
-      me().facing = faceToward(me().pos, best);
-      me().pos = best;
-      moved = true;
-    }
-  }
-
-  let attack: AttackOutcome | null = null;
-  if (actorId !== "mage") {
-    const adjFoe = enemies().find((e) => adjacent(me().pos, e.pos));
-    if (adjFoe) {
-      me().facing = faceToward(me().pos, adjFoe.pos);
-      const res = resolveAttack(state, actorId, adjFoe.id);
-      state = res.state;
-      attack = res.outcome;
-    } else if (!moved) {
-      me().facing = faceToward(me().pos, target.pos);
-    }
-  } else if (!moved) {
-    me().facing = faceToward(me().pos, target.pos);
-  }
-
-  const settled = settleTurn(state, actorId, { didMove: moved, didAct: attack !== null });
-  if (attack === null) {
-    settled.turnLog.push({ tick: settled.tick, unitId: actorId, action: moved ? "move" : "wait" });
-  }
-  return { state: settled, active, activeRange: range, moved, attack, charge: null, statusInflicted: null };
+/** The turn-order timeline: the next actors, plus where the guessing starts. */
+export interface Forecast {
+  /** The next `n` actors, in order. `entries[0]` is whoever acts next. */
+  entries: ActiveActor[];
+  /**
+   * THE HONESTY BOUNDARY. `entries[0 … assumedFrom)` do NOT depend on
+   * {@link ASSUMED_FUTURE_TURN_COST}. A unit's CT cost only ever moves **its own
+   * next** turn, and no unit is listed twice inside that stretch — so no slot in
+   * it sits downstream of a guessed price, and they come out identical whatever
+   * each turn actually ends up costing. From `assumedFrom` on, at least one slot
+   * is downstream of the guess and can move.
+   *
+   * `assumedFrom` is computed at {@link CHEAPEST_FUTURE_TURN} — the earliest any
+   * actor can return — so it is a *lower* bound on where the guess can first
+   * bite; it never claims exactness it cannot back.
+   *
+   * WHAT IT DOES **NOT** COVER (stated rather than hidden): a future actor's
+   * *choice* can change the timeline's COMPOSITION, not just its clock. Beginning
+   * a charged cast inserts a brand-new actor (`chargeQueue`) that no forecast can
+   * anticipate, and a crystallizing KO removes one. So the leading stretch is
+   * exact **with respect to the CT-cost model**; it is still contingent on nobody
+   * ahead of it starting a cast. The UI hint says exactly this.
+   */
+  assumedFrom: number;
 }
 
-/** Forecast the next `n` actors without mutating state (turn-order timeline). */
-export function forecast(input: BattleState, n = 8): ActiveActor[] {
+/**
+ * Walk the shared timeline `n` actors forward, pricing every future unit turn at
+ * `turn`. Charges are spliced out (preview only — the real resolution happens in
+ * the driver). Pure: `advanceToNextTurn` and `settleTurn` both clone, so the
+ * caller's state is never touched and no RNG is consumed.
+ */
+function walk(input: BattleState, n: number, turn: FutureTurn): ActiveActor[] {
   let state = input;
   const out: ActiveActor[] = [];
   for (let i = 0; i < n; i++) {
@@ -267,14 +237,47 @@ export function forecast(input: BattleState, n = 8): ActiveActor[] {
     if (!active) break;
     out.push(active);
     if (active.kind === "unit") {
-      state = settleTurn(adv, active.id, { didMove: false, didAct: true });
+      state = settleTurn(adv, active.id, turn);
     } else {
       // Preview only: drop the matured charge so the forecast advances past it
-      // (the real resolution happens in stepDemo, not here).
-      const i = adv.chargeQueue.findIndex((c) => c.id === active.id);
-      if (i !== -1) adv.chargeQueue.splice(i, 1);
+      // (the real resolution happens in the driver, not here).
+      const idx = adv.chargeQueue.findIndex((c) => c.id === active.id);
+      if (idx !== -1) adv.chargeQueue.splice(idx, 1);
       state = adv;
     }
   }
   return out;
+}
+
+/** Index of the first actor that has already appeared, or `actors.length`. */
+function firstRepeat(actors: readonly ActiveActor[]): number {
+  const seen = new Set<string>();
+  for (let i = 0; i < actors.length; i++) {
+    const key = `${actors[i]!.kind}:${actors[i]!.id}`;
+    if (seen.has(key)) return i;
+    seen.add(key);
+  }
+  return actors.length;
+}
+
+/**
+ * Forecast the next `n` actors without mutating state (turn-order timeline),
+ * WITH the index at which it stops being a fact and starts being a projection.
+ *
+ * PURE PREVIEW: nothing here resolves, rolls or advances the real clock, so the
+ * forecast can be recomputed on every hover without moving `rngCounter` or the
+ * real `tick` (docs/10 AC-V6).
+ *
+ * See {@link Forecast.assumedFrom} for what the boundary does and does not
+ * claim, and {@link ASSUMED_FUTURE_TURN} for the single guess it bounds.
+ *
+ * @param assumed EXPOSED FOR THE ORACLE TEST ONLY (`forecast.test.ts` re-walks
+ *   the same timeline at −60 / −80 / −100 to prove `assumedFrom` really is the
+ *   invariance boundary). Production callers must not pass it — a second call
+ *   site with a different guess would be a second lie to keep in sync.
+ */
+export function forecast(input: BattleState, n = 8, assumed = ASSUMED_FUTURE_TURN): Forecast {
+  const entries = walk(input, n, assumed);
+  const earliest = firstRepeat(walk(input, n, CHEAPEST_FUTURE_TURN));
+  return { entries, assumedFrom: Math.min(earliest, entries.length) };
 }

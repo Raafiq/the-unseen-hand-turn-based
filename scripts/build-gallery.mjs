@@ -18,6 +18,15 @@ const CAPTIONS = {
   "04-aftermath.png": "Aftermath — HP has dropped and KO'd units become crystals; the turn log shows the CT-ordered blow-by-blow.",
   "05-prep-chassis.png": "Prep — the 5-slot ability chassis. A Knight with abilities learned across four jobs; the Secondary command starts empty, so the command list is just Attack + Battle Skill.",
   "06-prep-black-magic.png": "Customization aha — equipping Black Magic as the Secondary command grows the castable command list: the Knight can now cast Fire (and its whole line). Swaps are free and reversible.",
+  // The PLAYABLE path (docs/10). Captured by e2e/play.spec.ts, which asserts the
+  // claim each caption makes in the same test that takes the shot — so a caption
+  // cannot outlive the state it describes.
+  "10-player-turn.png": "Your turn — the Archer is up (solid gold ring) and its real moveRange is painted in gold. NO enemy is in reach: basic.attack is range 1 and both foes are two tiles away, so the target set is empty and End Turn offers only a Wait (−60 CT). That is exactly the decision the move+act fold exists for — the Archer must spend its move to buy an attack, priced at −100 in frame 14. (The orange parallelogram is the enemy Mage's in-flight charged spell, aimed at the tile the Archer is standing on.)",
+  "11-preview-a.png": "Staged at (5,3) — the preview recomputes from the STAGED tile, not from where the unit is standing: FRONT arc, 75% hit, 100 damage, 120 → 20 HP, −100 CT for the whole turn. Nothing has touched the sim yet.",
+  "12-preview-b.png": "Same actor, same target, ONE tile different — staged at (7,3) instead, the strike lands in the REAR arc at 100%. That gap (75% → 100%) is why move-then-act is a real tactical choice and not a formality.",
+  "13-illegal.png": "An illegal click is refused, not punished: a reason chip ('Out of Move range') and nothing else. Compare with 10 — the board, the clock and the command log are byte-identical.",
+  "14-committed.png": "Committed — the Archer moved to (7,3) and struck from there for 100 damage (120 → 20 HP) in ONE command, at a turn price of −100 CT. The turn log shows both halves — 'move 7,3' and 'hit brawler −100' — at the SAME tick, which is what makes it one turn and not two.",
+  "15-ai-turn.png": "An AI turn: the active Mage wears a DASHED ring, End Turn is disabled, and player input is inert ('Not your turn'). The Brawler's HP bar is the red sliver left over from the fold.",
 };
 
 async function findVideo(dir) {

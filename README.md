@@ -33,6 +33,7 @@ To avoid "ten shallow systems sharing a menu," three axes are the identity. Ever
 | [`docs/07-economy-and-pacing.md`](docs/07-economy-and-pacing.md) | AP/mastery/hybrid pacing, respec cost, grind-budget curve, numbers/tuning philosophy |
 | [`docs/08-roadmap-scope-and-onboarding.md`](docs/08-roadmap-scope-and-onboarding.md) | Phased roadmap, Must/Should/Could cut-lines, onboarding ramp, narrative-repo seam |
 | [`docs/09-tech-stack-and-tooling.md`](docs/09-tech-stack-and-tooling.md) | Tech-stack lean (deferred), helper skills, community/tooling |
+| [`docs/10-viewer-and-interaction.md`](docs/10-viewer-and-interaction.md) | Authoritative viewer spec: player input as a command source, the turn state machine, resolution-transparency set, AC-V criteria |
 
 ## How these docs feed the code (spec-driven, hybrid)
 

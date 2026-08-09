@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { advanceToDecision, applyCommand, replay, replaySteps, type Command } from "./driver.js";
 import { resolveAttack } from "./resolve.js";
 import { declareCharge } from "./charge.js";
+import { hitChance } from "./formulas.js";
 import {
   createBattleState,
   defaultUnit,
@@ -233,6 +234,19 @@ describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () 
   it("serialize(replay(seed, LOG)) equals the committed golden state", () => {
     const actual = serialize(replay(goldenBattle(), GOLDEN_LOG));
     expect(actual).toBe(GOLDEN);
+  });
+
+  // AC-V1 (move+act fold is INERT on the unfolded path). GOLDEN_LOG is entirely
+  // single-sub-phase (move-only / act-only / wait), so the fold slice MUST replay
+  // it to the byte-identical literal above — this golden is the fold's TRIPWIRE,
+  // not a maintenance item. If it ever drifts, the shared path changed and the
+  // cause must be fixed, NOT the literal regenerated. The structural assertion
+  // below keeps that guarantee honest: a future edit that quietly adds a `move`
+  // clause to GOLDEN_LOG would make the byte-equality above vacuous.
+  it("AC-V1: GOLDEN_LOG carries NO fold, so the golden proves the unfolded path is untouched", () => {
+    expect(GOLDEN_LOG.some((c) => c.kind === "act")).toBe(true); // it does exercise `act`
+    expect(GOLDEN_LOG.every((c) => c.kind !== "act" || c.move === undefined)).toBe(true);
+    expect(serialize(replay(goldenBattle(), GOLDEN_LOG))).toBe(GOLDEN);
   });
 
   it("the golden run really contains a KO (representative battle)", () => {
@@ -530,5 +544,265 @@ describe("driver — move command + settlement", () => {
     const solo = defaultUnit("solo", 0, { pos: { x: 0, y: 0 }, speed: 10, move: 2 });
     const s = createBattleState({ seed: 1, grid: { width: 8, height: 8 }, units: [solo] });
     expect(() => applyCommand(s, { kind: "move", to: { x: 7, y: 7 } })).toThrow();
+  });
+});
+
+/**
+ * MOVE + ACT FOLD (docs/01 §1–§2, AC-02) — one Active Turn may use Move and Act
+ * each at most once, in either order, and pays −100. Before this slice every
+ * command settled a single sub-phase, so `CT_COST_MOVE_AND_ACT` was unreachable
+ * and a move-then-attack turn was mis-priced.
+ *
+ * Every test below is built on a DISCRIMINATING fixture: one where honoring the
+ * rule gives a different answer than the plausible wrong implementation (settling
+ * −80, resolving the act before the move, always moving first, or charge.ts's
+ * hard-coded `didMove:false`). A tie/degenerate fixture would pass either way.
+ */
+describe("move+act fold — one command, one turn (docs/01 §2, AC-02)", () => {
+  /** Actor at ct 108, a Stopped punching-bag 2 tiles away (out of melee reach). */
+  function foldBattle(seed = 1): BattleState {
+    const a = defaultUnit("a", 0, {
+      pos: { x: 1, y: 1 },
+      ct: 108,
+      speed: 10,
+      move: 3,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    const dummy = defaultUnit("dummy", 1, {
+      pos: { x: 3, y: 3 },
+      statuses: [legacyActiveStatus("stop")], // never takes a turn → every command is a's
+      hp: 9999,
+      maxHp: 9999,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    return createBattleState({ seed, grid: { width: 5, height: 5 }, units: [a, dummy] });
+  }
+  const ctOf = (s: BattleState, id: string): number => s.units.find((u) => u.id === id)!.ct;
+  const posOf = (s: BattleState, id: string): { x: number; y: number } =>
+    s.units.find((u) => u.id === id)!.pos;
+  const hpOf = (s: BattleState, id: string): number => s.units.find((u) => u.id === id)!.hp;
+
+  /** Step to (2,2) — 2 steps from (1,1) — which puts `dummy` (3,3) in melee reach. */
+  const FOLDED: Command = {
+    kind: "act",
+    abilityId: "basic.attack",
+    target: { unitId: "dummy" },
+    move: { to: { x: 2, y: 2 }, order: "before" },
+  };
+
+  it("AC-V2: ONE combined command settles at −100 (ct 108 → 8); move-only is −80 (→ 28)", () => {
+    // DISCRIMINATOR is (ct, command count), not "the attack happened": a two-command
+    // move-then-attack ALSO ends up attacking, but pays 80+80 across TWO turns.
+    const steps = replaySteps(foldBattle(), [FOLDED]);
+    expect(steps).toHaveLength(1); // exactly ONE command consumed
+    const folded = steps[0]!;
+    expect(ctOf(folded, "a")).toBe(8); // 108 − 100 (move AND act)
+    expect(posOf(folded, "a")).toEqual({ x: 2, y: 2 });
+    expect(hpOf(folded, "dummy")).toBeLessThan(9999);
+    // The SAME actor doing only the move pays 80: 108 → 28.
+    const moveOnly = applyCommand(foldBattle(), { kind: "move", to: { x: 2, y: 2 } });
+    expect(ctOf(moveOnly, "a")).toBe(28);
+    // ...and the act alone is not even legal from the origin (reach 2 > 1), which is
+    // why the fold — not two cheap turns — is what this command buys.
+    expect(() =>
+      applyCommand(foldBattle(), { kind: "act", abilityId: "basic.attack", target: { unitId: "dummy" } }),
+    ).toThrow(/out of range/);
+    // Settling twice (80+80) would leave −52 and throw; settling once at 80 would
+    // leave 28. Pin the exact single-settle price.
+    expect(ctOf(folded, "a")).not.toBe(28);
+  });
+
+  it("AC-V3: the act resolves from the POST-move tile (rear arc), not the origin", () => {
+    // Target faces N. The actor starts in its FRONT arc and OUT of reach; the
+    // destination is REAR-adjacent. The target has REAL directional evasion
+    // (classEv 50), so front ≠ rear — a zero-evasion target is the tie trap this
+    // rule exists to catch, since then both arcs hit identically.
+    const targetEv = { classEv: 50, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+    const mk = (actorPos: { x: number; y: number }, move: number): BattleState => {
+      const a = defaultUnit("a", 0, { pos: actorPos, ct: 108, speed: 10, move });
+      const t = defaultUnit("t", 1, {
+        pos: { x: 2, y: 2 },
+        facing: "N",
+        statuses: [legacyActiveStatus("stop")],
+        hp: 500,
+        maxHp: 500,
+        evasion: targetEv,
+      });
+      return createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [a, t] });
+    };
+
+    // FIXTURE NON-DEGENERACY: rear is STRICTLY better than front here.
+    const front = hitChance(100, targetEv, "front");
+    const rear = hitChance(100, targetEv, "rear");
+    expect(front).toBe(50);
+    expect(rear).toBe(100);
+    expect(rear).toBeGreaterThan(front);
+
+    // (1,0) is in the target's FRONT arc (due N of it) and 2 tiles away — out of
+    // melee reach, so the act is only legal AFTER the move. (2,3) is REAR-adjacent,
+    // reached in 4 steps around the blocking enemy.
+    const folded = applyCommand(mk({ x: 1, y: 0 }, 4), {
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "t" },
+      move: { to: { x: 2, y: 3 }, order: "before" },
+    });
+    expect(posOf(folded, "a")).toEqual({ x: 2, y: 3 });
+    // Seed 1's first d100 is 62: it FAILS a 50% front roll and PASSES the 100% rear
+    // roll. So the same single draw hits from the rear and misses from the front —
+    // the arc used is directly observable in the outcome.
+    expect(hpOf(folded, "t")).toBeLessThan(500);
+    expect(folded.turnLog.some((e) => e.action.startsWith("hit t"))).toBe(true);
+    expect(ctOf(folded, "a")).toBe(8); // still one settled turn at −100
+
+    // CONTROL — the same seed, same roll, acting from the FRONT arc (adjacent, no
+    // move needed): it MISSES. An implementation that resolved the act before
+    // applying the move would produce this outcome (or throw out-of-range).
+    const fromFront = applyCommand(mk({ x: 2, y: 1 }, 4), {
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "t" },
+    });
+    expect(hpOf(fromFront, "t")).toBe(500);
+    expect(fromFront.turnLog.some((e) => e.action === "miss t")).toBe(true);
+  });
+
+  it("AC-V4: order 'after' resolves from the ORIGIN, then retreats (hit-and-run)", () => {
+    // In reach FROM THE ORIGIN, out of reach FROM THE DESTINATION — so an
+    // implementation that always moves first throws "out of range" here.
+    const mk = (): BattleState => {
+      const a = defaultUnit("a", 0, {
+        pos: { x: 2, y: 1 },
+        ct: 108,
+        speed: 10,
+        move: 3,
+        evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+      });
+      const t = defaultUnit("t", 1, {
+        pos: { x: 2, y: 2 },
+        statuses: [legacyActiveStatus("stop")],
+        hp: 500,
+        maxHp: 500,
+        evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+      });
+      return createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [a, t] });
+    };
+    const retreat = { to: { x: 2, y: 0 }, order: "after" } as const;
+
+    const after = applyCommand(mk(), {
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "t" },
+      move: retreat,
+    });
+    expect(hpOf(after, "t")).toBeLessThan(500); // the act resolved (from the origin)
+    expect(posOf(after, "a")).toEqual({ x: 2, y: 0 }); // and the retreat happened
+    expect(ctOf(after, "a")).toBe(8); // ONE settle, −100
+    // The turnLog order mirrors the sub-phase order: strike, then step away.
+    const actions = after.turnLog.filter((e) => e.unitId === "a").map((e) => e.action);
+    expect(actions).toEqual([expect.stringMatching(/^hit t/), "move 2,0"]);
+
+    // The SAME move+target with order "before" is illegal — (2,0) is 2 tiles from
+    // the target. This is what an always-move-first implementation would do.
+    expect(() =>
+      applyCommand(mk(), {
+        kind: "act",
+        abilityId: "basic.attack",
+        target: { unitId: "t" },
+        move: { to: { x: 2, y: 0 }, order: "before" },
+      }),
+    ).toThrow(/out of range/);
+  });
+
+  it("AC-V5: a move + CHARGED act is priced −100; a charged act + move-'after' is rejected", () => {
+    const mk = (): BattleState => {
+      const c = spellUnit("c", 0, { pos: { x: 1, y: 1 }, ct: 108, speed: 10, move: 3 });
+      const dummy = defaultUnit("dummy", 1, {
+        pos: { x: 3, y: 3 },
+        statuses: [legacyActiveStatus("stop")],
+        hp: 9999,
+        maxHp: 9999,
+      });
+      return createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [c, dummy] });
+    };
+
+    // DISCRIMINATOR: charge.ts used to settle the caster itself with a hard-coded
+    // `didMove:false` ("no move phase here"), which would leave ct 28 here.
+    const folded = applyCommand(mk(), {
+      kind: "act",
+      abilityId: SPELL_ID,
+      target: { x: 3, y: 3 },
+      move: { to: { x: 2, y: 2 }, order: "before" },
+    });
+    expect(folded.chargeQueue).toHaveLength(1);
+    expect(folded.chargeQueue[0]!.sourceUnitId).toBe("c");
+    expect(posOf(folded, "c")).toEqual({ x: 2, y: 2 });
+    expect(ctOf(folded, "c")).toBe(8); // 108 − 100, NOT 28
+    expect(ctOf(folded, "c")).not.toBe(28);
+
+    // Unchanged where there was no move: a bare cast is still one action, −80.
+    const bare = applyCommand(mk(), { kind: "act", abilityId: SPELL_ID, target: { x: 3, y: 3 } });
+    expect(bare.chargeQueue).toHaveLength(1);
+    expect(ctOf(bare, "c")).toBe(28); // 108 − 80
+
+    // docs/01 §2/§3: a charged spell locks the SUBSEQUENT move sub-phase — the
+    // cast ends the turn, so no move can follow it. (Moving BEFORE the cast is
+    // legal, and is exercised by the −100 assertion above.)
+    expect(() =>
+      applyCommand(mk(), {
+        kind: "act",
+        abilityId: SPELL_ID,
+        target: { x: 3, y: 3 },
+        move: { to: { x: 2, y: 2 }, order: "after" },
+      }),
+    ).toThrow(/locks the SUBSEQUENT move sub-phase/);
+  });
+
+  it("AC-V9: a command log containing COMBINED commands replays byte-for-byte", () => {
+    const log: Command[] = [
+      FOLDED, // move-before + attack
+      { kind: "wait" },
+      {
+        kind: "act",
+        abilityId: "basic.attack",
+        target: { unitId: "dummy" },
+        move: { to: { x: 3, y: 2 }, order: "after" }, // hit, then reposition
+      },
+      { kind: "wait" },
+      { kind: "act", abilityId: "basic.attack", target: { unitId: "dummy" } }, // unfolded, still fine
+      { kind: "wait" },
+    ];
+    expect(log.some((c) => c.kind === "act" && c.move !== undefined)).toBe(true);
+
+    const first = replaySteps(foldBattle(), log);
+    const second = replaySteps(foldBattle(), log);
+    expect(first).toHaveLength(log.length);
+    for (let i = 0; i < first.length; i++) {
+      expect(serialize(first[i]!)).toBe(serialize(second[i]!));
+    }
+    expect(serialize(replay(foldBattle(), log))).toBe(serialize(first[first.length - 1]!));
+    // Rewind mid-log and replay the tail — the fold does not break the substrate.
+    const K = 3;
+    expect(serialize(replay(first[K - 1]!, log.slice(K)))).toBe(serialize(first[first.length - 1]!));
+  });
+
+  it("the fold never relaxes legality: an unreachable destination still throws", () => {
+    expect(() =>
+      applyCommand(foldBattle(), {
+        kind: "act",
+        abilityId: "basic.attack",
+        target: { unitId: "dummy" },
+        move: { to: { x: 4, y: 4 }, order: "before" }, // occupied-adjacent but 6 steps away (move 3)
+      }),
+    ).toThrow(/illegal move/);
+    // A malformed fold (missing `order`) is rejected by the schema, not defaulted.
+    expect(() =>
+      applyCommand(foldBattle(), {
+        kind: "act",
+        abilityId: "basic.attack",
+        target: { unitId: "dummy" },
+        move: { to: { x: 2, y: 2 } },
+      } as unknown as Command),
+    ).toThrow();
   });
 });
