@@ -15,6 +15,16 @@
  * A `{token}` placeholder (e.g. `{jobs}`, `{modules}`, `{skillsets}`) is substituted
  * with a live-derived value by the generator — keep the count out of the prose, keep
  * only its POSITION.
+ *
+ * ⚠ THE CI DRIFT CHECK DOES NOT VALIDATE THIS FILE'S CLAIMS. It regenerates
+ * `state/index.html` from this module and fails if the committed page differs — which
+ * proves the PAGE MATCHES THIS SOURCE, not that this source matches reality. Everything
+ * here is hand-authored: the phase line, the roadmap `state` flags, the "what's next"
+ * ordering. A phase marked `done` stays marked `done` until a human corrects it, and the
+ * check looks identical either way (CLAUDE.md, the evidence principle). This has bitten
+ * twice: a status header claimed "pre-code" against 428 passing tests, and a later one
+ * claimed P3 while P3's own deliverables were unshipped. When you touch the roadmap here,
+ * reconcile it against `docs/08` §1a and against the code — not against memory.
  */
 
 export interface RoadmapPhase {
@@ -190,15 +200,20 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Anti-convergence: surfaced &rarr; enforced",
+      title: "Teach the balance probe the move+act fold",
       badge: "recommended",
       body:
-        "The gauntlet fields two threat axes (physical, magic), so a build can lose to something — but with " +
-        "only two, a build with <em>no</em> losing matchup is still ambiguous (genuinely well-rounded, or a " +
-        "threat we haven't built?). A <b>third distinct threat axis</b> makes " +
-        "<span class=\"mono\">noLosingMatchup</span> a real fail signal, moving anti-convergence from " +
-        "<em>surfaced</em> to <em>enforced</em>. Small and self-contained.",
-      chip: "tighten gate",
+        "ADR-0015 made a full FFT turn expressible — move <b>and</b> act in one command, priced at " +
+        "<span class=\"mono\">&minus;100</span> CT — but <span class=\"mono\">ai.ts</span> still emits one " +
+        "sub-phase per turn, deliberately, so the gate stayed byte-stable. A tally across the five authored " +
+        "encounters returned <span class=\"mono\">{move:25, act:28, wait:0}</span>: <b>47% of benchmark turns " +
+        "are pure repositioning</b> FFT would have combined with an attack, so no <em>closer</em> can execute " +
+        "flank-then-strike and every one of them is under-measured. This will <b>move the gate's numbers</b> — " +
+        "that is the point — so the manifest, an ADR-0014 amendment, <span class=\"mono\">docs/06</span> AC-E2 " +
+        "and this dashboard all move in the same slice. Note it also detonates the forecast's " +
+        "<span class=\"mono\">&minus;80</span> assumption: <span class=\"mono\">forecast.test.ts</span> is the " +
+        "oracle that goes red rather than letting the timeline lie.",
+      chip: "unblocks closers",
       recommended: true,
     },
     {

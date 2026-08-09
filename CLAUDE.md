@@ -6,12 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `the-unseen-hand-turn-based` is the systems/combat game for a turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around **deep character customization** and an **intensive job system**. Narrative content will come from a **separate story repo** (not started); this repo stays narrative-agnostic and loads story battles as data.
 
-**Status: P3 — playable.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The docs in `docs/` are still the **source of truth and outrank the code** when the two disagree — a mismatch means the code is wrong, or the doc needs an explicit, recorded change.
+**Status: P2 — customization depth, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. **P2's open exit criterion is the build-diversity gate, at N=6 against a release bar of ≥8** (`docs/06` AC-E2, ADR-0014). The viewer's resolution-transparency previews are a P2 deliverable, not P3 — P3 (`docs/08` §1) is hybrid/fusion jobs, rewind UI, scan and the speed toggle, and none of the last three are shipped. The docs in `docs/` are the **source of truth and outrank the code** when the two disagree — a mismatch means the code is wrong, or the doc needs an explicit, recorded change.
 
 ## Source of truth — read these first
 
 Design lives in `docs/`. Read in this order before proposing changes:
 
+- **`docs/NEXT.md` — read this FIRST if you are picking up work.** The handoff a machine
+  cannot derive: the next slice, why it matters, and what will bite. It is stamped with the
+  commit it was written against and the SessionStart hook flags it once it falls behind —
+  if the hook calls it stale, treat its claims as hypotheses and re-derive. (The *derived*
+  facts — branch, whether it is already merged, unpushed work — are printed by the hook
+  itself, so they cannot rot.)
 - `README.md` — overview, pillars, conventions, doc index.
 - `docs/00-vision-and-pillars.md` — pillars + the customization "spine" decision + testable success criteria. **This is the project constitution seed** (see Spec Kit note below).
 - `docs/01-combat-system.md` — the faithful FFT combat baseline (formulas, CT turns, evasion, permadeath) + a fidelity contract.
@@ -75,9 +81,10 @@ Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
 - **Typecheck:** `npm run typecheck` (`tsc --noEmit`)
 - **Lint:** `npm run lint` (`eslint .` — bans unseeded RNG / wall-clock in `src/sim/**`)
 - **Determinism guard:** `npm run check:rng` (greps `src/sim` for banned nondeterminism)
+- **Handoff freshness:** `npm run check:handoff` — fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or more than 20 commits behind. CI enforces it on push events only (a `pull_request` event checks out a *merge* ref, which would count base commits the branch never authored).
 - **Test (all):** `npm run test` (`vitest run`) · watch: `npm run test:watch`
 - **Test (single):** `npx vitest run src/sim/rng.test.ts` (or `npx vitest run -t "<name>"`)
-- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + test)
+- **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + check:handoff + test)
 - **State dashboard:** `npm run state` (regenerate the generated, drift-proof "state of the engine" page → `state/index.html`, published to `/state/`; derives all counts + a LIVE diversity-gate run, prose lives in `scripts/state-content.ts`; CI fails if the committed copy drifted)
 - **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
 - **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)
@@ -107,7 +114,7 @@ Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `
 
 ## Tooling & workflow
 
-- **Retrospective before every PR.** Before opening a PR (or requesting a merge), run the `retrospective` skill: capture any durable lessons from the work and **propose** (approval-gated) updates to CLAUDE.md / the docs / an ADR / a skill. This is the checkpoint where lessons get codified so the same mistake isn't repeated in a future session — it replaces the old per-turn Stop-hook nudge, which fired too often to be useful.
+- **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Before opening a PR (or requesting a merge), run the `retrospective` skill: capture any durable lessons from the work and **propose** (approval-gated) updates to CLAUDE.md / the docs / an ADR / a skill. Then update `docs/NEXT.md` — the next slice, the landmines, what is *not* green-lit — and re-stamp its `written-against` to the branch head. Writing the handoff while the context is hot is the whole point; reconstructing it a session later is how it goes wrong. This is the checkpoint where lessons get codified so the same mistake isn't repeated in a future session — it replaces the old per-turn Stop-hook nudge, which fired too often to be useful.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). When something misbehaves, verify with a direct check *before* explaining it: fetch the stored object, A/B against the working precedent, probe with the authenticated API — and say plainly what the sandbox *cannot* verify (e.g. how a private repo's page renders for a logged-in viewer) instead of asserting a cause. The PR-18 visual-proof incident asserted two wrong root-causes before an A/B against PR #8 plus a device screenshot found the real ones. Corollary: the agent automates the fix; suggesting the human do it by hand (drag-drop uploads, manual edits) is a failure mode, not a fallback.
 - **Visual proof in a PR (verified recipe).** Commit frames/video under `docs/visual/<slice>/` (cf. `docs/visual/p1`, PR #8) and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>` — renders inline on desktop web for this private repo; re-fetch the stored body afterwards to confirm no mangling. Do NOT use `raw.githubusercontent.com` (404s on private repos) and do NOT embed images via API-posted *comments* (that path corrupted URLs with stray backticks, and comments cannot be edited or deleted by the tooling). Verified limits (on-device, PR #18): the GitHub **mobile app** displays NO motion format for private-repo files — it never inlines images (alt-text link only), has no player for committed videos (mp4 verified byte-perfect and served as `video/mp4` — the app, not the file), and GIF tap-through does not animate either; **static images via tap-through are the only medium it shows**. So for mobile-readable motion, commit a **filmstrip contact-sheet PNG** (ffmpeg `fps=N,scale,tile`); keep an H.264 **`run.mp4`** + GIF for desktop (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static` via npm). Playable video for any browser lives on the Pages gallery (`/visual/`) after merge.
 - **Present implementation plans as a readable HTML artifact.** Whenever you produce a non-trivial implementation/kickoff plan for the human's review, render it as a clean, scannable, theme-aware HTML artifact (via the `Artifact` tool + `artifact-design` skill) **in addition to** the plain plan file — the plan file stays the source of truth; the artifact is the review medium. Do this by default; don't wait to be asked.
