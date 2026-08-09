@@ -67,24 +67,46 @@ jobs:
           fi
           echo "Pages is wired to GitHub Actions — deploy can proceed."
 
-      # TEMPORARY DIAGNOSTIC — remove before merge. The deploy job is rejected at
-      # the environment gate with no runner and no logs; dump what the gate sees.
-      - name: TEMP diagnostic — github-pages environment
-        continue-on-error: true
+      # PREFLIGHT 2 — the `github-pages` environment must ALLOW this branch.
+      #
+      # This is the one that actually bit. The environment carried a custom
+      # deployment-branch policy listing exactly one branch —
+      # `claude/fft-combat-design-e32fm1`, a feature branch dead since 2026-07-30 —
+      # so every deploy from `main` was refused by the gate before a runner existed.
+      # That refusal is *invisible*: no steps, no annotation, no log bytes. Checking
+      # `/pages` alone would NOT have caught it (that endpoint answers 200 with
+      # build_type=workflow while the gate still refuses every branch you have), so
+      # a guard that stopped at preflight 1 would have gone green on a dead deploy —
+      # exactly the failure it exists to prevent.
+      - name: Preflight — the github-pages environment must allow this branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for p in "environments" "environments/github-pages" \
-                   "environments/github-pages/deployment-branch-policies" \
-                   "environments/github-pages/deployment_protection_rules" \
-                   "pages"; do
-            echo "===== GET /$p ====="
-            curl -sS -w '\n[HTTP %{http_code}]\n' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/$p" | head -c 2000
-            echo
-          done
+          api() { curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$1"; }
+          base="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments/github-pages"
+          custom=$(api "$base" | jq -r '.deployment_branch_policy.custom_branch_policies // false')
+          echo "custom_branch_policies = $custom"
+          if [ "$custom" != "true" ]; then
+            echo "No custom branch policy — the gate does not filter by branch here."
+            exit 0
+          fi
+          names=$(api "$base/deployment-branch-policies" | jq -r '.branch_policies[].name')
+          echo "Allowed branches:"; echo "$names" | sed 's/^/  - /'
+          allowed=no
+          while IFS= read -r n; do
+            [ -z "$n" ] && continue
+            case "$GITHUB_REF_NAME" in $n) allowed=yes ;; esac
+          done <<<"$names"
+          if [ "$allowed" = "yes" ]; then
+            echo "'$GITHUB_REF_NAME' is allowed to deploy."
+            exit 0
+          fi
+          msg="Branch '$GITHUB_REF_NAME' is NOT in the github-pages environment's deployment-branch policy, so the deploy job will be refused at the environment gate with NO logs. Fix: Settings → Environments → github-pages → Deployment branches — add '$GITHUB_REF_NAME' (and drop any stale feature-branch entries)."
+          if [ "$GITHUB_REF_NAME" = "${{ github.event.repository.default_branch }}" ]; then
+            echo "::error::$msg"
+            exit 1
+          fi
+          echo "::warning::$msg"
 
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
