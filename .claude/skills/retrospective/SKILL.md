@@ -43,3 +43,20 @@ The point is **compounding**: each stumble should make the repo's guidance a lit
 ## Output
 
 A short retro: **what happened → root cause → is it codifiable? → proposed change(s) with diffs → request for approval.** If nothing is worth codifying, say so — a clean "no durable lesson here" is a valid result.
+
+## Also: refresh the handoff (`docs/NEXT.md`)
+
+A retrospective banks what went *wrong*. The handoff banks what comes *next* — and it must
+be written now, while the context is hot, not reconstructed by a future session from git
+archaeology.
+
+As the last step of the retrospective, before the PR:
+
+1. Rewrite `docs/NEXT.md`: the recommended next slice and **why**, the landmines it will
+   detonate, standing constraints that outlive this slice, and explicitly what is **not**
+   green-lit (so the next session asks rather than assumes).
+2. Re-stamp its `<!-- written-against: <sha> -->` to the branch head.
+
+Keep it to intent a machine cannot derive. Branch state, merge state and unpushed work are
+printed by the SessionStart hook from live git — never restate them here, or the file
+acquires facts that can rot.
