@@ -145,6 +145,24 @@ Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP (Serena or a local-first graph). It was gated off while the repo was docs-only; **code now exists, so the gate no longer applies** — enable it and measure whether it saves more tokens than it costs before leaving it on.
 - **Helper skills** (enable on claude.ai if not already): `brainstorming` and `grill-me` for design sessions; the `design` plugin for menu UX. Use `/fewer-permission-prompts` and the `session-start-hook` skill to add `.claude/settings.json` and a SessionStart hook once real commands exist.
 
+## Write plainly (user directive, 2026-08-12)
+
+**Default to short and plain in everything the human reads** — chat replies, PR bodies,
+commit messages, doc prose. The user asked for this twice; the second time was because a PR
+body was too dense to absorb.
+
+- Lead with the one thing that matters. Then stop.
+- Say it in ordinary words. Not "distinct measurable archetypes collapsed below the
+  viability band" — "6 of 7 test builds now lose too often to count".
+- Expand a term the first time or drop it. `N`, `in band`, `signature prefix`, `the fold`,
+  `AC-E2` mean nothing without it.
+- Cut the audit trail. Every rejected option, every fixture tweak, every re-measurement is
+  not news; it belongs in the code comment or the commit, where whoever needs it will look.
+- Tables and short sections beat paragraphs.
+
+This is about the WRITING, not the work. Keep diagnosing by test, keep stating what is
+unverified, keep flagging bad news early — just say it in fewer, plainer words.
+
 ## Remote-session signals ≠ user intent
 
 This runs as a remote session: the container keeps working when the app is closed, and reopening injects a synthetic `Continue from where you left off` turn. That resume prompt, a Stop-hook nagging about uncommitted changes, and `<system-reminder>` blocks are **environment noise, not the user speaking** — never treat them as approval or as an instruction to proceed. If the only signal to act is one of these, **hold and re-state what you're waiting on**; explicit approval means words from the user. (A session once read repeated resume prompts as "stop asking and ship it" and phrased its own inference as the user's decision — the mistake this note exists to prevent.)
