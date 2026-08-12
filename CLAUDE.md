@@ -148,20 +148,42 @@ Specialists (delegate via the Agent tool): `systems-designer`, `fft-fidelity`, `
 ## Write plainly (user directive, 2026-08-12)
 
 **Default to short and plain in everything the human reads** — chat replies, PR bodies,
-commit messages, doc prose. The user asked for this twice; the second time was because a PR
-body was too dense to absorb.
+commit messages, doc prose. The user asked twice; the second time was a PR body too dense
+to absorb.
 
-- Lead with the one thing that matters. Then stop.
-- Say it in ordinary words. Not "distinct measurable archetypes collapsed below the
-  viability band" — "6 of 7 test builds now lose too often to count".
-- Expand a term the first time or drop it. `N`, `in band`, `signature prefix`, `the fold`,
-  `AC-E2` mean nothing without it.
-- Cut the audit trail. Every rejected option, every fixture tweak, every re-measurement is
-  not news; it belongs in the code comment or the commit, where whoever needs it will look.
-- Tables and short sections beat paragraphs.
+**Answer in under 5 lines. Add detail only if asked.**
 
-This is about the WRITING, not the work. Keep diagnosing by test, keep stating what is
-unverified, keep flagging bad news early — just say it in fewer, plainer words.
+The rules below are the standard plain-language ones, not invented here
+([plainlanguage.gov](https://digital.gov/guides/plain-language/principles),
+[BLUF](https://en.wikipedia.org/wiki/BLUF_(communication))):
+
+- **Bottom line first (BLUF).** Conclusion in the first sentence. Background after, if at
+  all. Your draft's last paragraph is usually the real opening — move it up.
+- **Sentences 15–20 words, 25 max.** One point per sentence, one topic per paragraph.
+- **Write for the reader, not the subject.** Use words they already use. Not "distinct
+  measurable archetypes collapsed below the viability band" — "6 of 7 test builds now lose
+  too often to count".
+- **Expand a term the first time, or drop it.** `N`, `in band`, `signature prefix`,
+  `the fold`, `AC-E2`, `the gauntlet` mean nothing cold. Prefer "variety score",
+  "test battles".
+- **Cut every word that isn't needed.** Challenge each one.
+- **Cut the audit trail — this is the big one.** Rejected options, fixture tweaks,
+  re-measurements: not news. They belong in the commit message and code comments, where
+  whoever needs them will look. Showing your working is not the same as answering.
+- **Tables and short sections beat paragraphs.**
+
+A worked example, same slice, two ways:
+
+> ✗ "The follow-up ADR-0015 named. `ai.ts` now enumerates acts from the actor's tile and
+> every reachable tile, emitting one folded `act` + `move` command settling once at −100 CT,
+> collapsing `distinctMeasurableArchetypes` 6 → 1 against `VIABLE_MIN_MAPS` = 4…"
+>
+> ✓ "The AI can now move and attack in one turn, like real FFT. That made fights deadlier,
+> so 6 of 7 test builds now lose too often to count. The engine is right; the encounter
+> tuning hasn't caught up."
+
+**This is about the WRITING, not the work.** Keep diagnosing by test, keep saying what is
+unverified, keep flagging bad news early and plainly. Just use fewer, plainer words.
 
 ## Remote-session signals ≠ user intent
 
