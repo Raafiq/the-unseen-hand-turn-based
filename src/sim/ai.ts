@@ -59,8 +59,18 @@ interface Candidate {
    * effHp, and the LETHAL/HEAL primary).
    */
   magnitude: number;
-  /** Facing rank from the actor's current tile. Sorted ASC (rear best). */
+  /** Facing rank from the tile the act resolves FROM ({@link from}). Sorted ASC (rear best). */
   facingRank: number;
+  /**
+   * 0 = the act resolves from the actor's CURRENT tile (a −80 turn); 1 = it resolves
+   * from a reachable tile, folding move+act into one −100 turn (ADR-0015). Sorted ASC
+   * and placed BELOW `facingRank`, so a better arc reachable only by moving beats a
+   * worse arc from standing (flank-then-strike), while two otherwise-identical acts
+   * prefer the one that does not pay the extra 20 CT.
+   */
+  moved: number;
+  /** The tile the act resolves from: the actor's own tile when `moved === 0`. */
+  from: Position;
   /** The single target's id, or the AIM CENTRE unit's id for an area act (tie-break). */
   targetId: string;
   abilityIndex: number;
@@ -90,13 +100,27 @@ function estMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbi
 }
 
 /**
- * Enumerate every LEGAL, EFFECTIVE action from the actor's current tile: for each
+ * Enumerate every LEGAL, EFFECTIVE action resolving FROM the tile `from`: for each
  * ACTION ability (in `abilities` array order) crossed with its valid targets
  * (foes for damage, allies incl. self for heal) that are IN RANGE and would gain
  * something. Passive and `none`-formula abilities are skipped (they do nothing).
  * Deterministic: iterates the stable `abilities`/`units` arrays only.
+ *
+ * `from` is the actor's own tile for a plain act, or a reachable tile for the folded
+ * move+act turn (ADR-0015) — RANGE and FACING are both read from it, matching the
+ * driver's `order: "before"` semantics exactly (it validates `inAbilityRange` from the
+ * destination). `moved` is stamped onto every candidate this call produces.
+ *
+ * NOTE `estMagnitude` is position-independent (it reads stats only), so magnitude is
+ * unaffected by `from`; only reach and arc are. If a future slice makes damage depend
+ * on height or distance, this is the seam that must start passing `from` into it.
  */
-function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
+function candidatesFrom(
+  state: BattleState,
+  actor: UnitState,
+  from: Position,
+  moved: number,
+): Candidate[] {
   const cands: Candidate[] = [];
   actor.abilities.forEach((ability, abilityIndex) => {
     if (ability.actionKind !== "action") return; // reaction/support/movement are passive
@@ -116,7 +140,7 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
       if (aim.hp <= 0) continue;
       const sameTeam = aim.teamId === actor.teamId;
       if (heal ? !sameTeam : sameTeam) continue; // heal allies (incl. self); damage foes
-      if (!inAbilityRange(state.grid, actor.pos, aim.pos, ability.range)) continue;
+      if (!inAbilityRange(state.grid, from, aim.pos, ability.range)) continue;
 
       if (ability.aoe !== null) {
         // AREA — value the aim by the SUMMED magnitude over the units the box catches
@@ -151,7 +175,9 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
           cls,
           magnitude,
           targetEffHp: minEffHp,
-          facingRank: FACING_RANK[relativeFacing(aim, actor.pos)],
+          facingRank: FACING_RANK[relativeFacing(aim, from)],
+          moved,
+          from,
           targetId: aim.id,
           abilityIndex,
           ability,
@@ -172,12 +198,14 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
         magnitude = raw;
         cls = raw >= aim.hp ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
       }
-      const facing = relativeFacing(aim, actor.pos);
+      const facing = relativeFacing(aim, from);
       cands.push({
         cls,
         magnitude,
         targetEffHp: aim.hp,
         facingRank: FACING_RANK[facing],
+        moved,
+        from,
         targetId: aim.id,
         abilityIndex,
         ability,
@@ -185,6 +213,27 @@ function candidatesFor(state: BattleState, actor: UnitState): Candidate[] {
       });
     }
   });
+  return cands;
+}
+
+/**
+ * Every candidate the actor could produce THIS TURN: acts from where it stands
+ * (`moved: 0`, a −80 turn) plus acts from every tile it can reach (`moved: 1`, the
+ * folded −100 turn of ADR-0015 / docs/01 §2).
+ *
+ * `moveRange` EXCLUDES the start tile and every occupied tile, so the stay option is
+ * added explicitly and can never be double-counted. Enumeration order is
+ * stay-then-(y,x)-sorted-tiles, but nothing depends on it: {@link compareCandidate} is
+ * a TOTAL order down to the `from` coordinates, so the winner is singular regardless.
+ *
+ * COST: |reachable| x |abilities| x |units|. Bounded by the move stat (a handful of
+ * tiles), and still zero-RNG and pure — the AI adds nothing to `rngCounter`.
+ */
+function allCandidates(state: BattleState, actor: UnitState): Candidate[] {
+  const cands = candidatesFrom(state, actor, actor.pos, 0);
+  for (const tile of moveRange(state.grid, state.units, actor.id)) {
+    cands.push(...candidatesFrom(state, actor, tile, 1));
+  }
   return cands;
 }
 
@@ -240,8 +289,21 @@ function compareCandidate(a: Candidate, b: Candidate): number {
     if (a.targetEffHp !== b.targetEffHp) return a.targetEffHp - b.targetEffHp;
   }
   if (a.facingRank !== b.facingRank) return a.facingRank - b.facingRank;
+  // TEMPO (ADR-0015): among acts that are otherwise IDENTICAL, prefer the one that does
+  // not move — a folded turn costs −100 CT versus −80, so moving must buy something.
+  // Deliberately BELOW facingRank: a rear/side arc reachable only by walking outranks a
+  // front-arc swing from standing, which is precisely the flank-then-strike turn every
+  // closer archetype in docs/03 needs. Deliberately ABOVE targetId/abilityIndex: those
+  // are arbitrary disambiguators, and letting an id letter outrank 20 CT would be noise
+  // deciding tempo.
+  if (a.moved !== b.moved) return a.moved - b.moved;
   if (a.targetId !== b.targetId) return a.targetId < b.targetId ? -1 : 1;
-  return a.abilityIndex - b.abilityIndex;
+  if (a.abilityIndex !== b.abilityIndex) return a.abilityIndex - b.abilityIndex;
+  // Two reachable tiles can yield an otherwise-identical act (same target, same ability,
+  // same arc). Break on (y, x) so the order stays TOTAL and the winner never depends on
+  // enumeration order or on `reduce`'s first-wins accident.
+  if (a.from.y !== b.from.y) return a.from.y - b.from.y;
+  return a.from.x - b.from.x;
 }
 
 /** Encode a chosen candidate as a driver {@link Command} (tile vs unit target). */
@@ -253,6 +315,20 @@ function toActCommand(c: Candidate): Command {
     c.ability.speed !== null || c.ability.aoe !== null
       ? { x: c.target.pos.x, y: c.target.pos.y }
       : { unitId: c.target.id };
+  // The FOLD (ADR-0015): `order: "before"` — walk first, then resolve from the
+  // destination, settling ONCE at −100. Only "before" is ever emitted: "after"
+  // (hit-and-retreat) exists in the schema and driver but is not a shape this 1-ply
+  // greedy policy can evaluate, since it would have to price a retreat tile against an
+  // outcome it has not rolled yet. A charged act combines legally with "before"
+  // (AC-V5) and is rejected with "after", so this stays inside the driver's contract.
+  if (c.moved === 1) {
+    return {
+      kind: "act",
+      abilityId: c.ability.id,
+      target,
+      move: { to: { x: c.from.x, y: c.from.y }, order: "before" },
+    };
+  }
   return { kind: "act", abilityId: c.ability.id, target };
 }
 
@@ -457,13 +533,19 @@ export function decideBalanceProbe(state: BattleState, unitId: string): Command 
   // Step 0: a disabling status (Stop/Sleep/Don't-Act/Petrify) forbids acting.
   if (actor.statuses.some((st) => st.preventsAction)) return { kind: "wait" };
 
-  const cands = candidatesFor(state, actor);
+  const cands = allCandidates(state, actor);
   if (cands.length > 0) {
     const best = cands.reduce((acc, c) => (compareCandidate(c, acc) < 0 ? c : acc));
     return toActCommand(best);
   }
-  // MOVEMENT FALLBACK (no in-range action): screen a mid-charge ally if we can, else
-  // close on the prime enemy. compareCandidate / the action path are untouched.
+  // MOVEMENT FALLBACK — now reached only when NO action is available from the actor's
+  // tile OR from ANY tile it can reach. Under the fold this branch is strictly rarer
+  // than before: a unit that can walk into range now attacks instead of merely closing.
+  // That deliberately narrows SCREENING too (docs/06 AC-E3 family, ADR-0014) — a
+  // screener able to reach a kill/chip/heal now takes it, which is the same
+  // "any in-range action always wins" rule the screen docstring already declares,
+  // applied to the wider reach the fold creates. It shifts the gate's numbers; measure,
+  // do not assume.
   const screen = tryScreen(state, actor);
   return screen ?? moveTowardPrime(state, actor);
 }

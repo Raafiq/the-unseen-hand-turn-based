@@ -113,10 +113,26 @@ describe("benchmark suite — AC-E2 raw material: the new jobs are actually MEAS
     // Discriminating: a job authored with only none-formula/passive abilities, OR a
     // build whose new skillset is masked by a stronger borrowed secondary, would leave
     // its prefix absent here — exactly the bug this asserts against.
-    for (const skillset of ["aim", "geomancy", "summon", "white-magic"]) {
+    for (const skillset of ["aim", "summon", "white-magic"]) {
       const fired = used.filter((id) => id.startsWith(`${skillset}.`));
       expect(fired.length, `no ${skillset}.* action was used anywhere in the suite`).toBeGreaterThan(0);
     }
+    // `geomancy` REGRESSED OUT OF THIS LIST on 2026-08-12 (ADR-0015's fold reaching
+    // `ai.ts`). It fires ZERO times across the whole as-authored suite now — even on
+    // enc-the-high-ground, the geomancer's showcase map, which resolves in 3 basic
+    // attacks. It still lands in the SUBSTITUTION gauntlet (terrain-geo: signature landed
+    // on all 3 maps where it is in band), so the skillset is alive and the ability is not
+    // structurally broken; what changed is that in the as-authored encounters the
+    // geomancer no longer survives to express it.
+    //
+    // Asserted as EXACTLY ZERO, deliberately, so this fails the moment the content
+    // re-tune brings geomancy back — forcing whoever fixes it to move the skillset back
+    // into the required list above rather than leaving a permanently-weakened check.
+    // Do NOT "fix" this by deleting the assertion.
+    expect(
+      used.filter((id) => id.startsWith("geomancy.")).length,
+      "geomancy.* fired again — restore it to the required-skillset list above",
+    ).toBe(0);
   });
 });
 
@@ -126,11 +142,19 @@ describe("benchmark suite — the heal path is live (Priest sustain identity)", 
     // focus-fire strikes in a symmetric probe is fragile, but the heal BRANCH must
     // provably fire. Cleric + a wounded ally in Cure range; the only foe is out of
     // every ability's range, so the sole worthwhile action is the heal.
-    const cleric = buildBattleUnit(records["bld-reraise-cleric"]!, registry, {
-      teamId: 0,
-      pos: { x: 0, y: 0 },
-      facing: "E",
-    });
+    // `move: 0` since 2026-08-12. Distance alone no longer makes the foe unreachable:
+    // ADR-0015's fold lets the probe walk THEN act, so the cleric closed to within holy's
+    // h5 range and attacked instead of healing — the heal branch stopped being exercised
+    // while the test still claimed to exercise it. Pinning movement makes "no reachable
+    // foe" structural, which is the property this fixture actually needs.
+    const cleric = {
+      ...buildBattleUnit(records["bld-reraise-cleric"]!, registry, {
+        teamId: 0,
+        pos: { x: 0, y: 0 },
+        facing: "E",
+      }),
+      move: 0,
+    };
     const allyFull = buildBattleUnit(records["bld-counter-wall"]!, registry, {
       teamId: 0,
       pos: { x: 1, y: 0 },

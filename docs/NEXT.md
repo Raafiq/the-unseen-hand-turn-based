@@ -1,4 +1,4 @@
-<!-- written-against: 718bec2 -->
+<!-- written-against: d2aa517 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -22,12 +22,13 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI
+**P2 — customization depth, in progress.** 432 tests / 25 files, 10 Playwright specs, CI
 green. **Pages deployed successfully for the first time on 2026-08-12** (run #23); runs
 #1–#22 all failed — see the incident note below. The README had claimed it was green the
-whole time, which is why nobody noticed. **P2's open
-exit criterion is the diversity gate at N=6 vs a release bar of
-≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
+whole time, which is why nobody noticed. **P2's open exit criterion is the diversity gate,
+now at N=1 (re-baselined 2026-08-12, down from 6) against a release bar of ≥8** — the
+move+act fold landed and the content has not caught up; see the next slice below and
+`docs/08` §1a for the per-phase checklist. The viewer's transparency previews
 are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
 started.
 
@@ -43,60 +44,95 @@ Two PRs merged in the last session:
   bullets under one *evidence principle*, and split edit-time rules into
   `src/sim/CLAUDE.md` + `src/render/CLAUDE.md`.
 
-**Diversity gate: N=6**, release bar ≥8. `pass=true`, `dominantBuilds=[]`, anti-convergence
-holds and is test-asserted.
+**Diversity gate: N=1** (was 6), release bar ≥8. `pass=true`, `dominantBuilds=[]`. The gate
+still passes and still DETECTS — degrading the one surviving identity fails it — but it is
+measuring a field the content re-tune has yet to restore.
 
 ---
 
-## The next slice — GREEN-LIT by the user on 2026-08-12
+## The next slice — CLOSE THE GAP THE FOLD OPENED (not green-lit; confirm first)
 
-### Teach `ai.ts` the move+act fold
+### The job in one line
 
-This is the follow-up **ADR-0015 explicitly names**. The balance probe still emits one
-sub-phase per turn, which is why the fold was containable — and why the benchmark still
-under-measures every *closer* archetype. Measured before the fold shipped:
+**Give ranged and caster builds an answer to fast melee. Do NOT make the enemies weaker.**
+
+### Why not just make it easier
+
+The AI can now move and attack in the same turn. That helps melee far more than archers and
+casters, because closing the distance used to cost melee a whole turn. Six of seven test
+builds now win only 2–3 of 6 maps; they need 4 to count. Only the artillery caster still
+clears it.
+
+The obvious fix is to weaken the enemy teams. **That is the wrong fix**, and the user
+rejected it (2026-08-12):
+
+- **Our goal is variety, not win rate.** `docs/00` asks for 8 different builds all viable
+  with none dominant. It says nothing about how often anyone wins. One viable build is not
+  "too hard" — it is convergence, the exact thing `docs/02` B5 exists to prevent.
+- **Players say real FFT is already too easy**, broken by a few dominant jobs (Monk,
+  Calculator) while others go unused. Turning our enemies down moves toward that complaint.
+- **Our geomancer is one of the builds that fell out** — the same job players call
+  underpowered in the original. That is a signal about the job, not the encounter.
+
+So treat this as a class-balance gap, not a difficulty dial.
+
+### Where to start
+
+Not designed yet — that is the first task, and the `systems-designer` agent is the right
+place to start. Some directions, none chosen:
+
+- Something that punishes closing distance (reaction attacks, ranged counters).
+- Terrain or positioning that makes the walk actually cost something.
+- Better opening tempo for slow casters, so they get their spell off before contact.
+- Accept that some builds should lose to melee, and make sure they beat something else —
+  opportunity cost is the design law, not universal viability.
+
+Measure after each change. Do not assume a direction; the fold's own effect went the
+opposite way from every prediction.
+
+### What NOT to do
+
+- **Do not lower the pass mark** (`VIABLE_MIN_MAPS`, `WIN_CEIL_TICKS`). Gate constants are
+  calibrated to detect, not to pass — `src/sim/CLAUDE.md`.
+- **Do not weaken the enemy teams** as the primary lever, per the above.
+- **Do not re-run the free-flanking experiment.** Already tested: removing free rear
+  attacks recovers only 1 → 2. Raw lethality is what dominates.
+- **Do not treat this as masking.** Every build still uses its signature ability when it
+  survives; it just loses. Test-asserted. Masking and losing need opposite fixes.
+
+### Traps waiting for you
+
+1. **`geomancy` is pinned to fire ZERO times** in `benchmark-suite.test.ts`. When your fix
+   brings it back, that test **fails on purpose** — move geomancy back into the required
+   list rather than deleting the assertion.
+2. **The opportunity-cost test re-arms itself.** With one viable build it skips its strict
+   check; the moment a second build recovers, the check returns. Expect it to start biting.
+3. **Detection tests point at the artillery caster**, the only build whose loss can move the
+   score. When more builds recover, re-point them.
+4. **The browser tests click hard-coded tiles in the demo battle** and have now broken three
+   times this way. `npm run check` does NOT run them — use `npm run test:visual` too. Worth
+   rebuilding on a purpose-made board; the viewer's state machine has no DOM dependency.
+
+### Numbers to beat
 
 ```
-COMMAND TALLY {"move": 25, "act": 28, "wait": 0}   ← across the five enc-* encounters
+build              wins (of 6)   counts?
+arcane-artillery        4          yes
+terrain-geo             3          no
+faithzero-monk          3          no
+glass-summoner          3          no
+longshot                2          no
+reraise-cleric          2          no
+spellblade              0          no
 ```
 
-47% of benchmark turns are pure repositioning that FFT would have combined with an attack.
-Under that model no closer can execute flank-then-strike, so `docs/03` #2 Dual-Wield
-Deleter, #3 Solo Duelist, #8 Spellblade, #10 Sky-Drop Dragoon, #11 Teleport Assassin and
-#12 Terrain Geomancer are all suppressed in the gate.
+Variety score is 1. Release target is 8. `skirmish-a` is the sharpest signal — all seven
+builds lose it, and losses resolve in 25–48 ticks.
 
-**This slice WILL move the gate's numbers. That is the point, not a side effect.** Per
-`CLAUDE.md`, all records move in the SAME slice: the `gauntlet.ts` manifest, an ADR-0014
-amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerated
-`npm run state`. Do not assume which direction N moves; measure it.
+### Also not green-lit
 
-### Two landmines this slice detonates — both documented, neither fixed
-
-1. **`forecast()` assumes every future actor pays −80** (`ASSUMED_FUTURE_TURN_COST`) — the
-   exact model ADR-0015 disproves. `src/render/forecast.test.ts` is a forecast-vs-replay
-   oracle that **will go red** when the AI starts paying −100. That is by design: fix the
-   forecast or drop the timeline row. **Do not silence the test.** Note
-   `Forecast.assumedFrom` is computed at the *cheapest* legal turn (−60), so it is a lower
-   bound and never overclaims.
-2. **The gauntlet's tempo numbers reflect the −80-only world.** Re-measure; do not port old
-   expectations forward.
-
-### NOT green-lit — do not fold these in without asking
-
-These were offered alongside the fold and explicitly **not** chosen. They remain good
-slices; they are simply not authorised, so a future session must ask rather than assume
-scope creep is welcome:
-
-- **AoE splash rendering** (render-only; the sim already resolves AoE).
-- **Wire `Encounter.teams[].controller` through to the viewer.** Today the player team is a
-  `PLAYER_TEAM = 0` constant in `demo.ts` with a TODO, because `BattleState` carries no
-  controller field. Wiring it means threading the encounter through or a schema bump.
-- **Weapon range.** The Archer is melee in the viewer, so the slice that motivated the fold
-  still cannot show the range/tempo asymmetry. This is a fidelity change — golden vectors
-  attached.
-
-Also not green-lit: **MP enforcement** (would drop N 6→4 — see the standing constraints)
-and anything in **P3** (hybrid/fusion jobs, rewind UI, scan, speed toggle).
+AoE splash rendering · wiring the player-team setting to the viewer · weapon range ·
+MP costs (would cut the score further) · anything in P3.
 
 ---
 
@@ -127,17 +163,25 @@ second exists because the first is *not sufficient* — `/pages` answers 200 wit
 `build_type: workflow` while the gate still refuses every branch you have, so a guard that
 stopped at the first would have gone green on a dead deploy.
 
-## STILL OPEN — the repository default branch is not `main`
+## RESOLVED — the repository default branch is `main`
 
-`git remote show origin` reports `HEAD branch: claude/fft-combat-design-e32fm1`. This no
-longer blocks Pages, but it is the reason the misconfiguration existed, and it still makes
-`origin/HEAD`, fresh clones, and default PR bases resolve to a dead branch. `main` is 93
-commits ahead and a strict superset — the stale default's one unique commit (`4659d4b`,
-the design-doc drop) is already on `main` as `d8e7d3c`, and no file on it is missing from
-`main`. **Fix:** Settings → General → Default branch → ⇄ → `main`. Afterwards run
-`git remote set-head origin -a` locally; ~17 stale `claude/*` branches could also be pruned.
+`git remote show origin` reports `HEAD branch: main` (re-verified 2026-08-12). This was the
+root cause under BOTH Pages failures above: GitHub derived the `github-pages` environment's
+deployment-branch policy and the Pages source branch from the default branch, which was
+still `claude/fft-combat-design-e32fm1`, a day-one branch 93 commits behind. With the
+default corrected, new clones, `origin/HEAD` and default PR bases all resolve to `main`.
 
-**Why an agent cannot do any of this:** repo/environment settings need
+Two leftovers, both cosmetic: run `git remote set-head origin -a` in any clone made before
+the switch, and ~17 stale `claude/*` branches could be pruned.
+
+**A process note worth keeping.** This section previously read "STILL OPEN" and was repeated
+to the user several times AFTER the switch had already happened, because the claim was
+carried forward from one early-session measurement instead of being re-derived. That is the
+exact trap this file's own trust rule describes — a handoff reads as authoritative whether
+or not it still is. Re-run the one-line check before repeating a settings claim; it costs
+nothing.
+
+**What an agent still cannot do here:** repo/environment settings need
 `administration: write`, which is not among the scopes a workflow's `GITHUB_TOKEN` can
 request, and this sandbox's proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`
 and `/deployments`. `raafiq.github.io` egress is blocked too, so **an agent can confirm the

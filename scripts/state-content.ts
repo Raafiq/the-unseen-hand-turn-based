@@ -200,20 +200,20 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Teach the balance probe the move+act fold",
+      title: "Re-tune the gauntlet content against the folded turn",
       badge: "recommended",
       body:
-        "ADR-0015 made a full FFT turn expressible — move <b>and</b> act in one command, priced at " +
-        "<span class=\"mono\">&minus;100</span> CT — but <span class=\"mono\">ai.ts</span> still emits one " +
-        "sub-phase per turn, deliberately, so the gate stayed byte-stable. A tally across the five authored " +
-        "encounters returned <span class=\"mono\">{move:25, act:28, wait:0}</span>: <b>47% of benchmark turns " +
-        "are pure repositioning</b> FFT would have combined with an attack, so no <em>closer</em> can execute " +
-        "flank-then-strike and every one of them is under-measured. This will <b>move the gate's numbers</b> — " +
-        "that is the point — so the manifest, an ADR-0014 amendment, <span class=\"mono\">docs/06</span> AC-E2 " +
-        "and this dashboard all move in the same slice. Note it also detonates the forecast's " +
-        "<span class=\"mono\">&minus;80</span> assumption: <span class=\"mono\">forecast.test.ts</span> is the " +
-        "oracle that goes red rather than letting the timeline lie.",
-      chip: "unblocks closers",
+        "The move+act fold <b>landed</b> (2026-08-12): <span class=\"mono\">ai.ts</span> now moves <b>and</b> " +
+        "acts in one command priced at <span class=\"mono\">&minus;100</span> CT, so closers can finally " +
+        "execute flank-then-strike. It moved the gate's numbers hard, in the direction nobody predicted: " +
+        "<b>distinct viable identities fell 6 &rarr; 1</b>. The fold roughly doubles effective offense for " +
+        "<em>both</em> sides, and every encounter, opposition and build had been tuned against the superseded " +
+        "<span class=\"mono\">&minus;80</span>-only model, so six of seven candidates slid just under the " +
+        "4-of-6 viability bar. <b>Nothing is masked</b> — every identity still lands its signature wherever its " +
+        "build survives, and that is test-asserted, because masking and sub-viability need opposite fixes. " +
+        "The next slice re-tunes the content (oppositions, encounter geometry, build stats) against the " +
+        "corrected model. <span class=\"mono\">N=1</span> is an honest placeholder, not a target.",
+      chip: "restores the gate",
       recommended: true,
     },
     {
@@ -232,9 +232,9 @@ export const content = {
       title: "Beyond the job roster",
       badge: null,
       body:
-        "With the glass summoner landed (a range enhancement that lets it open <span class=\"mono\">summon.</span> " +
-        "from the backline), <b>6 of the 8 authored jobs</b> are measured identities and the job roster is being " +
-        "deprioritized. The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
+        "The job roster is being deprioritized. <b>6 of the 8 authored jobs were measured identities</b> before " +
+        "the move+act fold; post-fold only <span class=\"mono\">black-magic.</span> clears the viability bar, " +
+        "pending the content re-tune above. The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
         "signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
         "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
         "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",

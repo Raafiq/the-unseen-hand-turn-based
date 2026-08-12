@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import { runEncounter, runEncounterDetailed, runFromState } from "./harness.js";
 import { loadEncounter } from "./encounter.js";
-import { replay } from "./driver.js";
+import { replay, advanceToDecision } from "./driver.js";
 import { loadContentPack, type ContentRegistry } from "./content.js";
 import type { Condition } from "./condition.js";
 import { defaultUnitRecord, type UnitRecord } from "./roster.js";
@@ -73,12 +73,23 @@ describe("runEncounter — AC-E4/AC-S1: determinism", () => {
     const result = runEncounterDetailed(skirmishDef(), resolver);
     // Fresh load + the exact command log the AI issued, replayed WITHOUT the AI.
     // If the AI had drawn from the seed, its draws would have shifted every later
-    // resolver roll and this would diverge. Byte-equality proves it drew nothing.
+    // resolver roll and this would diverge. Equality proves it drew nothing.
     const fresh = loadEncounter(skirmishDef(), resolver);
-    const replayed = replay(fresh, result.commands);
+    const bare = replay(fresh, result.commands);
+    // THE claim, asserted where it is sharpest: the roll counter after the last command
+    // already matches, before any reconstruction step can paper over a difference.
+    expect(bare.rngCounter).toBe(result.report.finalRngCounter);
+    // `replay` stops after the LAST command; `runFromState` leaves its terminal state one
+    // `advanceToDecision` FURTHER on — the post-command advance during which it detected
+    // the win condition, which still ticks crystal timers and matures charges (see the
+    // `replay` docstring, and benchmark-suite.test.ts which reconstructs the same way).
+    // This trailing advance was previously OMITTED here and the test passed anyway,
+    // because on the pre-fold command sequence it happened to be a no-op — a fixture
+    // accident, not a property. Teaching `ai.ts` the move+act fold shortened the battle
+    // so that it is no longer a no-op, which exposed it. Reconstruct explicitly: this
+    // compares MORE state than before, not less.
+    const replayed = advanceToDecision(bare).state;
     expect(serialize(replayed)).toBe(serialize(result.state));
-    // And the anchor fields agree.
-    expect(replayed.rngCounter).toBe(result.report.finalRngCounter);
     expect(replayed.tick).toBe(result.report.finalTick);
   });
 });

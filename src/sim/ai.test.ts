@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { decideBalanceProbe } from "./ai.js";
+import { inAbilityRange, moveRange, relativeFacing } from "./grid.js";
+import { applyCommand } from "./driver.js";
 import {
   createBattleState,
   defaultUnit,
@@ -60,6 +62,27 @@ function field(units: UnitState[], seed = 1, w = 6, h = 6): BattleState {
   return createBattleState({ seed, grid: { width: w, height: h }, units });
 }
 
+/**
+ * A screener with NO action ability at all.
+ *
+ * The SCREENING tests exercise the MOVEMENT FALLBACK, reached only when the actor has no
+ * action available. Since ADR-0015's fold reached `ai.ts`, "no action available" can no
+ * longer be arranged by DISTANCE: the AI enumerates acts from every reachable tile, and
+ * `inAbilityRange` is CHEBYSHEV, so an armed screener keeps finding a diagonal it can walk
+ * to and strike from — at move 3 the T1 screener stepped to (1,1) and killed `prime` at
+ * (0,0), measuring the action path while claiming to measure the screen keys. Several of
+ * these boards cannot be fixed by moving the threat away either, because the same tile
+ * that screens is within reach of it.
+ *
+ * Removing the kit makes the premise STRUCTURAL instead of arithmetic, so these fixtures
+ * cannot be silently invalidated again by a future change to reach, movement or folding.
+ * T2/T2-chip deliberately do NOT use this — they must carry an attack, since their whole
+ * claim is that having an action outranks screening.
+ */
+function screener(id: string, teamId: number, over: Partial<UnitState>): UnitState {
+  return { ...defaultUnit(id, teamId, over), abilities: [] };
+}
+
 describe("decideBalanceProbe — AC-E3(a): flanks (rear > side > front) on an equal target", () => {
   it("attacks the enemy it can hit from the REAR over an identical front-facing enemy", () => {
     // hero at (2,2). A above facing S → hero strikes A's FRONT. B below facing S →
@@ -72,10 +95,24 @@ describe("decideBalanceProbe — AC-E3(a): flanks (rear > side > front) on an eq
   });
 });
 
+/*
+ * WHY THE ACTION-SELECTION FIXTURES BELOW PIN `move: 0`.
+ *
+ * These tests isolate ONE key of `compareCandidate` each (class, effHp focus, magnitude,
+ * heal triage). Since ADR-0015's fold reached `ai.ts`, the AI also enumerates acts from
+ * every REACHABLE tile, so on a mobile actor "facing ties" and "only effHp differs" stop
+ * being true — it can walk to a rear arc and the arc key decides before the key under
+ * test ever runs. The fixture would then pass or fail for a reason it does not name.
+ *
+ * `move: 0` removes movement as a confound so each test proves exactly its own claim.
+ * It does NOT weaken coverage: the fold has its own purpose-built describe block at the
+ * bottom of this file, and that block asserts target selection is preserved when the
+ * actor CAN move — the integrated property these unit tests deliberately no longer mix in.
+ */
 describe("decideBalanceProbe — AC-E3(b): focuses the lower-HP target", () => {
   it("picks the lower-HP foe when class, magnitude, and facing tie", () => {
     // Both foes flank (side) at equal distance; only effHp differs → focus the 30-HP one.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100 } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "S", hp: 60, maxHp: 60 });
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "S", hp: 30, maxHp: 60 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -88,7 +125,7 @@ describe("decideBalanceProbe — AC-E3(b): FOCUS beats big-hit (effHp before mag
     // hero (aries) same-sign with A → Zodiac 'good' ×1.25, so A is the BIGGER hit;
     // but A also has the higher HP. B (taurus) is a neutral, smaller hit but lower
     // HP. AC-E3(b) is a FOCUS rule → the AI must take B (finish it sooner), not A.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "S", hp: 200, maxHp: 200 }); // good ×1.25 → mag 100
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "S", hp: 150, maxHp: 150, zodiac: { sign: "taurus", gender: "neutral" } }); // neutral → mag 80
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -99,7 +136,7 @@ describe("decideBalanceProbe — AC-E3(b): FOCUS beats big-hit (effHp before mag
 describe("decideBalanceProbe — class order", () => {
   it("prefers a LETHAL blow over a mere CHIP", () => {
     // A is one-shot killable (LETHAL); B is a fat CHIP target. LETHAL outranks CHIP.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "N", hp: 40, maxHp: 40 });
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -107,7 +144,7 @@ describe("decideBalanceProbe — class order", () => {
   });
 
   it("prefers HEAL a wounded ally over CHIPping an unkillable foe", () => {
-    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, ma: 10, faith: 50 }, [HEAL_ABILITY]);
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, ma: 10, faith: 50 }, [HEAL_ABILITY]);
     const ally = defaultUnit("ally", 0, { pos: { x: 2, y: 1 }, hp: 20, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, hp: 500, maxHp: 500 });
     const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
@@ -115,7 +152,7 @@ describe("decideBalanceProbe — class order", () => {
   });
 
   it("does NOT heal a full-HP ally (no benefit) — falls through to attacking", () => {
-    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, pa: 10, ma: 10 }, [HEAL_ABILITY]);
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10 }, [HEAL_ABILITY]);
     const ally = defaultUnit("ally", 0, { pos: { x: 2, y: 1 }, hp: 100, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500 });
     const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
@@ -137,7 +174,7 @@ describe("decideBalanceProbe — HEAL is a TRIAGE (focus) rule, not biggest-heal
     // of the two keys IS the test:
     //   NEW (triage, effHp first):     effHp 10 < 40 → heal ally-b.  ✔ (save the dying one)
     //   OLD (big-heal, magnitude first): mag 32 > 12 → heal ally-a.  ✗ (overheals; discriminating)
-    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, ma: 10, faith: 100 }, [HEAL_ABILITY]);
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, ma: 10, faith: 100 }, [HEAL_ABILITY]);
     const allyA = defaultUnit("ally-a", 0, { pos: { x: 2, y: 3 }, hp: 40, maxHp: 72, faith: 50 });
     const allyB = defaultUnit("ally-b", 0, { pos: { x: 2, y: 1 }, hp: 10, maxHp: 72, faith: 10 });
     const cmd = decideBalanceProbe(field([healer, allyA, allyB]), "healer");
@@ -149,7 +186,7 @@ describe("decideBalanceProbe — HEAL is a TRIAGE (focus) rule, not biggest-heal
     // (LETHAL exists). Heal-triage must NOT be read as promoting HEAL above LETHAL — the
     // class order is unchanged, so the securable kill wins. Discriminating: if triage had
     // leaked into a cross-class key, the AI would panic-heal instead of killing.
-    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, pa: 10, ma: 10, faith: 50, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } }, [HEAL_ABILITY]);
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10, faith: 50, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } }, [HEAL_ABILITY]);
     const ally = defaultUnit("ally", 0, { pos: { x: 2, y: 1 }, hp: 20, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 30, maxHp: 30 });
     const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
@@ -195,7 +232,7 @@ describe("decideBalanceProbe — movement + passivity", () => {
   it("DOES select a charged MAGIC ability (the skip is not over-broad)", () => {
     // A charged magic nuke IS safe to select; encoded as a TILE target (charged/AoE).
     const nuke: BattleAbility = { id: "spell.nuke", actionKind: "action", formula: "magic", power: 8, element: "none", accuracy: 100, range: { h: 8, v: 8 }, inflicts: [], speed: 20, aoe: null };
-    const caster = unitWith("caster", 0, { pos: { x: 2, y: 2 }, ma: 10, faith: 50 }, [nuke]);
+    const caster = unitWith("caster", 0, { pos: { x: 2, y: 2 }, move: 0, ma: 10, faith: 50 }, [nuke]);
     // Foe at range 3 → out of basic-attack (h1) range, so the nuke is the only option.
     const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 5 }, hp: 100, maxHp: 100, faith: 50 });
     const cmd = decideBalanceProbe(field([caster, foe], 1, 6, 7), "caster");
@@ -218,7 +255,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // toward (0,0) — but screening must instead body-block the E→P path at (4,3) (on-path,
     // adjacent to P). The two rules DISAGREE by construction: the assertion (4,3) can only
     // come from the interpose keys, never from chasing the prime.
-    const s = defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 });
     const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
     const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
@@ -226,24 +263,30 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     expect(cmd).toEqual({ kind: "move", to: { x: 4, y: 3 } });
   });
 
-  it("T2: an in-range action ALWAYS beats screening (LETHAL kill, no move)", () => {
+  // T2/T2-chip assert ACTING BEATS SCREENING, which is a claim about which BRANCH runs —
+  // so they must keep a mobile S (a `move: 0` screener could not screen either way, making
+  // the test vacuous). Since ADR-0015's fold, the winning act may legitimately carry a
+  // `move` clause (S flanks to the foe's rear before striking), so these match on the
+  // act's IDENTITY rather than on exact equality. Still fully discriminating: screening
+  // returns `{ kind: "move" }`, which fails a `kind: "act"` match outright.
+  it("T2: an in-range action ALWAYS beats screening (LETHAL kill, never a screen)", () => {
     // S can one-shot an adjacent foe (LETHAL) AND has a mid-charge fragile ally. The
     // action return is strictly above screening → S kills, never screens.
     const s = defaultUnit("S", 0, { pos: { x: 2, y: 2 }, pa: 10, hp: 100, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 5, maxHp: 5 });
     const p = defaultUnit("P", 0, { pos: { x: 0, y: 5 }, hp: 40, maxHp: 72 });
     const cmd = decideBalanceProbe(fieldWithCharge([s, foe, p], [midCharge("P")]), "S");
-    expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+    expect(cmd).toMatchObject({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
   });
 
   it("T2 (chip variant): even a non-lethal CHIP beats screening", () => {
     // Same board, but the foe is unkillable this turn (CHIP, not LETHAL). A CHIP is still
-    // an in-range action → it outranks screening; S attacks, does not move.
+    // an in-range action → it outranks screening; S attacks rather than interposing.
     const s = defaultUnit("S", 0, { pos: { x: 2, y: 2 }, pa: 10, hp: 100, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500 });
     const p = defaultUnit("P", 0, { pos: { x: 0, y: 5 }, hp: 40, maxHp: 72 });
     const cmd = decideBalanceProbe(fieldWithCharge([s, foe, p], [midCharge("P")]), "S");
-    expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+    expect(cmd).toMatchObject({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
   });
 
   it("T3: screens the MID-CHARGE ally, not a nearer/lower-effHp non-charging ally", () => {
@@ -251,7 +294,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // `ally-charge` (hp 40, MID-CHARGE, farther at (6,2)). A wrong "nearest/lowest-effHp
     // fragile" rule would screen ally-near and interpose near (2,0) (→ (3,0)); the correct
     // MID-CHARGE rule interposes on the E→ally-charge path at (5,2). The keys DISAGREE.
-    const s = defaultUnit("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
     const allyCharge = defaultUnit("ally-charge", 0, { pos: { x: 6, y: 2 }, hp: 40, maxHp: 72 });
     const allyNear = defaultUnit("ally-near", 0, { pos: { x: 2, y: 0 }, hp: 20, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 3, y: 2 }, hp: 100, maxHp: 100 });
@@ -268,7 +311,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // sits at the NW corner. Correct → WAIT (hold the post). The pre-fix bug returned null
     // here → moveTowardPrime walks S off (4,3) toward the prime → a MOVE (then it re-screens
     // next turn and oscillates). Assert wait, NOT a move: right ≠ plausible-wrong.
-    const s = defaultUnit("S", 0, { pos: { x: 4, y: 3 }, move: 3, hp: 100, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 4, y: 3 }, move: 3, hp: 100, maxHp: 100 });
     const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
     const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
@@ -281,7 +324,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // SQUISHIER than the mid-charge P (hp 40) → the guard declines. Discriminating: a
     // no-guard bug would interpose at (4,3); the guard falls through to moveTowardPrime.
     // Proven by equality with the SAME board minus the charge (no protectee → same path).
-    const s = defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 30, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 30, maxHp: 100 });
     const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
     const prime = defaultUnit("prime", 1, { pos: { x: 0, y: 0 }, hp: 10, maxHp: 100 });
@@ -296,7 +339,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // S (move 1, boxed in the corner) can reach no on-path tile of the E→P line → tryScreen
     // returns null → moveTowardPrime. Discriminating: byte-identical to the same board with
     // no charge (screening cannot have engaged), and a MOVE toward the prime, not a wait.
-    const s = defaultUnit("S", 0, { pos: { x: 0, y: 0 }, move: 1, hp: 100, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 0, y: 0 }, move: 1, hp: 100, maxHp: 100 });
     const p = defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 });
     const prime = defaultUnit("prime", 1, { pos: { x: 2, y: 0 }, hp: 10, maxHp: 100 });
@@ -323,7 +366,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     // Identical board; the ONLY difference is whether the ally owns a charge. A Coven-
     // shaped INSTANT caster produces no chargeQueue entry, so screening never fires
     // (S falls through to moveTowardPrime). Add the charge → screening fires → (5,2).
-    const s = defaultUnit("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
+    const s = screener("S", 0, { pos: { x: 4, y: 0 }, move: 4, hp: 100, maxHp: 100 });
     const ally = defaultUnit("P", 0, { pos: { x: 6, y: 2 }, hp: 40, maxHp: 72 });
     const e = defaultUnit("E", 1, { pos: { x: 3, y: 2 }, hp: 100, maxHp: 100 });
     const interpose = { kind: "move", to: { x: 5, y: 2 } };
@@ -335,7 +378,7 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
 
   it("determinism: the screening decision is pure and draws ZERO rng", () => {
     const mkBoard = (): UnitState[] => [
-      defaultUnit("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 }),
+      screener("S", 0, { pos: { x: 4, y: 1 }, move: 3, hp: 100, maxHp: 100 }),
       defaultUnit("P", 0, { pos: { x: 5, y: 3 }, hp: 40, maxHp: 72 }),
       defaultUnit("E", 1, { pos: { x: 1, y: 3 }, hp: 100, maxHp: 100 }),
     ];
@@ -349,5 +392,116 @@ describe("decideBalanceProbe — support-aware SCREENING (protect-the-enabler, m
     decideBalanceProbe(s1, "S");
     expect(serialize(s1)).toBe(snap);
     expect(s1.rngCounter).toBe(0);
+  });
+});
+
+/*
+ * THE MOVE+ACT FOLD (ADR-0015 reaching `ai.ts`; docs/01 §2, AC-02).
+ *
+ * The probe now enumerates acts from the actor's tile AND from every reachable tile,
+ * emitting one folded `act` + `move{order:"before"}` command that settles ONCE at −100.
+ * These fixtures are PURPOSE-BUILT rather than borrowed from the demo/gauntlet content,
+ * and each asserts that its board genuinely SEPARATES the behaviour it claims to test —
+ * a fixture where staying and moving coincide would pass under both models and certify
+ * nothing.
+ */
+describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
+  it("reaches an otherwise-unreachable foe: one folded act, NOT a bare move", () => {
+    // hero (0,0) move 3, basic attack range h1. Foe at (4,0) is Chebyshev 4 away — out of
+    // range from the start tile, so the PRE-FOLD probe emitted `{kind:"move", to:(3,0)}`
+    // and spent the whole turn walking. (3,0) is exactly 3 steps and Chebyshev 1 from the
+    // foe, so the fold converts that same walk into a walk-and-strike.
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 0 }, hp: 100, maxHp: 100 });
+    const state = field([hero, foe], 1, 6, 3);
+    // The board separates the two models: unreachable from the start tile...
+    expect(inAbilityRange(state.grid, { x: 0, y: 0 }, { x: 4, y: 0 }, { h: 1, v: 1 })).toBe(false);
+    // ...reachable from a tile the actor can walk to.
+    expect(inAbilityRange(state.grid, { x: 3, y: 0 }, { x: 4, y: 0 }, { h: 1, v: 1 })).toBe(true);
+    const cmd = decideBalanceProbe(state, "hero");
+    expect(cmd).toEqual({
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "foe" },
+      move: { to: { x: 3, y: 0 }, order: "before" },
+    });
+  });
+
+  it("flank-then-strike: walks into the REAR arc rather than swinging from the FRONT", () => {
+    // The signature closer turn every docs/03 archetype needed and none could execute
+    // pre-fold. The foe faces S and the hero stands directly in its FRONT arc, already in
+    // range — so a probe that only ever acts from where it stands would swing at the front.
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 4, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, facing: "S", hp: 200, maxHp: 200 });
+    const state = field([hero, foe]);
+    // The board SEPARATES the models: standing still is a FRONT hit (the worst arc), so a
+    // move must be what buys the better arc — this is not a tie the old order also wins.
+    expect(relativeFacing(foe, { x: 2, y: 2 })).toBe("front");
+    const cmd = decideBalanceProbe(state, "hero");
+    expect(cmd.kind).toBe("act");
+    if (cmd.kind !== "act") throw new Error("unreachable");
+    expect(cmd.target).toEqual({ unitId: "foe" });
+    expect(cmd.move).toBeDefined();
+    expect(cmd.move?.order).toBe("before");
+    // Whatever tile it chose, it must be one the act resolves from at the REAR arc, and
+    // it must actually be reachable — assert the outcome, not a hard-coded coordinate.
+    const to = cmd.move!.to;
+    expect(relativeFacing(foe, to)).toBe("rear");
+    expect(moveRange(state.grid, state.units, "hero")).toContainEqual(to);
+  });
+
+  it("tempo: does NOT move when moving buys nothing (a folded turn costs 20 more CT)", () => {
+    // Foe faces N; the hero already stands in its REAR arc and in range. Another rear-arc
+    // tile is ALSO reachable and in range, so the AI genuinely HAS the option to move and
+    // land the identical blow — it must decline, because −100 for the same hit is strictly
+    // worse than −80.
+    //
+    // The actor carries ONLY a range-2 ability. With a range-1 basic attack the sole
+    // rear-arc tile in reach is the one it already occupies, so "it did not move" would be
+    // forced rather than chosen — the fixture would pass under any tempo rule at all and
+    // certify nothing. That is exactly what the `alt.length` assertion below caught when
+    // this test was first written against a range-1 weapon.
+    const REACH: BattleAbility = { id: "spell.bolt", actionKind: "action", formula: "magic", power: 8, element: "none", accuracy: 100, range: { h: 2, v: 2 }, inflicts: [], speed: null, aoe: null };
+    const hero: UnitState = { ...defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 4, ma: 10, faith: 50 }), abilities: [REACH] };
+    const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, facing: "N", hp: 200, maxHp: 200, faith: 50 });
+    const state = field([hero, foe]);
+    // THE fixture's discriminating property, asserted so nobody can "simplify" it away:
+    // staying is already the BEST arc, and an equally-good arc is reachable elsewhere.
+    expect(relativeFacing(foe, { x: 2, y: 2 })).toBe("rear");
+    const alt = moveRange(state.grid, state.units, "hero").filter(
+      (t) => relativeFacing(foe, t) === "rear" && inAbilityRange(state.grid, t, foe.pos, REACH.range),
+    );
+    expect(alt.length).toBeGreaterThan(0); // the choice is real, not vacuous
+    const cmd = decideBalanceProbe(state, "hero");
+    expect(cmd).toEqual({ kind: "act", abilityId: "spell.bolt", target: { unitId: "foe" } });
+  });
+
+  it("target selection survives the fold: still focuses the lower-HP foe when it can move", () => {
+    // The integrated property the `move: 0`-pinned fixtures above deliberately exclude.
+    // Both foes are identical but for HP and both are reachable, so AC-E3(b)'s focus key
+    // must still decide — the fold must not have let arc/tile noise outrank it.
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 3, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100 } });
+    const a = defaultUnit("A", 1, { pos: { x: 0, y: 2 }, facing: "S", hp: 60, maxHp: 60 });
+    const b = defaultUnit("B", 1, { pos: { x: 4, y: 2 }, facing: "S", hp: 30, maxHp: 60 });
+    const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
+    expect(cmd.kind).toBe("act");
+    if (cmd.kind !== "act") throw new Error("unreachable");
+    expect(cmd.target).toEqual({ unitId: "B" }); // the 30-HP foe, not the 60-HP one
+  });
+
+  it("the folded command the AI emits is LEGAL: the driver accepts it and settles at −100", () => {
+    // Closes the loop AI → driver. A command the probe can emit but the driver rejects
+    // would be a benchmark that cannot replay (AC-S1). ct 100 → act+move settles to 0.
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, ct: 100, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 0 }, ct: 0, hp: 100, maxHp: 100 });
+    const state = field([hero, foe], 1, 6, 3);
+    const cmd = decideBalanceProbe(state, "hero");
+    expect(cmd.kind).toBe("act");
+    if (cmd.kind !== "act") throw new Error("unreachable");
+    expect(cmd.move).toBeDefined();
+    const after = applyCommand(state, cmd);
+    const moved = after.units.find((u) => u.id === "hero")!;
+    expect(moved.pos).toEqual({ x: 3, y: 0 }); // the move half happened
+    expect(moved.ct).toBe(0); // 100 − 100: ONE settle at the both-sub-phases price
   });
 });
