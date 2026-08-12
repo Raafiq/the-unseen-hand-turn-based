@@ -48,7 +48,7 @@ holds and is test-asserted.
 
 ---
 
-## The recommended next slice — NOT green-lit; confirm with the user first
+## The next slice — GREEN-LIT by the user on 2026-08-12
 
 ### Teach `ai.ts` the move+act fold
 
@@ -81,7 +81,11 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
 2. **The gauntlet's tempo numbers reflect the −80-only world.** Re-measure; do not port old
    expectations forward.
 
-### Smaller alternatives, if the user prefers a lighter slice
+### NOT green-lit — do not fold these in without asking
+
+These were offered alongside the fold and explicitly **not** chosen. They remain good
+slices; they are simply not authorised, so a future session must ask rather than assume
+scope creep is welcome:
 
 - **AoE splash rendering** (render-only; the sim already resolves AoE).
 - **Wire `Encounter.teams[].controller` through to the viewer.** Today the player team is a
@@ -90,6 +94,9 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
 - **Weapon range.** The Archer is melee in the viewer, so the slice that motivated the fold
   still cannot show the range/tempo asymmetry. This is a fidelity change — golden vectors
   attached.
+
+Also not green-lit: **MP enforcement** (would drop N 6→4 — see the standing constraints)
+and anything in **P3** (hybrid/fusion jobs, rewind UI, scan, speed toggle).
 
 ---
 
