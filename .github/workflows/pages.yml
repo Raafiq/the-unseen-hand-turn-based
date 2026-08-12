@@ -12,6 +12,17 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# The branch this workflow publishes from. MUST match the `on.push.branches`
+# entry above — GitHub forbids expressions in `on:`, so the two cannot be driven
+# from one value; the branch-policy preflight asserts they agree instead.
+#
+# Do NOT infer the publish branch from the repository's default branch. As of
+# 2026-08-09 the default is still `claude/fft-combat-design-e32fm1`, a day-one
+# design-docs branch 93 commits behind `main` — which is exactly why the Pages
+# environment policy and the Pages source branch both point at a dead branch.
+env:
+  PUBLISH_BRANCH: main
+
 permissions:
   contents: read
   pages: write
@@ -102,23 +113,38 @@ jobs:
             exit 0
           fi
           msg="Branch '$GITHUB_REF_NAME' is NOT in the github-pages environment's deployment-branch policy, so the deploy job will be refused at the environment gate with NO logs. Fix: Settings → Environments → github-pages → Deployment branches — add '$GITHUB_REF_NAME' (and drop any stale feature-branch entries)."
-          # Read the default branch from the API, NOT from github.event.repository — an
-          # event whose payload omits `repository` would leave that expression empty, the
-          # comparison would be false, and the guard would quietly downgrade to a warning
-          # on the one branch that actually publishes. Fail closed if it cannot be read.
-          default_branch=$(api "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}" | jq -r '.default_branch // empty')
-          if [ -z "$default_branch" ]; then
-            echo "::error::Could not determine the default branch; refusing to downgrade this to a warning."
+          # Escalate on PUBLISH_BRANCH — the branch this workflow actually deploys from —
+          # NOT on the repository's default branch. Anchoring on the default was wrong and
+          # would have failed open: this repo's default is a dead day-one branch, so the
+          # `main` run (the only run that publishes) would have emitted a mere warning.
+          # A guard whose severity depends on a setting that is itself misconfigured is no
+          # guard at all.
+          echo "publish branch = $PUBLISH_BRANCH · this ref = $GITHUB_REF_NAME"
+          if [ -z "$PUBLISH_BRANCH" ]; then
+            echo "::error::PUBLISH_BRANCH is unset; refusing to downgrade this to a warning."
             exit 1
           fi
-          echo "default branch = $default_branch"
-          if [ "$GITHUB_REF_NAME" = "$default_branch" ]; then
+          if [ "$GITHUB_REF_NAME" = "$PUBLISH_BRANCH" ]; then
             echo "::error::$msg"
             exit 1
           fi
           echo "::warning::$msg"
 
       - uses: actions/checkout@v4
+
+      # `PUBLISH_BRANCH` and `on.push.branches` must agree, and nothing but this
+      # step makes them. A comment saying "keep these in sync" reads identically
+      # whether or not they are in sync — so assert it.
+      - name: Preflight — PUBLISH_BRANCH must match the push trigger
+        run: |
+          # PyYAML reads a bare `on:` key as the boolean True (YAML 1.1); tolerate both.
+          trigger=$(python3 -c "import yaml;d=yaml.safe_load(open('.github/workflows/pages.yml'));o=d.get(True,d.get('on'));print(','.join(o['push']['branches']))")
+          echo "on.push.branches = $trigger · PUBLISH_BRANCH = $PUBLISH_BRANCH"
+          if [ "$trigger" != "$PUBLISH_BRANCH" ]; then
+            echo "::error::PUBLISH_BRANCH ('$PUBLISH_BRANCH') does not match on.push.branches ('$trigger'). The branch-policy preflight would escalate on the wrong branch."
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
