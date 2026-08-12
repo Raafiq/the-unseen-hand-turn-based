@@ -175,6 +175,15 @@ function checkReferentialIntegrity(
         );
       }
     }
+    // A supportEffect is read ONLY from the equipped SUPPORT slot (build.ts), so
+    // authoring one on any other ability type would silently do nothing — exactly
+    // the dead-slot class of defect this field exists to end (ADR-0017). Fail loud.
+    if (ability.supportEffect !== undefined && ability.type !== "support") {
+      throw new ContentIntegrityError(
+        `ability "${ability.id}" declares a supportEffect but has type "${ability.type}" ` +
+          `(only a "support" ability's effect is ever applied)`,
+      );
+    }
   }
 
   for (const job of pack.jobs) {

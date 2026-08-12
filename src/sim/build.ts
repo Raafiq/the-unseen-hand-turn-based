@@ -7,9 +7,17 @@
  * `BattleAbility` are self-contained, ADR-0010/ADR-0011).
  *
  * Derivation order (docs/05 §4: raw → job growth → mastery-trait modifiers →
- * clamp; equipment / status still DEFERRED). Integer/floored math only, floored
- * per step; no RNG, no wall-clock, no IO. The registry is an injected parameter,
- * never a global.
+ * EQUIPPED-SUPPORT modifiers → clamp; equipment / status still DEFERRED).
+ * Integer/floored math only, floored per step; no RNG, no wall-clock, no IO. The
+ * registry is an injected parameter, never a global.
+ *
+ * THE SUPPORT LAYER (ADR-0017) sits AFTER the trait fold and BEFORE the final
+ * clamp, and it has two halves that land in different places: its stat mods
+ * (pa/ma/maxHp) join the scalar pipeline above, while its ability mods (charge
+ * speed, range) fold onto each projected {@link BattleAbility} in
+ * {@link projectAbilities}. Both are baked into the returned UnitState, so a
+ * replay stays registry-free. A build with no support equipped, or one whose
+ * support has no authored effect, is byte-identical to the pre-layer build.
  *
  * SLICE-4 SCOPE: this projects a unit's CASTABLE ACTIONS into `abilities`, but
  * NOTHING in the resolver reads `abilities` yet (Slice 5 wires it). So building a
@@ -35,6 +43,7 @@ import {
   type Weapon,
 } from "./state.js";
 import { applyTraitEffects, type TraitStatBase } from "./trait.js";
+import { applySupportEffect, applySupportToAbility, type SupportEffect } from "./support.js";
 
 /**
  * Placeholder weapon until an equipment layer lands — a UnitRecord carries no
@@ -97,7 +106,11 @@ function clampToUnitStateBounds(s: TraitStatBase): TraitStatBase {
  * (only a `hitBase` tag the pipeline reads later), so it defaults to 100 here.
  * `speed` omitted ⇒ `null` (instant); a positive int ⇒ the charged-action speed.
  */
-function toBattleAbility(ability: Ability): BattleAbility {
+function toBattleAbility(ability: Ability, support: SupportEffect | undefined): BattleAbility {
+  const range = ability.range ?? { h: 1, v: 1 };
+  // The equipped support's ability-side mods are baked in HERE, not read at
+  // resolve time, so the projection stays self-contained (ADR-0010/ADR-0011).
+  const { speed, rangeH } = applySupportToAbility(ability.speed ?? null, range.h, support);
   return {
     id: ability.id,
     actionKind: ability.type,
@@ -105,11 +118,26 @@ function toBattleAbility(ability: Ability): BattleAbility {
     power: ability.power ?? 0,
     element: ability.element ?? "none",
     accuracy: 100,
-    range: ability.range ?? { h: 1, v: 1 },
+    range: { h: rangeH, v: range.v },
     inflicts: ability.inflicts ?? [],
-    speed: ability.speed ?? null,
+    speed,
     aoe: ability.aoe ?? null,
   };
+}
+
+/**
+ * The effect of the record's EQUIPPED support ability, or `undefined` when the
+ * slot is empty or the equipped support is one of the deliberately-inert
+ * {@link DEFERRED_SUPPORT_EFFECTS}. Absent, never a zero-effect object — so the
+ * no-support path short-circuits to the identity in both fold helpers.
+ */
+function equippedSupportEffect(
+  record: UnitRecord,
+  registry: ContentRegistry,
+): SupportEffect | undefined {
+  const supportId = record.loadout.support;
+  if (supportId === null) return undefined;
+  return registry.ability(supportId).supportEffect;
 }
 
 /**
@@ -123,11 +151,19 @@ function toBattleAbility(ability: Ability): BattleAbility {
  * Deterministic: dedup uses a Map keyed by id, populated in a FIXED order (basic →
  * primary → secondary) by walking `record.learned` (a stable array), never
  * hash-set iteration. First writer wins on an id collision.
+ *
+ * THE SUPPORT'S ABILITY MODS APPLY TO SKILLS ONLY, never to `basic.attack`. The
+ * basic attack is derived from the equipped WEAPON, and equipment is still
+ * deferred (docs/05 §4) — so a range-up support has nothing meaningful to widen
+ * there, and silently adding a tile of MELEE reach to every support-carrying build
+ * would be a real combat change nobody authored. Revisit when the equipment layer
+ * lands and a weapon carries its own range.
  */
 function projectAbilities(
   record: UnitRecord,
   registry: ContentRegistry,
   weapon: Weapon,
+  support: SupportEffect | undefined,
 ): BattleAbility[] {
   const primarySkillset = registry.job(record.currentJob).primarySkillset;
   const byId = new Map<string, BattleAbility>();
@@ -137,7 +173,7 @@ function projectAbilities(
   for (const abilityId of record.learned) {
     const ability = registry.ability(abilityId);
     if (ability.type === "action" && ability.skillset === primarySkillset && !byId.has(ability.id)) {
-      byId.set(ability.id, toBattleAbility(ability));
+      byId.set(ability.id, toBattleAbility(ability, support));
     }
   }
 
@@ -145,7 +181,7 @@ function projectAbilities(
   // filtered to action-type by loadout.ts; `[]` when no secondary is equipped).
   for (const ability of equippedSecondaryAbilities(record, registry)) {
     if (!byId.has(ability.id)) {
-      byId.set(ability.id, toBattleAbility(ability));
+      byId.set(ability.id, toBattleAbility(ability, support));
     }
   }
 
@@ -190,21 +226,36 @@ export function buildBattleUnit(
   // leaves an already-legal derived stat untouched, so the built UnitState is
   // byte-identical to before.
   const effects = record.loadout.traits.map((id) => registry.trait(id).effect);
-  const adjusted = clampToUnitStateBounds(
-    applyTraitEffects(
-      {
-        pa,
-        ma,
-        maxHp,
-        move: over.move ?? DEFAULT_BUILD_MOVE,
-        evasion: over.evasion ?? DEFAULT_BUILD_EVASION,
-      },
-      effects,
-    ),
+  const withTraits = applyTraitEffects(
+    {
+      pa,
+      ma,
+      maxHp,
+      move: over.move ?? DEFAULT_BUILD_MOVE,
+      evasion: over.evasion ?? DEFAULT_BUILD_EVASION,
+    },
+    effects,
   );
 
+  // Equipped-support layer (ADR-0017), applied AFTER traits and BEFORE the clamp.
+  // Sequential rather than folded together with the traits on purpose: mastery and
+  // an equipped support are distinct sources in docs/05 §4's ordered pipeline, and
+  // keeping them separate means a support's multiplier scales the post-mastery stat
+  // (what the player sees on the unit) rather than the pre-mastery one. Each layer
+  // floors once. A loadout holds at most ONE support, so there is no intra-layer
+  // ordering to be independent of. Absent support ⇒ the identity, so a support-less
+  // build stays byte-identical to the pre-layer build.
+  const support = equippedSupportEffect(record, registry);
+  const adjusted = clampToUnitStateBounds({
+    ...withTraits,
+    ...applySupportEffect(
+      { pa: withTraits.pa, ma: withTraits.ma, maxHp: withTraits.maxHp },
+      support,
+    ),
+  });
+
   const weapon: Weapon = over.weapon ?? DEFAULT_BUILD_WEAPON;
-  const abilities = projectAbilities(record, registry, weapon);
+  const abilities = projectAbilities(record, registry, weapon, support);
 
   return defaultUnit(record.id, over.teamId ?? 0, {
     pa: adjusted.pa,

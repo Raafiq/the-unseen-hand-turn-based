@@ -121,14 +121,23 @@ describe("benchmark suite — AC-E2 raw material: the new jobs are actually MEAS
     // actions (docs/07 §3, AC-P6), so the geomancer survives to cast at all; and geomancy's
     // `power` was re-scaled so a geomancer's spell out-damages its own basic attack instead
     // of landing at half of it — the mask that had the greedy probe pick the punch.
-    for (const skillset of ["aim", "geomancy", "summon", "white-magic"]) {
+    // `black-magic` IS BACK IN THIS LIST (ADR-0017), and correcting WHY it was missing
+    // matters more than the entry. The recorded reason was `bld-spellblade`'s mask — true,
+    // but not the operative one: NO benchmark encounter fielded a black-mage at all, so the
+    // list could never have contained it however the mask resolved. The gap was an
+    // un-fielded build masquerading as a balance problem. Two things fixed it: the support
+    // slot went live, so `bld-arcane-artillery`'s equipped Magic Attack Up finally applies;
+    // and the wizard is now an as-authored occupant of `enc-mixed-company` (which is 3v3
+    // where it was 2v3 — that encounter's play SHIFTS, disclosed in ADR-0017, and this
+    // file asserts self-consistency + replay-equality only, with no committed golden, so it
+    // stays green through the shift rather than catching it).
+    for (const skillset of ["aim", "black-magic", "geomancy", "summon", "white-magic"]) {
       const fired = used.filter((id) => id.startsWith(`${skillset}.`));
       expect(fired.length, `no ${skillset}.* action was used anywhere in the suite`).toBeGreaterThan(0);
     }
-    // `black-magic` is deliberately NOT required here, and that is a KNOWN GAP rather than
-    // an oversight: `bld-spellblade` is a knight whose MA (6) makes its borrowed black
-    // magic lose to its own PA × WP swing, so the probe never picks it. The cause is
-    // pinned as a positive assertion in `ttk.test.ts`. Add it here when that is fixed.
+    // STILL A KNOWN GAP, narrowed: `bld-spellblade` remains masked (a knight's MA makes its
+    // borrowed black magic lose to its own PA × WP swing), so the prefix above is carried
+    // entirely by the wizard. That cause is pinned as a positive assertion in `ttk.test.ts`.
   });
 });
 

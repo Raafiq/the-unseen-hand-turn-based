@@ -28,6 +28,15 @@ Every unit fields five equip slots, filled from abilities learned across any job
 
 Cross-job equipping is what turns a class list into a build sandbox.
 
+> **Implementation status (2026-08-12, ADR-0017).** Primary, Secondary and **Support** are
+> live in the sim. **Reaction and Movement are still inert** — validated at equip time, then
+> ignored at build time. That is a real gap, not a rounding error: it cost two slices, because
+> nine of fourteen shipped builds equipped a support ability that did nothing and the resulting
+> weakness read as a *content-tuning* problem. A slot that type-checks its input and then
+> discards it looks identical to a working one. Supports that are authored but deliberately
+> effect-less are listed in `DEFERRED_SUPPORT_EFFECTS` with a named blocker, and a test asserts
+> that list partitions the shipped pack exactly, so "silently inert" cannot recur.
+
 ### A3. The job web (representative)
 Generic human jobs: Squire, Chemist (both starting), Knight, Archer, Monk, Priest, Wizard, Time Mage, Summoner, Thief, Mystic/Oracle, Geomancer, Lancer/Dragoon, Samurai, Ninja, **Calculator/Arithmetician**, Bard (♂), Dancer (♀), **Mime**. `[WotL]` adds **Dark Knight** and **Onion Knight**. Representative gates: Knight/Archer ← Squire 2; Priest/Wizard ← Chemist 2; Monk ← Knight 3; Geomancer ← Monk 3; Thief ← Archer 2; Dragoon ← Thief 3; Summoner ← Time Mage 3; Ninja ← Archer 4 + Thief 5 + Geomancer 2; Calculator ← Priest 4 + Wizard 4 + Time 3 + Oracle 4; Mime ← very steep. `[WotL]` gates are generally stricter. **(All thresholds verify-against-BMG before use — see `docs/01` §12.)**
 

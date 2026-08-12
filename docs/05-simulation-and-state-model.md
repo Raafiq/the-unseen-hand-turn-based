@@ -95,11 +95,25 @@ raw (hidden PA/MA/Speed/HP/MP/Brave/Faith)
   → + equipment modifiers (weapon/armor/accessory)
   → + socket/set-bonus modifiers        [OPTIONAL modules]
   → + mastery-trait modifiers
+  → + equipped-SUPPORT modifiers        [LIVE — ADR-0017]
   → + active status modifiers (Protect/Shell/Haste as flags, Faith/Innocent as overrides)
   → clamp (Brave/Faith 0–100; HP/MP ≥ 0; Speed ≥ 1)
   = derived stat used by the pipeline
 ```
 Store **raw** and **derived** separately; never mutate raw from equipment/status.
+
+**The support layer has two halves, and only one of them is in the ladder above** (ADR-0017,
+`src/sim/support.ts`). Its **stat** mods (`pa`/`ma`/`maxHp`) fold in at the marked position —
+after mastery, before the clamp, so a support's multiplier scales the *post*-mastery stat.
+Its **ability** mods (`chargeSpeed`, `abilityRange`) are not stats at all: they fold onto each
+projected `BattleAbility` at build time, so they travel inside the serialized battle and a
+replay never re-reads the content registry (the self-containment rule, ADR-0010/ADR-0011).
+Ability mods apply to **skills only**, never to the weapon-derived `basic.attack` — equipment
+is still deferred, so there is no weapon range for a range-up support to widen.
+
+**A support may not touch a unit's Speed** — the same structural ban traits carry (AC-P5,
+ADR-0012), enforced by the schema shape. `chargeSpeed` is a *charged action's* own accrual
+rate (`docs/01` §3), which is a different quantity and is why Short Charge exists.
 
 ---
 

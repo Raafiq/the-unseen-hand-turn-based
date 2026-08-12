@@ -19,3 +19,5 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0013](0013-defer-facing-on-move.md) | Defer facing-on-move; ship the balance-probe AI against deploy facing | Accepted | 2026-07-31 |
 | [0014](0014-diversity-gate-phased-target.md) | Diversity gate ships as a phased ≥N-with-manifest target, not a flat ≥8 | Accepted | 2026-08-02 |
 | [0015](0015-fold-move-and-act-into-one-command.md) | Fold move+act into one Command (the pre-authorized fold) | Accepted | 2026-08-08 |
+| [0016](0016-ttk-band-is-the-balance-baseline.md) | Time-to-kill is the balance baseline, enforced by test | Accepted | 2026-08-12 |
+| [0017](0017-support-slot-goes-live.md) | The support slot gets real effects; a dead slot is a defect class | Accepted | 2026-08-12 |
