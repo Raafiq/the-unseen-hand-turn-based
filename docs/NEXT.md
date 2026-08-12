@@ -144,17 +144,25 @@ second exists because the first is *not sufficient* — `/pages` answers 200 wit
 `build_type: workflow` while the gate still refuses every branch you have, so a guard that
 stopped at the first would have gone green on a dead deploy.
 
-## STILL OPEN — the repository default branch is not `main`
+## RESOLVED — the repository default branch is `main`
 
-`git remote show origin` reports `HEAD branch: claude/fft-combat-design-e32fm1`. This no
-longer blocks Pages, but it is the reason the misconfiguration existed, and it still makes
-`origin/HEAD`, fresh clones, and default PR bases resolve to a dead branch. `main` is 93
-commits ahead and a strict superset — the stale default's one unique commit (`4659d4b`,
-the design-doc drop) is already on `main` as `d8e7d3c`, and no file on it is missing from
-`main`. **Fix:** Settings → General → Default branch → ⇄ → `main`. Afterwards run
-`git remote set-head origin -a` locally; ~17 stale `claude/*` branches could also be pruned.
+`git remote show origin` reports `HEAD branch: main` (re-verified 2026-08-12). This was the
+root cause under BOTH Pages failures above: GitHub derived the `github-pages` environment's
+deployment-branch policy and the Pages source branch from the default branch, which was
+still `claude/fft-combat-design-e32fm1`, a day-one branch 93 commits behind. With the
+default corrected, new clones, `origin/HEAD` and default PR bases all resolve to `main`.
 
-**Why an agent cannot do any of this:** repo/environment settings need
+Two leftovers, both cosmetic: run `git remote set-head origin -a` in any clone made before
+the switch, and ~17 stale `claude/*` branches could be pruned.
+
+**A process note worth keeping.** This section previously read "STILL OPEN" and was repeated
+to the user several times AFTER the switch had already happened, because the claim was
+carried forward from one early-session measurement instead of being re-derived. That is the
+exact trap this file's own trust rule describes — a handoff reads as authoritative whether
+or not it still is. Re-run the one-line check before repeating a settings claim; it costs
+nothing.
+
+**What an agent still cannot do here:** repo/environment settings need
 `administration: write`, which is not among the scopes a workflow's `GITHUB_TOKEN` can
 request, and this sandbox's proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`
 and `/deployments`. `raafiq.github.io` egress is blocked too, so **an agent can confirm the
