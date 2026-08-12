@@ -97,7 +97,17 @@ the identities clear the band again under the corrected model.**
 3. **Detection tests are pointed at `arcane-artillery`**, the only identity whose loss can
    move the verdict. When more identities return, re-point/restore per-identity detection
    tests (the two deleted ones are described in `gauntlet.test.ts`).
-4. **Do not calibrate the gate to pass.** `src/sim/CLAUDE.md`: gate constants are calibrated
+4. **The viewer e2e specs ride on the demo battle and this is the THIRD time a sim change
+   has invalidated them.** `e2e/play.spec.ts` clicks hard-coded tiles that depend on how
+   the AI plays `makeDemoBattle`; the fold moved the Brawler from (6,3) to (5,0) and every
+   coordinate went stale, including two captions that then described things the frames no
+   longer showed. `npm run check` does **not** catch this — Playwright is a separate CI job,
+   so run `npm run test:visual` too. **Worth doing properly:** `docs/10`'s state machine is
+   DOM-free and constructible over an arbitrary `BattleState`, so these specs could use a
+   purpose-built board instead of shipped demo content. Also note the preview pair now reads
+   SIDE 100% vs REAR 100% — the Mage has no directional evasion, so the hit-% half of that
+   discriminator is gone and only the arc name moves.
+5. **Do not calibrate the gate to pass.** `src/sim/CLAUDE.md`: gate constants are calibrated
    to DETECT. Re-tune the content, not `VIABLE_MIN_MAPS` / `WIN_CEIL_TICKS`.
 
 ### Also NOT green-lit
