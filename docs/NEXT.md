@@ -22,12 +22,13 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI
+**P2 — customization depth, in progress.** 432 tests / 25 files, 10 Playwright specs, CI
 green. **Pages deployed successfully for the first time on 2026-08-12** (run #23); runs
 #1–#22 all failed — see the incident note below. The README had claimed it was green the
-whole time, which is why nobody noticed. **P2's open
-exit criterion is the diversity gate at N=6 vs a release bar of
-≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
+whole time, which is why nobody noticed. **P2's open exit criterion is the diversity gate,
+now at N=1 (re-baselined 2026-08-12, down from 6) against a release bar of ≥8** — the
+move+act fold landed and the content has not caught up; see the next slice below and
+`docs/08` §1a for the per-phase checklist. The viewer's transparency previews
 are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
 started.
 
@@ -43,8 +44,9 @@ Two PRs merged in the last session:
   bullets under one *evidence principle*, and split edit-time rules into
   `src/sim/CLAUDE.md` + `src/render/CLAUDE.md`.
 
-**Diversity gate: N=6**, release bar ≥8. `pass=true`, `dominantBuilds=[]`, anti-convergence
-holds and is test-asserted.
+**Diversity gate: N=1** (was 6), release bar ≥8. `pass=true`, `dominantBuilds=[]`. The gate
+still passes and still DETECTS — degrading the one surviving identity fails it — but it is
+measuring a field the content re-tune has yet to restore.
 
 ---
 
