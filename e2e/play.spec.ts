@@ -28,14 +28,25 @@
  *  step()      Mage declares spell.fire  PLAYER_IDLE    10    1 archer  (1,5)  110
  *  (5,5)+End   Archer moves             PLAYER_IDLE    12    2 knight  (1,1)  108
  *  (5,1)+End   Knight moves             AI_TURN        13    3 brawler (7,1)  104
- *  step()      Brawler advances to (6,3) AI_TURN        14    4 mage    (7,5)  102
- *  step()      Mage declares a 2nd cast  PLAYER_IDLE    17    5 archer  (5,5)  107   ← the flank decision
+ *  step()      Brawler folds onto Knight AI_TURN        14    4 mage    (7,5)  102
+ *  step()      Mage folds move + 2nd cast PLAYER_IDLE   17    5 archer  (5,5)  107   ← the flank decision
  *
- * At that decision point the Archer's `moveRange` (25 tiles) contains BOTH (5,3) and
- * (7,3), and the Brawler stands at (6,3) facing W — so the same actor/target pair
- * yields two DIFFERENT named arcs:
+ * RE-MEASURED 2026-08-12, after `ai.ts` learned ADR-0015's move+act fold. The six rows
+ * above are UNCHANGED (same ticks, command counts, next actor, position and CT) — what
+ * changed is what the AI beats DO. The Brawler no longer walks to (6,3); it folds its own
+ * move+attack onto the Knight and ends at (5,0), and the Mage folds move+cast to (7,2),
+ * aiming its charge at the KNIGHT at (5,1) rather than at the Archer's tile.
  *
- *      staged (5,3) → FRONT arc, 75% hit      staged (7,3) → REAR arc, 100% hit
+ * At the flank decision the Archer sits at (5,5) with ct 107 and the reachable foe is the
+ * MAGE at (7,2), facing N. Two staged tiles in its `moveRange` give two different arcs:
+ *
+ *      staged (6,3) → SIDE arc, 100% hit      staged (7,3) → REAR arc, 100% hit
+ *
+ * ⚠ Both read 100%: the Mage carries no directional evasion (all eight adjacent tiles
+ * probed). The pre-fold pair straddled the Brawler at 75% vs 100%, so it moved the arc
+ * NAME *and* the hit %; only the name moves now. These viewer fixtures ride on demo
+ * content that a sim change can shift under them — the third time it has happened — so a
+ * purpose-built board is recorded in docs/NEXT.md as work for the next slice.
  *
  * (Damage 100 either way — this engine's magnitude is deterministic given a hit, so
  * the arc buys accuracy, not size.) That is the discriminating pair test 3 needs: a
@@ -174,24 +185,31 @@ test("playable: staging a move then clicking an enemy commits ONE folded command
   expect(before.ct).toBe(107);
   expect(before.statuses).toBe(0); // no Haste/Slow ⇒ CT accrual is linear in speed
 
-  // Stage the rear-adjacent tile, then click the Brawler. Selecting the target IS
+  // Stage the rear-adjacent tile, then click the Mage. Selecting the target IS
   // the confirm gesture (docs/10 §3) — two clicks, ONE command.
+  //
+  // RETARGETED brawler → mage (2026-08-12). This gesture used to stage (7,3) and click
+  // the Brawler at (6,3). Once `ai.ts` learned the move+act fold the demo's AI turns play
+  // out differently: the Brawler now folds its own move+attack onto the Knight and ends at
+  // (5,0), far out of the Archer's reach, so both clicks landed on empty ground and
+  // committed NOTHING. (7,3) is unchanged and is still rear-adjacent — to the Mage at
+  // (7,2) instead. The gesture and the property under test are identical.
   await page.evaluate(() => {
     window.tuh.clickTile(7, 3);
-    window.tuh.clickTile(6, 3);
+    window.tuh.clickTile(7, 2);
   });
 
   const after = await page.evaluate(() => {
     const s = window.tuh.getState();
     const a = s.units.find((u) => u.id === "archer");
-    const b = s.units.find((u) => u.id === "brawler");
+    const m = s.units.find((u) => u.id === "mage");
     const log = window.tuh.commands();
     return {
       n: log.length,
       last: log[log.length - 1],
       tick: s.tick,
       archer: { ct: a?.ct ?? -1, speed: a?.speed ?? -1, pos: a?.pos },
-      brawlerHp: b?.hp ?? -1,
+      mageHp: m?.hp ?? -1,
     };
   });
 
@@ -203,7 +221,7 @@ test("playable: staging a move then clicking an enemy commits ONE folded command
   if (last?.kind !== "act") throw new Error("unreachable — narrowed above");
   expect(last.move).not.toBeUndefined();
   expect(last.move).toEqual({ to: { x: 7, y: 3 }, order: "before" });
-  expect(last.target).toEqual({ unitId: "brawler" });
+  expect(last.target).toEqual({ unitId: "mage" });
 
   // ── the price: the whole turn settled ONCE at −100 (docs/01 AC-02).
   expect(ctAtSettle(after.archer.ct, after.archer.speed, after.tick - before.tick)).toBe(
@@ -212,7 +230,7 @@ test("playable: staging a move then clicking an enemy commits ONE folded command
 
   // ── and it really was a move THEN an act from the destination.
   expect(after.archer.pos).toEqual({ x: 7, y: 3 });
-  expect(after.brawlerHp).toBe(20); // 120 − 100, the previewed integer exactly
+  expect(after.mageHp).toBe(0); // 80 − 100 clamped: the rear-arc blow kills outright
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -222,45 +240,53 @@ test("playable: staging a move then clicking an enemy commits ONE folded command
 test("playable: the preview recomputes from the STAGED tile, not the origin", async ({ page }) => {
   await playToFlankDecision(page);
 
-  const fromFront = await page.evaluate(() => {
-    window.tuh.clickTile(5, 3); // stage the tile in the Brawler's FRONT arc
-    window.tuh.hoverTile(6, 3);
+  // RE-AIMED brawler → mage (2026-08-12), same reason as the folded-command test above:
+  // once `ai.ts` learned the move+act fold, the Brawler folds onto the Knight and ends at
+  // (5,0), unreachable, so (5,3)/(7,3)/(6,3) no longer bracket it. The Mage at (7,2)
+  // (facing N) is the reachable target now: (6,3) sits in its SIDE arc and (7,3) in its
+  // REAR arc, and both are inside the Archer's move range.
+  //
+  // ⚠ HALF THE ORIGINAL DISCRIMINATOR IS GONE, and it is not recoverable on this board.
+  // The old pair read front 75% vs rear 100%, so BOTH the arc name and the hit % moved
+  // with the staged tile. The Mage has no directional evasion, so every arc on it reads
+  // 100% — measured, not assumed (all eight adjacent tiles probed). The arc name still
+  // moves and that alone proves recomputation, but this AC now rests on one signal
+  // instead of two. It is also the third time these viewer fixtures have been invalidated
+  // by demo content shifting under them; a purpose-built board (docs/10's state machine is
+  // DOM-free and constructible over an arbitrary BattleState) would end that — recorded in
+  // docs/NEXT.md as work the next slice should do.
+  const fromSide = await page.evaluate(() => {
+    window.tuh.clickTile(6, 3); // stage the tile in the Mage's SIDE arc
+    window.tuh.hoverTile(7, 2);
     return window.tuh.preview();
   });
   const fromRear = await page.evaluate(() => {
-    window.tuh.clickTile(5, 3); // re-click the staged tile ⇒ unstage
-    window.tuh.clickTile(7, 3); // stage the tile in the Brawler's REAR arc
-    window.tuh.hoverTile(6, 3);
+    window.tuh.clickTile(6, 3); // re-click the staged tile ⇒ unstage
+    window.tuh.clickTile(7, 3); // stage the tile in the Mage's REAR arc
+    window.tuh.hoverTile(7, 2);
     return window.tuh.preview();
   });
 
-  expect(fromFront).not.toBeNull();
+  expect(fromSide).not.toBeNull();
   expect(fromRear).not.toBeNull();
 
   // Same actor, same target, same ability, same CT price — ONLY the staged tile
   // differs. So any difference below is attributable to the staged tile alone.
-  expect(fromFront!.actorId).toBe(fromRear!.actorId);
-  expect(fromFront!.targetId).toBe(fromRear!.targetId);
-  expect(fromFront!.abilityId).toBe(fromRear!.abilityId);
-  expect(fromFront!.turn.cost).toBe(100);
+  expect(fromSide!.actorId).toBe(fromRear!.actorId);
+  expect(fromSide!.targetId).toBe(fromRear!.targetId);
+  expect(fromSide!.abilityId).toBe(fromRear!.abilityId);
+  expect(fromSide!.turn.cost).toBe(100);
   expect(fromRear!.turn.cost).toBe(100);
-  expect(fromFront!.from).toEqual({ x: 5, y: 3 });
+  expect(fromSide!.from).toEqual({ x: 6, y: 3 });
   expect(fromRear!.from).toEqual({ x: 7, y: 3 });
+  expect(fromSide!.from).not.toEqual(fromRear!.from);
 
-  // ── THE DISCRIMINATOR. A preview computed from the ORIGIN (5,5) reads the SIDE
-  // arc at 100% for BOTH stagings — identical values, so it cannot produce this
-  // pair. Both the named arc and the hit % move with the staged tile.
-  expect(fromFront!.facing).toBe("front");
-  expect(fromFront!.hitChance).toBe(75);
+  // ── THE DISCRIMINATOR. A preview computed once from the ORIGIN could only ever
+  // return ONE arc for both stagings; these differ, so the arc is genuinely re-read
+  // from the staged tile.
+  expect(fromSide!.facing).toBe("side");
   expect(fromRear!.facing).toBe("rear");
-  expect(fromRear!.hitChance).toBe(100);
-  expect(fromFront!.facing).not.toBe(fromRear!.facing);
-  expect(fromFront!.hitChance).not.toBe(fromRear!.hitChance);
-
-  // Neither arc equals the origin's, so a stale-origin preview fails on facing for
-  // both stagings — not merely on the one whose number happens to differ.
-  expect(fromFront!.facing).not.toBe("side");
-  expect(fromRear!.facing).not.toBe("side");
+  expect(fromSide!.facing).not.toBe(fromRear!.facing);
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -455,25 +481,37 @@ test.describe("playable — the static proof sheet", () => {
 
     // ── 10: the player's turn. Move range painted, End Turn states its price, and
     // NO enemy is in reach — which is the frame's actual argument: `basic.attack`
-    // is range 1 and both foes are two tiles from (5,5), so the Archer has to
-    // spend its move to buy an attack. Asserted, because an earlier caption on
-    // this frame claimed "the one enemy it could reach is tinted red" — there is
-    // no target tint here at all; the red/orange parallelogram is the enemy Mage's
-    // in-flight charge reticle, aimed at the tile the Archer is standing on.
+    // is range 1 and neither foe is adjacent to (5,5), so the Archer has to spend
+    // its move to buy an attack. Asserted, because an earlier caption on this frame
+    // claimed "the one enemy it could reach is tinted red" — there is no target tint
+    // here at all; the red/orange parallelogram is the enemy Mage's in-flight charge
+    // reticle.
+    //
+    // THE RETICLE MOVED (2026-08-12). It used to sit on the tile the Archer was
+    // standing on; since `ai.ts` learned the move+act fold, the Mage aims at the
+    // KNIGHT at (5,1) instead. That is the second time this frame's prose has drifted
+    // from what it depicts, so the reticle's tile is pinned to the Knight explicitly
+    // rather than to "the Archer" — if it moves again, this fails loudly instead of
+    // leaving a caption that quietly lies.
     await expect(page.getByTestId("status")).toContainText("Active Archer (you)");
     await expect(page.getByTestId("end-turn")).toContainText("End Turn · Wait · −60 CT");
     expect(await page.evaluate(() => window.tuh.getState().units.length)).toBe(4);
     const reach = await page.evaluate(() => {
       const s = window.tuh.getState();
-      window.tuh.hoverTile(6, 3); // hovering a foe yields no preview: none is targetable
+      window.tuh.hoverTile(7, 2); // hovering an actual FOE (the Mage) yields no preview
       return {
         preview: window.tuh.preview(),
         charge: s.chargeQueue.map((c) => c.targetTile),
         archer: s.units.find((u) => u.id === "archer")?.pos,
+        knight: s.units.find((u) => u.id === "knight")?.pos,
       };
     });
+    // Hovers a REAL foe now: this used to hover (6,3), which the Brawler has vacated,
+    // so the "none is targetable" claim was being made over empty ground — true, but
+    // for the wrong reason and provable by nothing.
     expect(reach.preview).toBeNull(); // the target set really is empty
-    expect(reach.charge).toEqual([reach.archer]); // the reticle is the Mage's cast
+    expect(reach.charge).toEqual([reach.knight]); // the reticle is the Mage's cast, on the Knight
+    expect(reach.charge).not.toEqual([reach.archer]); // …and explicitly NOT on the Archer
     await clipShot(page, "10-player-turn.png", [STAGE]);
 
     // ── 13: an illegal click, from a clean idle board. Reason chip up, nothing
@@ -488,41 +526,44 @@ test.describe("playable — the static proof sheet", () => {
     await clipShot(page, "13-illegal.png", [STAGE]);
 
     // ── 11 / 12: THE PAIR. Same actor, same target, two staged tiles, two arcs.
+    // Re-aimed at the Mage (2026-08-12): the Brawler folds onto the Knight now and is
+    // out of reach. The pair reads SIDE vs REAR rather than FRONT vs REAR, and both sit
+    // at 100% because the Mage carries no directional evasion — so the ARC NAME is the
+    // whole difference these two frames show. The old pair also differed on hit %; that
+    // half is not recoverable on this board and the caption must not imply otherwise.
     await page.evaluate(() => {
-      window.tuh.clickTile(5, 3);
-      window.tuh.hoverTile(6, 3);
+      window.tuh.clickTile(6, 3);
+      window.tuh.hoverTile(7, 2);
     });
-    await expect(page.getByTestId("preview")).toContainText("FRONT arc");
-    await expect(page.getByTestId("preview")).toContainText("75%");
+    await expect(page.getByTestId("preview")).toContainText("SIDE arc");
     await clipShot(page, "11-preview-a.png", [STAGE, PREVIEW_PANEL]);
 
     await page.evaluate(() => {
-      window.tuh.clickTile(5, 3); // unstage
+      window.tuh.clickTile(6, 3); // unstage
       window.tuh.clickTile(7, 3); // stage the rear-adjacent tile instead
-      window.tuh.hoverTile(6, 3);
+      window.tuh.hoverTile(7, 2);
     });
     await expect(page.getByTestId("preview")).toContainText("REAR arc");
-    await expect(page.getByTestId("preview")).toContainText("100%");
     await clipShot(page, "12-preview-b.png", [STAGE, PREVIEW_PANEL]);
 
-    // ── 14: the fold, committed — one click on the Brawler from the staged tile.
+    // ── 14: the fold, committed — one click on the Mage from the staged tile.
     expect(await phase(page)).toBe("MOVE_STAGED");
     const nBefore = await commandCount(page);
-    await page.evaluate(() => window.tuh.clickTile(6, 3));
+    await page.evaluate(() => window.tuh.clickTile(7, 2));
     expect(await commandCount(page)).toBe(nBefore + 1);
     const post = await state(page);
     expect(post.units.find((u) => u.id === "archer")?.pos).toEqual({ x: 7, y: 3 });
-    expect(post.units.find((u) => u.id === "brawler")?.hp).toBe(20);
+    expect(post.units.find((u) => u.id === "mage")?.hp).toBe(0);
     // The turn log is included here and only here: it is the one place a STILL can
     // show that the move and the strike were ONE turn ("move 7,3" then "hit
-    // brawler −100" at the same tick), which is the whole claim of the fold.
+    // mage" at the same tick), which is the whole claim of the fold.
     //
     // THE SAME TICK IS THE CLAIM, SO IT IS ASSERTED — not left to the caption.
     // Both halves of the fold land at one tick because neither sub-phase advances
     // the clock; that is cheap to assert and it is exactly what a regression to
     // two separate commands would break.
     const foldEntries = post.turnLog.filter((e) => e.unitId === "archer").slice(-2);
-    expect(foldEntries.map((e) => e.action)).toEqual(["move 7,3", "hit brawler −100"]);
+    expect(foldEntries.map((e) => e.action)).toEqual(["move 7,3", "KO mage"]);
     const foldTick = foldEntries[0]!.tick;
     expect(foldEntries[1]!.tick).toBe(foldTick);
     // Non-vacuity: the log's ticks are NOT all the same, so the equality above is
@@ -531,18 +572,19 @@ test.describe("playable — the static proof sheet", () => {
     // …and the FRAME shows that tick on both rows, so the caption cannot drift
     // from the picture it describes.
     await expect(page.locator(LOG_PANEL)).toContainText(`t${foldTick} · Archer · move 7,3`);
-    await expect(page.locator(LOG_PANEL)).toContainText(
-      `t${foldTick} · Archer · hit brawler −100`,
-    );
+    await expect(page.locator(LOG_PANEL)).toContainText(`t${foldTick} · Archer · KO mage`);
     await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL]);
 
     // ── 15: an AI turn, with input inert. Reached by ending the Knight's turn;
     // the board still carries the damage the fold dealt, so the frame shows an AI
     // turn IN a fight rather than the opening deploy.
+    //
+    // The active AI unit is the BRAWLER, not the Mage: the fold above KO'd the Mage
+    // outright, which is also why the log two frames back shows its charge whiffing.
     expect(await phase(page)).toBe("PLAYER_IDLE"); // the Knight is up
     await page.evaluate(() => window.tuh.endTurn());
     expect(await phase(page)).toBe("AI_TURN");
-    await expect(page.getByTestId("status")).toContainText("Active Mage (AI)");
+    await expect(page.getByTestId("status")).toContainText("Active Brawler (AI)");
     await expect(page.getByTestId("end-turn")).toBeDisabled();
 
     // Input really is inert: a click that would be legal on a player turn does not
