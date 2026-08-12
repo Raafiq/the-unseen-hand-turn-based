@@ -320,6 +320,28 @@ tested-and-rejected list are in **ADR-0016**; only this ADR's own records change
   `{map × opposition}` cell and three builds have no losing matchup. Surfaced, not failed
   (it is not *dominant* — others clear some cells faster).
 
+## Amendment — 2026-08-12 (third re-baseline, `N` 5 → 6; see **ADR-0017**)
+
+The support slot went live and `black-magic.` became a counted identity, carried by
+`bld-arcane-artillery` at 5/6 phys maps. `DIVERSITY_TARGET_N` = **6**.
+
+- **The cause recorded here for its failure was wrong.** This ADR and ADR-0016 both said
+  the wizard was too fragile to land four casts. Tracing a run showed it declares 17
+  charges and loses **5 to its own death mid-charge**, while the *squishier, slower*
+  summoner loses only 2 — the difference is standoff range, not damage. Underneath, its
+  equipped Magic Attack Up had never applied: `build.ts` ignored the support slot
+  entirely. **A capability gap wearing a balance gap's clothes.**
+- **The standing rule held.** `N` is set to the honest observed count, so it rose with the
+  measurement rather than being aimed at.
+- **Zero slack now:** all six signature prefixes the roster can express are counted, so
+  any regression fails the gate. The last identities toward `≥ 8` must come from the
+  EXCLUDED unblocks or from new jobs — **not** from `bld-spellblade`, which stays masked
+  and whose prefix collapses onto the wizard's.
+- **The MP contingency is unchanged.** `white-magic.` and `summon.` still ride unenforced
+  MP; the new `black-magic.` carrier is less exposed (12 MP off 24) but not exempt.
+- **The anti-convergence signals did not move.** `dominantBuilds` empty, `noLosingMatchup`
+  unchanged at three builds — the monk watch from the previous amendment stands.
+
 ## References
 
 

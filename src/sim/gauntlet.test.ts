@@ -105,11 +105,13 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     expect(rep.pass).toBe(true);
     expect(rep.distinctMeasurableArchetypes).toBe(DIVERSITY_TARGET_N);
     expect(rep.distinctMeasurableArchetypes).toBeGreaterThanOrEqual(DIVERSITY_TARGET_N);
-    // POST-TTK-RE-TUNE (2026-08-12): five viable prefixes. This went 6 → 1 (the move+act
-    // fold) → 5 (the TTK re-tune). The missing sixth is `black-magic.`; see the
-    // DIVERSITY_TARGET_N docstring for why each of its two carriers fails.
+    // POST-SUPPORT-SLOT (ADR-0017): six viable prefixes. The sequence is 6 → 1 (the
+    // move+act fold) → 5 (the TTK re-tune) → 6 (the support slot going live).
+    // `black-magic.` counts for the first time since the fold, carried by
+    // `bld-arcane-artillery` — whose Magic Attack Up had been equipped and inert.
     expect(rep.distinctSignatures).toEqual([
       "aim.",
+      "black-magic.",
       "geomancy.",
       "punch-art.",
       "summon.",
@@ -161,27 +163,27 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     expect(spellblade.inBandMaps.length).toBeGreaterThan(0);
     expect(spellblade.signatureBandMaps).toEqual([]);
 
-    // The two builds that still miss the band are the two `black-magic.` carriers, and
-    // they miss it BADLY (1 of the required 4) — this is no longer the near-miss that
-    // made a blanket content re-tune the right lever. Their causes differ and are named
-    // in the DIVERSITY_TARGET_N docstring.
+    // ONE build still misses the band: `bld-spellblade`, and it misses for the MASKING
+    // reason above rather than the viability one — which is why its prefix-mate
+    // `bld-arcane-artillery` (same `black-magic.` prefix, real MA) carries the identity
+    // now that its support is live. Their causes always differed; ADR-0017 fixed only
+    // one of them, and a spellblade chassis is still owed.
     const subViable = rep.perBuild.filter((b) => !b.measurableIdentity);
-    expect(subViable.map((b) => b.buildId).sort()).toEqual([
-      "bld-arcane-artillery",
-      "bld-spellblade",
-    ]);
+    expect(subViable.map((b) => b.buildId).sort()).toEqual(["bld-spellblade"]);
     for (const b of subViable) {
       expect(b.inBandMaps.length, `${b.buildId} in-band maps`).toBeLessThan(VIABLE_MIN_MAPS);
     }
   });
 
-  it("credits exactly the five builds whose signature landed while viable", () => {
+  it("credits exactly the six builds whose signature landed while viable", () => {
     const rep = computeDiversityReport(frozenRuns);
     const measurable = rep.perBuild.filter((b) => b.measurableIdentity).map((b) => b.buildId).sort();
-    // INVERTED TWICE. Pre-fold arcane-artillery was the ONLY build that did NOT count;
-    // post-fold it was the only one that DID; post-TTK-re-tune it is again the only
-    // measurable-manifest build that does not, alongside its prefix-mate spellblade.
+    // INVERTED THREE TIMES. Pre-fold arcane-artillery was the ONLY build that did NOT
+    // count; post-fold it was the only one that DID; post-TTK-re-tune it was again out;
+    // post-support-slot it is in, and `bld-spellblade` is the only manifest build left
+    // outside — masked, not sub-viable.
     expect(measurable).toEqual([
+      "bld-arcane-artillery",
       "bld-faithzero-monk",
       "bld-glass-summoner",
       "bld-longshot",
@@ -340,14 +342,16 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
     expect(slow.pass).toBe(false);
   });
 
-  it("real engine: degrading terrain-geo (MA→0) drops geomancy. → distinct 5→4 (< N=5) → FAIL", () => {
+  it("real engine: degrading terrain-geo (MA→0) drops geomancy. → distinct 6→5 (< N=6) → FAIL", () => {
     // RE-POINTED TWICE. It degraded terrain-geo, then arcane-artillery (post-fold the only
-    // counted identity), and now terrain-geo again — because post-TTK-re-tune it is
-    // `black-magic.` that is uncounted, so degrading arcane-artillery would move distinct
-    // by 0 and the test would pass while detecting nothing. The rule this keeps obeying:
-    // the degraded build must be one that CURRENTLY COUNTS, or the check cannot come out
-    // the other way. terrain-geo is the sole `geomancy.` carrier, so killing its MA
-    // removes exactly one identity — a clean 5→4.
+    // counted identity), and now terrain-geo again — because post-TTK-re-tune it was
+    // `black-magic.` that was uncounted, so degrading arcane-artillery would have moved
+    // distinct by 0 and the test would have passed while detecting nothing. The rule this
+    // keeps obeying: the degraded build must be one that CURRENTLY COUNTS, or the check
+    // cannot come out the other way. terrain-geo is the sole `geomancy.` carrier, so
+    // killing its MA removes exactly one identity — a clean 6→5. (It stays the right
+    // target after ADR-0017: terrain-geo equips NO support, so the support layer neither
+    // props it up nor is credited for its clears.)
     const deadGeo: UnitRecord = {
       ...records["bld-terrain-geo"]!,
       raw: { ...records["bld-terrain-geo"]!.raw, ma: 0 },
@@ -538,9 +542,9 @@ describe("diversity gate — TEST 3: glass-summoner lands summon. on ≥4/6 phys
   });
 });
 
-// ── TEST 5: the N=1 gate can FAIL (calibrated to DETECT, not to pass) ───────
+// ── TEST 5: the gate can FAIL (calibrated to DETECT, not to pass) ──────────
 describe("diversity gate — TEST 5: N detects the loss of the surviving identity", () => {
-  it("dropping any one measurable build collapses distinct 5→4 → FAIL", () => {
+  it("dropping any one measurable build collapses distinct 6→5 → FAIL", () => {
     // RESTORED AS A PER-IDENTITY SWEEP (2026-08-12, the TTK re-tune). It began as two
     // tests (drop glass-summoner; drop reraise-cleric), collapsed to one when the fold
     // left `black-magic.` the only counted identity, and is now a loop over EVERY

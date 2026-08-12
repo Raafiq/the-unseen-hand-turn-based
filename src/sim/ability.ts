@@ -17,6 +17,7 @@
 
 import { z } from "zod";
 import { ElementSchema } from "./element.js";
+import { SupportEffectSchema } from "./support.js";
 
 const IntSchema = z.number().int();
 /** 0–100 accuracy percentage (matches state.ts's internal PercentSchema). */
@@ -75,6 +76,19 @@ export const AbilitySchema = z
      * BattleAbilitySchema (the combat projection never reads it).
      */
     excludes: z.array(z.string().min(1)).optional(),
+    /**
+     * What an EQUIPPED `type: "support"` ability does (docs/02 §2, ADR-0017).
+     * ADDITIVE + OPTIONAL, exactly like `excludes` above: an unspecified optional
+     * field can never invalidate prior data, so CONTENT_SCHEMA_VERSION does NOT
+     * bump — a pre-slice pack loads unchanged and its supports stay inert, which
+     * is the behaviour it already had.
+     *
+     * Absent on a support ⇒ deliberately still inert; every such id must appear in
+     * {@link DEFERRED_SUPPORT_EFFECTS} with its blocker (asserted). Absent on a
+     * non-support type ⇒ meaningless and rejected by the pack's integrity pass,
+     * so a stray effect on an action can never silently do nothing.
+     */
+    supportEffect: SupportEffectSchema.optional(),
     tags: z.array(z.string().min(1)).optional(),
   })
   .strict();

@@ -113,3 +113,57 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   await page.waitForTimeout(HOLD_MS);
   await expect(moveCell).toHaveText(String(moveWith));
 });
+
+/**
+ * The SUPPORT slot is live (ADR-0017) — proved in the shipped viewer, not only in the
+ * sim tests. The demo Knight starts with Equip Heavy Armor, which is one of the
+ * deliberately DEFERRED supports (equipment is not modeled), so the slot begins with a
+ * visibly inert effect; switching to Magic Attack Up — learned by mastering the Wizard
+ * tree — moves the derived MA cell.
+ *
+ * DISCRIMINATING: the assertion is the DIFFERENCE between two supports on the SAME unit,
+ * not "MA is a number". Against the pre-ADR-0017 engine every support built an identical
+ * unit, so this case fails there — which is the only reason it is worth running. It also
+ * pins the honest half: the deferred support must NOT move the stat, so a future effect
+ * authored without updating DEFERRED_SUPPORT_EFFECTS shows up here too.
+ */
+test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async ({ page }) => {
+  await mkdir(SHOTS, { recursive: true });
+  await page.goto("/");
+
+  const stats = page.getByTestId("prep-stats");
+  await expect(stats).toBeVisible();
+  await stats.scrollIntoViewIfNeeded();
+
+  const maCell = page.locator('[data-stat="ma"]');
+  const support = page.getByTestId("prep-support");
+
+  // Equip Heavy Armor is equipped by default and is DEFERRED → the slot is inert.
+  await expect(support).toHaveValue("battle-skill.equip-heavy-armor");
+  const maInert = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
+
+  // Clearing the slot entirely must not move MA either — that is what "inert" means.
+  await support.selectOption("");
+  await page.waitForTimeout(HOLD_MS);
+  expect(Number((await maCell.innerText()).replace(/[^\d-]/g, ""))).toBe(maInert);
+
+  // Magic Attack Up is LIVE: ma x1.33, floored.
+  await support.selectOption("black-magic.magic-attack-up");
+  await page.waitForTimeout(HOLD_MS);
+  const maLive = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
+  expect(maLive).toBe(Math.floor(maInert * 1.33));
+  expect(maLive).toBeGreaterThan(maInert);
+  await page.screenshot({ path: `${SHOTS}/09-prep-support-live.png`, fullPage: true });
+
+  // The deterministic hook agrees with the display (no re-derivation in the strip).
+  const built = await page.evaluate(() => {
+    const w = window as unknown as { tuhPrep: { getStats(): { ma: number } } };
+    return w.tuhPrep.getStats();
+  });
+  expect(built.ma).toBe(maLive);
+
+  // Reversible + free (AC-J4), same as the trait swap above.
+  await support.selectOption("battle-skill.equip-heavy-armor");
+  await page.waitForTimeout(HOLD_MS);
+  await expect(maCell).toHaveText(String(maInert));
+});

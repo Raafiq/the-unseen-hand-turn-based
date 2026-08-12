@@ -215,9 +215,11 @@ interface StatLine {
 
 /**
  * The BUILT unit's derived stats — the real battle projection (`buildBattleUnit`,
- * build.ts), with the equipped traits already folded in. Reading them from the
- * same one-way compile a battle uses means the strip shows exactly what a unit
- * would fight with, trait effects included (never a re-derivation).
+ * build.ts), with the equipped traits AND the equipped support already folded in
+ * (ADR-0017). Reading them from the same one-way compile a battle uses means the
+ * strip shows exactly what a unit would fight with (never a re-derivation) — which
+ * is also why the Support dropdown moves the MA cell for free: the strip has no
+ * per-slot logic of its own to keep in sync.
  */
 const statLineOf = (r: UnitRecord): StatLine => {
   const u = buildBattleUnit(r, registry);

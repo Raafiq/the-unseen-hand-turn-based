@@ -10,6 +10,7 @@
   "placements": [
     { "slotId": "blue-1", "teamId": 0, "pos": { "x": 0, "y": 2 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-longshot" } },
     { "slotId": "blue-2", "teamId": 0, "pos": { "x": 0, "y": 3 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-terrain-geo" } },
+    { "slotId": "blue-3", "teamId": 0, "pos": { "x": 0, "y": 1 }, "facing": "E", "unit": { "kind": "ref", "recordId": "bld-arcane-artillery" } },
     { "slotId": "red-1", "teamId": 1, "pos": { "x": 7, "y": 1 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-counter-wall" } },
     { "slotId": "red-2", "teamId": 1, "pos": { "x": 7, "y": 3 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-aggro-tank" } },
     { "slotId": "red-3", "teamId": 1, "pos": { "x": 7, "y": 4 }, "facing": "W", "unit": { "kind": "ref", "recordId": "bld-glass-summoner" } }

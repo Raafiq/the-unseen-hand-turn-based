@@ -172,7 +172,7 @@ export const content = {
 
   /** The three customization-spine cells. */
   spineCells: [
-    { n: "5+2", k: "Ability chassis", sub: "primary · secondary · reaction · support · movement (+traits)" },
+    { n: "3 of 5", k: "Chassis slots live", sub: "primary · secondary · support — reaction and movement are still inert" },
     { n: "AP", k: "Job / skill trees", sub: "directed progression · permanent mastery bonuses" },
     { n: "×", k: "Hybrid / fusion jobs", sub: "the recombination layer — curated, not the full N² web" },
   ] satisfies SpineCell[],
@@ -200,31 +200,29 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Give black magic a viable carrier",
+      title: "Wake the reaction and movement slots",
       badge: "recommended",
       body:
-        "<b>Fights used to end in one hit.</b> A 72-HP knight died to its own 90-damage swing, so every battle " +
-        "ran 2&ndash;4 turns and was settled by turn order &mdash; which made range, positioning and signature " +
-        "abilities invisible, and had collapsed variety to <b>1</b>. <span class=\"mono\">docs/07</span> had " +
-        "specified the intended pacing all along (a tank should take 3&ndash;4 hits); nothing tested it. " +
-        "Re-authoring HP into that band, plus a geomancy magnitude fix it exposed, took variety <b>1 &rarr; 5</b> " +
-        "(<b>ADR-0016</b>, now guarded by <span class=\"mono\">AC-P6</span>). " +
-        "<b>One identity is still missing:</b> <span class=\"mono\">black-magic.</span> Its two carriers fail " +
-        "differently &mdash; the artillery caster is too fragile to land the four casts it needs, and the " +
-        "spellblade is <em>masked</em> (a knight's magic stat is too low, so it punches instead). Fixing the " +
-        "spellblade alone buys nothing; the two share a prefix. Release bar is <span class=\"mono\">8</span>.",
-      chip: "5 &rarr; 6 identities",
+        "<b>Three of the five equip slots did nothing.</b> The support slot just went live " +
+        "(<b>ADR-0017</b>) and took variety <b>5 &rarr; 6</b> on its own &mdash; the black mage had been " +
+        "wearing Magic Attack Up for two slices without receiving it, and its weakness was twice " +
+        "mis-diagnosed as a balance problem. <b>Reaction and movement are still inert.</b> They are the same " +
+        "defect, and the fix is the same shape: a slot that type-checks its input and then discards it looks " +
+        "identical to a working one, so assert that equipping something <em>changes the built unit</em>. " +
+        "Reactions also retire a named gate exclusion (the counter-wall) and the priest's unmodeled sustain " +
+        "identity. Release bar is <span class=\"mono\">8</span>.",
+      chip: "2 dead slots",
       recommended: true,
     },
     {
       rank: "02",
-      title: "Provoke / threat &amp; reaction-as-live",
+      title: "Provoke / threat",
       badge: null,
       body:
-        "Independent medium slices that retire named manifest exclusions: a <b>threat</b> mechanic unlocks the " +
-        "aggro-tank; modeling <b>reactions as live</b> actions unlocks the counter-wall (and reraise-cleric's " +
-        "still-unmodeled <em>sustain</em> identity). Each hardens the gate's teeth; N gain is build-dependent.",
-      chip: "+1–2 builds",
+        "An independent medium slice that retires a named manifest exclusion: a <b>threat</b> mechanic unlocks " +
+        "the aggro-tank, whose identity the greedy probe cannot express today because nothing makes it worth " +
+        "attacking. Hardens the gate's teeth; the N gain is build-dependent.",
+      chip: "+1 build",
       recommended: false,
     },
     {
@@ -232,9 +230,9 @@ export const content = {
       title: "Beyond the job roster",
       badge: null,
       body:
-        "The job roster is being deprioritized. <b>5 of the 8 authored jobs are measured identities</b> " +
-        "(<span class=\"mono\">black-magic.</span> is the one that is not &mdash; see above). " +
-        "The last three toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
+        "The job roster is being deprioritized. <b>All 6 signature prefixes the roster can express are now " +
+        "measured identities</b>, so there is zero slack: any regression fails the gate. " +
+        "The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
         "signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
         "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
         "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",

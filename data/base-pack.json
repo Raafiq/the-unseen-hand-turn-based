@@ -226,6 +226,7 @@
       "type": "support",
       "skillset": "punch-art",
       "apCost": 120,
+      "supportEffect": { "pa": { "mult": 1.25 } },
       "tags": ["support", "brawl-up"]
     },
     {
@@ -331,6 +332,7 @@
       "type": "support",
       "skillset": "black-magic",
       "apCost": 120,
+      "supportEffect": { "ma": { "mult": 1.33 } },
       "tags": ["support", "magic-attack-up"]
     },
     {
@@ -565,6 +567,7 @@
       "type": "support",
       "skillset": "aim",
       "apCost": 240,
+      "supportEffect": { "abilityRange": { "flat": 1 } },
       "tags": ["support", "range-up", "capstone"]
     },
     {
@@ -747,6 +750,7 @@
       "type": "support",
       "skillset": "summon",
       "apCost": 240,
+      "supportEffect": { "chargeSpeed": { "mult": 2 } },
       "tags": ["support", "charge-time-down", "capstone"]
     }
   ],

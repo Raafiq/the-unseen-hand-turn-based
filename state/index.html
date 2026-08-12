@@ -292,7 +292,7 @@
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">14</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">16</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">17</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
@@ -300,7 +300,7 @@
     <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness. The <b>viewer is intentionally behind it</b> — it draws movement and turn order but not yet attacks. There is <b>no narrative or long-form content</b>; that's by design for this phase.</p>
     <div class="board" style="margin-top:20px">
       <div class="card sys">
-        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 24 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
+        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 25 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
         <p>CT-tick scheduler with pinned tie-break, hit/damage/status/crit resolution, charged actions, area abilities, the greedy balance-probe AI, seeded RNG, and a serializable battle state that backs both saves and rewind.</p>
         <div class="detail">scheduler · resolve · formulas · charge · aoe · status · ai · rng · state · codec</div>
       </div>
@@ -377,7 +377,7 @@
     <div class="sec-head"><span class="idx">SPINE</span><h2>The customization spine</h2></div>
     <p class="lead">The whole game is organized around one locked design decision (ADR-0001): depth comes from <b>three customization axes</b>, and success is measured in <em>meaningfully different, viable builds</em> — not in the number of options. Everything else is optional or deferred.</p>
     <div class="inv" style="margin-top:20px">
-      <div class="card cell"><div class="n mono">5+2</div><div class="k">Ability chassis</div><div class="sub">primary · secondary · reaction · support · movement (+traits)</div></div>
+      <div class="card cell"><div class="n mono">3 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support — reaction and movement are still inert</div></div>
       <div class="card cell"><div class="n mono">AP</div><div class="k">Job / skill trees</div><div class="sub">directed progression · permanent mastery bonuses</div></div>
       <div class="card cell"><div class="n mono">×</div><div class="k">Hybrid / fusion jobs</div><div class="sub">the recombination layer — curated, not the full N² web</div></div>
     </div>
@@ -417,6 +417,13 @@
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
             <tr>
+              <td class="build">Reraise Cleric</td><td class="sig">white-magic.</td>
+              <td><span class="cellval viable">6/6</span></td>
+              <td><span class="cellval fold">3/6</span></td>
+              <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
+              <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
+            </tr>
+            <tr>
               <td class="build">Longshot Skirmisher</td><td class="sig">aim.</td>
               <td><span class="cellval viable">5/6</span></td>
               <td><span class="cellval viable">5/6</span></td>
@@ -424,16 +431,16 @@
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
             <tr>
-              <td class="build">Glass Summoner</td><td class="sig">summon.</td>
+              <td class="build">Arcane Artillery</td><td class="sig">black-magic.</td>
               <td><span class="cellval viable">5/6</span></td>
               <td><span class="cellval fold">0/6</span></td>
               <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
             <tr>
-              <td class="build">Reraise Cleric</td><td class="sig">white-magic.</td>
-              <td><span class="cellval viable">4/6</span></td>
-              <td><span class="cellval fold">3/6</span></td>
+              <td class="build">Glass Summoner</td><td class="sig">summon.</td>
+              <td><span class="cellval viable">5/6</span></td>
+              <td><span class="cellval fold">0/6</span></td>
               <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
@@ -444,18 +451,11 @@
               <td><span class="pill crit" style="font-size:10.5px">phys</span></td>
               <td><span class="pill" style="font-size:10.5px">sub-viable</span></td>
             </tr>
-            <tr class="muted-row">
-              <td class="build">Arcane Artillery</td><td class="sig">black-magic.</td>
-              <td><span class="cellval fold">1/6</span></td>
-              <td><span class="cellval fold">0/6</span></td>
-              <td><span class="pill crit" style="font-size:10.5px">magic · phys</span></td>
-              <td><span class="pill" style="font-size:10.5px">sub-viable</span></td>
-            </tr>
           </tbody>
         </table>
       </div>
       <div class="verdict">
-        <span><b>distinct identities</b> = <b style="color:var(--ok)">5</b> / 5 target</span>
+        <span><b>distinct identities</b> = <b style="color:var(--ok)">6</b> / 6 target</span>
         <span><b>dominant</b> = <b style="color:var(--ok)">none</b></span>
         <span><b>no-losing-matchup</b> = faithzero-monk, longshot, terrain-geo <span style="color:var(--ink-faint)">(surfaced, not failed)</span></span>
         <span class="pill ok" style="margin-left:auto"><span class="dot"></span>GATE PASSES</span>
@@ -503,24 +503,24 @@
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>Give black magic a viable carrier &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>Fights used to end in one hit.</b> A 72-HP knight died to its own 90-damage swing, so every battle ran 2&ndash;4 turns and was settled by turn order &mdash; which made range, positioning and signature abilities invisible, and had collapsed variety to <b>1</b>. <span class="mono">docs/07</span> had specified the intended pacing all along (a tank should take 3&ndash;4 hits); nothing tested it. Re-authoring HP into that band, plus a geomancy magnitude fix it exposed, took variety <b>1 &rarr; 5</b> (<b>ADR-0016</b>, now guarded by <span class="mono">AC-P6</span>). <b>One identity is still missing:</b> <span class="mono">black-magic.</span> Its two carriers fail differently &mdash; the artillery caster is too fragile to land the four casts it needs, and the spellblade is <em>masked</em> (a knight's magic stat is too low, so it punches instead). Fixing the spellblade alone buys nothing; the two share a prefix. Release bar is <span class="mono">8</span>.</p>
+          <h3>Wake the reaction and movement slots &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>Three of the five equip slots did nothing.</b> The support slot just went live (<b>ADR-0017</b>) and took variety <b>5 &rarr; 6</b> on its own &mdash; the black mage had been wearing Magic Attack Up for two slices without receiving it, and its weakness was twice mis-diagnosed as a balance problem. <b>Reaction and movement are still inert.</b> They are the same defect, and the fix is the same shape: a slot that type-checks its input and then discards it looks identical to a working one, so assert that equipping something <em>changes the built unit</em>. Reactions also retire a named gate exclusion (the counter-wall) and the priest's unmodeled sustain identity. Release bar is <span class="mono">8</span>.</p>
         </div>
-        <span class="pill" style="align-self:center">5 &rarr; 6 identities</span>
+        <span class="pill" style="align-self:center">2 dead slots</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
         <div>
-          <h3>Provoke / threat &amp; reaction-as-live</h3>
-          <p>Independent medium slices that retire named manifest exclusions: a <b>threat</b> mechanic unlocks the aggro-tank; modeling <b>reactions as live</b> actions unlocks the counter-wall (and reraise-cleric's still-unmodeled <em>sustain</em> identity). Each hardens the gate's teeth; N gain is build-dependent.</p>
+          <h3>Provoke / threat</h3>
+          <p>An independent medium slice that retires a named manifest exclusion: a <b>threat</b> mechanic unlocks the aggro-tank, whose identity the greedy probe cannot express today because nothing makes it worth attacking. Hardens the gate's teeth; the N gain is build-dependent.</p>
         </div>
-        <span class="pill" style="align-self:center">+1–2 builds</span>
+        <span class="pill" style="align-self:center">+1 build</span>
       </div>
       <div class="card opt">
         <div class="rank">03</div>
         <div>
           <h3>Beyond the job roster</h3>
-          <p>The job roster is being deprioritized. <b>5 of the 8 authored jobs are measured identities</b> (<span class="mono">black-magic.</span> is the one that is not &mdash; see above). The last three toward the <span class="mono">8</span>-archetype release bar come from new signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note <b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class="mono">white-magic.</span> and <span class="mono">summon.</span> currently ride unenforced MP.</p>
+          <p>The job roster is being deprioritized. <b>All 6 signature prefixes the roster can express are now measured identities</b>, so there is zero slack: any regression fails the gate. The last two toward the <span class="mono">8</span>-archetype release bar come from new signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note <b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class="mono">white-magic.</span> and <span class="mono">summon.</span> currently ride unenforced MP.</p>
         </div>
         <span class="pill" style="align-self:center">pivot</span>
       </div>
@@ -532,8 +532,8 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 16 ADRs</span>
-    <span>· 23 spec files</span>
+    <span>· 17 ADRs</span>
+    <span>· 24 spec files</span>
   </div>
 
 </div>

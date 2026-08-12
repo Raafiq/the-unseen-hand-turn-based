@@ -1,14 +1,14 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 5 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
+ * ADR-0014, N = 6 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
  * anti-convergence proof.
  *
- * ⚠ N MOVED 6 → 1 → 5 in two steps on 2026-08-12. The move+act fold (ADR-0015) dropped
- * it to 1; the TTK re-tune (docs/07 §3 / AC-P6) recovered it to 5. The re-tune's finding
- * was that the collapse was never really about the fold's tempo: every shipped build died
- * to ONE basic attack, so fights lasted 2–4 turns and were settled by turn order, which
- * made range, positioning and signature abilities invisible. See
- * {@link DIVERSITY_TARGET_N} for the measurements and the one identity still missing.
+ * ⚠ N MOVED 6 → 1 → 5 → 6 in three steps on 2026-08-12. The move+act fold (ADR-0015)
+ * dropped it to 1; the TTK re-tune (docs/07 §3 / AC-P6) recovered it to 5; wiring the
+ * SUPPORT SLOT (ADR-0017) restored the sixth identity. Each step's finding contradicted
+ * the previous step's stated cause — the fold was blamed for a latent time-to-kill
+ * violation, and the wizard's "weak spell" was actually an equipped support ability that
+ * did nothing. See {@link DIVERSITY_TARGET_N} for the measurements.
  *
  * WHAT THIS GATE PROVES (and only this):
  *   (a) ≥ N distinct measurable build identities each LAND their signature action and
@@ -74,15 +74,15 @@
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
  * when both fight as black-mages they COLLAPSE to one identity. The honest observed
- * count is 5 viable prefixes — `aim.`, `geomancy.`, `punch-art.`, `summon.` and
- * `white-magic.`. The sixth, `black-magic.`, is the ONE identity still missing, and its
- * two carriers fail for DIFFERENT reasons: `bld-arcane-artillery` is viable on 1/6 phys
- * maps (a 144-HP caster whose 81-damage spell needs four casts to drop a 315-HP tank
- * that kills it in two), and `bld-spellblade` is MASKED — a knight's MA 6 makes borrowed
- * black magic (37) lose to its own PA × WP swing (90), so the greedy probe never picks
- * it. Both stay MEASURABLE, not EXCLUDED: nothing structurally blocks them, so demoting
- * them would hide a tuning debt behind a capability tag (ADR-0014). The spellblade mask
- * is pinned POSITIVELY in `ttk.test.ts` so it cannot be forgotten or silently fixed.
+ * count is 6 viable prefixes — `aim.`, `black-magic.`, `geomancy.`, `punch-art.`,
+ * `summon.` and `white-magic.`. `black-magic.` is carried by `bld-arcane-artillery`
+ * (5/6 phys maps, signature landed on all five) since its Magic Attack Up went live
+ * (ADR-0017). Its prefix-mate `bld-spellblade` is still MASKED — a knight's MA makes
+ * borrowed black magic lose to its own PA × WP swing, so the greedy probe never picks
+ * it — and contributes nothing to the count either way. It stays MEASURABLE, not
+ * EXCLUDED: nothing structurally blocks it, so demoting it would hide a content debt
+ * behind a capability tag (ADR-0014). The mask is pinned POSITIVELY in `ttk.test.ts` so
+ * it cannot be forgotten or silently fixed.
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
@@ -115,7 +115,8 @@ export interface MeasurableEntry {
  * The MEASURABLE allow-list. NOTE the shared `black-magic.` prefix on spellblade and
  * arcane-artillery: they are separate BUILDS but ONE distinct identity in the count
  * (the collapse ADR-0014 predicts). Both remain listed — both are measured — but the
- * distinct-identity count keys on the prefix, so they contribute one identity.
+ * distinct-identity count keys on the prefix, so they contribute one identity, and
+ * since ADR-0017 that identity is carried by arcane-artillery alone.
  *
  * `bld-reraise-cleric` is measured as its OFFENSIVE `white-magic.` identity (it casts
  * `white-magic.holy` on the phys reference axis, never heals there), so its archetype is
@@ -259,7 +260,46 @@ export const WIN_CEIL_TICKS = 300;
 export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
- * ⚠ RE-BASELINED TWICE ON 2026-08-12: N 6 → 1 (the move+act fold) → 5 (the TTK re-tune).
+ * ⚠ RE-BASELINED THREE TIMES ON 2026-08-12: N 6 → 1 (the move+act fold) → 5 (the TTK
+ * re-tune) → 6 (the SUPPORT SLOT going live, ADR-0017).
+ *
+ * STEP 3 (N 5 → 6) — THE SUPPORT SLOT, and the diagnosis that found it. The missing
+ * sixth prefix was `black-magic.`, and the recorded reason was arithmetic: a 144-HP
+ * caster whose 81-damage spell needs four casts to drop a 315-HP tank that kills it in
+ * two. TRACING an actual losing run said otherwise. The wizard declares 17 charges
+ * across the six reference maps: 8 land, 4 whiff, and **5 are cancelled by its own
+ * death mid-charge**. The discriminating comparison is `bld-glass-summoner` — SQUISHIER
+ * (134 HP) and three times SLOWER to cast (10 ticks vs 3), yet viable, losing only 2
+ * charges to cancellation, because range 6 keeps it out of reach where range 5 does not.
+ *
+ * The cause underneath was not tuning at all: `build.ts` projected ACTION abilities
+ * only, so the reaction/support/movement slots were validated at equip time and then
+ * ignored. `bld-arcane-artillery` equips `black-magic.magic-attack-up` and had never
+ * received it. Nine of fourteen shipped builds carried a dead support slot. Wiring it
+ * (ADR-0017) delivers the build as authored: MA 13 → 17, `fire-2` 130 → 170, and the
+ * wizard reaches 5/6 phys maps with `black-magic.` landed on ALL FIVE.
+ *
+ * ROBUSTNESS — why 6 is trusted (the ADR-0016 protocol). Perturbing every build's
+ * `raw.hp` by a common factor, the PRE-fix baseline reads N = 6, 6, **5**, 5, 5, 6 at
+ * ×0.90 … ×1.15: the wizard was not stably sub-viable, it was straddling a
+ * discontinuity, which is exactly why the arithmetic diagnosis and the sim disagreed.
+ * WITH the support layer the wizard holds 5/6 flat across ×0.90 … ×1.10 and N stays 6.
+ * The `ma` multiplier is on that plateau, not tuned to it: at ×1.20 the fix collapses
+ * again at +10 % HP; ×1.33 is FFT's own Magic Attack UP figure `[UNCERTAIN — verify vs
+ * BMG]` and holds flat.
+ *
+ * REJECTED ALTERNATIVES, recorded so nobody re-runs them (docs/plans/slice-black-magic-
+ * carrier.md has the tables): raising the wizard's HP works at the shipped scale but
+ * puts it in `noLosingMatchup` above +10 % HP — the convergence failure docs/02 B5
+ * exists to prevent. Raising `black-magic` RANGE lifts the count to 6 through
+ * `bld-spellblade`, which lands its signature on exactly ONE of its four clears and
+ * fights as a knight on the other three — that is this gate's deliberate `≥ 1 signature`
+ * interim-floor insensitivity being exploited, not a fixed build. And the charge-speed
+ * sweep FLIPS between ability speed 34 and 40, both of which mature in 3 ticks: that
+ * flip is the scheduler's `higher ct first` tie-break (ct 102 loses to a unit at 104;
+ * ct 120 wins), NOT a mechanism. Do not calibrate a charge constant near it.
+ *
+ * ── the earlier re-baselines ──
  *
  * STEP 1 (N 6 → 1). ADR-0015's follow-up taught the balance probe to fold move+act into
  * one −100 turn. Six of seven candidates fell to 2–3 in-band maps against
@@ -312,11 +352,12 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * real, but two bodies cannot hold a lane on these maps and the candidate contributes
  * less from further back — N went 1 → 0. Do not re-run it.
  *
- * N = 5 IS THE HONEST OBSERVED COUNT, not a target and not a floor chosen to pass. `≥ 8`
- * (full AC-E2) remains the release bar. The missing sixth prefix is `black-magic.`; see
- * the module docstring for why each of its two carriers fails, and note that fixing
- * `bld-spellblade` alone would buy the count NOTHING (its prefix collapses onto
- * arcane-artillery's).
+ * N = 6 IS THE HONEST OBSERVED COUNT, not a target and not a floor chosen to pass. `≥ 8`
+ * (full AC-E2) remains the release bar. Every prefix the shipped roster can express is
+ * now counted — ZERO SLACK: all six must stay viable, so any regression fails the gate.
+ * `bld-spellblade` is still MASKED and still owed a chassis; fixing it buys the count
+ * NOTHING (its `black-magic.` prefix collapses onto arcane-artillery's), so the last
+ * identities toward ≥ 8 must come from the EXCLUDED unblocks or from new jobs.
  *
  * ── The pre-fold rationale, kept because it explains what each identity NEEDS ──
  *
@@ -356,7 +397,7 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 5;
+export const DIVERSITY_TARGET_N = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).
