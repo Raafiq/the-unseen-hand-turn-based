@@ -1,5 +1,12 @@
 # The Unseen Hand — Turn-Based Tactics (Working Title)
 
+[![CI](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml)
+[![Pages](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml)
+
+**Play it:** [viewer](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
+[visual gallery](https://raafiq.github.io/the-unseen-hand-turn-based/visual/) ·
+[state of the engine](https://raafiq.github.io/the-unseen-hand-turn-based/state/)
+
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
 > **Status: P2 — customization depth, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 428 tests, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007). **P2's open exit criterion is the build-diversity gate, at N=6 against a release bar of ≥8.** The docs in `docs/` remain the source of truth and outrank the code where they disagree.

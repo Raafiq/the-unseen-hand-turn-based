@@ -1,4 +1,4 @@
-<!-- written-against: 5aa0c4a -->
+<!-- written-against: 718bec2 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -22,8 +22,11 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI +
-Pages green. **P2's open exit criterion is the diversity gate at N=6 vs a release bar of
+**P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI
+green. **Pages deployed successfully for the first time on 2026-08-12** (run #23); runs
+#1–#22 all failed — see the incident note below. The README had claimed it was green the
+whole time, which is why nobody noticed. **P2's open
+exit criterion is the diversity gate at N=6 vs a release bar of
 ≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
 are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
 started.
@@ -45,7 +48,7 @@ holds and is test-asserted.
 
 ---
 
-## The recommended next slice — NOT green-lit; confirm with the user first
+## The next slice — GREEN-LIT by the user on 2026-08-12
 
 ### Teach `ai.ts` the move+act fold
 
@@ -78,7 +81,11 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
 2. **The gauntlet's tempo numbers reflect the −80-only world.** Re-measure; do not port old
    expectations forward.
 
-### Smaller alternatives, if the user prefers a lighter slice
+### NOT green-lit — do not fold these in without asking
+
+These were offered alongside the fold and explicitly **not** chosen. They remain good
+slices; they are simply not authorised, so a future session must ask rather than assume
+scope creep is welcome:
 
 - **AoE splash rendering** (render-only; the sim already resolves AoE).
 - **Wire `Encounter.teams[].controller` through to the viewer.** Today the player team is a
@@ -88,7 +95,54 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
   still cannot show the range/tempo asymmetry. This is a fidelity change — golden vectors
   attached.
 
+Also not green-lit: **MP enforcement** (would drop N 6→4 — see the standing constraints)
+and anything in **P3** (hybrid/fusion jobs, rewind UI, scan, speed toggle).
+
 ---
+
+## RESOLVED (2026-08-12) — Pages deployed for the first time, after 22 failed runs
+
+`pages.yml` was always correct and its `build` job was always green. The site nonetheless
+never existed, for **two sequential reasons**, both settings and neither visible in CI:
+
+1. **2026-07-30 → 2026-08-09:** Pages was never enabled. `actions/deploy-pages` got
+   `404 … Ensure GitHub Pages has been enabled`. Fixed by enabling Pages; the repo was
+   made **public** in the process (Pages on a private repo needs a paid plan).
+2. **2026-08-09 → 2026-08-12:** the `github-pages` **environment** carried a custom
+   deployment-branch policy whose only entry was `claude/fft-combat-design-e32fm1` — a
+   day-one branch 93 commits behind `main`. `main` was not on it, so the deploy job was
+   refused at the environment gate. Fixed by clearing the restriction
+   (`custom_branch_policies` is now `false`).
+
+Run #23 then reported `Reported success!` and
+`Evaluated environment url: https://raafiq.github.io/the-unseen-hand-turn-based/`.
+
+**Why both settings pointed at a dead branch:** GitHub derived the environment policy AND
+the Pages source branch from the **repository default branch**, which is still
+`claude/fft-combat-design-e32fm1`. See the open item below.
+
+**Two guards now stand in `pages.yml`'s `build` job**, so this cannot silently recur: a
+`/pages` preflight (200 + `build_type == "workflow"`) and a branch-policy preflight. The
+second exists because the first is *not sufficient* — `/pages` answers 200 with
+`build_type: workflow` while the gate still refuses every branch you have, so a guard that
+stopped at the first would have gone green on a dead deploy.
+
+## STILL OPEN — the repository default branch is not `main`
+
+`git remote show origin` reports `HEAD branch: claude/fft-combat-design-e32fm1`. This no
+longer blocks Pages, but it is the reason the misconfiguration existed, and it still makes
+`origin/HEAD`, fresh clones, and default PR bases resolve to a dead branch. `main` is 93
+commits ahead and a strict superset — the stale default's one unique commit (`4659d4b`,
+the design-doc drop) is already on `main` as `d8e7d3c`, and no file on it is missing from
+`main`. **Fix:** Settings → General → Default branch → ⇄ → `main`. Afterwards run
+`git remote set-head origin -a` locally; ~17 stale `claude/*` branches could also be pruned.
+
+**Why an agent cannot do any of this:** repo/environment settings need
+`administration: write`, which is not among the scopes a workflow's `GITHUB_TOKEN` can
+request, and this sandbox's proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`
+and `/deployments`. `raafiq.github.io` egress is blocked too, so **an agent can confirm the
+deployment API reported success but cannot confirm the page renders** — that needs a
+browser.
 
 ## Standing constraints that outlive any one slice
 
@@ -114,6 +168,14 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
   hypothesis — subagents do not inherit the main session's environment knowledge.
 - **Use the check-runs API for CI.** The legacy commit-status endpoint reports
   `pending / total_count: 0` because nothing posts there; that is not a failure.
+- **A job that fails in ~1s with `runner_id: 0`, no `steps`, and a 404 on its logs was
+  never dispatched** — it was refused at the environment gate. Do not read that as an
+  infra blip and do not go hunting in the job's log; there is none. Query the environment
+  (`/environments/<name>`, `/deployment-branch-policies`) from inside a runner instead.
+- **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` (403) and
+  all `*.github.io` egress**, but a *runner* can reach them with `${{ github.token }}`.
+  When a repo-settings question is unanswerable from here, add a temporary workflow step
+  and read the answer out of the log rather than guessing or asking the human to look.
 - **GitHub auto-merge is NOT enabled** on this repo, so "enable auto-merge" fails — watch
   the checks and merge.
 - `claude.com` is egress-blocked; `github.com` is reachable.

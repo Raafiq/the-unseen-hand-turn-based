@@ -22,10 +22,13 @@ move-range highlight.
 
 ## Stepped run — filmstrip (the mobile-readable motion format)
 
-The GitHub **mobile app** displays no motion format for private-repo files —
-no player for committed videos, and GIF tap-through does not animate (verified
-on-device). Static images are the only medium it shows, so the run is also
-committed as a contact sheet (10 frames, ~0.5s apart, read left-to-right):
+The GitHub **mobile app** displayed no motion format for these files when the
+repo was **private** — no player for committed videos, and GIF tap-through did
+not animate (verified on-device, PR #18). The repo went **public on 2026-08-09**
+and that finding was private-repo-specific, so it is now an unverified
+hypothesis; re-measure before relying on it. The contact sheet is kept either
+way — it costs nothing and reads everywhere (10 frames, ~0.5s apart,
+left-to-right):
 
 ![Stepped run filmstrip](run-filmstrip.png)
 
