@@ -1,4 +1,4 @@
-<!-- written-against: PENDING -->
+<!-- written-against: 804762a -->
 
 # NEXT — the handoff a machine can't derive
 
