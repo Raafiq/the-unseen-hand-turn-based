@@ -283,6 +283,43 @@ for the content re-tune, not a target; `≥ 8` remains the release bar.**
 - The MP-enforcement contingency in the amendments above is unchanged but now moot at N=1;
   re-check it when the re-tune restores `white-magic.` and `summon.`.
 
+## Amendment (2026-08-12) — N 1 → 5, and the re-tune's actual cause (see ADR-0016)
+
+**The re-tune slice this ADR anticipated has landed, and it did not do what this ADR
+predicted.** The N=1 note above scoped it as re-tuning "against the corrected [fold]
+model". The measurement found the fold was not the operative cause: **every shipped build
+died to one basic attack** (a 72-HP knight vs a 90-damage swing), so fights ran 2–4 turns
+and were settled by turn order. At that time-to-kill no tactical lever — range,
+positioning, tempo, signature abilities — is measurable at all, which is why the count
+collapsed and why no amount of ranged/caster tuning could have moved it.
+
+The fix is `docs/07` §3's TTK band, now enforced by **AC-P6**, plus a geomancy magnitude
+re-scale the HP fix made both necessary and visible. Full rationale, alternatives and the
+tested-and-rejected list are in **ADR-0016**; only this ADR's own records change here:
+
+- **`DIVERSITY_TARGET_N` 1 → 5.** Identities: `aim.`, `geomancy.`, `punch-art.`,
+  `summon.`, `white-magic.`. Robust at 5–6 across a ±15% HP perturbation.
+- **The re-pointing carried out under the N=1 note is REVERSED, on the same rule.**
+  TEST 2 and TEST 5 had been aimed at `arcane-artillery` because it was then the only
+  identity whose loss could move the verdict. It is now the identity that does *not*
+  count, so TEST 2 is re-pointed at `terrain-geo` and TEST 5 is rewritten as a **sweep
+  over every measurable build** — self-maintaining, so the next N-move does not need a
+  third re-pointing.
+- **`geomancy.*` is back in the as-authored suite's required-skillset list** — the
+  deliberate update its exactly-zero pin existed to force. The pin worked.
+- **The opportunity-cost assertion re-armed itself**, exactly as designed.
+- **The MP contingency is live again and unchanged.** `white-magic.` and `summon.` are
+  both counted once more, and both still ride unenforced MP (`holy` 56 vs a 24 budget;
+  summons 14–30). MP enforcement would still *lower* N.
+- **The `white-magic.` identity is no longer purely offensive.** This ADR recorded the
+  Priest's sustain identity as unmodeled *because* the cleric never healed on the phys
+  axis — true only while allies died in one hit. They now survive wounded, and
+  `white-magic.cura` fires. The offensive identity still dominates and the test asserts
+  that ratio.
+- **New anti-convergence signal to watch:** `bld-faithzero-monk` clears every
+  `{map × opposition}` cell and three builds have no losing matchup. Surfaced, not failed
+  (it is not *dominant* — others clear some cells faster).
+
 ## References
 
 

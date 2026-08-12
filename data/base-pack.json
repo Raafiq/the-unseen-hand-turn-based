@@ -575,7 +575,7 @@
       "mp": 0,
       "range": { "h": 3, "v": 1 },
       "element": "earth",
-      "power": 16,
+      "power": 43,
       "formula": "magic",
       "tags": ["geomancy"]
     },
@@ -587,7 +587,7 @@
       "mp": 0,
       "range": { "h": 3, "v": 2 },
       "element": "water",
-      "power": 18,
+      "power": 48,
       "formula": "magic",
       "tags": ["geomancy"]
     },
@@ -599,7 +599,7 @@
       "mp": 0,
       "range": { "h": 3, "v": 1 },
       "element": "lightning",
-      "power": 18,
+      "power": 48,
       "formula": "magic",
       "tags": ["geomancy"]
     },
@@ -611,7 +611,7 @@
       "mp": 0,
       "range": { "h": 2, "v": 1 },
       "element": "earth",
-      "power": 12,
+      "power": 32,
       "formula": "magic",
       "tags": ["geomancy"]
     },
@@ -624,7 +624,7 @@
       "range": { "h": 3, "v": 1 },
       "aoe": { "h": 1, "v": 0 },
       "element": "earth",
-      "power": 15,
+      "power": 40,
       "formula": "magic",
       "tags": ["geomancy", "aoe"]
     },
@@ -636,7 +636,7 @@
       "mp": 0,
       "range": { "h": 3, "v": 1 },
       "element": "earth",
-      "power": 15,
+      "power": 40,
       "formula": "magic",
       "inflicts": ["status.slow"],
       "tags": ["geomancy", "stat-deferred"]

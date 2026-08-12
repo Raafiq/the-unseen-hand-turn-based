@@ -4,7 +4,7 @@
   "name": "Glass Bruiser",
   "level": 10,
   "currentJob": "knight",
-  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 36, "mp": 24 },
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 98, "mp": 24 },
   "brave": 70,
   "faith": 50,
   "ap": 0,

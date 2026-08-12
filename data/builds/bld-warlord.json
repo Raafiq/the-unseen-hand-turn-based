@@ -4,7 +4,7 @@
   "name": "Warlord Captain",
   "level": 10,
   "currentJob": "knight",
-  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 110, "mp": 24 },
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 469, "mp": 24 },
   "brave": 70,
   "faith": 50,
   "ap": 0,

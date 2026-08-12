@@ -1,14 +1,14 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 1 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
+ * ADR-0014, N = 5 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
  * anti-convergence proof.
  *
- * ⚠ N WAS RE-BASELINED 6 → 1 when `ai.ts` learned ADR-0015's move+act fold. The fold
- * roughly doubles effective offense for both sides and the gauntlet content was tuned
- * against the superseded −80-only model, so six of seven candidates fell just under
- * `VIABLE_MIN_MAPS`. See {@link DIVERSITY_TARGET_N} for the measurements, the tested-
- * and-rejected explanation, and why 1 is a placeholder for the content re-tune rather
- * than a target.
+ * ⚠ N MOVED 6 → 1 → 5 in two steps on 2026-08-12. The move+act fold (ADR-0015) dropped
+ * it to 1; the TTK re-tune (docs/07 §3 / AC-P6) recovered it to 5. The re-tune's finding
+ * was that the collapse was never really about the fold's tempo: every shipped build died
+ * to ONE basic attack, so fights lasted 2–4 turns and were settled by turn order, which
+ * made range, positioning and signature abilities invisible. See
+ * {@link DIVERSITY_TARGET_N} for the measurements and the one identity still missing.
  *
  * WHAT THIS GATE PROVES (and only this):
  *   (a) ≥ N distinct measurable build identities each LAND their signature action and
@@ -37,14 +37,15 @@
  * The COVEN'S KIT is deliberately constrained (see {@link OPPOSITIONS}): single-target
  * INSTANT geomancy only — NO charged/`black-magic.*` (charge-whiff / spawn-wipe on the
  * small clustered maps), NO AoE (a box on a clustered spawn is a spawn-swamp), and NO
- * one-shot (a cast must not KO a 72-HP Faith-50 body), so the melee race stays honest.
+ * one-shot (a cast must not KO a Faith-50 tank body — now 315 HP vs ~107 a cast, three
+ * casts), so the melee race stays honest.
  *
  * WHAT THE MAGIC AXIS ACTUALLY MEASURES — READ THIS BEFORE READING `losingMatchups`.
  * On the shipped roster the magic axis is NOT an isolated candidate-Faith test, and a
  * `losingMatchups: ["magic"]` entry does NOT mean "weak to magic personally". Every
  * candidate is fielded with the SAME two Faith-50 filler allies, victory is
  * team-elimination, and the greedy probe focuses the highest-MAGNITUDE target — so the
- * casters kill the Faith-50 allies (~32/cast) long before any low-Faith body (~3/cast),
+ * casters kill the Faith-50 allies (~107/cast) long before any low-Faith body (~10/cast),
  * and the axis rewards TEMPO/RANGE (burst the glass casters before your allies fall) as
  * much as personal Faith. That is why `bld-faithzero-monk` — the ANTI-MAGE build — still
  * shows `losingMatchups: ["magic"]` (its personal magic resistance cannot save its
@@ -73,12 +74,15 @@
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
  * when both fight as black-mages they COLLAPSE to one identity. The honest observed
- * count is now 1 viable prefix — `black-magic.` (arcane-artillery, 4/6 in band). The
- * other six prefixes (`aim.`, `geomancy.`, `punch-art.`, `summon.`, `white-magic.`)
- * remain MEASURABLE and still land their signatures whenever their build is viable;
- * they simply no longer clear `VIABLE_MIN_MAPS` post-fold. They are deliberately NOT
- * moved to EXCLUDED: nothing structurally blocks them, so demoting them would hide a
- * tuning debt behind a capability tag — ADR-0014; see {@link DIVERSITY_TARGET_N}.
+ * count is 5 viable prefixes — `aim.`, `geomancy.`, `punch-art.`, `summon.` and
+ * `white-magic.`. The sixth, `black-magic.`, is the ONE identity still missing, and its
+ * two carriers fail for DIFFERENT reasons: `bld-arcane-artillery` is viable on 1/6 phys
+ * maps (a 144-HP caster whose 81-damage spell needs four casts to drop a 315-HP tank
+ * that kills it in two), and `bld-spellblade` is MASKED — a knight's MA 6 makes borrowed
+ * black magic (37) lose to its own PA × WP swing (90), so the greedy probe never picks
+ * it. Both stay MEASURABLE, not EXCLUDED: nothing structurally blocks them, so demoting
+ * them would hide a tuning debt behind a capability tag (ADR-0014). The spellblade mask
+ * is pinned POSITIVELY in `ttk.test.ts` so it cannot be forgotten or silently fixed.
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
@@ -178,10 +182,10 @@ export const OPPOSITIONS: readonly Opposition[] = [
   {
     id: "phys",
     // [BASELINE] the original FIXED 3-unit MIXED-DEFENCE team: one FRAGILE bruiser
-    // (`bld-glass-bruiser`, 36 raw HP → ~43 effective after knight growth) + two
-    // STURDY bruisers (`bld-filler-bruiser`, 60 raw HP → ~72 effective). The fragile
-    // ~43-HP target gives a WEAK single-target caster (geomancy) a securable kill
-    // (keeping geomancy VIABLE), while the two ~72-HP bruisers keep the fight
+    // (`bld-glass-bruiser`, 98 raw HP → ~117 effective after knight growth) + two
+    // STURDY bruisers (`bld-filler-bruiser`, 263 raw HP → ~315 effective). The fragile
+    // ~117-HP target gives a WEAK single-target caster (geomancy) a securable kill
+    // (keeping geomancy VIABLE), while the two ~315-HP bruisers keep the fight
     // non-trivial. Plain physical bruisers on purpose — this axis varies DEFENCE (HP),
     // not threat. RECALIBRATE if docs/01 constants or the maps change.
     buildIds: ["bld-glass-bruiser", "bld-filler-bruiser", "bld-filler-bruiser"],
@@ -192,10 +196,10 @@ export const OPPOSITIONS: readonly Opposition[] = [
     id: "magic",
     // THE COVEN — a MAGIC threat: 2× `bld-hedge-caster` (glassy geomancers casting
     // single-target instant magic — water-ball/static-shock/pitfall) + 1 warden
-    // (`bld-filler-bruiser`, ~72 effHp) whose body the candidate melee must grind
+    // (`bld-filler-bruiser`, ~315 effHp) whose body the candidate melee must grind
     // through first, buying the casters casting turns. Damage scales by TARGET Faith
-    // (`magicDamage`): a Faith-50 body takes the full cast (~32), a Faith-5 body takes
-    // ~3. This is a SECOND, DISTINCT threat axis (not raw physical HP) that makes
+    // (`magicDamage`): a Faith-50 body takes the full cast (~107), a Faith-5 body takes
+    // ~10. This is a SECOND, DISTINCT threat axis (not raw physical HP) that makes
     // opportunity cost non-uniform — NOT an isolated candidate-Faith test: with shared
     // Faith-50 fillers + team-elimination + magnitude-focus targeting, it rewards
     // tempo/range as much as personal Faith (see the module docstring; the isolated
@@ -203,8 +207,13 @@ export const OPPOSITIONS: readonly Opposition[] = [
     // KIT CONSTRAINTS (calibrated): (1) NO charged/`black-magic.*` spells — a charge
     // whiffs/spawn-wipes on the small clustered maps (the ADR's rocket-tag failure);
     // (2) NO AoE (`geomancy.sandstorm`) — a box on a clustered spawn is a spawn-swamp;
-    // (3) NO one-shot — a single cast must not KO a 72-HP Faith-50 body (≥2 casts), so
+    // (3) NO one-shot — a single cast must not KO a Faith-50 tank body (≥2 casts), so
     // the melee race stays honest and the caster's damage is a race, not a wipe.
+    // RE-CALIBRATED 2026-08-12 (the TTK re-tune): against the old 72-HP bodies the Coven
+    // had gone TOOTHLESS at 315 HP — nearly every candidate cleared the magic axis and
+    // `losingMatchups` emptied out, i.e. the second threat axis stopped discriminating.
+    // The geomancy `power` fix (authored on the physical scale, but `magicDamage` quarters
+    // it at Faith 50/50) restores it: ~107 a cast, three casts to drop a tank.
     buildIds: ["bld-hedge-caster", "bld-hedge-caster", "bld-filler-bruiser"],
     kind: "magic",
     note: "The Coven — a MAGIC threat that exercises the anti-mage identity (damage scales by target Faith).",
@@ -250,42 +259,66 @@ export const WIN_CEIL_TICKS = 300;
 export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
- * ⚠ RE-BASELINED 2026-08-12 (N 6 → 1) WHEN `ai.ts` LEARNED THE MOVE+ACT FOLD.
+ * ⚠ RE-BASELINED TWICE ON 2026-08-12: N 6 → 1 (the move+act fold) → 5 (the TTK re-tune).
  *
- * ADR-0015's follow-up taught the balance probe to fold move+act into one −100 turn.
- * That roughly doubles effective offense for BOTH sides, and the entire gauntlet — the
- * encounters, the oppositions, and the candidate builds — was tuned against the −80-only
- * model ADR-0015 declared wrong. Measured immediately after the fold landed:
+ * STEP 1 (N 6 → 1). ADR-0015's follow-up taught the balance probe to fold move+act into
+ * one −100 turn. Six of seven candidates fell to 2–3 in-band maps against
+ * `VIABLE_MIN_MAPS` = 4, leaving one viable identity (`black-magic.`, arcane-artillery
+ * 4/6). Losing candidates were WIPED in 25–48 ticks.
  *
- *   arcane-artillery 4/6 in band (measurable)   glass-summoner   3/6
- *   terrain-geo      3/6                        faithzero-monk   3/6
- *   longshot         2/6                        reraise-cleric   2/6
- *   spellblade       0/6
+ * STEP 2 (N 1 → 5) — THE TTK RE-TUNE, and the diagnosis that made it. Tracing a losing
+ * run showed the fold's tempo was NOT the operative cause: **every hit was a one-shot
+ * KO.** A 72-HP knight died to a single 90-damage basic attack; three units died on the
+ * first tick anyone acted. `docs/07` §3 already specified the intended pacing — "a
+ * squishy unit dies in ~1–2 committed actions; a tank in ~3–4" — and the shipped data
+ * missed it by 3–4×, unnoticed because no test asserted the spec. At TTK = 1, range,
+ * positioning, tempo and signature abilities are ALL invisible: whoever acts first wins,
+ * so no ranged/caster tuning could have been measured, let alone worked.
  *
- * Every build slid to 2–3 in-band maps against `VIABLE_MIN_MAPS` = 4, leaving exactly one
- * viable identity: `black-magic.` (arcane-artillery). The candidate side is WIPED in
- * 25–48 ticks on the maps it loses, and `skirmish-a` is now a defeat for all seven.
+ * The fix is content, symmetric, and applied to BOTH sides — it does not weaken the
+ * opposition: `raw.hp` re-authored across every build so derived `maxHp` lands in its
+ * docs/07 band (now enforced by `ttk.test.ts` / AC-P6). Measured after:
  *
- * WHAT THIS IS NOT. No identity is masked: `signatureBandMaps` equals `inBandMaps` for
- * every build, so each signature still lands whenever its build is viable. This is a pure
- * viability collapse, not a probe that stopped expressing identities (cf. the masking
- * hazard in `src/sim/CLAUDE.md`).
+ *   faithzero-monk  6/6 phys (punch-art.)   terrain-geo     6/6 (geomancy.)
+ *   longshot        5/6 (aim.)              glass-summoner  5/6 (summon.)
+ *   reraise-cleric  4/6 (white-magic.)      arcane-artillery 1/6   spellblade 1/6
  *
- * A TESTED-AND-MOSTLY-REJECTED HYPOTHESIS, recorded so nobody re-runs it: because
- * ADR-0013 defers facing-on-move, units never re-face, so the fold makes a permanent rear
- * arc free where it used to cost a whole turn of tempo. Reordering the comparator to rank
- * tempo ABOVE arc — which removes the free flank — lifted N only 1 → 2. Free flanking
- * contributes; it is NOT the dominant driver. The dominant driver is the raw lethality
- * increase.
+ * A SECOND, DEPENDENT FIX, forced by the first: ability magnitudes were authored against
+ * 72-HP bodies too, and `magicDamage` applies Faith on BOTH ends — so at the shared
+ * Faith 50/50 every magic ability is QUARTERED while physical ones are not. Geomancy's
+ * `power` had been set on the physical scale, leaving a geomancer's spell (45) at HALF
+ * its own punch (80): the probe therefore picked the punch, and `terrain-geo` won its
+ * maps as a knight. That is the masking bug class in `src/sim/CLAUDE.md`, and it was
+ * INVISIBLE at TTK = 1 (both actions one-shot, so magnitude never decided anything).
+ * Geomancy power ×~2.7 (water-ball 18 → 48) puts a geomancer's signature at ~1.5× its
+ * own basic — the LOW end of the other five showcase builds' signature/basic ratios
+ * (1.5 … 2.0), chosen at the low end deliberately so the number is not tuned to the
+ * gate. Result: `terrain-geo`'s signature now lands on 6/6 of its in-band maps (was
+ * 4/6), and the Coven's magic axis — whose casters use the same skillset and had gone
+ * toothless against 315-HP bodies — is a real threat again (`losingMatchups` is
+ * non-empty for three builds; before the geomancy fix it was empty for four).
  *
- * N=1 IS A PLACEHOLDER FOR THE CONTENT RE-TUNE, NOT A TARGET. It is set to the honest
- * observed count so the gate keeps DETECTING (a drop below 1 still fails) rather than
- * being quietly relaxed to whatever passes. The next slice re-tunes the gauntlet content
- * against the corrected model; `≥ 8` (full AC-E2) remains the release bar. Do NOT read
- * this as the game getting worse — the engine got more faithful and the content has not
- * caught up yet.
+ * ROBUSTNESS (this is why 5 is trusted, not a lucky point): perturbing every build's
+ * `raw.hp` by a common factor across ±15% keeps N at 5–6 (it drops to 3 only at −15%).
+ * The earlier chaotic HP sweep — N jumping 5, 2, 4, 3 between adjacent scales — was an
+ * artefact of straddling the TTK = 1 boundary, and it disappears once the band is met.
  *
- * ── The pre-fold rationale, kept for the re-tune (it explains what each identity NEEDS) ──
+ * A TESTED-AND-MOSTLY-REJECTED HYPOTHESIS from step 1, recorded so nobody re-runs it:
+ * because ADR-0013 defers facing-on-move, the fold makes a permanent rear arc free where
+ * it used to cost a turn of tempo. Removing the free flank lifted N only 1 → 2. Free
+ * flanking contributes; raw lethality was the driver — which the TTK diagnosis confirms.
+ * ALSO TESTED AND REJECTED (2026-08-12): seating the candidate BEHIND its two fillers
+ * instead of line-abreast. Enemies do block traversal, so the screen is mechanically
+ * real, but two bodies cannot hold a lane on these maps and the candidate contributes
+ * less from further back — N went 1 → 0. Do not re-run it.
+ *
+ * N = 5 IS THE HONEST OBSERVED COUNT, not a target and not a floor chosen to pass. `≥ 8`
+ * (full AC-E2) remains the release bar. The missing sixth prefix is `black-magic.`; see
+ * the module docstring for why each of its two carriers fails, and note that fixing
+ * `bld-spellblade` alone would buy the count NOTHING (its prefix collapses onto
+ * arcane-artillery's).
+ *
+ * ── The pre-fold rationale, kept because it explains what each identity NEEDS ──
  *
  * The interim distinct-identity target (ADR-0014). Previously set to the honest observed
  * count of 6 distinct signature prefixes viable on the frozen gauntlet —
@@ -323,7 +356,7 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 1;
+export const DIVERSITY_TARGET_N = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).

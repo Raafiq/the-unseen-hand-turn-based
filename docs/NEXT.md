@@ -1,4 +1,4 @@
-<!-- written-against: d2aa517 -->
+<!-- written-against: 804762a -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -22,188 +22,110 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 432 tests / 25 files, 10 Playwright specs, CI
-green. **Pages deployed successfully for the first time on 2026-08-12** (run #23); runs
-#1–#22 all failed — see the incident note below. The README had claimed it was green the
-whole time, which is why nobody noticed. **P2's open exit criterion is the diversity gate,
-now at N=1 (re-baselined 2026-08-12, down from 6) against a release bar of ≥8** — the
-move+act fold landed and the content has not caught up; see the next slice below and
-`docs/08` §1a for the per-phase checklist. The viewer's transparency previews
-are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
-started.
+**P2 — customization depth, in progress.** 457 tests / 26 files, 10 Playwright specs, CI
+green. **Variety score is 5** (was 1), release bar 8. `pass=true`, `dominantBuilds=[]`.
 
-Two PRs merged in the last session:
+The last slice (**ADR-0016**) found that **every unit died to one hit** — a 72-HP knight
+vs its own 90-damage swing. Fights ran 2–4 turns and were settled by turn order, so range,
+positioning and signature abilities were all invisible. `docs/07` §3 had specified the
+intended pacing since day one ("a tank dies in ~3–4 committed actions"); nothing tested it,
+so the content missed it by 3–4× unnoticed. Re-authoring HP into that band — **both sides,
+symmetrically** — plus a geomancy magnitude fix it exposed, took variety **1 → 5**.
 
-- **#19** — the viewer became playable (click a tile to move, an enemy to attack), and the
-  turn became a real FFT turn. **ADR-0015** folded move+act into one command, so the −100
-  CT turn from `docs/01` AC-02 is reachable for the first time. `stepDemo` is retired; the
-  viewer runs on `advanceToDecision` + `applyCommand`, the same primitives as the headless
-  harness. `docs/10-viewer-and-interaction.md` is the authoritative viewer spec
-  (AC-V1 … AC-V11).
-- **#20** — `CLAUDE.md` audit: fixed a false "pre-code" status header, consolidated six
-  bullets under one *evidence principle*, and split edit-time rules into
-  `src/sim/CLAUDE.md` + `src/render/CLAUDE.md`.
+The band is now enforced by **`docs/07` AC-P6** (`src/sim/ttk.test.ts`), which also asserts
+the corollary: **a build's signature ability must out-damage its own basic attack**, or the
+greedy probe never picks it and the build fights as the wrong job.
 
-**Diversity gate: N=1** (was 6), release bar ≥8. `pass=true`, `dominantBuilds=[]`. The gate
-still passes and still DETECTS — degrading the one surviving identity fails it — but it is
-measuring a field the content re-tune has yet to restore.
+| build | phys maps | identity |
+|---|---|---|
+| faithzero-monk | 6/6 | `punch-art.` |
+| terrain-geo | 6/6 | `geomancy.` |
+| longshot | 5/6 | `aim.` |
+| glass-summoner | 5/6 | `summon.` |
+| reraise-cleric | 4/6 | `white-magic.` |
+| arcane-artillery | 1/6 | — |
+| spellblade | 1/6 | — (masked) |
 
 ---
 
-## The next slice — CLOSE THE GAP THE FOLD OPENED (not green-lit; confirm first)
+## The next slice — GIVE BLACK MAGIC A VIABLE CARRIER (not green-lit; confirm first)
 
 ### The job in one line
 
-**Give ranged and caster builds an answer to fast melee. Do NOT make the enemies weaker.**
+**`black-magic.` is the one identity of six that does not count. Fix a carrier, get 6.**
 
-### Why not just make it easier
+### Why it fails, measured
 
-The AI can now move and attack in the same turn. That helps melee far more than archers and
-casters, because closing the distance used to cost melee a whole turn. Six of seven test
-builds now win only 2–3 of 6 maps; they need 4 to count. Only the artillery caster still
-clears it.
+Two carriers, two different causes — do not treat them as one problem:
 
-The obvious fix is to weaken the enemy teams. **That is the wrong fix**, and the user
-rejected it (2026-08-12):
+- **`bld-arcane-artillery`** — 144 HP, spell does 81, tanks have 315. It needs **four
+  casts** to drop a body that kills it in **two**. A pure glass caster with a sub-basic-
+  attack-tier spell has no room in a 3–4 action fight.
+- **`bld-spellblade`** — **masked**. A knight's MA is 6, so borrowed black magic lands at
+  37 against its own 90-damage swing. The probe punches. It wins as a knight. Asserted
+  *positively* in `ttk.test.ts` so it cannot be silently fixed or forgotten.
 
-- **Our goal is variety, not win rate.** `docs/00` asks for 8 different builds all viable
-  with none dominant. It says nothing about how often anyone wins. One viable build is not
-  "too hard" — it is convergence, the exact thing `docs/02` B5 exists to prevent.
-- **Players say real FFT is already too easy**, broken by a few dominant jobs (Monk,
-  Calculator) while others go unused. Turning our enemies down moves toward that complaint.
-- **Our geomancer is one of the builds that fell out** — the same job players call
-  underpowered in the original. That is a signal about the job, not the encounter.
-
-So treat this as a class-balance gap, not a difficulty dial.
+**Fixing spellblade alone buys the count NOTHING** — both carriers share the
+`black-magic.` prefix, so the count moves only when one of them becomes viable *and* lands
+the signature.
 
 ### Where to start
 
-Not designed yet — that is the first task, and the `systems-designer` agent is the right
-place to start. Some directions, none chosen:
+Not designed yet. Some directions, none chosen:
 
-- Something that punishes closing distance (reaction attacks, ranged counters).
-- Terrain or positioning that makes the walk actually cost something.
-- Better opening tempo for slow casters, so they get their spell off before contact.
-- Accept that some builds should lose to melee, and make sure they beat something else —
-  opportunity cost is the design law, not universal viability.
+- Raise `black-magic` magnitude the way geomancy was raised (`fire` power 20 → ~30 puts
+  it near `holy`'s ratio). Cheapest, but check it does not make arcane-artillery sweep.
+- Give the wizard a survivability lever (the summoner's fix was range, not HP).
+- Give the spellblade a chassis with real MA, so a hybrid is genuinely hybrid.
 
-Measure after each change. Do not assume a direction; the fold's own effect went the
-opposite way from every prediction.
+**Measure after each change.** Both of this slice's own predictions came out backwards.
 
 ### What NOT to do
 
-- **Do not lower the pass mark** (`VIABLE_MIN_MAPS`, `WIN_CEIL_TICKS`). Gate constants are
-  calibrated to detect, not to pass — `src/sim/CLAUDE.md`.
-- **Do not weaken the enemy teams** as the primary lever, per the above.
-- **Do not re-run the free-flanking experiment.** Already tested: removing free rear
-  attacks recovers only 1 → 2. Raw lethality is what dominates.
-- **Do not treat this as masking.** Every build still uses its signature ability when it
-  survives; it just loses. Test-asserted. Masking and losing need opposite fixes.
+- **Do not lower the pass mark** (`VIABLE_MIN_MAPS`, `WIN_CEIL_TICKS`, `DIVERSITY_TARGET_N`).
+- **Do not re-run the screening experiment.** Seating the candidate behind its fillers was
+  tested: N went 1 → **0**. Enemies do block traversal, but two bodies cannot hold a lane
+  and the candidate contributes less from the back.
+- **Do not chase the HP scale for a better score.** A uniform ×0.95 perturbation reads
+  N=6, but that is a knife-edge on arcane-artillery, not a better baseline. The band
+  targets come from `docs/07` §3.
 
 ### Traps waiting for you
 
-1. **`geomancy` is pinned to fire ZERO times** in `benchmark-suite.test.ts`. When your fix
-   brings it back, that test **fails on purpose** — move geomancy back into the required
-   list rather than deleting the assertion.
-2. **The opportunity-cost test re-arms itself.** With one viable build it skips its strict
-   check; the moment a second build recovers, the check returns. Expect it to start biting.
-3. **Detection tests point at the artillery caster**, the only build whose loss can move the
-   score. When more builds recover, re-point them.
-4. **The browser tests click hard-coded tiles in the demo battle** and have now broken three
-   times this way. `npm run check` does NOT run them — use `npm run test:visual` too. Worth
-   rebuilding on a purpose-made board; the viewer's state machine has no DOM dependency.
-
-### Numbers to beat
-
-```
-build              wins (of 6)   counts?
-arcane-artillery        4          yes
-terrain-geo             3          no
-faithzero-monk          3          no
-glass-summoner          3          no
-longshot                2          no
-reraise-cleric          2          no
-spellblade              0          no
-```
-
-Variety score is 1. Release target is 8. `skirmish-a` is the sharpest signal — all seven
-builds lose it, and losses resolve in 25–48 ticks.
-
-### Also not green-lit
-
-AoE splash rendering · wiring the player-team setting to the viewer · weapon range ·
-MP costs (would cut the score further) · anything in P3.
+1. **Editing a `black-magic.*` ability is a GLOBAL change.** `bld-spellblade`,
+   `bld-arcane-artillery` and `bld-glass-summoner` all learn it (the summoner carries it
+   as a secondary). Grep `data/encounters` + `data/builds` and state what moves.
+2. **`black-magic` is deliberately absent from `benchmark-suite.test.ts`'s required
+   skillsets**, with a note. Add it back when you fix this — same pattern as the geomancy
+   pin, which worked exactly as designed.
+3. **Watch the monk.** `bld-faithzero-monk` now clears **every** `{map × opposition}`
+   cell and three builds have no losing matchup. It is not *dominant* (others clear some
+   cells faster) so the gate passes, but a build with nothing to lose to is what
+   `docs/02` B5 exists to prevent. If a black-magic buff also lifts the monk, look again.
+4. **The MP contingency is live again.** `white-magic.` and `summon.` both count once
+   more, and both still ride unenforced MP (`holy` 56 vs a 24 budget; summons 14–30).
+   Enforcing MP would drop N.
+5. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too. They
+   passed unchanged through this slice, but they click hard-coded tiles in the demo
+   battle and have broken that way three times.
 
 ---
 
-## RESOLVED (2026-08-12) — Pages deployed for the first time, after 22 failed runs
-
-`pages.yml` was always correct and its `build` job was always green. The site nonetheless
-never existed, for **two sequential reasons**, both settings and neither visible in CI:
-
-1. **2026-07-30 → 2026-08-09:** Pages was never enabled. `actions/deploy-pages` got
-   `404 … Ensure GitHub Pages has been enabled`. Fixed by enabling Pages; the repo was
-   made **public** in the process (Pages on a private repo needs a paid plan).
-2. **2026-08-09 → 2026-08-12:** the `github-pages` **environment** carried a custom
-   deployment-branch policy whose only entry was `claude/fft-combat-design-e32fm1` — a
-   day-one branch 93 commits behind `main`. `main` was not on it, so the deploy job was
-   refused at the environment gate. Fixed by clearing the restriction
-   (`custom_branch_policies` is now `false`).
-
-Run #23 then reported `Reported success!` and
-`Evaluated environment url: https://raafiq.github.io/the-unseen-hand-turn-based/`.
-
-**Why both settings pointed at a dead branch:** GitHub derived the environment policy AND
-the Pages source branch from the **repository default branch**, which is still
-`claude/fft-combat-design-e32fm1`. See the open item below.
-
-**Two guards now stand in `pages.yml`'s `build` job**, so this cannot silently recur: a
-`/pages` preflight (200 + `build_type == "workflow"`) and a branch-policy preflight. The
-second exists because the first is *not sufficient* — `/pages` answers 200 with
-`build_type: workflow` while the gate still refuses every branch you have, so a guard that
-stopped at the first would have gone green on a dead deploy.
-
-## RESOLVED — the repository default branch is `main`
-
-`git remote show origin` reports `HEAD branch: main` (re-verified 2026-08-12). This was the
-root cause under BOTH Pages failures above: GitHub derived the `github-pages` environment's
-deployment-branch policy and the Pages source branch from the default branch, which was
-still `claude/fft-combat-design-e32fm1`, a day-one branch 93 commits behind. With the
-default corrected, new clones, `origin/HEAD` and default PR bases all resolve to `main`.
-
-Two leftovers, both cosmetic: run `git remote set-head origin -a` in any clone made before
-the switch, and ~17 stale `claude/*` branches could be pruned.
-
-**A process note worth keeping.** This section previously read "STILL OPEN" and was repeated
-to the user several times AFTER the switch had already happened, because the claim was
-carried forward from one early-session measurement instead of being re-derived. That is the
-exact trap this file's own trust rule describes — a handoff reads as authoritative whether
-or not it still is. Re-run the one-line check before repeating a settings claim; it costs
-nothing.
-
-**What an agent still cannot do here:** repo/environment settings need
-`administration: write`, which is not among the scopes a workflow's `GITHUB_TOKEN` can
-request, and this sandbox's proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`
-and `/deployments`. `raafiq.github.io` egress is blocked too, so **an agent can confirm the
-deployment API reported success but cannot confirm the page renders** — that needs a
-browser.
-
 ## Standing constraints that outlive any one slice
 
-- **MP is unenforced for two of six gate prefixes** (`white-magic.holy` 56 vs 24;
-  `summon.*` 14–30 vs 24). Enforcing MP would drop **N 6→4**. Do not ship MP enforcement
-  without durable carriers first. Disclosed in ADR-0014 and the `DIVERSITY_TARGET_N`
-  docstring.
 - **Jobs are deprioritised** (user decision). Remaining EXCLUDED builds: `aggro-tank`
   (provoke/threat), `counter-wall` (reaction-as-live), `battle-cleric` (prefix-collapse —
-  structurally uncountable), `warlord` (boss). The last two identities toward ≥8 come from
-  those unblocks.
-- **The frozen golden in `driver.test.ts` is a tripwire, not a maintenance item.** If it
-  moves, a change that claimed to be additive was not. Never regenerate it to make a test
-  pass.
+  structurally uncountable), `warlord` (boss). The last identities toward ≥8 come from
+  those unblocks or new jobs.
+- **The frozen golden in `driver.test.ts` is a tripwire, not a maintenance item.** It did
+  NOT move through the TTK re-tune — that is the evidence the change was contained to
+  content. Never regenerate it to make a test pass.
 - **`order: "after"`** (act-then-move) exists in the command schema and driver, covered
   headlessly, but is deliberately unreachable from the UI — exposing it would force the
   player to pick a retreat tile before seeing whether the attack hit.
+- **The Priest's sustain identity is live now.** `white-magic.cura` fires on the phys
+  reference axis for the first time, because allies survive long enough to be wounded.
+  ADR-0014 had recorded it as unmodeled; that was a fixture artefact of TTK=1.
 
 ## Environment facts that cost real time to learn
 
@@ -214,8 +136,7 @@ browser.
   `pending / total_count: 0` because nothing posts there; that is not a failure.
 - **A job that fails in ~1s with `runner_id: 0`, no `steps`, and a 404 on its logs was
   never dispatched** — it was refused at the environment gate. Do not read that as an
-  infra blip and do not go hunting in the job's log; there is none. Query the environment
-  (`/environments/<name>`, `/deployment-branch-policies`) from inside a runner instead.
+  infra blip and do not go hunting in the job's log; there is none.
 - **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` (403) and
   all `*.github.io` egress**, but a *runner* can reach them with `${{ github.token }}`.
   When a repo-settings question is unanswerable from here, add a temporary workflow step
@@ -223,3 +144,15 @@ browser.
 - **GitHub auto-merge is NOT enabled** on this repo, so "enable auto-merge" fails — watch
   the checks and merge.
 - `claude.com` is egress-blocked; `github.com` is reachable.
+
+## Pages — RESOLVED 2026-08-12 (first successful deploy on run #23)
+
+`pages.yml` was always correct; runs #1–#22 failed on two sequential *settings*, both
+derived from the repository default branch: Pages was never enabled, then the
+`github-pages` environment's deployment-branch policy allowed only a dead day-one branch.
+Both fixed; the default branch is now `main` (re-verified). Two preflights now guard the
+`build` job — a `/pages` check and a branch-policy check — the second because the first is
+not sufficient (`/pages` answers 200 while the gate still refuses every branch you have).
+Its severity anchors on `PUBLISH_BRANCH`, never on the default branch, because anchoring
+on the setting that is itself the bug fails open. **An agent can confirm the deployment
+API reported success but cannot confirm the page renders** — `*.github.io` is blocked.

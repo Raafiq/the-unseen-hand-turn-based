@@ -4,7 +4,7 @@
   "name": "Reraise Cleric",
   "level": 10,
   "currentJob": "priest",
-  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 202, "mp": 24 },
   "brave": 70,
   "faith": 50,
   "ap": 0,

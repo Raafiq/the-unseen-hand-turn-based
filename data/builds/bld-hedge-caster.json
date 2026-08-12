@@ -4,7 +4,7 @@
   "name": "Hedge Caster",
   "level": 10,
   "currentJob": "geomancer",
-  "raw": { "pa": 6, "ma": 8, "speed": 8, "hp": 40, "mp": 24 },
+  "raw": { "pa": 6, "ma": 8, "speed": 8, "hp": 131, "mp": 24 },
   "brave": 70,
   "faith": 45,
   "ap": 0,
