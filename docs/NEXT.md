@@ -1,4 +1,4 @@
-<!-- written-against: 0ea354f -->
+<!-- written-against: c25adf8 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -23,8 +23,9 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 ## Where things stand
 
 **P2 — customization depth, in progress.** 428 tests / 25 files, 10 Playwright specs, CI
-green. **The Pages deploy has NEVER succeeded** — see the incident note below; the README
-formerly claimed it was green, which is why it went unnoticed for ten days. **P2's open
+green. **Pages deployed successfully for the first time on 2026-08-12** (run #23); runs
+#1–#22 all failed — see the incident note below. The README had claimed it was green the
+whole time, which is why nobody noticed. **P2's open
 exit criterion is the diversity gate at N=6 vs a release bar of
 ≥8** — see `docs/08` §1a for the per-phase checklist. The viewer's transparency previews
 are a P2 deliverable; P3 (hybrid/fusion jobs, rewind UI, scan, speed toggle) has not
@@ -92,35 +93,49 @@ amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerat
 
 ---
 
-## OPEN — the Pages deploy needs ONE manual setting change
+## RESOLVED (2026-08-12) — Pages deployed for the first time, after 22 failed runs
 
-**Blocked on the human; no code will fix it.** `pages.yml` is correct and its `build` job
-has always been green. The site has still never existed, for two sequential reasons:
+`pages.yml` was always correct and its `build` job was always green. The site nonetheless
+never existed, for **two sequential reasons**, both settings and neither visible in CI:
 
-1. **2026-07-30 → 2026-08-09:** GitHub Pages was never enabled. `actions/deploy-pages`
-   got `404 … Ensure GitHub Pages has been enabled`. **Now fixed** — Pages is enabled, the
-   repo was made public to allow it on a free plan, and `/pages` reports
-   `build_type: "workflow"`.
-2. **Still open:** the `github-pages` **environment** carries a custom deployment-branch
-   policy whose only entry is `claude/fft-combat-design-e32fm1` — a feature branch dead
-   since 2026-07-30. `main` is not on the list, so the deploy job is refused at the
-   environment gate **before a runner is assigned**: one second, no steps, no annotation,
-   and no downloadable log at all (the log endpoint 404s). Nothing in the run says why.
+1. **2026-07-30 → 2026-08-09:** Pages was never enabled. `actions/deploy-pages` got
+   `404 … Ensure GitHub Pages has been enabled`. Fixed by enabling Pages; the repo was
+   made **public** in the process (Pages on a private repo needs a paid plan).
+2. **2026-08-09 → 2026-08-12:** the `github-pages` **environment** carried a custom
+   deployment-branch policy whose only entry was `claude/fft-combat-design-e32fm1` — a
+   day-one branch 93 commits behind `main`. `main` was not on it, so the deploy job was
+   refused at the environment gate. Fixed by clearing the restriction
+   (`custom_branch_policies` is now `false`).
 
-**The fix (repo Settings, browser):** Settings → Environments → `github-pages` →
-Deployment branches — add `main`, and delete the stale `claude/fft-combat-design-e32fm1`
-entry. While there, Settings → Pages still shows that same dead branch as the source
-branch; harmless under `build_type: workflow`, worth clearing.
+Run #23 then reported `Reported success!` and
+`Evaluated environment url: https://raafiq.github.io/the-unseen-hand-turn-based/`.
 
-**Why an agent cannot do this:** editing environments needs `administration: write`, which
-is not among the scopes a workflow's `GITHUB_TOKEN` can request, and this sandbox's proxy
-blocks `/repos/*/pages`, `/environments` and `/deployments` outright (403). Reading those
-endpoints from *inside a runner* works and is how the policy was finally found — that trick
-is reusable for any settings question the sandbox cannot answer.
+**Why both settings pointed at a dead branch:** GitHub derived the environment policy AND
+the Pages source branch from the **repository default branch**, which is still
+`claude/fft-combat-design-e32fm1`. See the open item below.
 
-After the setting changes, dispatch `pages.yml` on `main` and confirm `deploy` gets a
-runner. `raafiq.github.io` is egress-blocked from the sandbox, so the site itself must be
-eyeballed from a browser — the agent cannot verify the final page renders.
+**Two guards now stand in `pages.yml`'s `build` job**, so this cannot silently recur: a
+`/pages` preflight (200 + `build_type == "workflow"`) and a branch-policy preflight. The
+second exists because the first is *not sufficient* — `/pages` answers 200 with
+`build_type: workflow` while the gate still refuses every branch you have, so a guard that
+stopped at the first would have gone green on a dead deploy.
+
+## STILL OPEN — the repository default branch is not `main`
+
+`git remote show origin` reports `HEAD branch: claude/fft-combat-design-e32fm1`. This no
+longer blocks Pages, but it is the reason the misconfiguration existed, and it still makes
+`origin/HEAD`, fresh clones, and default PR bases resolve to a dead branch. `main` is 93
+commits ahead and a strict superset — the stale default's one unique commit (`4659d4b`,
+the design-doc drop) is already on `main` as `d8e7d3c`, and no file on it is missing from
+`main`. **Fix:** Settings → General → Default branch → ⇄ → `main`. Afterwards run
+`git remote set-head origin -a` locally; ~17 stale `claude/*` branches could also be pruned.
+
+**Why an agent cannot do any of this:** repo/environment settings need
+`administration: write`, which is not among the scopes a workflow's `GITHUB_TOKEN` can
+request, and this sandbox's proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`
+and `/deployments`. `raafiq.github.io` egress is blocked too, so **an agent can confirm the
+deployment API reported success but cannot confirm the page renders** — that needs a
+browser.
 
 ## Standing constraints that outlive any one slice
 

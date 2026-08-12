@@ -96,15 +96,25 @@ push/PR (`.github/workflows/ci.yml`); merges to `main` deploy the viewer + the
 visual gallery (`/visual/`) to GitHub Pages (`.github/workflows/pages.yml`).
 
 **Pages is a two-part system and the halves fail independently.** `pages.yml`'s
-`build` job can be green while the site does not exist — that was true for 17
-consecutive runs (2026-07-30 … 2026-08-09), because Pages had never been enabled
-on the repo and only the `deploy` job failed. Since 2026-08-09 GitHub rejects a
-misconfigured `deploy` at the environment gate *before assigning a runner*, so it
-fails in one second with no steps and **no downloadable logs at all** — which
-reads like an infra blip rather than a misconfiguration. The `build` job now opens
-with a preflight asserting `GET /repos/{owner}/{repo}/pages` returns 200 with
-`build_type == "workflow"`; treat a red Pages badge in the README as "the site is
-stale", never as flakiness, and never assert the deploy works without checking it.
+`build` job can be green while the site does not exist — true for the first **22**
+runs (2026-07-30 … 2026-08-12); only `deploy` ever failed. Two *different* settings
+caused it in sequence: Pages was never enabled (`404 … Ensure GitHub Pages has been
+enabled`), then the `github-pages` environment's deployment-branch policy allowed
+only a dead day-one branch. Both were derived from the **repository default branch**,
+which is the thing that was actually wrong. Since 2026-08-09 GitHub rejects a
+refused `deploy` at the environment gate *before assigning a runner*, so it fails in
+one second with no steps and **no downloadable logs at all** — which reads like an
+infra blip rather than a misconfiguration.
+
+Two preflights now open the `build` job: `/pages` must return 200 with
+`build_type == "workflow"`, **and** the environment must allow the branch. The second
+exists because the first is not sufficient — `/pages` answers 200 while the gate still
+refuses every branch you have, so a guard stopping at the first goes green on a dead
+deploy. Its severity anchors on `PUBLISH_BRANCH`, not the default branch: anchoring on
+a setting that is itself the bug fails open. Treat a red Pages badge in the README as
+"the site is stale", never as flakiness, and never assert the deploy works without
+checking it. **The sandbox cannot load `*.github.io`** — an agent can confirm the
+deployment API reported success, never that the page renders.
 
 ## Project skills (in `.claude/skills/`)
 
