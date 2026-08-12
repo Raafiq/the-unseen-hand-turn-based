@@ -4,7 +4,7 @@
   "name": "Longshot Skirmisher",
   "level": 10,
   "currentJob": "archer",
-  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 216, "mp": 24 },
   "brave": 70,
   "faith": 50,
   "ap": 0,

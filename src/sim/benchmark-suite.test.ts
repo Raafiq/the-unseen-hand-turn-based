@@ -113,26 +113,22 @@ describe("benchmark suite — AC-E2 raw material: the new jobs are actually MEAS
     // Discriminating: a job authored with only none-formula/passive abilities, OR a
     // build whose new skillset is masked by a stronger borrowed secondary, would leave
     // its prefix absent here — exactly the bug this asserts against.
-    for (const skillset of ["aim", "summon", "white-magic"]) {
+    // `geomancy` IS BACK IN THIS LIST (2026-08-12, the TTK re-tune). It had regressed out
+    // earlier the same day when ADR-0015's fold reached `ai.ts`, and was pinned at EXACTLY
+    // ZERO precisely so that restoring it would fail this test on purpose rather than
+    // leave a permanently-weakened check. That pin did its job; this is the deliberate
+    // update it demanded. Two changes brought geomancy back: fights now last 3–4 committed
+    // actions (docs/07 §3, AC-P6), so the geomancer survives to cast at all; and geomancy's
+    // `power` was re-scaled so a geomancer's spell out-damages its own basic attack instead
+    // of landing at half of it — the mask that had the greedy probe pick the punch.
+    for (const skillset of ["aim", "geomancy", "summon", "white-magic"]) {
       const fired = used.filter((id) => id.startsWith(`${skillset}.`));
       expect(fired.length, `no ${skillset}.* action was used anywhere in the suite`).toBeGreaterThan(0);
     }
-    // `geomancy` REGRESSED OUT OF THIS LIST on 2026-08-12 (ADR-0015's fold reaching
-    // `ai.ts`). It fires ZERO times across the whole as-authored suite now — even on
-    // enc-the-high-ground, the geomancer's showcase map, which resolves in 3 basic
-    // attacks. It still lands in the SUBSTITUTION gauntlet (terrain-geo: signature landed
-    // on all 3 maps where it is in band), so the skillset is alive and the ability is not
-    // structurally broken; what changed is that in the as-authored encounters the
-    // geomancer no longer survives to express it.
-    //
-    // Asserted as EXACTLY ZERO, deliberately, so this fails the moment the content
-    // re-tune brings geomancy back — forcing whoever fixes it to move the skillset back
-    // into the required list above rather than leaving a permanently-weakened check.
-    // Do NOT "fix" this by deleting the assertion.
-    expect(
-      used.filter((id) => id.startsWith("geomancy.")).length,
-      "geomancy.* fired again — restore it to the required-skillset list above",
-    ).toBe(0);
+    // `black-magic` is deliberately NOT required here, and that is a KNOWN GAP rather than
+    // an oversight: `bld-spellblade` is a knight whose MA (6) makes its borrowed black
+    // magic lose to its own PA × WP swing, so the probe never picks it. The cause is
+    // pinned as a positive assertion in `ttk.test.ts`. Add it here when that is fixed.
   });
 });
 

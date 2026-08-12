@@ -4,7 +4,7 @@
   "name": "Faith-Zero Monk",
   "level": 10,
   "currentJob": "monk",
-  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 60, "mp": 24 },
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 208, "mp": 24 },
   "brave": 70,
   "faith": 5,
   "ap": 0,

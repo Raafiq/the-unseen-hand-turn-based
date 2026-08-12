@@ -200,20 +200,20 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Re-tune the gauntlet content against the folded turn",
+      title: "Give black magic a viable carrier",
       badge: "recommended",
       body:
-        "The move+act fold <b>landed</b> (2026-08-12): <span class=\"mono\">ai.ts</span> now moves <b>and</b> " +
-        "acts in one command priced at <span class=\"mono\">&minus;100</span> CT, so closers can finally " +
-        "execute flank-then-strike. It moved the gate's numbers hard, in the direction nobody predicted: " +
-        "<b>distinct viable identities fell 6 &rarr; 1</b>. The fold roughly doubles effective offense for " +
-        "<em>both</em> sides, and every encounter, opposition and build had been tuned against the superseded " +
-        "<span class=\"mono\">&minus;80</span>-only model, so six of seven candidates slid just under the " +
-        "4-of-6 viability bar. <b>Nothing is masked</b> — every identity still lands its signature wherever its " +
-        "build survives, and that is test-asserted, because masking and sub-viability need opposite fixes. " +
-        "The next slice re-tunes the content (oppositions, encounter geometry, build stats) against the " +
-        "corrected model. <span class=\"mono\">N=1</span> is an honest placeholder, not a target.",
-      chip: "restores the gate",
+        "<b>Fights used to end in one hit.</b> A 72-HP knight died to its own 90-damage swing, so every battle " +
+        "ran 2&ndash;4 turns and was settled by turn order &mdash; which made range, positioning and signature " +
+        "abilities invisible, and had collapsed variety to <b>1</b>. <span class=\"mono\">docs/07</span> had " +
+        "specified the intended pacing all along (a tank should take 3&ndash;4 hits); nothing tested it. " +
+        "Re-authoring HP into that band, plus a geomancy magnitude fix it exposed, took variety <b>1 &rarr; 5</b> " +
+        "(<b>ADR-0016</b>, now guarded by <span class=\"mono\">AC-P6</span>). " +
+        "<b>One identity is still missing:</b> <span class=\"mono\">black-magic.</span> Its two carriers fail " +
+        "differently &mdash; the artillery caster is too fragile to land the four casts it needs, and the " +
+        "spellblade is <em>masked</em> (a knight's magic stat is too low, so it punches instead). Fixing the " +
+        "spellblade alone buys nothing; the two share a prefix. Release bar is <span class=\"mono\">8</span>.",
+      chip: "5 &rarr; 6 identities",
       recommended: true,
     },
     {
@@ -232,9 +232,9 @@ export const content = {
       title: "Beyond the job roster",
       badge: null,
       body:
-        "The job roster is being deprioritized. <b>6 of the 8 authored jobs were measured identities</b> before " +
-        "the move+act fold; post-fold only <span class=\"mono\">black-magic.</span> clears the viability bar, " +
-        "pending the content re-tune above. The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
+        "The job roster is being deprioritized. <b>5 of the 8 authored jobs are measured identities</b> " +
+        "(<span class=\"mono\">black-magic.</span> is the one that is not &mdash; see above). " +
+        "The last three toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
         "signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
         "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
         "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",

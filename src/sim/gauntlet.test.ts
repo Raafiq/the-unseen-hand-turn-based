@@ -105,23 +105,30 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     expect(rep.pass).toBe(true);
     expect(rep.distinctMeasurableArchetypes).toBe(DIVERSITY_TARGET_N);
     expect(rep.distinctMeasurableArchetypes).toBeGreaterThanOrEqual(DIVERSITY_TARGET_N);
-    // POST-FOLD (2026-08-12): one surviving viable prefix. Pre-fold this was
-    // ["aim.","black-magic.","geomancy.","punch-art.","summon.","white-magic."]; the
-    // move+act fold roughly doubled offense on both sides and six of seven candidates
-    // fell just under VIABLE_MIN_MAPS. See the DIVERSITY_TARGET_N docstring.
-    expect(rep.distinctSignatures).toEqual(["black-magic."]);
-    // Threshold-free relative dominance over {maps × oppositions}: no build sweeps
-    // every cell (the one measurable build still folds to the Coven's magic).
+    // POST-TTK-RE-TUNE (2026-08-12): five viable prefixes. This went 6 → 1 (the move+act
+    // fold) → 5 (the TTK re-tune). The missing sixth is `black-magic.`; see the
+    // DIVERSITY_TARGET_N docstring for why each of its two carriers fails.
+    expect(rep.distinctSignatures).toEqual([
+      "aim.",
+      "geomancy.",
+      "punch-art.",
+      "summon.",
+      "white-magic.",
+    ]);
+    // Threshold-free relative dominance over {maps × oppositions}: the monk sweeps every
+    // cell but does NOT clear them all fastest, so it is surfaced, not failed.
     expect(rep.dominantBuilds).toEqual([]);
-    // Under MULTI-MATCHUP opposition no build clears EVERY {map × opposition} cell —
-    // magic is a real threat — so the strict every-cell sweep is empty.
-    expect(rep.winsAllInBand).toEqual([]);
-    // `noLosingMatchup` (viable on EVERY opposition) is now EMPTY: longshot used to sit
-    // here clearing both axes, but post-fold it is not viable on phys at all. Empty is
-    // the anti-convergence-SAFE value — it means no build escapes opportunity cost — so
-    // this assertion cannot distinguish "healthy" from "collapsed" on its own. The
-    // distinctSignatures assertion above is what carries the regression signal.
-    expect(rep.noLosingMatchup).toEqual([]);
+    // SURFACED FOR DESIGN REVIEW, not failed: `bld-faithzero-monk` now clears EVERY
+    // {map × opposition} cell, and three builds pay no opportunity cost across the two
+    // threat axes. That is a genuine anti-convergence signal to watch — a build with
+    // nothing to lose to is what docs/02 B5 exists to prevent — but clearing everything
+    // WITHOUT outclassing the field is a design conversation, not a gate failure.
+    expect(rep.winsAllInBand).toEqual(["bld-faithzero-monk"]);
+    expect(rep.noLosingMatchup).toEqual([
+      "bld-faithzero-monk",
+      "bld-longshot",
+      "bld-terrain-geo",
+    ]);
   });
 
   it("the sub-viable builds are STILL LANDING their signatures — the loss is viability, not masking", () => {
@@ -135,35 +142,57 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // build was viable, its signature also landed — i.e. nothing is masked, the builds are
     // just losing. If a future change breaks this equality, the re-tune is chasing the
     // wrong problem and this test says so.
+    // ONE NAMED EXCEPTION (2026-08-12, the TTK re-tune): `bld-spellblade` IS masked, and
+    // that is asserted POSITIVELY below rather than excused — a knight's MA 6 makes its
+    // borrowed black magic (37) lose to its own PA × WP swing (90), so the greedy probe
+    // never picks it. The mask always existed; it only became OBSERVABLE once spellblade
+    // started winning a map at all. `ttk.test.ts` pins the magnitude cause.
+    const MASKED_KNOWN = new Set(["bld-spellblade"]);
     const rep = computeDiversityReport(frozenRuns);
     for (const b of rep.perBuild) {
+      if (MASKED_KNOWN.has(b.buildId)) continue;
       expect(b.signatureBandMaps, `${b.buildId}: signature masked, not merely sub-viable`).toEqual(
         b.inBandMaps,
       );
     }
-    // And the shortfall is a NEAR miss, not a collapse to zero: the sub-viable builds sit
-    // at 2–3 of the required 4 maps. That is what makes a content re-tune the right lever
-    // rather than a redesign.
+    // The exception is REAL — it wins a map without its signature landing. Asserted so it
+    // cannot be quietly fixed (or quietly spread to another build) without this noticing.
+    const spellblade = rep.perBuild.find((b) => b.buildId === "bld-spellblade")!;
+    expect(spellblade.inBandMaps.length).toBeGreaterThan(0);
+    expect(spellblade.signatureBandMaps).toEqual([]);
+
+    // The two builds that still miss the band are the two `black-magic.` carriers, and
+    // they miss it BADLY (1 of the required 4) — this is no longer the near-miss that
+    // made a blanket content re-tune the right lever. Their causes differ and are named
+    // in the DIVERSITY_TARGET_N docstring.
     const subViable = rep.perBuild.filter((b) => !b.measurableIdentity);
-    expect(subViable.length).toBe(6);
+    expect(subViable.map((b) => b.buildId).sort()).toEqual([
+      "bld-arcane-artillery",
+      "bld-spellblade",
+    ]);
     for (const b of subViable) {
       expect(b.inBandMaps.length, `${b.buildId} in-band maps`).toBeLessThan(VIABLE_MIN_MAPS);
     }
   });
 
-  it("credits exactly the one build whose signature landed while viable (post-fold: arcane only)", () => {
+  it("credits exactly the five builds whose signature landed while viable", () => {
     const rep = computeDiversityReport(frozenRuns);
     const measurable = rep.perBuild.filter((b) => b.measurableIdentity).map((b) => b.buildId).sort();
-    // INVERTED by the fold. Pre-fold arcane-artillery was the ONLY build that did NOT
-    // count (a pure caster that charge-whiff-looped to timeout on the small maps) and the
-    // other six did. Post-fold it is the only one that DOES: the faster, more lethal field
-    // ends fights inside WIN_CEIL, which is exactly what its charge-loop needed, while the
-    // melee/skirmisher identities that used to grind out wins now die first.
-    expect(measurable).toEqual(["bld-arcane-artillery"]);
-    const arcane = rep.perBuild.find((b) => b.buildId === "bld-arcane-artillery")!;
-    expect(arcane.measurableIdentity).toBe(true);
-    expect(arcane.signaturePrefix).toBe("black-magic.");
-    expect(arcane.inBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+    // INVERTED TWICE. Pre-fold arcane-artillery was the ONLY build that did NOT count;
+    // post-fold it was the only one that DID; post-TTK-re-tune it is again the only
+    // measurable-manifest build that does not, alongside its prefix-mate spellblade.
+    expect(measurable).toEqual([
+      "bld-faithzero-monk",
+      "bld-glass-summoner",
+      "bld-longshot",
+      "bld-reraise-cleric",
+      "bld-terrain-geo",
+    ]);
+    for (const id of measurable) {
+      const b = rep.perBuild.find((x) => x.buildId === id)!;
+      expect(b.inBandMaps.length, id).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+      expect(b.signatureBandMaps.length, id).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -289,11 +318,16 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
         run({ buildId, signaturePrefix: prefixes[buildId], mapId: m, ticks: tick ? tick(mi) : crossed(b, mi) }),
       );
     // The supporting cast is sized to leave exactly `DIVERSITY_TARGET_N - 1` identities
-    // standing once geo drops, so slowing geo is what flips the verdict. Pre-fold that
-    // meant five other identities against N=6; at N=1 it means NONE — with five others
-    // present the report would still clear N=1 and the test would assert a pass either
-    // way, detecting nothing. The fixture must be sized to the target, not frozen.
-    const fast: GauntletRun[] = [];
+    // standing once geo drops, so slowing geo is what flips the verdict. A cast frozen at
+    // the wrong size detects NOTHING: too many and the report clears N with geo already
+    // gone (passes either way); too few and it fails either way. This bit twice (N=6 → 1
+    // → 5), so it is DERIVED from the target rather than written out.
+    const supporting = (["aimer", "monk", "mage", "cleric", "summoner"] as const).slice(
+      0,
+      DIVERSITY_TARGET_N - 1,
+    );
+    expect(supporting.length).toBe(DIVERSITY_TARGET_N - 1); // the roster can size the cast
+    const fast: GauntletRun[] = supporting.flatMap((b, i) => rowsFor(b, i));
     const geoFast = rowsFor("geo", 3);
     const geoSlow = rowsFor("geo", 3, () => WIN_CEIL_TICKS + 200); // still a VICTORY, just past the ceiling
     // Discriminating: geoSlow still WINS every map (outcome victory) — only the tick
@@ -306,24 +340,24 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
     expect(slow.pass).toBe(false);
   });
 
-  it("real engine: degrading arcane-artillery (MA→0) drops black-magic → distinct=0 (< N=1) → FAIL", () => {
-    // RE-POINTED at arcane-artillery (2026-08-12). This test's job is CALIBRATE-TO-DETECT:
-    // prove the shipped gate can still FAIL on the real engine. It used to degrade
-    // terrain-geo, but post-fold `geomancy.` is already sub-viable and not counted, so
-    // degrading it changes distinct by 0 — the test would have passed while detecting
-    // nothing, which is precisely the "a check that cannot come out the other way"
-    // failure. The only counted identity is now `black-magic.`, so it is the only
-    // degradation that can move the number.
-    const deadArcane: UnitRecord = {
-      ...records["bld-arcane-artillery"]!,
-      raw: { ...records["bld-arcane-artillery"]!.raw, ma: 0 },
+  it("real engine: degrading terrain-geo (MA→0) drops geomancy. → distinct 5→4 (< N=5) → FAIL", () => {
+    // RE-POINTED TWICE. It degraded terrain-geo, then arcane-artillery (post-fold the only
+    // counted identity), and now terrain-geo again — because post-TTK-re-tune it is
+    // `black-magic.` that is uncounted, so degrading arcane-artillery would move distinct
+    // by 0 and the test would pass while detecting nothing. The rule this keeps obeying:
+    // the degraded build must be one that CURRENTLY COUNTS, or the check cannot come out
+    // the other way. terrain-geo is the sole `geomancy.` carrier, so killing its MA
+    // removes exactly one identity — a clean 5→4.
+    const deadGeo: UnitRecord = {
+      ...records["bld-terrain-geo"]!,
+      raw: { ...records["bld-terrain-geo"]!.raw, ma: 0 },
     };
     const res2: EncounterResolver = {
       registry,
-      records: { ...records, "bld-arcane-artillery": deadArcane },
+      records: { ...records, "bld-terrain-geo": deadGeo },
     };
     const rep = computeDiversityReport(runGauntlet({ resolver: res2, maps }));
-    expect(rep.distinctSignatures).not.toContain("black-magic.");
+    expect(rep.distinctSignatures).not.toContain("geomancy.");
     expect(rep.distinctMeasurableArchetypes).toBeLessThan(DIVERSITY_TARGET_N);
     expect(rep.pass).toBe(false);
     // Guard the guard: assert the UNDEGRADED gate passes on the same fixture set, so a
@@ -348,16 +382,16 @@ describe("diversity gate — TEST 3: a grind-win near maxTicks is NOT in band", 
 // ── TEST 4: masking is not credited ─────────────────────────────────────────
 describe("diversity gate — TEST 4: a masked build (signature never lands) is NOT counted", () => {
   it("a build that WINS ≥4 in band but whose declared signature never lands scores 0", () => {
-    // arcane-artillery fights as itself (black-magic) and wins, but we DECLARE its
-    // signature as aim. — a job it never uses (the wrong-job / masked case) → sig never
-    // lands → not credited, even though it is fully viable.
+    // faithzero-monk fights as itself (punch-art) and wins, but we DECLARE its signature
+    // as aim. — a job it never uses (the wrong-job / masked case) → sig never lands → not
+    // credited, even though it is fully viable.
     //
-    // RE-POINTED from longshot (2026-08-12): the test needs a candidate that is GENUINELY
-    // VIABLE, so that failing to be credited can only be the masking. Post-fold longshot
-    // clears just 2 of 6 maps, so it would have failed the viability precondition and the
-    // test would no longer isolate masking at all. arcane-artillery is now the only build
-    // that clears the band.
-    const runs = runGauntlet({ resolver, maps, candidateIds: ["bld-arcane-artillery"], signatureOf: () => "aim." });
+    // RE-POINTED TWICE (longshot → arcane-artillery → faithzero-monk). The test needs a
+    // candidate that is GENUINELY VIABLE, so that failing to be credited can only be the
+    // masking. Post-TTK-re-tune arcane-artillery clears 1 of 6 maps and would fail the
+    // viability precondition, isolating nothing; the monk clears 6/6, the widest margin
+    // on the roster.
+    const runs = runGauntlet({ resolver, maps, candidateIds: ["bld-faithzero-monk"], signatureOf: () => "aim." });
     const stat = computeDiversityReport(runs).perBuild[0]!;
     expect(stat.inBandMaps.length).toBeGreaterThanOrEqual(DEFAULT_BAND.viableMin); // genuinely viable
     expect(stat.signatureBandMaps.length).toBe(0); // but the signature never landed
@@ -409,13 +443,11 @@ describe("diversity gate — TEST 3: reraise-cleric is a real white-magic. ident
     });
     const stat = computeDiversityReport(runs).perBuild[0]!;
     expect(stat.signaturePrefix).toBe("white-magic.");
-    // VIABILITY REGRESSED 2026-08-12 (the move+act fold): the cleric clears fewer than
-    // VIABLE_MIN_MAPS now, so it is no longer a counted identity. The MECHANISM claims
-    // below are unchanged and are what this test still guards — the identity is EXPRESSED
-    // but not currently VIABLE, and those are different failures needing different fixes.
-    // Restore the `>= VIABLE_MIN_MAPS` assertions when the content re-tune lands.
-    expect(stat.measurableIdentity).toBe(false);
-    expect(stat.inBandMaps.length).toBeLessThan(VIABLE_MIN_MAPS);
+    // RESTORED 2026-08-12 (the TTK re-tune): the cleric is a counted identity again. It
+    // had regressed under the move+act fold, and the strict assertions were parked with a
+    // note to restore them here rather than deleted.
+    expect(stat.measurableIdentity).toBe(true);
+    expect(stat.inBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
     // Still expressing itself where it does survive: it never wins a map without its
     // signature landing. If that stops being true, the cleric is being MASKED, which is a
     // real bug rather than a tuning shortfall — so this must not be relaxed to `>= 0`.
@@ -424,21 +456,37 @@ describe("diversity gate — TEST 3: reraise-cleric is a real white-magic. ident
     expect(inBandRuns.length).toBeGreaterThan(0); // it is not dead, just sub-viable
     expect(inBandRuns.every((r) => r.candidateDamage > 0)).toBe(true);
     expect(inBandRuns.every((r) => r.candidateSignatureLanded > 0)).toBe(true);
-    // DISCRIMINATING vs a masked brawler AND vs the UNMODELED sustain identity: it must
-    // land the OFFENSIVE `white-magic.holy` specifically — not merely "some white-magic.*"
-    // (which the prefix would also match for `cure`/`cura`, the sustain fantasy the
-    // manifest explicitly calls unmodeled). Since HEAL (class 2) outranks CHIP (class 3),
-    // a tankier/slower fixture could make the cleric prefer `cure` and still pass a
-    // prefix-only check while silently crediting the WRONG identity — so pin holy, and
-    // assert it does NOT heal on the phys reference axis (allies stay healthy here).
+    // DISCRIMINATING vs a masked brawler AND vs crediting the WRONG white-magic identity:
+    // it must land the OFFENSIVE `white-magic.holy` specifically — not merely "some
+    // white-magic.*", which the prefix also matches for `cure`/`cura`. Since HEAL (class
+    // 2) outranks CHIP (class 3), a slower fixture can make the cleric prefer a heal and
+    // still pass a prefix-only check, so `holy` is pinned by name.
+    //
+    // ⚠ WHAT CHANGED 2026-08-12 (the TTK re-tune). This test used to assert the cleric
+    // NEVER heals on the phys reference axis (`cure`/`cura` == 0, `healingDone` == 0) —
+    // true only because allies died in one hit, so nobody was ever wounded-but-alive.
+    // With fights now running 3–4 committed actions, `cura` DOES fire: the sustain
+    // identity ADR-0014 called unmodeled is live on this axis for the first time. The
+    // offensive claim is unaffected and still carries the identity — holy 9 casts /
+    // 747 damage vs cura 2 casts / 90 healing on this map — so the assertion is
+    // re-pointed at the RATIO rather than relaxed to nothing.
     const enc = buildGauntletEncounter(maps[1]!.encounter, "bld-reraise-cleric"); // the-breach (phys)
     const { report } = runEncounterDetailed(enc, resolver, undefined, {
       signaturePrefixes: { [CANDIDATE_SLOT]: "white-magic." },
     });
-    expect(report.abilityUsage["white-magic.holy"] ?? 0).toBeGreaterThan(0);
-    expect(report.abilityUsage["white-magic.cure"] ?? 0).toBe(0);
-    expect(report.abilityUsage["white-magic.cura"] ?? 0).toBe(0);
-    expect(report.contributionByUnit[CANDIDATE_SLOT]!.healingDone).toBe(0);
+    const holyCasts = report.abilityUsage["white-magic.holy"] ?? 0;
+    const healCasts =
+      (report.abilityUsage["white-magic.cure"] ?? 0) + (report.abilityUsage["white-magic.cura"] ?? 0);
+    expect(holyCasts).toBeGreaterThan(0);
+    // The heal path is live now — asserted POSITIVELY so it cannot silently disappear
+    // again (its absence was the old fixture artefact this note exists to explain).
+    expect(healCasts).toBeGreaterThan(0);
+    // …but the identity is OFFENSIVE: holy still dominates both the cast count and the
+    // contribution. If a future change inverts this, the cleric is being counted as the
+    // sustain build, which is a DIFFERENT identity than the manifest credits.
+    expect(holyCasts).toBeGreaterThan(healCasts);
+    const contribution = report.contributionByUnit[CANDIDATE_SLOT]!;
+    expect(contribution.damageDealt).toBeGreaterThan(contribution.healingDone);
   });
 });
 
@@ -457,12 +505,12 @@ describe("diversity gate — TEST 3: glass-summoner lands summon. on ≥4/6 phys
     });
     const stat = computeDiversityReport(runs).perBuild[0]!;
     expect(stat.signaturePrefix).toBe("summon.");
-    // VIABILITY REGRESSED 2026-08-12 (the move+act fold) — same shape as the reraise-cleric
-    // TEST 3 above. The h4→h6 range fix still does its job (the summoner opens `summon.`
-    // before contact, asserted below); what changed is that the faster field kills it on
-    // more maps. Restore the `>= VIABLE_MIN_MAPS` assertions with the content re-tune.
-    expect(stat.measurableIdentity).toBe(false);
-    expect(stat.inBandMaps.length).toBeLessThan(VIABLE_MIN_MAPS);
+    // RESTORED 2026-08-12 (the TTK re-tune) — same shape as the reraise-cleric TEST 3
+    // above. The h4→h6 range fix always did its job (the summoner opens `summon.` before
+    // contact, asserted below); what had changed under the fold was that the faster field
+    // killed it on more maps, and longer fights gave that back.
+    expect(stat.measurableIdentity).toBe(true);
+    expect(stat.inBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
     // Where it DOES survive, its signature still lands — not masked by its borrowed
     // black-magic secondary, which is the failure this test was built to catch.
     expect(stat.signatureBandMaps).toEqual(stat.inBandMaps);
@@ -492,34 +540,36 @@ describe("diversity gate — TEST 3: glass-summoner lands summon. on ≥4/6 phys
 
 // ── TEST 5: the N=1 gate can FAIL (calibrated to DETECT, not to pass) ───────
 describe("diversity gate — TEST 5: N detects the loss of the surviving identity", () => {
-  it("dropping arcane-artillery collapses distinct 1→0 → FAIL", () => {
-    // CONSOLIDATED + RE-POINTED (2026-08-12). This was two tests — "dropping
-    // glass-summoner collapses 6→5" and "dropping reraise-cleric collapses 6→5" — each
-    // proving N was calibrated to DETECT the loss of one identity rather than frozen just
-    // under a flip. Post-fold neither `summon.` nor `white-magic.` is counted at all, so
-    // both tests asserted a collapse that could no longer happen: they would have needed
-    // `distinct === 5` where the truth is 1, and dropping a build that contributes nothing
-    // detects nothing. Two copies of a vacuous check are worse than one real one.
-    //
-    // `black-magic.` is now the only counted identity, so it is the only removal that can
-    // move the verdict — and it moves it all the way to 0.
-    const withoutArcane = frozenRuns.filter((r) => r.buildId !== "bld-arcane-artillery");
-    const rep = computeDiversityReport(withoutArcane, DEFAULT_BAND);
-    expect(rep.distinctSignatures).not.toContain("black-magic.");
-    expect(rep.distinctMeasurableArchetypes).toBe(0);
-    expect(rep.distinctMeasurableArchetypes).toBeLessThan(DIVERSITY_TARGET_N);
-    expect(rep.pass).toBe(false);
-    // Not a spurious fail via dominance — it fails purely on the count.
-    expect(rep.dominantBuilds).toEqual([]);
+  it("dropping any one measurable build collapses distinct 5→4 → FAIL", () => {
+    // RESTORED AS A PER-IDENTITY SWEEP (2026-08-12, the TTK re-tune). It began as two
+    // tests (drop glass-summoner; drop reraise-cleric), collapsed to one when the fold
+    // left `black-magic.` the only counted identity, and is now a loop over EVERY
+    // measurable build — each carries a distinct signature prefix, so dropping any one of
+    // them must cost exactly one identity. That is stronger than the single-build version
+    // and self-maintaining: a build added to (or lost from) MEASURABLE is covered without
+    // anyone remembering to add a case.
+    const rep0 = computeDiversityReport(frozenRuns, DEFAULT_BAND);
+    const measurable = rep0.perBuild.filter((b) => b.measurableIdentity);
+    expect(measurable.length).toBe(DIVERSITY_TARGET_N); // one build per counted identity
     // The other side of the discriminator: the UNMODIFIED frozen set passes. Without this
-    // the test could not tell "removal caused the failure" from "the gate always fails".
-    expect(computeDiversityReport(frozenRuns, DEFAULT_BAND).pass).toBe(true);
+    // the loop could not tell "removal caused the failure" from "the gate always fails".
+    expect(rep0.pass).toBe(true);
+
+    for (const dropped of measurable) {
+      const rep = computeDiversityReport(
+        frozenRuns.filter((r) => r.buildId !== dropped.buildId),
+        DEFAULT_BAND,
+      );
+      expect(rep.distinctSignatures, dropped.buildId).not.toContain(dropped.signaturePrefix);
+      expect(rep.distinctMeasurableArchetypes, dropped.buildId).toBe(DIVERSITY_TARGET_N - 1);
+      expect(rep.pass, dropped.buildId).toBe(false);
+      // Not a spurious fail via dominance — it fails purely on the count.
+      expect(rep.dominantBuilds, dropped.buildId).toEqual([]);
+    }
   });
 
-  // WHEN THE CONTENT RE-TUNE RESTORES `summon.` AND `white-magic.`, restore a per-identity
-  // detection test for each (drop that build, assert distinct falls below N). They were
-  // deleted rather than skipped because a skipped test asserting `distinct === 5` would
-  // read as a temporarily-disabled truth, and it is not true — it is stale.
+  // WHEN `black-magic.` IS RESTORED, the loop above picks it up automatically — it
+  // enumerates whatever is measurable rather than naming builds.
 });
 
 // ── opposition/filler sanity (the frozen instrument is what we think it is) ──
