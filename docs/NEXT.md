@@ -50,70 +50,89 @@ measuring a field the content re-tune has yet to restore.
 
 ---
 
-## The next slice — RE-TUNE THE GAUNTLET CONTENT (not yet green-lit; confirm)
+## The next slice — CLOSE THE GAP THE FOLD OPENED (not green-lit; confirm first)
 
-### Why: the fold landed and the gate fell 6 → 1
+### The job in one line
 
-`ai.ts` learned ADR-0015's move+act fold (the slice green-lit 2026-08-12) and it did what
-the ADR said it would — moved every gate number — in the direction nobody predicted.
-Measured, per build, in-band maps out of 6:
+**Give ranged and caster builds an answer to fast melee. Do NOT make the enemies weaker.**
+
+### Why not just make it easier
+
+The AI can now move and attack in the same turn. That helps melee far more than archers and
+casters, because closing the distance used to cost melee a whole turn. Six of seven test
+builds now win only 2–3 of 6 maps; they need 4 to count. Only the artillery caster still
+clears it.
+
+The obvious fix is to weaken the enemy teams. **That is the wrong fix**, and the user
+rejected it (2026-08-12):
+
+- **Our goal is variety, not win rate.** `docs/00` asks for 8 different builds all viable
+  with none dominant. It says nothing about how often anyone wins. One viable build is not
+  "too hard" — it is convergence, the exact thing `docs/02` B5 exists to prevent.
+- **Players say real FFT is already too easy**, broken by a few dominant jobs (Monk,
+  Calculator) while others go unused. Turning our enemies down moves toward that complaint.
+- **Our geomancer is one of the builds that fell out** — the same job players call
+  underpowered in the original. That is a signal about the job, not the encounter.
+
+So treat this as a class-balance gap, not a difficulty dial.
+
+### Where to start
+
+Not designed yet — that is the first task, and the `systems-designer` agent is the right
+place to start. Some directions, none chosen:
+
+- Something that punishes closing distance (reaction attacks, ranged counters).
+- Terrain or positioning that makes the walk actually cost something.
+- Better opening tempo for slow casters, so they get their spell off before contact.
+- Accept that some builds should lose to melee, and make sure they beat something else —
+  opportunity cost is the design law, not universal viability.
+
+Measure after each change. Do not assume a direction; the fold's own effect went the
+opposite way from every prediction.
+
+### What NOT to do
+
+- **Do not lower the pass mark** (`VIABLE_MIN_MAPS`, `WIN_CEIL_TICKS`). Gate constants are
+  calibrated to detect, not to pass — `src/sim/CLAUDE.md`.
+- **Do not weaken the enemy teams** as the primary lever, per the above.
+- **Do not re-run the free-flanking experiment.** Already tested: removing free rear
+  attacks recovers only 1 → 2. Raw lethality is what dominates.
+- **Do not treat this as masking.** Every build still uses its signature ability when it
+  survives; it just loses. Test-asserted. Masking and losing need opposite fixes.
+
+### Traps waiting for you
+
+1. **`geomancy` is pinned to fire ZERO times** in `benchmark-suite.test.ts`. When your fix
+   brings it back, that test **fails on purpose** — move geomancy back into the required
+   list rather than deleting the assertion.
+2. **The opportunity-cost test re-arms itself.** With one viable build it skips its strict
+   check; the moment a second build recovers, the check returns. Expect it to start biting.
+3. **Detection tests point at the artillery caster**, the only build whose loss can move the
+   score. When more builds recover, re-point them.
+4. **The browser tests click hard-coded tiles in the demo battle** and have now broken three
+   times this way. `npm run check` does NOT run them — use `npm run test:visual` too. Worth
+   rebuilding on a purpose-made board; the viewer's state machine has no DOM dependency.
+
+### Numbers to beat
 
 ```
-arcane-artillery 4 (MEASURABLE, black-magic.)   terrain-geo    3
-faithzero-monk   3                              glass-summoner 3
-longshot         2                              reraise-cleric 2
-spellblade       0
+build              wins (of 6)   counts?
+arcane-artillery        4          yes
+terrain-geo             3          no
+faithzero-monk          3          no
+glass-summoner          3          no
+longshot                2          no
+reraise-cleric          2          no
+spellblade              0          no
 ```
 
-The fold roughly doubles effective offense for **both** sides; the encounters, oppositions
-and builds were all tuned against the superseded −80-only model, so six of seven slid just
-under `VIABLE_MIN_MAPS` = 4. **N was re-baselined to 1** (user chose this over re-tuning in
-the same slice or holding the probe on the old model). N=1 is a placeholder; `≥ 8` is still
-the release bar.
+Variety score is 1. Release target is 8. `skirmish-a` is the sharpest signal — all seven
+builds lose it, and losses resolve in 25–48 ticks.
 
-**The re-tune is the next slice: adjust oppositions / encounter geometry / build stats so
-the identities clear the band again under the corrected model.**
+### Also not green-lit
 
-### What the next session must NOT re-derive
-
-- **It is not masking.** `signatureBandMaps === inBandMaps` for every build — each identity
-  still lands its signature wherever its build survives. Test-asserted directly, because
-  masking and sub-viability look identical in the headline number and need opposite fixes.
-- **Free flanking is not the main cause.** ADR-0013 defers facing-on-move, so the fold makes
-  a permanent rear arc free. Tested: re-ranking the comparator to put tempo above arc
-  recovers only 1 → 2. Raw lethality dominates. Do not re-run this experiment.
-- **`skirmish-a` is now a defeat for all seven candidates** and losses resolve in 25–48
-  ticks. That map is the sharpest signal for whether a re-tune is working.
-
-### Landmines the re-tune inherits
-
-1. **`geomancy.*` fires ZERO times across the as-authored suite** (it still lands in the
-   substitution gauntlet). `benchmark-suite.test.ts` pins it to **exactly zero**, so
-   restoring geomancy **fails that test on purpose** — move the skillset back into the
-   required list rather than deleting the assertion.
-2. **The opportunity-cost check is self-re-arming.** With one measurable build,
-   non-uniformity is inexpressible; the strict assertion returns automatically the moment a
-   second identity appears. Expect it to start biting mid-re-tune — that is correct.
-3. **Detection tests are pointed at `arcane-artillery`**, the only identity whose loss can
-   move the verdict. When more identities return, re-point/restore per-identity detection
-   tests (the two deleted ones are described in `gauntlet.test.ts`).
-4. **The viewer e2e specs ride on the demo battle and this is the THIRD time a sim change
-   has invalidated them.** `e2e/play.spec.ts` clicks hard-coded tiles that depend on how
-   the AI plays `makeDemoBattle`; the fold moved the Brawler from (6,3) to (5,0) and every
-   coordinate went stale, including two captions that then described things the frames no
-   longer showed. `npm run check` does **not** catch this — Playwright is a separate CI job,
-   so run `npm run test:visual` too. **Worth doing properly:** `docs/10`'s state machine is
-   DOM-free and constructible over an arbitrary `BattleState`, so these specs could use a
-   purpose-built board instead of shipped demo content. Also note the preview pair now reads
-   SIDE 100% vs REAR 100% — the Mage has no directional evasion, so the hit-% half of that
-   discriminator is gone and only the arc name moves.
-5. **Do not calibrate the gate to pass.** `src/sim/CLAUDE.md`: gate constants are calibrated
-   to DETECT. Re-tune the content, not `VIABLE_MIN_MAPS` / `WIN_CEIL_TICKS`.
-
-### Also NOT green-lit
-
-AoE splash rendering · wiring `Encounter.teams[].controller` to the viewer · weapon range ·
-MP enforcement (would cut N further) · anything in P3.
+AoE splash rendering · wiring the player-team setting to the viewer · weapon range ·
+MP costs (would cut the score further) · anything in P3.
 
 ---
 
