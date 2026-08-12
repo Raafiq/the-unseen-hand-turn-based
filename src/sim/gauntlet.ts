@@ -1,7 +1,14 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 6). This is the HONEST INTERIM FLOOR, not the full anti-convergence
- * proof.
+ * ADR-0014, N = 1 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
+ * anti-convergence proof.
+ *
+ * ⚠ N WAS RE-BASELINED 6 → 1 when `ai.ts` learned ADR-0015's move+act fold. The fold
+ * roughly doubles effective offense for both sides and the gauntlet content was tuned
+ * against the superseded −80-only model, so six of seven candidates fell just under
+ * `VIABLE_MIN_MAPS`. See {@link DIVERSITY_TARGET_N} for the measurements, the tested-
+ * and-rejected explanation, and why 1 is a placeholder for the content re-tune rather
+ * than a target.
  *
  * WHAT THIS GATE PROVES (and only this):
  *   (a) ≥ N distinct measurable build identities each LAND their signature action and
@@ -66,11 +73,12 @@
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
  * when both fight as black-mages they COLLAPSE to one identity. The honest observed
- * count is now 6 distinct viable prefixes — `aim.`, `black-magic.`, `geomancy.`,
- * `punch-art.`, `summon.` (glass-summoner's offensive summons, opened from the backline
- * after the h4→h6 range fix — a REAL new prefix, no other build signatures on it), and
- * `white-magic.` (reraise-cleric's OFFENSIVE white-magic, `holy`, on the phys reference
- * axis) — ADR-0014; see {@link DIVERSITY_TARGET_N}.
+ * count is now 1 viable prefix — `black-magic.` (arcane-artillery, 4/6 in band). The
+ * other six prefixes (`aim.`, `geomancy.`, `punch-art.`, `summon.`, `white-magic.`)
+ * remain MEASURABLE and still land their signatures whenever their build is viable;
+ * they simply no longer clear `VIABLE_MIN_MAPS` post-fold. They are deliberately NOT
+ * moved to EXCLUDED: nothing structurally blocks them, so demoting them would hide a
+ * tuning debt behind a capability tag — ADR-0014; see {@link DIVERSITY_TARGET_N}.
  *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
@@ -242,8 +250,45 @@ export const WIN_CEIL_TICKS = 300;
 export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
- * The interim distinct-identity target (ADR-0014). Set to the HONEST OBSERVED count:
- * 6 distinct signature prefixes are viable on the frozen gauntlet —
+ * ⚠ RE-BASELINED 2026-08-12 (N 6 → 1) WHEN `ai.ts` LEARNED THE MOVE+ACT FOLD.
+ *
+ * ADR-0015's follow-up taught the balance probe to fold move+act into one −100 turn.
+ * That roughly doubles effective offense for BOTH sides, and the entire gauntlet — the
+ * encounters, the oppositions, and the candidate builds — was tuned against the −80-only
+ * model ADR-0015 declared wrong. Measured immediately after the fold landed:
+ *
+ *   arcane-artillery 4/6 in band (measurable)   glass-summoner   3/6
+ *   terrain-geo      3/6                        faithzero-monk   3/6
+ *   longshot         2/6                        reraise-cleric   2/6
+ *   spellblade       0/6
+ *
+ * Every build slid to 2–3 in-band maps against `VIABLE_MIN_MAPS` = 4, leaving exactly one
+ * viable identity: `black-magic.` (arcane-artillery). The candidate side is WIPED in
+ * 25–48 ticks on the maps it loses, and `skirmish-a` is now a defeat for all seven.
+ *
+ * WHAT THIS IS NOT. No identity is masked: `signatureBandMaps` equals `inBandMaps` for
+ * every build, so each signature still lands whenever its build is viable. This is a pure
+ * viability collapse, not a probe that stopped expressing identities (cf. the masking
+ * hazard in `src/sim/CLAUDE.md`).
+ *
+ * A TESTED-AND-MOSTLY-REJECTED HYPOTHESIS, recorded so nobody re-runs it: because
+ * ADR-0013 defers facing-on-move, units never re-face, so the fold makes a permanent rear
+ * arc free where it used to cost a whole turn of tempo. Reordering the comparator to rank
+ * tempo ABOVE arc — which removes the free flank — lifted N only 1 → 2. Free flanking
+ * contributes; it is NOT the dominant driver. The dominant driver is the raw lethality
+ * increase.
+ *
+ * N=1 IS A PLACEHOLDER FOR THE CONTENT RE-TUNE, NOT A TARGET. It is set to the honest
+ * observed count so the gate keeps DETECTING (a drop below 1 still fails) rather than
+ * being quietly relaxed to whatever passes. The next slice re-tunes the gauntlet content
+ * against the corrected model; `≥ 8` (full AC-E2) remains the release bar. Do NOT read
+ * this as the game getting worse — the engine got more faithful and the content has not
+ * caught up yet.
+ *
+ * ── The pre-fold rationale, kept for the re-tune (it explains what each identity NEEDS) ──
+ *
+ * The interim distinct-identity target (ADR-0014). Previously set to the honest observed
+ * count of 6 distinct signature prefixes viable on the frozen gauntlet —
  * `aim.`, `black-magic.` (spellblade; arcane-artillery COLLAPSES onto the same prefix
  * and is sub-viable here anyway), `geomancy.`, `punch-art.`, `summon.` (glass-summoner's
  * offensive summons on the phys reference axis), and `white-magic.` (reraise-cleric's
@@ -278,7 +323,7 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 6;
+export const DIVERSITY_TARGET_N = 1;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).

@@ -517,7 +517,11 @@ describe("AC-V9 — a played session is replayable", () => {
     const cmds = s.commands();
     // 6 committed turns, and the CANCELLED draft consumed none of them.
     expect(cmds).toHaveLength(6);
-    expect(cmds.filter((c) => c.kind === "act" && c.move !== undefined)).toHaveLength(1);
+    // TWO folded commands since 2026-08-12, not one: the PLAYER's staged move+attack plus
+    // one the AI now issues itself, because `ai.ts` learned ADR-0015's fold. The player
+    // half is unchanged — what grew is the log's AI half — and the byte-for-byte replay
+    // assertion below is what actually carries AC-V9.
+    expect(cmds.filter((c) => c.kind === "act" && c.move !== undefined)).toHaveLength(2);
 
     // `replay` lands right after the last command; the session has additionally
     // advanced to its next decision point, so mirror that one advance.

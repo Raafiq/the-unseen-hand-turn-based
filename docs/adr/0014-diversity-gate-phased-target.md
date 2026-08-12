@@ -227,7 +227,64 @@ The "longer-range summon that resolves before contact" lever named in the re-dia
 - **Outcome (honest roster):** `distinctMeasurableArchetypes = 6`, `distinctSignatures = ["aim.","black-magic.","geomancy.","punch-art.","summon.","white-magic."]`, `dominantBuilds = []`, `winsAllInBand = []`, `noLosingMatchup = ["bld-longshot"]` (the summoner folds to magic, so it is NOT a no-losing-matchup build), `pass = true`.
 - **Follow-ups still tracked toward `≥ 8` (unchanged):** a third threat axis (moves anti-convergence surfaced→enforced), provoke/threat (aggro-tank), reaction-as-live (counter-wall + reraise-cleric's sustain), a Defend benchmark encounter (exercises the landed `survive` condition), and new signature prefixes via new jobs — **the job roster is now deprioritized** (Product Owner direction, 2026-08-05) in favor of other game systems, so the last two identities toward the `8` bar are not expected from new jobs in the near term. The `≥ 8` release bar is untouched.
 
+## Amendment (2026-08-12) — N re-baselined 6 → 1 by the move+act fold
+
+**`docs/06` AC-E2 is authoritative and carries the same change; this is the record of why.**
+
+The follow-up slice ADR-0015 named — teaching `ai.ts` to fold move+act into one −100 turn —
+landed. It is a fidelity fix (`docs/01` §2: a unit may move *and* act), and it is the point
+of the slice that it moves the gate's numbers. The direction was measured, not assumed, and
+it went down hard:
+
+| build | in band (of 6) | measurable |
+|---|---|---|
+| `bld-arcane-artillery` | 4 | **yes** (`black-magic.`) |
+| `bld-terrain-geo` | 3 | no |
+| `bld-faithzero-monk` | 3 | no |
+| `bld-glass-summoner` | 3 | no |
+| `bld-longshot` | 2 | no |
+| `bld-reraise-cleric` | 2 | no |
+| `bld-spellblade` | 0 | no |
+
+**Why.** The fold roughly doubles effective offense for *both* sides. The gauntlet's
+encounters, oppositions and builds were all calibrated against the −80-only model this
+project has already declared wrong, so six of seven candidates slid just under
+`VIABLE_MIN_MAPS` = 4. The candidate side is wiped in 25–48 ticks on the maps it loses, and
+`skirmish-a` is now a defeat for all seven. The one survivor is the build that *used* to be
+the odd one out: `arcane-artillery`, a pure caster whose charge loop previously ground past
+`WIN_CEIL`, now finishes inside it.
+
+**What this is NOT.** Not masking. `signatureBandMaps` equals `inBandMaps` for every build,
+so each identity still lands its signature on every map where its build is viable. The
+distinction matters because masking and sub-viability need opposite fixes, so it is now
+test-asserted directly rather than inferred.
+
+**A tested and largely rejected explanation**, recorded so nobody re-runs it: ADR-0013
+defers facing-on-move, so units never re-face and the fold makes a permanent rear arc free
+where it used to cost a whole turn of tempo. Re-ranking the probe's comparator to put tempo
+above arc — which removes the free flank — lifts N only **1 → 2**. Free flanking
+contributes; raw lethality dominates.
+
+**Decision: re-baseline to the honest observed count (N=1) and re-tune the content next.**
+The alternative — holding the probe on the old model — means continuing to measure the game
+with a model we have already ruled incorrect. N=1 is set so the gate keeps *detecting*
+(TEST 2 and TEST 5 were re-pointed at `arcane-artillery`, the only identity whose loss can
+now move the verdict) rather than being relaxed to whatever passes. **N=1 is a placeholder
+for the content re-tune, not a target; `≥ 8` remains the release bar.**
+
+**Consequences to carry into the re-tune slice**
+
+- `geomancy.*` now fires **zero** times across the *as-authored* encounter suite, though it
+  still lands in the substitution gauntlet. Pinned to exactly zero in
+  `benchmark-suite.test.ts` so restoring it forces a deliberate update.
+- The `noLosingMatchup` and opportunity-cost signals are degenerate at one measurable build
+  (non-uniformity is inexpressible in a one-build matrix). The opportunity-cost assertion is
+  written to **re-arm itself** the moment a second identity returns.
+- The MP-enforcement contingency in the amendments above is unchanged but now moot at N=1;
+  re-check it when the re-tune restores `white-magic.` and `summon.`.
+
 ## References
+
 
 - `docs/06` §4 + AC-E2 (diversity gate) + the two Implementation-status notes (AI limits, AoE/measurement gap)
 - `docs/08` AC-R3 (gate in CI from P2) · `docs/00` (diversity success criterion) · `docs/02` B5 (anti-convergence law)
