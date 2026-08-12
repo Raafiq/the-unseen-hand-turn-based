@@ -48,55 +48,60 @@ holds and is test-asserted.
 
 ---
 
-## The next slice — GREEN-LIT by the user on 2026-08-12
+## The next slice — RE-TUNE THE GAUNTLET CONTENT (not yet green-lit; confirm)
 
-### Teach `ai.ts` the move+act fold
+### Why: the fold landed and the gate fell 6 → 1
 
-This is the follow-up **ADR-0015 explicitly names**. The balance probe still emits one
-sub-phase per turn, which is why the fold was containable — and why the benchmark still
-under-measures every *closer* archetype. Measured before the fold shipped:
+`ai.ts` learned ADR-0015's move+act fold (the slice green-lit 2026-08-12) and it did what
+the ADR said it would — moved every gate number — in the direction nobody predicted.
+Measured, per build, in-band maps out of 6:
 
 ```
-COMMAND TALLY {"move": 25, "act": 28, "wait": 0}   ← across the five enc-* encounters
+arcane-artillery 4 (MEASURABLE, black-magic.)   terrain-geo    3
+faithzero-monk   3                              glass-summoner 3
+longshot         2                              reraise-cleric 2
+spellblade       0
 ```
 
-47% of benchmark turns are pure repositioning that FFT would have combined with an attack.
-Under that model no closer can execute flank-then-strike, so `docs/03` #2 Dual-Wield
-Deleter, #3 Solo Duelist, #8 Spellblade, #10 Sky-Drop Dragoon, #11 Teleport Assassin and
-#12 Terrain Geomancer are all suppressed in the gate.
+The fold roughly doubles effective offense for **both** sides; the encounters, oppositions
+and builds were all tuned against the superseded −80-only model, so six of seven slid just
+under `VIABLE_MIN_MAPS` = 4. **N was re-baselined to 1** (user chose this over re-tuning in
+the same slice or holding the probe on the old model). N=1 is a placeholder; `≥ 8` is still
+the release bar.
 
-**This slice WILL move the gate's numbers. That is the point, not a side effect.** Per
-`CLAUDE.md`, all records move in the SAME slice: the `gauntlet.ts` manifest, an ADR-0014
-amendment, `docs/06` AC-E2 (authoritative — outranks the ADR), and a regenerated
-`npm run state`. Do not assume which direction N moves; measure it.
+**The re-tune is the next slice: adjust oppositions / encounter geometry / build stats so
+the identities clear the band again under the corrected model.**
 
-### Two landmines this slice detonates — both documented, neither fixed
+### What the next session must NOT re-derive
 
-1. **`forecast()` assumes every future actor pays −80** (`ASSUMED_FUTURE_TURN_COST`) — the
-   exact model ADR-0015 disproves. `src/render/forecast.test.ts` is a forecast-vs-replay
-   oracle that **will go red** when the AI starts paying −100. That is by design: fix the
-   forecast or drop the timeline row. **Do not silence the test.** Note
-   `Forecast.assumedFrom` is computed at the *cheapest* legal turn (−60), so it is a lower
-   bound and never overclaims.
-2. **The gauntlet's tempo numbers reflect the −80-only world.** Re-measure; do not port old
-   expectations forward.
+- **It is not masking.** `signatureBandMaps === inBandMaps` for every build — each identity
+  still lands its signature wherever its build survives. Test-asserted directly, because
+  masking and sub-viability look identical in the headline number and need opposite fixes.
+- **Free flanking is not the main cause.** ADR-0013 defers facing-on-move, so the fold makes
+  a permanent rear arc free. Tested: re-ranking the comparator to put tempo above arc
+  recovers only 1 → 2. Raw lethality dominates. Do not re-run this experiment.
+- **`skirmish-a` is now a defeat for all seven candidates** and losses resolve in 25–48
+  ticks. That map is the sharpest signal for whether a re-tune is working.
 
-### NOT green-lit — do not fold these in without asking
+### Landmines the re-tune inherits
 
-These were offered alongside the fold and explicitly **not** chosen. They remain good
-slices; they are simply not authorised, so a future session must ask rather than assume
-scope creep is welcome:
+1. **`geomancy.*` fires ZERO times across the as-authored suite** (it still lands in the
+   substitution gauntlet). `benchmark-suite.test.ts` pins it to **exactly zero**, so
+   restoring geomancy **fails that test on purpose** — move the skillset back into the
+   required list rather than deleting the assertion.
+2. **The opportunity-cost check is self-re-arming.** With one measurable build,
+   non-uniformity is inexpressible; the strict assertion returns automatically the moment a
+   second identity appears. Expect it to start biting mid-re-tune — that is correct.
+3. **Detection tests are pointed at `arcane-artillery`**, the only identity whose loss can
+   move the verdict. When more identities return, re-point/restore per-identity detection
+   tests (the two deleted ones are described in `gauntlet.test.ts`).
+4. **Do not calibrate the gate to pass.** `src/sim/CLAUDE.md`: gate constants are calibrated
+   to DETECT. Re-tune the content, not `VIABLE_MIN_MAPS` / `WIN_CEIL_TICKS`.
 
-- **AoE splash rendering** (render-only; the sim already resolves AoE).
-- **Wire `Encounter.teams[].controller` through to the viewer.** Today the player team is a
-  `PLAYER_TEAM = 0` constant in `demo.ts` with a TODO, because `BattleState` carries no
-  controller field. Wiring it means threading the encounter through or a schema bump.
-- **Weapon range.** The Archer is melee in the viewer, so the slice that motivated the fold
-  still cannot show the range/tempo asymmetry. This is a fidelity change — golden vectors
-  attached.
+### Also NOT green-lit
 
-Also not green-lit: **MP enforcement** (would drop N 6→4 — see the standing constraints)
-and anything in **P3** (hybrid/fusion jobs, rewind UI, scan, speed toggle).
+AoE splash rendering · wiring `Encounter.teams[].controller` to the viewer · weapon range ·
+MP enforcement (would cut N further) · anything in P3.
 
 ---
 
