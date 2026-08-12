@@ -138,9 +138,15 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   const maCell = page.locator('[data-stat="ma"]');
   const support = page.getByTestId("prep-support");
 
+  // The proof pair is scoped to the prep panel, not the whole page: the claim is one
+  // digit, and a full-page frame buries it (CLAUDE.md — a caption is an assertion, so the
+  // frame has to actually show what the caption says).
+  const panel = page.locator("#prep-body");
+
   // Equip Heavy Armor is equipped by default and is DEFERRED → the slot is inert.
   await expect(support).toHaveValue("battle-skill.equip-heavy-armor");
   const maInert = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
+  await panel.screenshot({ path: `${SHOTS}/09a-prep-support-deferred.png` });
 
   // Clearing the slot entirely must not move MA either — that is what "inert" means.
   await support.selectOption("");
@@ -153,6 +159,7 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   const maLive = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
   expect(maLive).toBe(Math.floor(maInert * 1.33));
   expect(maLive).toBeGreaterThan(maInert);
+  await panel.screenshot({ path: `${SHOTS}/09b-prep-support-live.png` });
   await page.screenshot({ path: `${SHOTS}/09-prep-support-live.png`, fullPage: true });
 
   // The deterministic hook agrees with the display (no re-derivation in the strip).
