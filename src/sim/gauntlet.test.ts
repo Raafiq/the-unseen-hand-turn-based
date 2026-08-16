@@ -106,15 +106,16 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     expect(rep.pass).toBe(true);
     expect(rep.distinctMeasurableArchetypes).toBe(DIVERSITY_TARGET_N);
     expect(rep.distinctMeasurableArchetypes).toBeGreaterThanOrEqual(DIVERSITY_TARGET_N);
-    // POST-SUPPORT-SLOT (ADR-0017): six viable prefixes. The sequence is 6 → 1 (the
-    // move+act fold) → 5 (the TTK re-tune) → 6 (the support slot going live).
-    // `black-magic.` counts for the first time since the fold, carried by
-    // `bld-arcane-artillery` — whose Magic Attack Up had been equipped and inert.
+    // POST-CONTROL-SLICE (ADR-0018): SEVEN viable prefixes. The sequence is 6 → 1 (the
+    // move+act fold) → 5 (the TTK re-tune) → 6 (the support slot going live) → 7 (a probe
+    // that values control + Charm behaviour + the thief that needs both). `steal.` is the
+    // first identity whose signature action deals no damage at all.
     expect(rep.distinctSignatures).toEqual([
       "aim.",
       "black-magic.",
       "geomancy.",
       "punch-art.",
+      "steal.",
       "summon.",
       "white-magic.",
     ]);
@@ -176,7 +177,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     }
   });
 
-  it("credits exactly the six builds whose signature landed while viable", () => {
+  it("credits exactly the seven builds whose signature landed while viable", () => {
     const rep = computeDiversityReport(frozenRuns);
     const measurable = rep.perBuild.filter((b) => b.measurableIdentity).map((b) => b.buildId).sort();
     // INVERTED THREE TIMES. Pre-fold arcane-artillery was the ONLY build that did NOT
@@ -185,6 +186,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // outside — masked, not sub-viable.
     expect(measurable).toEqual([
       "bld-arcane-artillery",
+      "bld-cutpurse",
       "bld-faithzero-monk",
       "bld-glass-summoner",
       "bld-longshot",
@@ -314,7 +316,7 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
     // Latin-ish offset) so no build is fastest-or-tied everywhere → nobody is falsely
     // flagged hard-dominant; the pass/fail turns purely on the count. One (geo) wins
     // every map but SLOWLY (past the ceiling) in the failing variant.
-    const prefixes = { aimer: "aim.", monk: "punch-art.", mage: "black-magic.", cleric: "white-magic.", summoner: "summon.", geo: "geomancy." };
+    const prefixes = { aimer: "aim.", monk: "punch-art.", mage: "black-magic.", cleric: "white-magic.", summoner: "summon.", thief: "steal.", geo: "geomancy." };
     const crossed = (b: number, m: number): number => 100 + ((b + m) % 3) * 20; // in band, no uniform winner
     const rowsFor = (buildId: keyof typeof prefixes, b: number, tick?: (m: number) => number): GauntletRun[] =>
       MAP_IDS.map((m, mi) =>
@@ -325,7 +327,7 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
     // the wrong size detects NOTHING: too many and the report clears N with geo already
     // gone (passes either way); too few and it fails either way. This bit twice (N=6 → 1
     // → 5), so it is DERIVED from the target rather than written out.
-    const supporting = (["aimer", "monk", "mage", "cleric", "summoner"] as const).slice(
+    const supporting = (["aimer", "monk", "mage", "cleric", "summoner", "thief"] as const).slice(
       0,
       DIVERSITY_TARGET_N - 1,
     );
@@ -343,14 +345,14 @@ describe("diversity gate — TEST 2: dropping a measurable identity below band F
     expect(slow.pass).toBe(false);
   });
 
-  it("real engine: degrading terrain-geo (MA→0) drops geomancy. → distinct 6→5 (< N=6) → FAIL", () => {
+  it("real engine: degrading terrain-geo (MA→0) drops geomancy. → distinct 7→6 (< N=7) → FAIL", () => {
     // RE-POINTED TWICE. It degraded terrain-geo, then arcane-artillery (post-fold the only
     // counted identity), and now terrain-geo again — because post-TTK-re-tune it was
     // `black-magic.` that was uncounted, so degrading arcane-artillery would have moved
     // distinct by 0 and the test would have passed while detecting nothing. The rule this
     // keeps obeying: the degraded build must be one that CURRENTLY COUNTS, or the check
     // cannot come out the other way. terrain-geo is the sole `geomancy.` carrier, so
-    // killing its MA removes exactly one identity — a clean 6→5. (It stays the right
+    // killing its MA removes exactly one identity — a clean 7→6. (It stays the right
     // target after ADR-0017: terrain-geo equips NO support, so the support layer neither
     // props it up nor is credited for its clears.)
     const deadGeo: UnitRecord = {
@@ -543,9 +545,51 @@ describe("diversity gate — TEST 3: glass-summoner lands summon. on ≥4/6 phys
   });
 });
 
+// ── TEST 4b: the CONTROL identity is real, and it is `steal.heart` ─────────
+describe("diversity gate — TEST 4b: bld-cutpurse counts as a CONTROL identity", () => {
+  it("charms by NAME, wins by charming, and deals no damage doing it", () => {
+    // The seventh identity (ADR-0018). Asserted by ABILITY ID, not just by prefix: four
+    // of `steal`'s five actions are still inert (`content.ts` DEFERRED_ACTIONS), so a
+    // prefix-only check could in principle be satisfied by a command that does nothing.
+    const runs = runGauntlet({
+      resolver,
+      maps,
+      candidateIds: ["bld-cutpurse"],
+      opposition: OPPOSITION_BUILD_IDS, // single phys reference opposition
+    });
+    const stat = computeDiversityReport(runs).perBuild[0]!;
+    expect(stat.measurableIdentity).toBe(true);
+    expect(stat.inBandMaps.length).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
+    expect(stat.signatureBandMaps).toEqual(stat.inBandMaps); // never masked by its swing
+
+    const inBandRuns = runs.filter((r) => inBand(r, DEFAULT_BAND));
+    expect(inBandRuns.length).toBeGreaterThan(0);
+    // THE DISCRIMINATING PROPERTY OF THIS IDENTITY: at least one clear where the
+    // candidate's whole contribution is STATUS — zero damage, zero healing. That run is
+    // exactly the one the pre-slice `inBand` (damage-or-healing only) scored as no
+    // contribution at all, so it is also the proof that widening the contribution test
+    // was a fix and not a loosening.
+    const pureControl = inBandRuns.filter(
+      (r) => r.candidateDamage === 0 && r.candidateHealing === 0 && r.candidateStatuses > 0,
+    );
+    expect(pureControl.length).toBeGreaterThan(0);
+
+    // …and the command it actually issues is `steal.heart` by id.
+    const enc = buildGauntletEncounter(
+      maps.find((m) => m.id === inBandRuns[0]!.mapId)!.encounter,
+      "bld-cutpurse",
+    );
+    const { report } = runEncounterDetailed(enc, resolver, undefined, {
+      signaturePrefixes: { [CANDIDATE_SLOT]: "steal." },
+    });
+    expect(report.abilityUsage["steal.heart"] ?? 0).toBeGreaterThan(0);
+    expect(report.contributionByUnit[CANDIDATE_SLOT]!.statusesInflicted).toBeGreaterThan(0);
+  });
+});
+
 // ── TEST 5: the gate can FAIL (calibrated to DETECT, not to pass) ──────────
 describe("diversity gate — TEST 5: N detects the loss of the surviving identity", () => {
-  it("dropping any one measurable build collapses distinct 6→5 → FAIL", () => {
+  it("dropping any one measurable build collapses distinct N→N−1 → FAIL", () => {
     // RESTORED AS A PER-IDENTITY SWEEP (2026-08-12, the TTK re-tune). It began as two
     // tests (drop glass-summoner; drop reraise-cleric), collapsed to one when the fold
     // left `black-magic.` the only counted identity, and is now a loop over EVERY

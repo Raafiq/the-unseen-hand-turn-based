@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { effectiveTeamOf } from "./state.js";
 import type { BattleState } from "./state.js";
 
 const IntSchema = z.number().int();
@@ -60,7 +61,21 @@ function isOut(state: BattleState, unitId: string): boolean {
 
 /**
  * Evaluate a single {@link Condition} against a state (pure). OUT = `hp <= 0`.
- *   - `eliminateTeams`: true once EVERY unit whose `teamId` is in `teams` is OUT
+ *
+ * A unit counts for the team it currently FIGHTS FOR (state.ts `effectiveTeamOf`), not
+ * the one it was deployed on: a CHARMED unit no longer opposes the side controlling it,
+ * so charming the last defender ENDS the battle exactly as felling it would. That is a
+ * design call, not an accident — the alternative (count the body for its nominal team)
+ * was implemented first and produced a LIVELOCK: nobody on the charmer's side will
+ * attack an ally, the charmer re-applies control the moment it lapses, and the fight ran
+ * to a 580-tick timeout with 18 charms landed. Control is the thief's win condition; a
+ * battle nobody can end is not a design, it is a hang. [UNCERTAIN vs FFT: the source
+ * game's rule for an all-charmed enemy team is unverified — fft-fidelity, docs/01 §8.]
+ *
+ * The symmetry is deliberate and costs the charmer too: if MY last unit is charmed, MY
+ * team is eliminated.
+ *
+ *   - `eliminateTeams`: true once EVERY unit whose EFFECTIVE team is in `teams` is OUT
  *     (vacuously true if a listed team has no units — an authored-encounter concern).
  *   - `defeatUnit`: true once the named unit is OUT.
  *   - `survive`: true once the battle clock (`state.tick`) reaches `cond.ticks` AND
@@ -74,12 +89,12 @@ export function evalCondition(state: BattleState, cond: Condition): boolean {
   switch (cond.kind) {
     case "eliminateTeams": {
       const teams = new Set(cond.teams);
-      return state.units.every((u) => !teams.has(u.teamId) || u.hp <= 0);
+      return state.units.every((u) => !teams.has(effectiveTeamOf(u)) || u.hp <= 0);
     }
     case "defeatUnit":
       return isOut(state, cond.unitId);
     case "survive": {
-      const alive = state.units.some((u) => u.teamId === cond.teamId && u.hp > 0);
+      const alive = state.units.some((u) => effectiveTeamOf(u) === cond.teamId && u.hp > 0);
       return state.tick >= cond.ticks && alive;
     }
   }
@@ -99,8 +114,9 @@ export function winningTeamOf(state: BattleState): number | null {
   let team: number | null = null;
   for (const u of state.units) {
     if (u.hp <= 0) continue;
-    if (team === null) team = u.teamId;
-    else if (team !== u.teamId) return null; // two teams alive → no sole winner
+    const t = effectiveTeamOf(u);
+    if (team === null) team = t;
+    else if (team !== t) return null; // two teams alive → no sole winner
   }
   return team;
 }

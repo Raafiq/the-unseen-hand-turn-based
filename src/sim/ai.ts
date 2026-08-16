@@ -114,7 +114,11 @@ function estMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbi
 }
 
 /**
- * How much of a target's turn a debuff removes, per unit of CT it lasts (dimensionless):
+ * How much of a target's turn a debuff removes, per unit of CT it lasts (dimensionless).
+ * EXPORTED because it is the definition of "a status the sim actually reads": content
+ * tests partition the shipped pack's inert actions with it rather than re-deriving the
+ * rule, so the manifest and the probe can never disagree about what is live.
+ *
  *   - `preventsAction` (Stop/Sleep/Don't-Act/Petrify) → 1: it loses the whole turn;
  *   - otherwise the CT-rate it loses, `1 - ctFactor` (Slow 0.5 → half its turns);
  *   - 0 for anything the sim does not yet READ — a status whose only effect is a flag
@@ -129,7 +133,7 @@ function estMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbi
  * price), and STAT-MODIFYING statuses, which do not exist yet (`battle-skill`'s
  * `*-break`s are the pending case, `content.ts` DEFERRED_SKILLSETS).
  */
-function statusSwingFactor(st: ActiveStatus): number {
+export function statusSwingFactor(st: ActiveStatus): number {
   // CONTROL (Charm) is a DOUBLE swing: the target's turn is not merely denied, it is
   // spent against its own side — one turn lost to them, one gained by me. That 2 is a
   // model of the mechanic, not a tuning dial: it falls out of `effectiveTeamOf` making

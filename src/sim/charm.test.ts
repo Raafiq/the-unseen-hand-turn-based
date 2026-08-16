@@ -145,20 +145,40 @@ describe("a charmed unit fights for its captor", () => {
   });
 });
 
-describe("what charm deliberately does NOT change", () => {
-  it("VICTORY still counts the thrall as alive on its own team", () => {
-    // Charming the last enemy must not win the battle by "eliminating" team 1. This is
-    // the omission that would be invisible without a test: `evaluate` reading the
-    // effective team would end fights the moment a thief connected.
+describe("charm and the objective", () => {
+  it("charming the LAST defender ends the battle — the fix for a measured livelock", () => {
+    // The first implementation counted a charmed body for its NOMINAL team, so a battle
+    // could not end while it lived: nobody attacks an ally, and the charmer re-charms the
+    // moment control lapses. Measured on the corridor map as a 580-tick TIMEOUT with 18
+    // charms landed and one enemy standing. Victory now counts the team a unit FIGHTS
+    // FOR (condition.ts), so control is a real win condition.
     const s = scene(true);
-    const victim = s.units.find((u) => u.id === "victim")!;
-    victim.hp = 0; // team 1 is now the thrall alone — and the thrall is charmed
-    expect(evalCondition(s, { kind: "eliminateTeams", teams: [1] })).toBe(false);
-    // …and it DOES trigger once the thrall itself is actually down.
-    s.units.find((u) => u.id === "thrall")!.hp = 0;
+    s.units.find((u) => u.id === "victim")!.hp = 0; // team 1 is the charmed thrall alone
     expect(evalCondition(s, { kind: "eliminateTeams", teams: [1] })).toBe(true);
   });
 
+  it("…and the SAME board without the charm does NOT end — the discriminating half", () => {
+    // Identical to the case above but for the stamped status: a living, free enemy means
+    // team 1 is not eliminated. Without this, a broken `eliminateTeams` that always
+    // returned true would pass the test above.
+    const s = scene(false);
+    s.units.find((u) => u.id === "victim")!.hp = 0;
+    expect(evalCondition(s, { kind: "eliminateTeams", teams: [1] })).toBe(false);
+  });
+
+  it("the rule is SYMMETRIC: a charmer whose last unit is charmed LOSES", () => {
+    // Charm is a win condition for whoever lands it, not a team-0 privilege. Team 0's
+    // hero and ally are the only units fighting for it; charm the ally to team 1 and
+    // fell the hero, and team 0 is eliminated even though a team-0 body still stands.
+    const s = scene(false);
+    const ally = s.units.find((u) => u.id === "ally")!;
+    ally.statuses = [{ ...CHARM_TEMPLATE, controlledByTeamId: 1 }];
+    s.units.find((u) => u.id === "hero")!.hp = 0;
+    expect(evalCondition(s, { kind: "eliminateTeams", teams: [0] })).toBe(true);
+  });
+});
+
+describe("what charm deliberately does NOT change", () => {
   it("SCHEDULING is untouched: the thrall's turn comes up exactly as before", () => {
     // Allegiance is not a CT concept. Same seed, same speeds → the same actor order,
     // charmed or not, so a charm can never be a hidden tempo change.

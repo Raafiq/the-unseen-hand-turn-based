@@ -402,11 +402,12 @@ export function isBasicAttack(ability: BattleAbility): boolean {
  *     harness.ts) — a charmed unit is still ALIVE on its own team, so charming an
  *     enemy must not win the battle by "eliminating" its team. Charm buys turns, not
  *     the objective.
- *   - MOVEMENT/traversal blocking (grid.ts) — a body blocks a lane because it is
- *     THERE, not because of whose side it is on; a charmed unit keeps walking among
- *     its old comrades. (FFT lets a unit pass through allies only; making that follow
- *     charm would let a charmed unit phase through the team that charmed it.)
  *   - The scheduler — allegiance changes nothing about when a turn comes up.
+ *
+ * `grid.ts` DOES read it, and that was measured rather than assumed: traversal's rule is
+ * "enemies block, allies are passable", so keeping it on nominal `teamId` made a charmed
+ * body a door-stop that its old side could not pass and its new side would not attack —
+ * a 453-tick timeout on the corridor map the first time charm ran the gauntlet.
  */
 export function effectiveTeamOf(unit: UnitState): number {
   for (const st of unit.statuses) {

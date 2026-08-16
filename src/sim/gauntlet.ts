@@ -1,14 +1,16 @@
 /**
  * Build-diversity gate — the SUBSTITUTION GAUNTLET (docs/06 AC-E2, docs/08 AC-R3,
- * ADR-0014, N = 6 as of 2026-08-12). This is the HONEST INTERIM FLOOR, not the full
+ * ADR-0014, N = 7 as of 2026-08-16). This is the HONEST INTERIM FLOOR, not the full
  * anti-convergence proof.
  *
- * ⚠ N MOVED 6 → 1 → 5 → 6 in three steps on 2026-08-12. The move+act fold (ADR-0015)
- * dropped it to 1; the TTK re-tune (docs/07 §3 / AC-P6) recovered it to 5; wiring the
- * SUPPORT SLOT (ADR-0017) restored the sixth identity. Each step's finding contradicted
- * the previous step's stated cause — the fold was blamed for a latent time-to-kill
- * violation, and the wizard's "weak spell" was actually an equipped support ability that
- * did nothing. See {@link DIVERSITY_TARGET_N} for the measurements.
+ * ⚠ N MOVED 6 → 1 → 5 → 6 in three steps on 2026-08-12, then 6 → 7 on 2026-08-16. The
+ * move+act fold (ADR-0015) dropped it to 1; the TTK re-tune (docs/07 §3 / AC-P6)
+ * recovered it to 5; wiring the SUPPORT SLOT (ADR-0017) restored the sixth identity; the
+ * CONTROL slice (ADR-0018 — a probe that values status, Charm behaviour, and a thief)
+ * added a seventh. Each of the first three steps' findings contradicted the previous
+ * step's stated cause — the fold was blamed for a latent time-to-kill violation, and the
+ * wizard's "weak spell" was actually an equipped support ability that did nothing. See
+ * {@link DIVERSITY_TARGET_N} for the measurements.
  *
  * WHAT THIS GATE PROVES (and only this):
  *   (a) ≥ N distinct measurable build identities each LAND their signature action and
@@ -74,8 +76,8 @@
  * DISTINCT identities are keyed by the landed SIGNATURE PREFIX, not the build name:
  * `bld-spellblade` and `bld-arcane-artillery` both signature on `black-magic.`, so
  * when both fight as black-mages they COLLAPSE to one identity. The honest observed
- * count is 6 viable prefixes — `aim.`, `black-magic.`, `geomancy.`, `punch-art.`,
- * `summon.` and `white-magic.`. `black-magic.` is carried by `bld-arcane-artillery`
+ * count is 7 viable prefixes — `aim.`, `black-magic.`, `geomancy.`, `punch-art.`,
+ * `steal.`, `summon.` and `white-magic.`. `black-magic.` is carried by `bld-arcane-artillery`
  * (5/6 phys maps, signature landed on all five) since its Magic Attack Up went live
  * (ADR-0017). Its prefix-mate `bld-spellblade` is still MASKED — a knight's MA makes
  * borrowed black magic lose to its own PA × WP swing, so the greedy probe never picks
@@ -118,6 +120,11 @@ export interface MeasurableEntry {
  * distinct-identity count keys on the prefix, so they contribute one identity, and
  * since ADR-0017 that identity is carried by arcane-artillery alone.
  *
+ * `bld-cutpurse` is the CONTROL identity (`steal.`, the charm slice): the first build
+ * whose signature deals no damage at all, which is why `inBand`'s contribution test had
+ * to count a landed STATUS — under the damage-only test it scored zero and could never
+ * have been credited however decisive its charms were.
+ *
  * `bld-reraise-cleric` is measured as its OFFENSIVE `white-magic.` identity (it casts
  * `white-magic.holy` on the phys reference axis, never heals there), so its archetype is
  * `white-mage`, NOT "reraise-cleric" — its reaction/sustain identity (Reraise, cure) is
@@ -132,6 +139,7 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
   "bld-faithzero-monk": { archetypeId: "anti-mage", signaturePrefix: "punch-art." },
   "bld-reraise-cleric": { archetypeId: "white-mage", signaturePrefix: "white-magic." },
   "bld-glass-summoner": { archetypeId: "summoner", signaturePrefix: "summon." },
+  "bld-cutpurse": { archetypeId: "cutpurse", signaturePrefix: "steal." },
 };
 
 /**
@@ -260,8 +268,38 @@ export const WIN_CEIL_TICKS = 300;
 export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
 
 /**
- * ⚠ RE-BASELINED THREE TIMES ON 2026-08-12: N 6 → 1 (the move+act fold) → 5 (the TTK
- * re-tune) → 6 (the SUPPORT SLOT going live, ADR-0017).
+ * ⚠ N = 7 SINCE 2026-08-16 (the CONTROL slice, ADR-0018). Re-baselined three times
+ * before that, all on 2026-08-12: 6 → 1 (the move+act fold) → 5 (the TTK re-tune) → 6
+ * (the SUPPORT SLOT going live, ADR-0017).
+ *
+ * STEP 4 (N 6 → 7) — THE CONTROL IDENTITY. `steal.` is a genuinely NEW signature prefix
+ * (no other build signatures on it), carried by `bld-cutpurse`, the first shipped build
+ * whose signature action deals no damage: it charms (`steal.heart`), and a charmed unit
+ * fights for its captor. Three capabilities had to land together for it to be
+ * measurable at all, and each was inert-but-plausible before:
+ *   1. the probe values a status in HP-equivalent (ai.ts `statusValue`), so a
+ *      0-damage action can be chosen at all;
+ *   2. Charm has BEHAVIOUR (state.ts `effectiveTeamOf`), so the status is not a marker;
+ *   3. `inBand`'s contribution test counts a landed STATUS — under the damage-only test
+ *      the cutpurse scored 0 contribution on every map it decided.
+ *
+ * ROBUSTNESS — why 7 is trusted (the ADR-0016 protocol), and the discontinuity it
+ * caught. The FIRST cutpurse measurement read 3, 4, 3, 4 across adjacent SPEED values:
+ * a non-monotonic sweep, so by the CLAUDE.md rule no number could be read off it. The
+ * cause was a real defect, not noise — with victory counting a charmed body for its
+ * NOMINAL team, charming the last defender LIVELOCKED the battle (nobody attacks an
+ * ally; the charmer re-charms the moment control lapses), which showed up as a 580-tick
+ * timeout with 18 charms landed. Once victory counted the EFFECTIVE team (condition.ts)
+ * the jitter vanished: 4/6 flat across speeds 8–11, and 4/6 flat across a common
+ * raw-HP perturbation of ×0.95 … ×1.15 with N = 7 at every step. It drops out at ×0.90
+ * (N → 6), the same edge every squishy sits behind.
+ *
+ * THE CUTPURSE IS AT THE FLOOR — 4/6, exactly `VIABLE_MIN_MAPS`, with `losingMatchups:
+ * ["magic"]`. That is the intended shape (a melee control unit that must close to range
+ * 1 pays real opportunity cost), not slack: at speed 7 it reads 6/6 with NO losing
+ * matchup, i.e. the convergence failure docs/02 B5 exists to prevent — so the shipped
+ * raw Speed is the roster's uniform 8, and the archetype's quickness comes from the
+ * job's growth, not from a hand-picked stat.
  *
  * STEP 3 (N 5 → 6) — THE SUPPORT SLOT, and the diagnosis that found it. The missing
  * sixth prefix was `black-magic.`, and the recorded reason was arithmetic: a 144-HP
@@ -352,9 +390,9 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * real, but two bodies cannot hold a lane on these maps and the candidate contributes
  * less from further back — N went 1 → 0. Do not re-run it.
  *
- * N = 6 IS THE HONEST OBSERVED COUNT, not a target and not a floor chosen to pass. `≥ 8`
+ * N = 7 IS THE HONEST OBSERVED COUNT, not a target and not a floor chosen to pass. `≥ 8`
  * (full AC-E2) remains the release bar. Every prefix the shipped roster can express is
- * now counted — ZERO SLACK: all six must stay viable, so any regression fails the gate.
+ * now counted — ZERO SLACK: all seven must stay viable, so any regression fails the gate.
  * `bld-spellblade` is still MASKED and still owed a chassis; fixing it buys the count
  * NOTHING (its `black-magic.` prefix collapses onto arcane-artillery's), so the last
  * identities toward ≥ 8 must come from the EXCLUDED unblocks or from new jobs.
@@ -392,12 +430,12 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * EXCLUDED capabilities (which RAISE N as they land), MP enforcement LOWERS it. NOTE the
  * summoner's `summon.` also has an unenforced-MP contingency (each summon costs 14–30 MP
  * off a 24 budget), so MP enforcement could bite it too — re-verify BOTH on any MP change.
- * ZERO SLACK: exactly 6 prefixes exist, so all 6 must stay viable — healthy
+ * ZERO SLACK: exactly 7 prefixes exist, so all 7 must stay viable — healthy
  * calibrate-to-detect for a DETERMINISTIC gate (TEST 2/TEST 5 prove it can fail), but it
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
  */
-export const DIVERSITY_TARGET_N = 6;
+export const DIVERSITY_TARGET_N = 7;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Placement generation (pure, deterministic from the grid).

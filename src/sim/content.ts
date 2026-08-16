@@ -57,9 +57,48 @@ export const BASELINE_SKILLSETS: readonly string[] = ["basic", "item"];
  */
 export const DEFERRED_SKILLSETS: Readonly<Record<string, string>> = {
   "battle-skill":
-    "every `*-break` is a stat reduction with `formula: \"none\"`; needs stat-modifying statuses (an ActiveStatus stat-mod field) AND a probe that values a debuff, pending the multi-job skill rework",
-  steal:
-    "no action is reachable: `gil` needs the post-battle economy (docs/07), `armor`/`helmet`/`weapon` need the equipment modifier layer (docs/05 §4), and `heart` needs Charm BEHAVIOUR plus a probe that values control — the status itself now lands",
+    "every `*-break` is a stat reduction with `formula: \"none\"` and NO status to inflict; needs stat-modifying statuses (an ActiveStatus stat-mod field), pending the multi-job skill rework",
+};
+
+/**
+ * The ABILITY-level twin of {@link DEFERRED_SKILLSETS}: every shipped ACTION that
+ * resolves to nothing — no live formula AND no status the sim actually reads — mapped
+ * to the named capability that would unblock it.
+ *
+ * WHY BOTH. The skillset manifest answers "can this JOB be measured at all"; it goes
+ * quiet the moment ONE action in the set becomes live. `steal` is exactly that case:
+ * `heart` now charms, so the skillset left the manifest above — while FOUR of its five
+ * actions are still inert. A test that covers a subset reads as covering the set
+ * (CLAUDE.md), and the prep panel needs the per-command answer anyway, so the honest
+ * unit is the ACTION.
+ *
+ * `content-pack.test.ts` asserts this partitions the shipped pack EXACTLY, in both
+ * directions: a newly-inert action missing from the manifest fails, and a STALE entry
+ * (an action that has since become live) fails just as loudly.
+ */
+export const DEFERRED_ACTIONS: Readonly<Record<string, string>> = {
+  // Stat-modifying statuses: an ActiveStatus can change CT rate and forbid acting, but
+  // it cannot yet change PA/MA/Speed or equipment, which is all a Break does.
+  "battle-skill.weapon-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.armor-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.shield-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.power-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.speed-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.magic-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  "battle-skill.mind-break": "stat/equipment-modifying statuses (pending the multi-job skill rework)",
+  // Cleansing: no resolver REMOVES a status; only the scheduler's decay does.
+  "punch-art.purification": "status cleansing (nothing removes a status but expiry)",
+  "white-magic.esuna": "status cleansing (nothing removes a status but expiry)",
+  // TWO independent gaps, either of which alone would keep it dead: the damage
+  // resolvers still recognise Protect by the LEGACY short id `protect`, not the
+  // catalog's `status.protect`; and a `none`-formula action can only aim at FOES,
+  // since targeting splits on `formula === "heal"` and there is no ally/foe
+  // discriminant on an ability yet.
+  "white-magic.protect": "an ally-targeting discriminant AND catalog-id Protect in the damage resolvers",
+  "steal.gil": "the post-battle economy (docs/07)",
+  "steal.armor": "the equipment modifier layer (docs/05 §4)",
+  "steal.helmet": "the equipment modifier layer (docs/05 §4)",
+  "steal.weapon": "the equipment modifier layer (docs/05 §4)",
 };
 
 /** A content migration transforms a parsed pack one schema version forward. */
