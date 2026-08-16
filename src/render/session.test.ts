@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import {
   advanceToDecision,
+  attackDamage,
   applyCommand,
   createBattleState,
   decideBalanceProbe,
@@ -359,13 +360,154 @@ describe("AC-V6 — preview purity: hovering/staging/cancelling move NOTHING", (
     const s = newSession();
     s.onTileHover(FOE_TILE);
     const keys = Object.keys(s.preview()!);
-    for (const banned of ["crit", "critical", "reaction", "reactions", "inflicts", "status", "element", "elemental", "aoe", "los"]) {
+    for (const banned of ["crit", "critical", "reaction", "reactions", "status", "element", "elemental", "aoe", "los"]) {
       expect(keys).not.toContain(banned);
     }
     // …while the honest minimum set IS present (docs/10 §4).
-    for (const required of ["hitChance", "facing", "magnitude", "targetHpBefore", "targetHpAfter", "lethal", "turn", "targetStatuses"]) {
+    //
+    // `inflicts` MOVED from the banned list to this one when the on-hit inflict path
+    // landed. The rule is not "hide these keys" but "never assert a modeled effect the
+    // engine cannot back up": while status-on-hit was unmodeled, showing it lied; now
+    // that resolvers apply it, HIDING it lies — the player would commit a Stop-inflicting
+    // shot seeing only its damage. Same rule, opposite verdict, because the engine moved.
+    for (const required of ["hitChance", "facing", "magnitude", "targetHpBefore", "targetHpAfter", "lethal", "turn", "targetStatuses", "inflicts"]) {
       expect(keys).toContain(required);
     }
+  });
+});
+
+describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-side drift)", () => {
+  // `preview.ts` MIRRORS the driver's magnitude routing by hand rather than resolving
+  // (resolving would consume the seeded stream — AC-V6). A hand-written mirror can drift,
+  // and it silently did: both it and the driver keyed on `formula === "physical"`, which
+  // routed every authored physical SKILL to the plain weapon swing and made its `power`
+  // inert. Nothing tied the previewed number to the dealt number, so the drift was
+  // invisible from this side.
+  //
+  // THE FIXTURE IS DISCRIMINATING BY CONSTRUCTION: `basic.attack.power` is `weapon.wp`,
+  // so a skill at power 8 would COINCIDE with the weapon swing and prove nothing. This
+  // one uses power 16 on a wp-8 weapon, i.e. the two routes disagree by 2×, and it
+  // asserts that disagreement so nobody can later "simplify" it into a tie.
+  const SKILL_ID = "skill.strike";
+  const SKILL_POWER = 16;
+
+  function skillFixture(): BattleState {
+    const width = 8;
+    const height = 5;
+    const tiles: Tile[] = makeFlatTiles(width, height, 0);
+    const base = defaultUnit("hero", 0, {
+      pos: { ...HERO_START },
+      facing: "E",
+      speed: 12,
+      move: 3,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 10,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    // The skill is FIRST in the projection, so `targetOptions` picks it over the basic
+    // swing (it takes the first matching ability in array order).
+    const hero: UnitState = {
+      ...base,
+      abilities: [
+        {
+          id: SKILL_ID,
+          actionKind: "action",
+          formula: "physical",
+          power: SKILL_POWER,
+          element: "none",
+          accuracy: 100,
+          range: { h: 1, v: 1 },
+          inflicts: [],
+          speed: null,
+          aoe: null,
+        },
+        ...base.abilities,
+      ],
+    };
+    // Zero evasion + 100 accuracy ⇒ the swing ALWAYS lands, so a miss can never make the
+    // dealt damage 0 and turn this into a flaky test.
+    const foe = defaultUnit("foe", 1, {
+      pos: { ...FOE_TILE },
+      facing: "W",
+      speed: 11,
+      move: 3,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 6,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    return createBattleState({ seed: 4242, grid: { width, height, tiles }, units: [hero, foe] });
+  }
+
+  it("previews a physical SKILL at its own power, and deals exactly that", () => {
+    const s = new Session({ makeState: skillFixture, playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const p = s.preview()!;
+    expect(p.hitChance).toBe(100); // the fixture guarantees the hit, so magnitude is dealt
+
+    const before = unit(s.state, "foe").hp;
+    s.onPick(FOE_TILE); // commit the act through the ONE tile-driven mutator
+    const dealt = before - unit(s.state, "foe").hp;
+
+    expect(dealt).toBeGreaterThan(0);
+    expect(p.magnitude).toBe(dealt); // the honesty invariant
+    expect(p.targetHpAfter).toBe(before - dealt);
+  });
+
+  it("previews the status it will inflict, and the sim then inflicts exactly that", () => {
+    // The honesty invariant for the NEW row, same shape as the magnitude one above:
+    // it is not enough for the preview to list a status, it must list the status the
+    // resolver actually applies. A hand-maintained mirror can drift; this cannot.
+    const SLOW_ID = "status.slow";
+    const withStatus = (): BattleState => {
+      const s = skillFixture();
+      const hero = s.units.find((u) => u.id === "hero")!;
+      hero.abilities[0]!.inflicts = [
+        {
+          id: SLOW_ID,
+          kind: "debuff",
+          ctFactor: 0.5,
+          remainingCT: 32,
+          preventsAction: false,
+          interruptsCharge: false,
+          interruptsMagicOnly: false,
+        },
+      ];
+      return s;
+    };
+    const s = new Session({ makeState: withStatus, playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const previewed = s.preview()!.inflicts.map((i) => i.id);
+    expect(previewed).toEqual([SLOW_ID]); // the panel promises it…
+
+    s.onPick(FOE_TILE); // …and the commit delivers exactly it
+    expect(unit(s.state, "foe").statuses.map((st) => st.id)).toEqual(previewed);
+
+    // Non-vacuity: the SAME fixture without the inflict previews an empty list and
+    // leaves the target clean, so the assertions above are about the status and not
+    // about a target that was always going to end up in that state.
+    const plain = new Session({ makeState: skillFixture, playerTeam: 0 });
+    plain.onTileHover(FOE_TILE);
+    expect(plain.preview()!.inflicts).toEqual([]);
+    plain.onPick(FOE_TILE);
+    expect(unit(plain.state, "foe").statuses).toEqual([]);
+  });
+
+  it("the fixture genuinely separates the two routes (else the test above is a tie)", () => {
+    // pa 10 × wp 8 = 80 for the weapon route, pa 10 × power 16 = 160 for the ability
+    // route, before the shared Zodiac step — so the previewed number could only match the
+    // dealt number by both taking the SAME route. Asserted, not assumed.
+    const s = new Session({ makeState: skillFixture, playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const skillMagnitude = s.preview()!.magnitude;
+    const hero = unit(s.state, "hero");
+    const weaponSwing = attackDamage(hero, unit(s.state, "foe"));
+    expect(skillMagnitude).not.toBe(weaponSwing);
+    expect(hero.abilities[0]!.id).toBe(SKILL_ID); // …and it really is the skill being previewed
   });
 });
 

@@ -35,6 +35,8 @@ export {
   makeFlatTiles,
   defaultUnit,
   basicAttackFrom,
+  BASIC_ATTACK_ID,
+  isBasicAttack,
   legacyActiveStatus,
   makeActiveStatus,
   serialize,
@@ -218,6 +220,7 @@ export {
   CONTENT_SCHEMA_VERSION,
   MIN_SUPPORTED_CONTENT_SCHEMA_VERSION,
   BASELINE_SKILLSETS,
+  DEFERRED_SKILLSETS,
   CONTENT_MIGRATIONS,
   ContentSchemaVersionError,
   ContentIntegrityError,
@@ -229,6 +232,7 @@ export {
 } from "./content.js";
 export {
   buildBattleUnit,
+  toBattleAbility,
   buildBattleState,
   type BuildUnitInput,
   type BuildBattleGridOptions,

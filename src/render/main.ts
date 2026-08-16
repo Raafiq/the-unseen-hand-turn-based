@@ -51,7 +51,7 @@ const PHASE_TEXT: Record<Phase, string> = {
   AWAIT_ACTOR: "Advancing the clock…",
   PLAYER_IDLE: "Your turn — click a tile to move, or an enemy to strike",
   MOVE_STAGED: "Move staged — click an enemy to strike from there, or End Turn",
-  AI_TURN: "Enemy turn — press Step to watch it resolve",
+  AI_TURN: "Enemy turn — press Play enemy turn to watch it resolve",
   ENDED: "Battle over",
 };
 
@@ -136,7 +136,11 @@ function renderControls(): void {
   endTurnBtn.textContent = session.endTurnLabel();
   endTurnBtn.disabled = !playable;
   cancelBtn.disabled = session.phase !== "MOVE_STAGED";
-  stepBtn.textContent = session.phase === "AI_TURN" ? "Enemy turn ▸ Resolve" : "Step turn ▸";
+  // One control, two honest readings. `Session.step()` resolves whoever is ACTIVE
+  // through the balance probe regardless of team, so on the player's own turn it
+  // hands their unit to the AI — which "Step turn" never said. Naming both cases
+  // is the pillar-4 honesty rule applied to a label.
+  stepBtn.textContent = session.phase === "AI_TURN" ? "Play enemy turn ▸" : "Auto-play my turn ▸";
   stepBtn.disabled = session.phase === "ENDED";
 }
 
@@ -183,6 +187,12 @@ function renderPreview(): void {
     (p.lethal ? row("Outcome", "LETHAL — the target is KO'd") : "") +
     row("Zodiac", p.zodiac) +
     row("Target statuses", statuses) +
+    // Only when the act actually applies one. An "Inflicts: none" row on every
+    // ordinary swing would be noise, and the absent-not-zero rule is about not
+    // asserting an unmodeled effect — it does not require printing an empty one.
+    (p.inflicts.length > 0
+      ? row("Inflicts on hit", p.inflicts.map((i) => `${i.id} (${i.kind})`).join(", "), "lethal")
+      : "") +
     row(
       "Turn price",
       `${p.moved ? "Move + Act" : "Act"} · −${p.turn.cost} CT` +
@@ -228,7 +238,7 @@ function renderLog(): void {
         t${e.tick} · ${meta?.label ?? e.unitId} · ${e.action}</li>`;
     })
     .join("");
-  logEl.innerHTML = rows || `<li class="muted">No turns yet — move, strike, or press Step.</li>`;
+  logEl.innerHTML = rows || `<li class="muted">No turns yet — move, strike, or let the AI play a turn.</li>`;
 }
 
 function refresh(): void {

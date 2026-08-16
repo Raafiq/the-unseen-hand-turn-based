@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { advanceToDecision, applyCommand, replay, replaySteps, type Command } from "./driver.js";
-import { resolveAttack } from "./resolve.js";
+import { abilityDamage, attackDamage, resolveAttack } from "./resolve.js";
 import { declareCharge } from "./charge.js";
 import { hitChance } from "./formulas.js";
 import {
@@ -15,7 +15,7 @@ import {
 } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 
-const MAGIC: ChargeEffect = { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null };
+const MAGIC: ChargeEffect = { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null, inflicts: [] };
 
 /**
  * Slice 5: issuable actions are the unit's `act` commands, and every combat datum
@@ -115,7 +115,7 @@ describe("driver auto-resolves charges on the shared timeline (AC-04 wiring)", (
       "c",
       0,
       { pos: { x: 0, y: 0 }, speed: 10 },
-      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null }, 20),
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null, inflicts: [] }, 20),
     );
     const t = defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: [legacyActiveStatus("stop")], hp: 300, maxHp: 300, faith: 100 });
     const state = createBattleState({ seed: 3, grid: { width: 5, height: 5 }, units: [c, t] });
@@ -177,7 +177,7 @@ function goldenBattle(): BattleState {
       weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
       zodiac: { sign: "aries", gender: "male" },
     },
-    spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null }, 20),
+    spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null, inflicts: [] }, 20),
   );
   const dummy = defaultUnit("dummy", 1, {
     pos: { x: 2, y: 2 },
@@ -229,7 +229,7 @@ describe("FROZEN-GOLDEN replay oracle (AC-S1 correctness, not just purity)", () 
   // so the AoE code path is never entered (the no-op invariant, proved here and by
   // the dedicated aoe-noop test below).
   const GOLDEN =
-    '{"schemaVersion":8,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null},{"id":"spell.nuke","actionKind":"action","formula":"magic","power":8,"element":"none","accuracy":100,"range":{"h":8,"v":8},"inflicts":[],"speed":20,"aoe":null}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
+    '{"schemaVersion":9,"seed":424242,"tick":76,"rngCounter":5,"grid":{"width":5,"height":5,"tiles":[{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true},{"height":0,"passable":true}]},"units":[{"id":"hero","teamId":0,"pos":{"x":1,"y":1},"facing":"S","ct":40,"speed":10,"move":3,"jump":3,"hp":200,"maxHp":200,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"aries","gender":"male"},"crystalTimer":0,"statuses":[],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null},{"id":"spell.nuke","actionKind":"action","formula":"magic","power":8,"element":"none","accuracy":100,"range":{"h":8,"v":8},"inflicts":[],"speed":20,"aoe":null}]},{"id":"dummy","teamId":1,"pos":{"x":2,"y":2},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":9679,"maxHp":9999,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":0,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null}]},{"id":"victim","teamId":1,"pos":{"x":1,"y":0},"facing":"S","ct":0,"speed":5,"move":3,"jump":3,"hp":0,"maxHp":60,"pa":10,"ma":10,"brave":70,"faith":100,"weapon":{"wp":8,"formula":"paWp","element":"none","accuracy":100},"evasion":{"classEv":0,"weaponEv":0,"shieldEv":0,"accessoryEv":0,"magicEv":0},"zodiac":{"sign":"taurus","gender":"neutral"},"crystalTimer":3,"statuses":[{"id":"stop","kind":"debuff","ctFactor":0,"remainingCT":1000000000,"preventsAction":true,"interruptsCharge":true,"interruptsMagicOnly":false}],"abilities":[{"id":"basic.attack","actionKind":"action","formula":"physical","power":8,"element":"none","accuracy":100,"range":{"h":1,"v":1},"inflicts":[],"speed":null,"aoe":null}]}],"chargeQueue":[],"turnLog":[{"tick":10,"unitId":"hero","action":"move 1,1"},{"tick":18,"unitId":"hero","action":"hit dummy −80"},{"tick":26,"unitId":"hero","action":"charge chg.hero.26.0"},{"tick":31,"unitId":"hero","action":"charge chg.hero.26.0 hit dummy −80"},{"tick":34,"unitId":"hero","action":"KO victim"},{"tick":48,"unitId":"hero","action":"hit dummy −80"},{"tick":56,"unitId":"hero","action":"charge chg.hero.56.0"},{"tick":61,"unitId":"hero","action":"charge chg.hero.56.0 hit dummy −80"}]}';
 
   it("serialize(replay(seed, LOG)) equals the committed golden state", () => {
     const actual = serialize(replay(goldenBattle(), GOLDEN_LOG));
@@ -328,7 +328,7 @@ describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
       "c",
       0,
       { pos: { x: 0, y: 0 }, speed: 10, move: 3, ct: 100 },
-      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null }, 3),
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null, inflicts: [] }, 3),
     );
     const state = createBattleState({ seed: 2, grid: { width: 5, height: 5 }, units: [c] });
     const log: Command[] = [
@@ -359,7 +359,7 @@ describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
         evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
         zodiac: { sign: "taurus", gender: "neutral" },
       },
-      spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null }, 8),
+      spellAbility({ kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null, inflicts: [] }, 8),
     );
     const zz = spellUnit(
       "zz",
@@ -377,7 +377,7 @@ describe("integrated cancel & whiff through a full replay (AC-S4)", () => {
         hp: 500,
         maxHp: 500,
       },
-      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null }, 30),
+      spellAbility({ kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null, inflicts: [] }, 30),
     );
     const mk = (): BattleState => createBattleState({ seed: 4, grid: { width: 5, height: 5 }, units: [aa, zz] });
     const log: Command[] = [
@@ -480,7 +480,7 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
   });
 
   it("a charged-ability act enqueues the same charge payload the old castCharge did", () => {
-    const eff: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null };
+    const eff: ChargeEffect = { kind: "magic", power: 10, element: "none", accuracy: 100, aoe: null, inflicts: [] };
     const dummyTarget = (): UnitState =>
       defaultUnit("t", 1, { pos: { x: 1, y: 0 }, statuses: [legacyActiveStatus("stop")], hp: 300, maxHp: 300, faith: 100 });
     // Reference: declareCharge with the inline payload the pre-Slice-5 command carried.
@@ -522,6 +522,103 @@ describe("act command — equivalence with the pre-Slice-5 resolvers (safety net
     const s = createBattleState({ seed: 1, grid: { width: 5, height: 5 }, units: [hero, foe] });
     // basic.attack is melee (range h:1); the foe is far off → rejected pre-roll.
     expect(() => applyCommand(s, ATTACK("foe"))).toThrow(/out of range/);
+  });
+});
+
+describe("act command — an authored physical SKILL reads its own `power` (not the weapon)", () => {
+  // THE DEFECT THIS PINS. The driver used to route by `formula === "physical"`, which
+  // swept up every authored physical SKILL along with the weapon-derived basic swing —
+  // so a skill's `power` was projected, schema-validated, and then discarded, and six
+  // shipped abilities dealt a plain weapon swing no matter how they were tuned. Measured
+  // before the fix: setting every single-target physical `power` to 1 or to 99 changed
+  // 0 of 12 gauntlet runs, against a magic control that changed 12 of 12.
+  //
+  // These are A/B tests on the BUILT object (CLAUDE.md: a capability that validates its
+  // input and then discards it reads as working). Each constructs the same battle twice,
+  // differing ONLY in the field under test, and asserts the outputs differ — so every one
+  // of them fails if the routing regresses.
+  const PHYS_ID = "skill.strike";
+  /** An instant, single-target, melee PHYSICAL skill — the exact shape that was inert. */
+  function physSkill(power: number): BattleAbility {
+    return {
+      id: PHYS_ID,
+      actionKind: "action",
+      formula: "physical",
+      power,
+      element: "none",
+      accuracy: 100,
+      range: { h: 1, v: 1 },
+      inflicts: [],
+      speed: null,
+      aoe: null,
+    };
+  }
+  const NO_EV = { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+  const STRIKE: Command = { kind: "act", abilityId: PHYS_ID, target: { unitId: "foe" } };
+
+  /** Hero + a stopped, high-HP foe; the hero carries `skill.strike` at `power`. */
+  function scene(power: number): BattleState {
+    const base = defaultUnit("hero", 0, { pos: { x: 1, y: 1 }, speed: 10, evasion: NO_EV });
+    const hero: UnitState = { ...base, abilities: [...base.abilities, physSkill(power)] };
+    const foe = defaultUnit("foe", 1, {
+      pos: { x: 2, y: 1 },
+      statuses: [legacyActiveStatus("stop")],
+      hp: 900,
+      maxHp: 900,
+      evasion: NO_EV,
+    });
+    return createBattleState({ seed: 99, grid: { width: 5, height: 5 }, units: [hero, foe] });
+  }
+  const damageAt = (power: number): number => {
+    const before = scene(power);
+    const after = applyCommand(before, STRIKE);
+    return 900 - after.units.find((u) => u.id === "foe")!.hp;
+  };
+
+  it("A/B: two powers on the SAME skill deal different damage, and it scales with power", () => {
+    const low = damageAt(4);
+    const high = damageAt(16);
+    expect(low).toBeGreaterThan(0); // it lands at all (a miss would tie them at 0)
+    expect(high).toBeGreaterThan(low); // …and the ONLY difference is `power`
+    // Not merely "different": four times the power deals four times the damage, so the
+    // field is genuinely the multiplier and not, say, a tie broken by rounding.
+    expect(high).toBe(low * 4);
+  });
+
+  it("a physical skill is NOT pinned to the weapon swing (the pre-fix behaviour)", () => {
+    // The discriminating case: `basic.attack` power == weapon.wp == 8, so a skill at
+    // power 8 COINCIDES with the weapon swing and proves nothing. Use powers either side.
+    const weaponSwing = damageAt(8); // == what every physical skill used to deal
+    expect(damageAt(4)).toBeLessThan(weaponSwing);
+    expect(damageAt(16)).toBeGreaterThan(weaponSwing);
+  });
+
+  it("the basic swing STILL routes to the weapon — proven on a non-paWp weapon", () => {
+    // The other half of the split, and it needs a weapon whose formula makes
+    // `weaponBaseDamage` DISAGREE with `pa × power`. On the default `paWp` weapon the two
+    // agree by construction, so a paWp fixture could not tell the branches apart.
+    // `bareHands` = floor(pa × brave / 100) × pa, which at pa 8 / brave 70 is 5 × 8 = 40,
+    // while `basic.attack.power` is still weapon.wp (8) → pa × wp would be 64.
+    const weapon = { wp: 8, formula: "bareHands" as const, element: "none" as const, accuracy: 100 };
+    const hero = defaultUnit("hero", 0, { pos: { x: 1, y: 1 }, speed: 10, pa: 8, brave: 70, weapon, evasion: NO_EV });
+    const foe = defaultUnit("foe", 1, {
+      pos: { x: 2, y: 1 },
+      statuses: [legacyActiveStatus("stop")],
+      hp: 900,
+      maxHp: 900,
+      evasion: NO_EV,
+    });
+    const s = createBattleState({ seed: 99, grid: { width: 5, height: 5 }, units: [hero, foe] });
+    const dealt = 900 - applyCommand(s, ATTACK("foe")).units.find((u) => u.id === "foe")!.hp;
+    // Derived, not hard-coded, so the assertion survives a Zodiac/Protect constant change
+    // and still says the same thing: the swing took the WEAPON path.
+    const basic = hero.abilities.find((a) => a.id === "basic.attack")!;
+    expect(dealt).toBe(attackDamage(hero, foe));
+    expect(dealt).not.toBe(abilityDamage(hero, foe, basic));
+    // The fixture is only meaningful if the two routes genuinely disagree on it — assert
+    // that, so nobody later "simplifies" it back to the default paWp weapon where they
+    // coincide and the test silently stops discriminating.
+    expect(attackDamage(hero, foe)).not.toBe(abilityDamage(hero, foe, basic));
   });
 });
 

@@ -32,6 +32,7 @@ import {
   attackDamage,
   hitChance,
   inAbilityRange,
+  isBasicAttack,
   relativeFacing,
   settleTurn,
   zodiacCompatibility,
@@ -112,6 +113,20 @@ export interface ActPreview {
   /** [ENHANCEMENT] docs/10 §4 — the hidden Zodiac multiplier, surfaced. */
   zodiac: ZodiacTier;
   targetStatuses: PreviewStatus[];
+  /**
+   * Statuses this act WILL apply on a hit (docs/05 §2 step d).
+   *
+   * ABSENT UNTIL NOW, CORRECTLY — status-on-hit was unmodeled, so showing it would
+   * have asserted a modeled effect the engine could not back up (`docs/10` §4, the
+   * absent-not-zero rule), and `session.test.ts` asserted the key was missing. The
+   * moment the resolvers started applying `inflicts`, that same omission flipped
+   * from honest to dishonest: the player would commit `aim.head-shot` seeing only
+   * its damage, with no hint it freezes the target's clock for 20 CT.
+   *
+   * Empty for an ability that inflicts nothing — an empty list is a real answer
+   * here ("this act applies no status"), unlike a fabricated zero.
+   */
+  inflicts: PreviewStatus[];
   turn: TurnCost;
 }
 
@@ -173,19 +188,22 @@ export function targetOptions(state: BattleState, actorId: string, from: Positio
 /**
  * ACCURACY + MAGNITUDE routing, mirroring the driver's dispatch EXACTLY so the
  * previewed number is the number that will be dealt:
- *   - instant `physical` → `resolveAttack` → weapon accuracy + {@link attackDamage}
- *   - everything else    → `resolveAbility` → ability accuracy + {@link abilityDamage}
- * (Same split as `ai.ts`'s `estMagnitude`. If the driver's routing changes, this
- * must change with it — that coupling is the price of never re-deriving damage.)
+ *   - the weapon-derived basic swing → `resolveAttack` → weapon accuracy +
+ *     {@link attackDamage}
+ *   - everything else (any authored skill, physical included) → `resolveAbility` →
+ *     ability accuracy + {@link abilityDamage}, which reads the ability's `power`
+ *
+ * The discriminant is the sim's own {@link isBasicAttack}, imported rather than
+ * re-derived, so this file cannot drift from `driver.ts` / `ai.ts` the way the old
+ * hand-copied `formula === "physical"` test could. If the driver's routing changes,
+ * this must change with it — that coupling is the price of never re-deriving damage.
  */
 function routeAccuracy(attacker: UnitState, ability: BattleAbility): number {
-  return ability.formula === "physical" && ability.speed === null
-    ? attacker.weapon.accuracy
-    : ability.accuracy;
+  return isBasicAttack(ability) ? attacker.weapon.accuracy : ability.accuracy;
 }
 
 function routeMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbility): number {
-  return ability.formula === "physical" && ability.speed === null
+  return isBasicAttack(ability)
     ? attackDamage(attacker, target)
     : abilityDamage(attacker, target, ability);
 }
@@ -281,6 +299,10 @@ export function computeActPreview(
     lethal: !heal && target.hp > 0 && targetHpAfter === 0,
     zodiac: zodiacCompatibility(actor.zodiac, target.zodiac),
     targetStatuses: target.statuses.map((s) => ({ id: s.id, kind: s.kind })),
+    // Read off the ability's own resolved templates — the SAME records the resolver
+    // will copy onto the target — so the preview cannot promise a status the sim
+    // would not apply.
+    inflicts: ability.inflicts.map((s) => ({ id: s.id, kind: s.kind })),
     turn: turnCost(state, actorId, { didMove: moved, didAct: true }),
   };
 }

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 
 const SHOTS = "visual-artifacts/screenshots";
 
@@ -48,24 +49,44 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   const MAX_TURNS = 24;
   const step = page.getByTestId("step");
   let taken = 0;
+  // THE TWO GALLERY BEATS ARE CHOSEN BY STATE, NOT BY TURN INDEX. They used to be
+  // hard-coded (i=5 "closing in", i=11 "combat") against one measured run, and both
+  // rotted: the battle got shorter, i=11 stopped happening, and `03-combat.png` was
+  // simply never written — while `build-gallery.mjs` kept a caption for it promising
+  // "real hit rolls and damage, with damage popups". A caption for a frame that does
+  // not exist is the purest form of the evidence-principle failure in CLAUDE.md.
+  //
+  // Keyed on total HP instead, each frame is true of its image BY CONSTRUCTION:
+  //   02-closing-in — rewritten every turn while NO damage has landed yet, so the
+  //                   file left on disk is the last pre-combat board. Maneuvering.
+  //   03-combat     — written on the FIRST turn total HP drops, so a damage popup is
+  //                   necessarily on screen. Never a whiff frame.
+  let combatShot = false;
   for (let i = 1; i <= MAX_TURNS; i++) {
     if ((await phase(page)) === "ENDED") break;
     await step.click();
     taken = await turns(page);
     await page.waitForTimeout(HOLD_MS); // hold each turn long enough to read
-    // The beats are chosen so each gallery CAPTION is true of its frame, measured
-    // against this build's watch-mode run rather than assumed:
-    //   i=5  Knight (5,1) / Archer (5,5) / Brawler (6,3) — everyone has closed,
-    //        nobody has landed a blow yet. "Closing in" is literally the board.
-    //   i=11 the Knight's strike lands: a −105 damage popup is ON SCREEN and the
-    //        Brawler drops 120 → 15. The old i=10 was a WHIFF frame, so the
-    //        caption's "with damage popups" was false of the image it labelled.
-    if (i === 5) await page.screenshot({ path: `${SHOTS}/02-closing-in.png`, fullPage: true });
-    if (i === 11) await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
+    const hpNow = await totalHp(page);
+    if (hpNow === startHp) {
+      await page.screenshot({ path: `${SHOTS}/02-closing-in.png`, fullPage: true });
+    } else if (!combatShot) {
+      combatShot = true;
+      await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
+    }
   }
+  // Both gallery frames were actually produced — otherwise a caption ships over a
+  // missing image again, silently, exactly as it did before.
+  expect(combatShot, "no turn dealt damage, so 03-combat.png was never captured").toBe(true);
+  expect(existsSync(`${SHOTS}/02-closing-in.png`)).toBe(true);
 
-  // Real turns were committed, and each Step committed exactly one command.
-  expect(taken).toBeGreaterThan(8);
+  // The battle reached a DECISIVE end under its own rules — the claim that matters,
+  // and one that survives content re-tuning. The turn COUNT is deliberately not
+  // pinned: it is a function of demo damage numbers, and the old `> 8` floor was an
+  // arbitrary number that broke the moment the roster got a skill. The floor below
+  // only guards against the loop failing to run at all.
+  expect(await phase(page)).toBe("ENDED");
+  expect(taken).toBeGreaterThanOrEqual(2);
   await expect(page.getByTestId("status")).toContainText(`Turns ${taken}`);
   expect(await page.evaluate(() => window.tuh.commands().length)).toBe(taken);
 

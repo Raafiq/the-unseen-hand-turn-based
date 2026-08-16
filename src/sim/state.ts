@@ -50,21 +50,42 @@
  *     serialized unit's `abilities[]` AND every `chargeQueue[].effect` — so a
  *     migrated save keeps the exact single-target behavior (additive, no roll or
  *     result shift). Real records are born at the current version.
+ *   - v9 (inflict slice): a projected ability's `inflicts` changes from status IDS
+ *     to RESOLVED {@link ActiveStatus} templates, and the resolvers finally APPLY
+ *     them on a landed hit (docs/05 §2 step d — specified since P0, never wired,
+ *     because a registry-free resolver cannot turn an id into behaviour). The 8→9
+ *     migration empties `inflicts`: no version up to v8 read the field, so dropping
+ *     it reproduces a migrated save's behaviour exactly, and re-resolving ids is
+ *     impossible without the catalog a migration may not read. Infliction consumes
+ *     NO rng draw, so the roll order (docs/05 §3) is unchanged.
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 import { ElementSchema } from "./element.js";
 import { BattleAbilitySchema, RangeBoxSchema, type BattleAbility } from "./ability.js";
-import { StatusKindSchema, type StatusEffect } from "./status.js";
+import { ActiveStatusSchema, legacyActiveStatus, type StatusFlag } from "./active-status.js";
 
 // Re-export the element enum from its leaf module so existing
 // `import { ElementSchema } from "./state.js"` call sites keep working (the enum
 // was moved to break a state↔ability load-time cycle; see element.ts).
 export { ElementSchema, type Element } from "./element.js";
 
+// Re-export the resolved-status leaf for the same reason: it moved to
+// `active-status.ts` to break a state↔ability load-time cycle (see that module), and
+// every existing `import { ... } from "./state.js"` call site keeps working.
+export {
+  StatusFlagSchema,
+  type StatusFlag,
+  PERMANENT_STATUS_CT,
+  ActiveStatusSchema,
+  type ActiveStatus,
+  legacyActiveStatus,
+  makeActiveStatus,
+} from "./active-status.js";
+
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -75,93 +96,11 @@ const IntSchema = z.number().int();
 export const FacingSchema = z.enum(["N", "E", "S", "W"]);
 export type Facing = z.infer<typeof FacingSchema>;
 
-/**
- * The P0 status names (docs/01 §1/§8). RETAINED as a legacy vocabulary: the
- * v6→v7 migration and test fixtures build {@link ActiveStatus} records from these
- * names via {@link legacyActiveStatus}, and the damage resolvers still identify
- * Protect/Shell by this short id. New authored statuses use the catalog ids
- * (`status.*`, data/base-pack.json) and are applied via {@link makeActiveStatus}.
- */
-export const StatusFlagSchema = z.enum(["haste", "slow", "stop", "protect", "shell"]);
-export type StatusFlag = z.infer<typeof StatusFlagSchema>;
-
-/**
- * A `remainingCT` at or above this sentinel means the status is PERMANENT (never
- * decays) — the P0 model, where statuses had no lifetime. Status decay
- * (scheduler.ts) skips these; only finite (`remainingCT < PERMANENT_STATUS_CT`)
- * statuses tick down and expire. Well beyond any battle length, so a migrated P0
- * status can never expire mid-battle.
- */
-export const PERMANENT_STATUS_CT = 1_000_000_000;
-
-/**
- * A RESOLVED, self-contained status on a unit (docs/05 §6, ADR-0011). At inflict
- * time the tunable catalog record ({@link StatusEffect}) is copied onto the unit
- * as one of these, so a running/replayed battle NEVER reads the catalog:
- *   - `ctFactor` is read by the scheduler ({@link ctRateOfUnit}) as a CT-accrual
- *     multiplier (1 = neutral, 1.5 = Haste, 0.5 = Slow, 0 = Stop);
- *   - `remainingCT` ticks down deterministically each scheduler tick (no RNG),
- *     expiring at 0 — unless PERMANENT (see {@link PERMANENT_STATUS_CT});
- *   - `preventsAction` / `interruptsCharge` / `interruptsMagicOnly` are the
- *     interrupt discriminants the charge-maturity check reads (kind-aware for
- *     Silence). Behavior stays in code; only these tuning/behavior FLAGS are data.
- */
-export const ActiveStatusSchema = z
-  .object({
-    id: z.string().min(1),
-    kind: StatusKindSchema,
-    /** CT-accrual multiplier (docs/05 §1b): 1 = neutral, 0 = Stop. */
-    ctFactor: z.number(),
-    /** CT remaining before the status expires; >= PERMANENT_STATUS_CT = never. */
-    remainingCT: IntSchema.min(0),
-    /** Unit cannot declare actions (Stop/Sleep/Don't-Act/Petrify). */
-    preventsAction: z.boolean(),
-    /** Afflicting mid-charge cancels the charge (docs/05 §2 interrupt check). */
-    interruptsCharge: z.boolean(),
-    /** Interrupt applies to magic charges only (Silence). */
-    interruptsMagicOnly: z.boolean(),
-  })
-  .strict();
-export type ActiveStatus = z.infer<typeof ActiveStatusSchema>;
-
-/** Resolved behavior for the P0 five, keyed by legacy {@link StatusFlag} name. */
-const LEGACY_STATUS_BEHAVIOR: Readonly<
-  Record<StatusFlag, Omit<ActiveStatus, "id" | "remainingCT">>
-> = {
-  haste: { kind: "buff", ctFactor: 1.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  slow: { kind: "debuff", ctFactor: 0.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  stop: { kind: "debuff", ctFactor: 0, preventsAction: true, interruptsCharge: true, interruptsMagicOnly: false },
-  protect: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  shell: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-};
-
-/**
- * Build an {@link ActiveStatus} for one of the P0 five legacy statuses. Defaults
- * to PERMANENT (matching P0, where these never expired); pass `remainingCT` for a
- * finite one. Used by the v6→v7 migration and by test/setup fixtures.
- */
-export function legacyActiveStatus(flag: StatusFlag, remainingCT: number = PERMANENT_STATUS_CT): ActiveStatus {
-  return { id: flag, remainingCT, ...LEGACY_STATUS_BEHAVIOR[flag] };
-}
-
-/**
- * Build an {@link ActiveStatus} from a tunable catalog {@link StatusEffect} — the
- * inflict-time copy that makes a status self-contained. `remainingCT` defaults to
- * the catalog `durationCT`; the behavior FLAGS are copied verbatim (omitted ⇒
- * false). Callers that want a permanent status (e.g. a `durationCT: 0`
- * "until-cured" status) pass {@link PERMANENT_STATUS_CT} explicitly.
- */
-export function makeActiveStatus(entry: StatusEffect, remainingCT?: number): ActiveStatus {
-  return {
-    id: entry.id,
-    kind: entry.kind,
-    ctFactor: entry.ctFactor,
-    remainingCT: remainingCT ?? entry.durationCT,
-    preventsAction: entry.preventsAction ?? false,
-    interruptsCharge: entry.interruptsCharge ?? false,
-    interruptsMagicOnly: entry.interruptsMagicOnly ?? false,
-  };
-}
+// The resolved-status leaf (StatusFlag, PERMANENT_STATUS_CT, ActiveStatus,
+// legacyActiveStatus, makeActiveStatus) MOVED to `active-status.ts` when the on-hit
+// inflict path landed: `ability.ts` now needs ActiveStatusSchema, and this module
+// already imports `ability.ts`, so keeping it here would form a Zod module-eval cycle
+// (TDZ ReferenceError). Re-exported below so every existing importer is unaffected.
 
 /** One grid tile: integer height in half-tile "h" units + passability (docs/01 §7). */
 export const TileSchema = z
@@ -317,6 +256,18 @@ export const ChargeEffectSchema = z
      * area charge never friendly-fires.
      */
     aoe: RangeBoxSchema.nullable(),
+    /**
+     * On-hit statuses, carried through the charge as RESOLVED templates for the same
+     * self-containment reason as {@link BattleAbilitySchema}'s `inflicts`: the charge
+     * outlives the turn that declared it, and the resolver that matures it may not
+     * read the content registry (ADR-0010/ADR-0011).
+     *
+     * Sourced from the ability at declare time. Without this field a charged
+     * ability's statuses would be silently dropped the moment it was cast — the
+     * "validated then discarded" shape this slice exists to remove, and it would have
+     * been invisible today because no SHIPPED charged ability inflicts anything.
+     */
+    inflicts: z.array(ActiveStatusSchema),
   })
   .strict();
 export type ChargeEffect = z.infer<typeof ChargeEffectSchema>;
@@ -408,16 +359,48 @@ export function makeFlatTiles(width: number, height: number, tileHeight = 0): Ti
 }
 
 /**
+ * The id of the weapon-derived basic swing. Owned by {@link basicAttackFrom}, the
+ * only producer of that ability, and exported so every consumer keys on ONE
+ * constant instead of a repeated string literal.
+ *
+ * IT IS THE ROUTING DISCRIMINANT (docs/05 §2). The basic swing is the one action
+ * whose magnitude comes from the WEAPON — `weaponBaseDamage` reads
+ * `weapon.formula` (paWp / braveWp / bareHands / speedWp / wpWp) and the Martial
+ * Arts multiplier, none of which a {@link BattleAbility} carries. Every OTHER
+ * action reads its own authored `power`. Before this constant existed the split
+ * was made on `formula === "physical"`, which swept up every authored physical
+ * SKILL as well — so their `power` was projected, validated, and then discarded
+ * by the resolver. See {@link isBasicAttack}.
+ */
+export const BASIC_ATTACK_ID = "basic.attack";
+
+/**
+ * True for the weapon-derived basic swing (see {@link BASIC_ATTACK_ID}) — the one
+ * ability that resolves off `weapon` rather than off its own `power`.
+ *
+ * THE FOUR CALL SITES MUST AGREE: the driver's single-target dispatch, the AoE
+ * resolver, the balance probe's `estMagnitude`, and the viewer's forecast. If they
+ * diverge the AI ranks (or the player previews) a number the pipeline will not
+ * deal — which is why the predicate lives here, next to its producer, rather than
+ * being re-derived at each site.
+ */
+export function isBasicAttack(ability: BattleAbility): boolean {
+  return ability.id === BASIC_ATTACK_ID;
+}
+
+/**
  * Derive a unit's basic-attack {@link BattleAbility} from its inline `weapon`.
  * The SINGLE source of a basic attack so a freshly-built unit ({@link defaultUnit}
  * / build.ts) and a migrated v4 unit (migrate4to5) always produce a byte-identical
  * `basic.attack`, and so it can never disagree with the `weapon` it is drawn from.
  * `power`/`element`/`accuracy` mirror the weapon; a basic swing is instant
- * (`speed: null`), melee (`range {h:1,v:1}`), and inflicts nothing.
+ * (`speed: null`), melee (`range {h:1,v:1}`), single-target (`aoe: null` — which is
+ * what lets the AoE resolver skip the weapon-based branch entirely), and inflicts
+ * nothing.
  */
 export function basicAttackFrom(weapon: Weapon): BattleAbility {
   return {
-    id: "basic.attack",
+    id: BASIC_ATTACK_ID,
     actionKind: "action",
     formula: "physical",
     power: weapon.wp,
@@ -670,6 +653,39 @@ const migrate7to8: Migration = (s) => {
 };
 
 /**
+ * v8 → v9: a projected ability's `inflicts` changes from status IDS to RESOLVED
+ * {@link ActiveStatus} templates, so a registry-free resolver can actually apply
+ * them (the on-hit inflict path, docs/05 §2 step d).
+ *
+ * THE MIGRATION DROPS THEM, and that is behaviour-preserving rather than lossy: in
+ * every version up to v8 **no resolver read `inflicts` at all**, so a v8 save's
+ * status ids had exactly zero effect on play. Re-resolving them here is also
+ * impossible by construction — the ids can only be turned into behaviour by reading
+ * the content catalog, and a migration is as registry-free as a resolver
+ * (ADR-0011). Emitting `[]` therefore reproduces a migrated save's old behaviour
+ * EXACTLY; inventing templates would not.
+ *
+ * A save made after this slice is born at v9 with real templates via build.ts.
+ */
+const migrate8to9: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    abilities: (u["abilities"] as Array<Record<string, unknown>>).map((a) => ({
+      ...a,
+      inflicts: [],
+    })),
+  }));
+  // Charge effects gain the field too (it did not exist at v8), so an in-flight
+  // charge from an old save matures with no status — which is what it would have
+  // done anyway, since nothing applied inflicts before v9.
+  const chargeQueue = (s["chargeQueue"] as Array<Record<string, unknown>>).map((c) => ({
+    ...c,
+    effect: { ...(c["effect"] as Record<string, unknown>), inflicts: [] },
+  }));
+  return { ...s, schemaVersion: 9, units, chargeQueue };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -681,6 +697,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   5: migrate5to6,
   6: migrate6to7,
   7: migrate7to8,
+  8: migrate8to9,
 };
 
 export class SchemaVersionError extends Error {

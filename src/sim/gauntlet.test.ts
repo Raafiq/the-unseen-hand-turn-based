@@ -627,11 +627,23 @@ describe("diversity gate — the must-fail straddle: Faith-5 survives magic, Fai
     const res2: EncounterResolver = { registry, records: { ...records, [twin50.id]: twin50 } };
 
     // Isolate Faith as the pivot: 1 filler (not 2, so the candidate itself is a magic
-    // target) vs a caster-HEAVY Coven (3 casters, no warden) that piles magic on the
+    // target) vs a caster-HEAVY Coven (4 casters, no warden) that piles magic on the
     // lone-ish candidate. The real-roster gate keeps its 2-filler fixture (untouched).
+    //
+    // WHY FOUR CASTERS, measured (2026-08-16, the power-goes-live slice). The old
+    // 3-caster fixture was on a KNIFE-EDGE, and that was true BEFORE this slice touched
+    // anything: sweeping the monk's reference power at 3 casters, the straddle held at
+    // exactly ONE value (the inert case, where a skill dealt the plain weapon swing) and
+    // broke at every value above it; sweeping the FIXTURE with power still inert, it held
+    // at exactly ONE of six {coven × filler} configurations. A guard that holds at a
+    // single point certifies nothing — it cannot come out the other way under any
+    // perturbation, which is the failure mode CLAUDE.md's non-monotonic-sweep rule names.
+    // At 4 casters the same straddle holds across reference power 9…16 (an eight-point
+    // plateau) and the gap widens from 4-vs-3 to 6-vs-0. The ASSERTIONS below are
+    // unchanged; only the fixture moved, off the cliff and onto the plateau.
     const coven: Opposition = {
       id: "magic",
-      buildIds: ["bld-hedge-caster", "bld-hedge-caster", "bld-hedge-caster"],
+      buildIds: ["bld-hedge-caster", "bld-hedge-caster", "bld-hedge-caster", "bld-hedge-caster"],
       kind: "magic",
       note: "straddle fixture (caster-heavy, Faith is the pivot)",
     };
@@ -651,10 +663,9 @@ describe("diversity gate — the must-fail straddle: Faith-5 survives magic, Fai
     // BOTH halves are mandatory (the discriminating assertion):
     expect(faith5).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS); // Faith-5 resists magic → viable
     // Faith-50 is NOT viable. Keyed on VIABLE_MIN_MAPS — the definition of viability the
-    // rest of the gate uses — rather than the old `maps.length / 2`. Post-fold the twin
-    // clears exactly 3, so the straddle still holds (4 vs 3, both halves + a strict gap)
-    // but the unrelated half-the-maps figure no longer has slack. Keying the claim on the
-    // constant that DEFINES it is the fix; loosening the number would not have been.
+    // rest of the gate uses — rather than the old `maps.length / 2`. On the 4-caster
+    // fixture the twin clears ZERO maps while its Faith-5 original clears all six, so the
+    // straddle now has real slack on both halves instead of the former 4-vs-3.
     expect(faith50).toBeLessThan(VIABLE_MIN_MAPS);
     // …and they genuinely differ (not a tie): Faith-5 clears strictly more maps.
     expect(faith5).toBeGreaterThan(faith50);

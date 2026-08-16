@@ -177,7 +177,7 @@
       "apCost": 60,
       "range": { "h": 3, "v": 1 },
       "element": "none",
-      "power": 14,
+      "power": 11,
       "formula": "physical",
       "tags": ["ki", "ranged"]
     },
@@ -188,7 +188,7 @@
       "apCost": 120,
       "range": { "h": 4, "v": 0 },
       "element": "none",
-      "power": 14,
+      "power": 12,
       "formula": "physical",
       "tags": ["ki", "line", "grounded-only"]
     },
@@ -497,7 +497,7 @@
       "apCost": 60,
       "range": { "h": 5, "v": 3 },
       "element": "none",
-      "power": 12,
+      "power": 9,
       "formula": "physical",
       "tags": ["ranged"]
     },
@@ -508,7 +508,7 @@
       "apCost": 120,
       "range": { "h": 5, "v": 3 },
       "element": "none",
-      "power": 16,
+      "power": 10,
       "formula": "physical",
       "tags": ["ranged", "line"]
     },
@@ -519,7 +519,7 @@
       "apCost": 120,
       "range": { "h": 4, "v": 3 },
       "element": "none",
-      "power": 13,
+      "power": 11,
       "formula": "physical",
       "inflicts": ["status.stop"],
       "tags": ["ranged", "stat-deferred"]
@@ -531,7 +531,7 @@
       "apCost": 120,
       "range": { "h": 5, "v": 3 },
       "element": "none",
-      "power": 9,
+      "power": 10,
       "formula": "physical",
       "inflicts": ["status.slow"],
       "tags": ["ranged", "stat-deferred"]

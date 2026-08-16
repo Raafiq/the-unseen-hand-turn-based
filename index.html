@@ -77,7 +77,9 @@
       .slot h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
       .slot .val { font-size: .92rem; color: var(--ink); }
       .slot .sub { margin-top: 3px; font-size: .76rem; color: var(--ink-soft); }
-      .slot select { width: 100%; font-family: var(--sans); font-size: .86rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; }
+      /* `text-overflow` so a long ability name ("Equip Heavy Armor") in a narrow chassis
+         slot reads as deliberately clipped rather than cut mid-word. No layout change. */
+      .slot select { width: 100%; font-family: var(--sans); font-size: .86rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; text-overflow: ellipsis; }
       .slot select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
       .slot .chk { display: flex; align-items: center; gap: 6px; font-size: .86rem; color: var(--ink-soft); }
       .slot .empty { margin: 0; font-size: .76rem; color: var(--ink-faint); }
@@ -86,6 +88,10 @@
       .cmd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
       .cmd-list li { font-size: .84rem; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
       .cmd-list li[data-cmd^="black-magic"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      /* A command whose skillset ships with no live action: dimmed and labelled, so
+         the menu never presents an inert option as an equal one (pillar 4). */
+      .cmd-list li.deferred { opacity: .55; border-style: dashed; }
+      .cmd-list li.deferred .tag { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 4px; }
       .cmds .hint { margin: 14px 0 0; font-size: .82rem; color: var(--ink-soft); }
       .cmds .hint b { color: var(--ink); }
       .stats { grid-column: 1 / -1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
@@ -104,7 +110,7 @@
       <header>
         <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
         <h1>Play a turn — CT scheduler &amp; isometric grid, live</h1>
-        <p>The real headless sim, running in your browser. <b>You command Team A.</b> On your turn, click a highlighted tile to <b>stage a move</b> (nothing touches the sim yet — cancel is free), then click an enemy to <b>strike from there</b>: one command, one turn, <b>−100 CT</b>. Or <b>End Turn</b> to pay only for what you used. Every number in the <b>Resolution preview</b> — hit %, the facing arc that produced it, the exact damage, the CT price — is computed before you commit. Press <b>Step</b> to watch the AI resolve a turn. Everything is deterministic from the seed.</p>
+        <p>The real headless sim, running in your browser. <b>You command Team A.</b> On your turn, click a highlighted tile to <b>stage a move</b> (nothing touches the sim yet — cancel is free), then click an enemy to <b>strike from there</b>: one command, one turn, <b>−100 CT</b>. Or <b>End Turn</b> to pay only for what you used. Every number in the <b>Resolution preview</b> — hit %, the facing arc that produced it, the exact damage, the CT price — is computed before you commit. Press <b>Play enemy turn</b> to watch the AI resolve one. Everything is deterministic from the seed — the AI advances on that click, never on a timer, so the same seed always replays the same battle.</p>
       </header>
 
       <div class="stage">
@@ -114,7 +120,7 @@
         <div class="controls">
           <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
           <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
-          <button id="btn-step" class="ghost" data-testid="step">Step turn ▸</button>
+          <button id="btn-step" class="ghost" data-testid="step">Play enemy turn ▸</button>
           <button id="btn-reset" class="ghost" data-testid="reset">Reset</button>
           <div id="status" data-testid="status"></div>
         </div>

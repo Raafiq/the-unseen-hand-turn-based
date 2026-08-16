@@ -26,6 +26,7 @@ import { buildBattleUnit } from "./build.js";
 import { loadContentPack, type ContentRegistry } from "./content.js";
 import { deserializeRecord, type UnitRecord } from "./roster.js";
 import {
+  SCHEMA_VERSION,
   createBattleState,
   defaultUnit,
   deserialize,
@@ -169,7 +170,7 @@ function areaCharge(over: Partial<ChargedActionState["effect"]> = {}): ChargedAc
     ct: 100,
     speed: 20,
     targetTile: { x: 4, y: 2 },
-    effect: { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: { h: 1, v: 1 }, ...over },
+    effect: { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: { h: 1, v: 1 }, inflicts: [], ...over },
     interrupted: false,
   };
 }
@@ -241,7 +242,7 @@ describe("migration — a v7 save (no aoe) round-trips to aoe:null and stays val
           ct: 0,
           speed: 10,
           targetTile: { x: 0, y: 0 },
-          effect: { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null },
+          effect: { kind: "magic", power: 8, element: "none", accuracy: 100, aoe: null, inflicts: [] },
           interrupted: false,
         },
       ],
@@ -253,13 +254,29 @@ describe("migration — a v7 save (no aoe) round-trips to aoe:null and stays val
       chargeQueue: Array<{ effect: Record<string, unknown> }>;
     };
     raw.schemaVersion = 7;
-    for (const u of raw.units) for (const a of u.abilities) delete a["aoe"];
-    for (const c of raw.chargeQueue) delete c.effect["aoe"];
+    for (const u of raw.units) {
+      for (const a of u.abilities) {
+        delete a["aoe"];
+        delete a["inflicts"]; // v7 had neither field
+      }
+    }
+    for (const c of raw.chargeQueue) {
+      delete c.effect["aoe"];
+      delete c.effect["inflicts"];
+    }
 
     const migrated = deserialize(JSON.stringify(raw));
-    expect(migrated.schemaVersion).toBe(8);
+    // Keyed on the CONSTANT, not a written-down number: this test's claim is about
+    // the aoe stamping, so a later schema bump should not fail it for an unrelated
+    // reason (the v8→v9 inflict bump did exactly that).
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
     expect(migrated.units[0]!.abilities.every((a) => a.aoe === null)).toBe(true);
     expect(migrated.chargeQueue[0]!.effect.aoe).toBe(null);
+    // …and the v8→v9 half of the same walk: `inflicts` arrives as an empty array on
+    // both carriers, which is the behaviour a pre-v9 save actually had (nothing read
+    // the field), rather than an invented status.
+    expect(migrated.units[0]!.abilities.every((a) => a.inflicts.length === 0)).toBe(true);
+    expect(migrated.chargeQueue[0]!.effect.inflicts).toEqual([]);
   });
 });
 

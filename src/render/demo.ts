@@ -20,6 +20,11 @@
  * a forecast-vs-replay oracle in `forecast.test.ts`.
  */
 
+// The `with { type: "json" }` attribute is REQUIRED, not decorative: `e2e/play.spec.ts`
+// imports this module and Playwright loads it through Node's ESM loader, which rejects a
+// bare JSON import. Vite (dev, build, vitest) is happy either way, so dropping the
+// attribute fails ONLY in the browser-test job — `npm run check` would stay green.
+import pack from "../../data/base-pack.json" with { type: "json" };
 import {
   CT_COST_ONE,
   CT_COST_WAIT,
@@ -28,13 +33,29 @@ import {
   createBattleState,
   defaultUnit,
   legacyActiveStatus,
+  loadContentPack,
   makeFlatTiles,
   settleTurn,
+  toBattleAbility,
   type ActiveActor,
   type BattleAbility,
   type BattleState,
+  type ContentRegistry,
   type UnitState,
 } from "../sim/index.js";
+
+/**
+ * The SHIPPED content pack, so a demo unit's skill is the real authored one —
+ * same registry `prep.ts` reads. A hand-written `BattleAbility` literal in here
+ * would be a second copy of the pack's numbers that nothing checks, which is the
+ * defect class this viewer keeps re-learning: authored, plausible, and quietly
+ * out of step with what the sim actually resolves.
+ */
+const registry: ContentRegistry = loadContentPack(pack);
+
+/** One authored ability, projected exactly as `buildBattleUnit` would project it. */
+const skill = (id: string): BattleAbility =>
+  toBattleAbility(registry.ability(id), undefined, (sid) => registry.status(sid));
 
 export interface DemoUnitMeta {
   label: string;
@@ -86,25 +107,25 @@ export function makeDemoBattle(): BattleState {
 
   const units: UnitState[] = [
     unit("knight", 0, {
-      pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, hp: 130, maxHp: 130,
+      pos: { x: 1, y: 1 }, facing: "S", speed: 9, move: 4, hp: 260, maxHp: 260,
       pa: 11, brave: 72, zodiac: { sign: "aries", gender: "male" },
       weapon: { wp: 15, formula: "braveWp", element: "none", accuracy: 100 },
       evasion: { classEv: 10, weaponEv: 0, shieldEv: 15, accessoryEv: 0, magicEv: 0 },
     }),
     unit("archer", 0, {
-      pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, hp: 90, maxHp: 90,
+      pos: { x: 1, y: 5 }, facing: "E", speed: 11, move: 4, hp: 210, maxHp: 210,
       pa: 9, brave: 68, zodiac: { sign: "taurus", gender: "female" },
       weapon: { wp: 10, formula: "speedWp", element: "none", accuracy: 100 },
       evasion: { classEv: 15, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("brawler", 1, {
-      pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3, hp: 120, maxHp: 120,
+      pos: { x: 7, y: 1 }, facing: "W", speed: 8, move: 3, jump: 3, hp: 260, maxHp: 260,
       pa: 13, brave: 75, zodiac: { sign: "gemini", gender: "male" },
       weapon: { wp: 0, formula: "bareHands", element: "none", accuracy: 100 },
       evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     }),
     unit("mage", 1, {
-      pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 80, maxHp: 80,
+      pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 160, maxHp: 160,
       pa: 7, ma: 12, brave: 60, faith: 65, zodiac: { sign: "cancer", gender: "female" },
       weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
       evasion: { classEv: 8, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
@@ -117,6 +138,45 @@ export function makeDemoBattle(): BattleState {
   // constant — and the balance-probe AI can select it like any other action.
   const mage = units.find((u) => u.id === "mage")!;
   mage.abilities = [...mage.abilities, MAGE_SPELL_ABILITY];
+
+  // JOB SKILLS FOR THE MELEE THREE. Until now the Archer and the Brawler projected
+  // `basic.attack` and nothing else, so the playable demo showed none of the
+  // customization pillar and — pointedly — the Archer could not shoot. `docs/10` §5
+  // recorded that as a known limitation but named the wrong blocker: it read
+  // "weapon range is unmodeled", which is true of the WEAPON and irrelevant here.
+  // An Archer reaches range 5 through its own `aim.` skill, which needs no equipment
+  // layer at all. (The other stated reason — "don't hand team 0 an ability, that is
+  // the job-identity-masked failure" — is about a BORROWED ability, e.g. a Knight
+  // casting Fire. Its own job's skill is the opposite of masking.)
+  //
+  // ONE skill each, deliberately. `targetOptions` takes the FIRST in-range ability in
+  // array order, and the viewer has no ability picker, so a second same-range skill
+  // could never be selected — it would ship exactly as dead as the fields this slice
+  // just finished bringing to life.
+  //
+  // ORDER IS LOAD-BEARING: `basic.attack` stays at index 0, so an ADJACENT foe is
+  // still struck with the weapon (the Archer's speedWp swing genuinely out-damages
+  // its own shot up close) and the skill is reached only where the swing cannot
+  // reach. That is the range/tempo asymmetry `docs/10` §5 said the viewer could not
+  // demonstrate.
+  const archer = units.find((u) => u.id === "archer")!;
+  archer.abilities = [...archer.abilities, skill("aim.aimed-shot")]; // h5 v3
+  const brawler = units.find((u) => u.id === "brawler")!;
+  brawler.abilities = [...brawler.abilities, skill("punch-art.wave-fist")]; // h3 v1
+
+  // THE BRAWLER'S REACH ONLY BECAME SAFE AFTER THE HP RE-TUNE ABOVE, and that ordering
+  // is the whole lesson. At the old roster HP this exact line let the Brawler KO the
+  // player's Archer on the AI's FIRST turn from three tiles — 143 into 90 — so the
+  // player never fired the bow. The skill was never the fault: its bare-handed swing
+  // also one-shot the Archer (117 into 90). Reach on a one-shot roster just delivers
+  // the one-shot sooner. In band the same 143 is a 2-action kill, which is a threat to
+  // answer rather than a coin flip.
+  //
+  // The KNIGHT keeps only its swing for a different and honest reason:
+  // `battle-skill` is the one shipped skillset with no live action at all (every
+  // `*-break` is `formula: "none"`). Handing it a borrowed skill to paper over that
+  // would be the masking failure above. It stays a plain bruiser until the
+  // break/debuff rework lands.
 
   const state = createBattleState({ seed: 20260730, grid: { width, height, tiles }, units });
 

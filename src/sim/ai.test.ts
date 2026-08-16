@@ -21,7 +21,7 @@ function midCharge(sourceUnitId: string, targetTile = { x: 0, y: 0 }): ChargedAc
     ct: 40,
     speed: 20,
     targetTile,
-    effect: { kind: "magic", power: 20, element: "none", accuracy: 100, aoe: null },
+    effect: { kind: "magic", power: 20, element: "none", accuracy: 100, aoe: null, inflicts: [] },
     interrupted: false,
   };
 }

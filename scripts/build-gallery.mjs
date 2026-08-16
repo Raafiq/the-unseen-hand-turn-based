@@ -13,20 +13,20 @@ const OUT = path.join(ROOT, "visual-artifacts", "gallery");
 
 const CAPTIONS = {
   "01-initial.png": "Initial deploy — the isometric grid, four units, and the turn order (Mage first: highest Speed).",
-  "02-closing-in.png": "Closing in — units maneuver across the plateau within Move/Jump range toward the enemy.",
-  "03-combat.png": "Combat — units attack when adjacent; real hit rolls and damage from the FFT formulas, with damage popups.",
+  "02-closing-in.png": "Closing in — the last board before anyone lands a blow: units maneuver across the plateau within their real Move/Jump range. (Captured by state, not by turn number — this is whichever turn precedes first blood.)",
+  "03-combat.png": "First blood — the turn total HP first drops, so a damage popup is necessarily on screen. Real hit rolls and damage from the FFT formulas.",
   "04-aftermath.png": "Aftermath — HP has dropped and KO'd units become crystals; the turn log shows the CT-ordered blow-by-blow.",
-  "05-prep-chassis.png": "Prep — the 5-slot ability chassis. A Knight with abilities learned across four jobs; the Secondary command starts empty, so the command list is just Attack + Battle Skill.",
+  "05-prep-chassis.png": "Prep — the 5-slot ability chassis. A Knight with abilities learned across four jobs; the Secondary command starts empty, so the command list is just Attack + Battle Skill. The two Breaks are dimmed and tagged NO EFFECT YET: `battle-skill` ships with no live action, and the panel says so rather than presenting an inert command as an equal option.",
   "06-prep-black-magic.png": "Customization aha — equipping Black Magic as the Secondary command grows the castable command list: the Knight can now cast Fire (and its whole line). Swaps are free and reversible.",
   // The PLAYABLE path (docs/10). Captured by e2e/play.spec.ts, which asserts the
   // claim each caption makes in the same test that takes the shot — so a caption
   // cannot outlive the state it describes.
-  "10-player-turn.png": "Your turn — the Archer is up (solid gold ring) and its real moveRange is painted in gold. NO enemy is in reach: basic.attack is range 1 and both foes are two tiles away, so the target set is empty and End Turn offers only a Wait (−60 CT). That is exactly the decision the move+act fold exists for — the Archer must spend its move to buy an attack, priced at −100 in frame 14. (The orange parallelogram is the enemy Mage's in-flight charged spell, aimed at the tile the Archer is standing on.)",
-  "11-preview-a.png": "Staged at (5,3) — the preview recomputes from the STAGED tile, not from where the unit is standing: FRONT arc, 75% hit, 100 damage, 120 → 20 HP, −100 CT for the whole turn. Nothing has touched the sim yet.",
-  "12-preview-b.png": "Same actor, same target, ONE tile different — staged at (7,3) instead, the strike lands in the REAR arc at 100%. That gap (75% → 100%) is why move-then-act is a real tactical choice and not a formality.",
+  "10-player-turn.png": "Your turn — the Archer is up (solid gold ring) and its real moveRange is painted in gold. BOTH foes are tinted as legal targets: Aimed Shot reaches 5 tiles, so the Archer can fire from where it stands for −80 CT without moving a step. Spending the move to flank instead costs −100 (frames 11–14), and that trade is what the move+act fold exists for. (The orange crosshair is the enemy Mage's OWN in-flight charged spell, aimed at one of YOUR units — it is incoming damage, not a target marker.)",
+  "11-preview-a.png": "Staged, take one — the preview recomputes from the STAGED tile, not from where the unit is standing. Every row (facing arc, hit %, exact damage, HP before → after, the −100 CT price of the whole turn) is computed before you commit, and nothing has touched the sim yet.",
+  "12-preview-b.png": "Same actor, same target, same ability, ONE tile different — and the strike lands in a different facing arc. That is why move-then-act is a real tactical choice and not a formality. (The two frames are generated from whichever pair of tiles the board actually offers, so they cannot drift from the state they depict.)",
   "13-illegal.png": "An illegal click is refused, not punished: a reason chip ('Out of Move range') and nothing else. Compare with 10 — the board, the clock and the command log are byte-identical.",
-  "14-committed.png": "Committed — the Archer moved to (7,3) and struck from there for 100 damage (120 → 20 HP) in ONE command, at a turn price of −100 CT. The turn log shows both halves — 'move 7,3' and 'hit brawler −100' — at the SAME tick, which is what makes it one turn and not two.",
-  "15-ai-turn.png": "An AI turn: the active Mage wears a DASHED ring, End Turn is disabled, and player input is inert ('Not your turn'). The Brawler's HP bar is the red sliver left over from the fold.",
+  "14-committed.png": "Committed — the Archer moved and struck from the destination tile in ONE command, at a turn price of −100 CT. The turn log shows both halves, the move and the blow, at the SAME tick: that is what makes it one turn and not two.",
+  "15-ai-turn.png": "An AI turn: the active unit wears a DASHED ring, End Turn is disabled, and player input is inert ('Not your turn'). The board still carries the damage the fold dealt, so this is a turn mid-fight rather than the opening deploy.",
 };
 
 async function findVideo(dir) {

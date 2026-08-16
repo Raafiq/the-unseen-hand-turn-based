@@ -27,7 +27,7 @@
  * yet (the class scaffold is kept for when status infliction lands).
  */
 
-import type { BattleState, UnitState, Position } from "./state.js";
+import { isBasicAttack, type BattleState, type UnitState, type Position } from "./state.js";
 import type { BattleAbility } from "./ability.js";
 import type { Command } from "./driver.js";
 import { inAbilityRange, moveRange, relativeFacing, unitsInAoeBox } from "./grid.js";
@@ -87,13 +87,18 @@ function manhattan(a: { x: number; y: number }, b: { x: number; y: number }): nu
  * RNG-free estimate of the on-hit magnitude of `ability` from `attacker` to
  * `target`, routed exactly as the driver routes resolution so the ranking equals
  * the real damage:
- *   - instant physical → {@link attackDamage} (resolveAttack: weapon-based),
- *   - everything else (instant magic/heal, or any charged action, which the driver
- *     resolves as magic via resolveCharge) → {@link abilityDamage}.
+ *   - the weapon-derived basic swing → {@link attackDamage} (resolveAttack),
+ *   - everything else (any authored skill — physical included — plus every charged
+ *     action, which the driver resolves as magic via resolveCharge) →
+ *     {@link abilityDamage}, which reads the ability's own `power`.
  * A `heal` returns its raw restorative magnitude; the caller caps it by missing HP.
+ *
+ * The discriminant is {@link isBasicAttack} and MUST stay identical to the driver's
+ * (driver.ts) and the AoE resolver's. It was `formula === "physical"`, which routed
+ * every authored physical skill to the weapon swing and made their `power` inert.
  */
 function estMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbility): number {
-  if (ability.formula === "physical" && ability.speed === null) {
+  if (isBasicAttack(ability)) {
     return attackDamage(attacker, target);
   }
   return abilityDamage(attacker, target, ability);
