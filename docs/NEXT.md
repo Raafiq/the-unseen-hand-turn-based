@@ -1,4 +1,4 @@
-<!-- written-against: fc1147adb85cfec2dc58fde27061eb2530d9a8c1 -->
+<!-- written-against: 32d6cdc62037f68b38c62e74a53a95fb8531c974 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -8,187 +8,141 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 > **Trust rule.** This file is stamped with the commit it was written against, and the
 > SessionStart hook flags it once it falls more than 10 commits behind HEAD. If the hook
-> says it is stale, treat every claim below as a hypothesis and re-derive — a handoff reads
-> as authoritative whether or not it still is, which is exactly the trap the evidence
-> principle in `CLAUDE.md` exists to close.
->
-> **This file has now been wrong twice in a row about the same build.** Both times it
-> stated a *cause* that had been computed from static data rather than traced from a run,
-> and both times the number looked like evidence. If a claim below names a mechanism,
-> check whether it also names the measurement that produced it. If it doesn't, it is a
-> guess.
->
-> **Update this file as part of the retrospective before every PR**, while the context is
-> hot. Re-stamp `written-against` to the branch's head commit, then run
-> `npm run check:handoff`. **CI enforces this** (push events only).
+> says it is stale, treat every claim below as a hypothesis and re-derive.
 
 ---
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 475 tests / 27 files, 11 Playwright specs.
-**Variety score is 6** (was 5), release bar 8. `pass=true`, `dominantBuilds=[]`.
+**P2 — customization depth, in progress.** 500 tests / 29 files, 11 Playwright specs.
+**Variety score is still 6**, release bar 8. `pass=true`, no dominant build.
 
-The last slice (**ADR-0017**) was scoped as "give black magic a viable carrier" and found
-the carrier was never the problem. `build.ts` projected **action** abilities only, so the
-**reaction, support and movement slots did nothing** — validated at equip time, then
-ignored. Nine of fourteen builds wore a dead support slot, including the wizard, whose
-whole identity rides on Magic Attack Up. Wiring the support slot took variety 5 → 6.
+The last slice was a **defect fix, not a content slice**, and deliberately did not move the
+count. Three things that read as working were not:
 
-| build | phys maps | identity |
+| what | was | now |
 |---|---|---|
-| faithzero-monk | 6/6 | `punch-art.` |
-| terrain-geo | 6/6 | `geomancy.` |
-| reraise-cleric | 6/6 | `white-magic.` |
-| arcane-artillery | 5/6 | `black-magic.` |
-| longshot | 5/6 | `aim.` |
-| glass-summoner | 5/6 | `summon.` |
-| spellblade | 1/6 | — (masked) |
+| `power` on a physical skill | ignored — every one dealt a plain weapon swing | live, re-priced |
+| `inflicts` on any ability | never applied by any resolver | applied on a landed hit |
+| dead skillsets (`battle-skill`, `steal`) | silently inert | named manifest + shown in the UI |
 
-**Zero slack.** All six prefixes the roster can express now count, so any regression fails
-the gate.
+Also fixed along the way: the demo roster was **far outside the `docs/07` §3 time-to-kill
+band** (a "tank" died in 2 committed actions where the band says 3–4, a squishy in 1), the
+Archer had no ranged attack at all, and the e2e fixtures had been broken by demo drift four
+times. All three are addressed; see "What changed that you would not guess" below.
 
 ---
 
-## The next slice — MAKE `battle-skill` A LIVE SKILLSET (not green-lit; confirm first)
+## The next slice — TEACH THE PROBE TO VALUE CONTROL, THEN LAND A THIEF
+
+This is Steps 3–4 of `docs/plans/slice-live-effects-and-steal.md`, deferred there
+deliberately so the defect fix stayed reviewable. **The decisions are already taken** (that
+file's §0): fork A, and the cut after Step 2. You are picking up an agreed plan, not a
+proposal.
 
 ### The job in one line
 
-**The Knight — the game's starting job — has no live signature ability, and that is what
-blocks the road from 6 to 8.**
+**Statuses now land, but the AI cannot see them — so no build can signature on control,
+and the Thief that would raise the count does not exist yet.**
 
-### Why, measured
+### Step 3 — `ai.ts` values an inflicted status
 
-Count live-formula actions per skillset (the balance probe only ever selects
-`physical`/`magic`/`heal`; it ignores every `none`-formula action):
+`ai.ts:127` skips every `formula: "none"` action, and `estMagnitude` ranks purely on
+damage. So Charm, Stop and Slow are invisible to the balance probe **no matter what they
+inflict**. Fold a status term into the **single uniform, transitive** comparator
+(`src/sim/CLAUDE.md`: never a bucket-first key). A `none`-formula action with a real
+`inflicts` must become selectable; one with nothing must stay skipped.
 
-| skillset | live actions | none-formula |
-|---|---|---|
-| `black-magic`, `geomancy`, `summon` | 6 | 0 |
-| `aim` | 5 | 0 |
-| `punch-art` | 4 | 1 |
-| `white-magic` | 4 | 2 |
-| **`battle-skill`** | **0** | **7** |
-| **`steal`** | **0** | **5** |
+### Step 4 — Charm behaviour + author a Thief
 
-All seven `battle-skill.*` actions are stat-breaks tagged `effect-deferred` with
-`formula: "none"` and no `inflicts`. They are inert. So **every Knight build fights with
-borrowed skills** and signatures on somebody else's prefix.
-
-### Why this is the right lever, and the trap it defuses
-
-The obvious next slices — provoke/threat, reaction-as-live — look like they raise the
-count. **They do not.** Both remaining EXCLUDED builds are Knights carrying the identical
-kit: `battle-skill.weapon-break` (inert) + `punch-art.wave-fist` (157 damage) +
-`punch-art.counter`. Unblocking either would make it viable and it would signature on
-**`punch-art.`**, colliding with `bld-faithzero-monk` — the same prefix-collapse that makes
-fixing `bld-spellblade` worth nothing.
-
-Before scoping any slice around "unblock build X", read that build's `learned` list in
-`data/builds/` and ask which prefix it would actually signature on. That two-minute check
-has now caught three different slices.
-
-Making `battle-skill` live does three things at once: it adds a genuinely **new** signature
-prefix, it gives two EXCLUDED builds something of their own to signature on, and it retires
-the largest `effect-deferred` block in the pack.
-
-### Where to start
-
-Not designed yet. The mechanic is a **persistent stat reduction** — `docs/01` §9 territory
-(status/stat modifiers), adjacent to the existing `inflicts` path but different: a break is
-a permanent debuff on the target, not a timed status. Options, none chosen:
-
-- Model breaks as a **permanent `ActiveStatus`** with a stat modifier and no duration. Reuses
-  the status pipeline; the question is whether "permanent" fits `PERMANENT_STATUS_CT`.
-- Give the breaks a **real formula** as well as the debuff, so the probe will actually pick
-  them (a `none`-formula action is invisible to the probe **no matter what it inflicts** —
-  see `ai.ts`; this is the trap that will bite you first).
-- Author a **new damaging Knight action** and leave the breaks deferred. Cheapest, least
-  faithful, and does not retire the deferral.
-
-**The second bullet is the landmine.** `estMagnitude`/`allCandidates` skip any action whose
-magnitude is 0, so a break that only debuffs will never be selected by the balance probe
-and the skillset will still read as dead in `benchmark-suite.test.ts`. Whatever you build,
-it must produce magnitude, or the probe needs to learn to value a debuff — which is an
-`ai.ts` change that moves every benchmark number and the frozen golden.
-
-### What NOT to do
-
-- **Do not lower the pass mark** (`VIABLE_MIN_MAPS`, `WIN_CEIL_TICKS`, `DIVERSITY_TARGET_N`).
-- **Do not scope provoke/threat or reaction-as-live as an N-raiser** without first fixing the
-  prefix collapse above. They are worth doing for the *mechanics*; they are not worth doing
-  for the *count* as the roster stands.
-- **Do not fix `bld-spellblade`** expecting the count to move. Its prefix collapses onto the
-  wizard's. It needs a hybrid chassis with real MA, which is P3 (`docs/08` §1).
+- `steal.heart` already applies `status.charm` as a status. **Charm BEHAVIOUR — the
+  inflicter controlling the target — is unimplemented**, so it is an inert marker today.
+  Check `docs/05` before assuming it is an AI-only change: a charmed unit acting for the
+  other side touches team logic and every victory condition.
+- **There is no Thief build.** No shipped record has `currentJob: "thief"`. Authoring one
+  is part of this slice, not a follow-up.
+- Then bump `DIVERSITY_TARGET_N` 6 → 7, which moves the `gauntlet.ts` manifest, an ADR-0014
+  amendment, **`docs/06` AC-E2 (authoritative)** and a regenerated `npm run state`, together.
 
 ### Traps waiting for you
 
-1. **Reaction and movement slots are STILL INERT.** Same defect class the support slot just
-   had. If a build underperforms, check whether the lever it leans on is actually wired
-   before you reach for a magnitude tweak — that mis-diagnosis cost two slices.
-2. **Zero slack at N=6.** Every expressible prefix counts, so any content edit that weakens
-   one build fails the gate rather than degrading gracefully. Run the gauntlet early.
-3. **Editing a support's effect is a GLOBAL change** to every build equipping it. Grep
-   `data/builds` for the ability id and state what moves — `magic-attack-up` alone is worn
-   by three builds, `martial-arts` by two.
-4. **The MP contingency is unchanged and still live.** `white-magic.holy` (56 MP off a 24
-   budget) and `summon.*` (14–30) both ride unenforced MP; enforcing it would drop N. The new
-   `black-magic.` carrier is less exposed (12 off 24) but not exempt.
-5. **Watch the monk.** `bld-faithzero-monk` still clears every `{map × opposition}` cell and
-   now also carries a live `pa ×1.25` from Martial Arts. It is not *dominant* (others clear
-   some cells faster) so the gate passes, but it is the build closest to the B5 line.
-6. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
+1. **An `ai.ts` comparator change moves EVERY benchmark number and the frozen golden.**
+   Budget for a re-tune, and classify the golden diff first (`src/sim/CLAUDE.md`).
+2. **Only ONE shipped build currently carries an inflicting ability** — `bld-longshot`
+   (`aim.head-shot` → Stop). Measured: Stop lands on two of six gauntlet maps today. If
+   your comparator change makes control attractive, the archer is where it shows up first,
+   and it is already the build closest to over-performing.
+3. **Four of `steal`'s five actions are unreachable** — `gil` needs the post-battle economy,
+   `armor`/`helmet`/`weapon` need the equipment layer (`docs/05` §4). Only `heart` is in
+   reach. `DEFERRED_SKILLSETS` in `content.ts` states this; keep it accurate or the
+   partition test fails.
+4. **Do not fix `bld-spellblade` expecting the count to move.** Its prefix collapses onto
+   the wizard's. Unchanged.
+5. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
 
 ---
 
+## What changed that you would not guess
+
+- **`inflicts` carries RESOLVED templates, not ids** (schema v9). That was the actual
+  blocker for the whole life of the repo: a resolver may not read the content catalog
+  (ADR-0011), so an id list was unusable. Projection happens once, in `build.ts`.
+- **Infliction consumes NO rng draw** — unconditional on a hit. That is why wiring it moved
+  the frozen golden by exactly one character (`schemaVersion`). A real per-status chance is
+  a fidelity change needing its own declared roll slot; do not smuggle it in.
+- **`ActiveStatus` moved to its own leaf module** (`active-status.ts`) because `ability.ts`
+  needs the schema and `state.ts` imports `ability.ts` — the Zod module-eval (TDZ) cycle.
+  `state.ts` re-exports everything, so no call site changed.
+- **The routing discriminant is `isBasicAttack`, not `formula === "physical"`.** Four sites
+  must agree: driver dispatch, AoE resolver, `ai.ts` `estMagnitude`, viewer `preview.ts`.
+- **The preview now DISCLOSES `inflicts`**, and `session.test.ts` moved that key from its
+  banned list to its required one. The rule did not change; the engine did.
+- **The demo roster was re-tuned to the TTK band** and `src/render/demo.test.ts` pins it,
+  with a non-vacuity guard that runs the pre-slice HP through the same bands and asserts
+  three of four fail.
+- **e2e fixtures now DISCOVER their tiles** from live state through the shipped seam
+  (`findArcPair` in `play.spec.ts`) instead of hard-coding coordinates that demo content
+  invalidates. Gallery captions lost their hard-coded tiles and damage numbers to match.
+
 ## Standing constraints that outlive any one slice
 
-- **Jobs are deprioritised** (user decision). Remaining EXCLUDED builds: `aggro-tank`
-  (provoke/threat), `counter-wall` (reaction-as-live), `battle-cleric` (prefix-collapse —
-  structurally uncountable), `warlord` (boss). Note the finding above: three of those four
-  are prefix-collapse cases, so the road to ≥8 runs through **new signature prefixes**, not
-  through the EXCLUDED manifest.
-- **The frozen golden in `driver.test.ts` is a tripwire, not a maintenance item.** It did
-  NOT move through the support slice — the demo battle fields no support-carrying build —
-  and that is the evidence the change was contained. Never regenerate it to make a test pass.
-- **`order: "after"`** (act-then-move) exists in the command schema and driver, covered
-  headlessly, but is deliberately unreachable from the UI — exposing it would force the
-  player to pick a retreat tile before seeing whether the attack hit.
-- **`DEFERRED_SUPPORT_EFFECTS`** (`src/sim/support.ts`) names why each still-inert support is
-  inert. A test asserts it partitions the shipped pack exactly, so a newly authored support
-  cannot ship silently dead. Keep that pattern if you wire reactions or movement.
+- **Jobs are deprioritised** (user decision). The road to ≥8 runs through **new signature
+  prefixes**, not through the EXCLUDED manifest — three of its four entries are
+  prefix-collapse cases.
+- **`battle-skill` is excluded from content work by user decision** (2026-08-16): the
+  break/debuff vocabulary reads as thin and a **multi-job skill rework** is wanted later.
+  It is listed in `DEFERRED_SKILLSETS` with its blocker; do not quietly revive it.
+- **The frozen golden is a tripwire, not a maintenance item.** Never regenerate it to make a
+  test pass — classify the diff, and expect only representation fields to move.
+- **`order: "after"`** (act-then-move) exists in the schema and driver, covered headlessly,
+  deliberately unreachable from the UI.
+- **The MP contingency is unchanged and still live.** `white-magic.holy` (56 MP off a 24
+  budget) and `summon.*` ride unenforced MP; enforcing it would drop the count.
 
 ## Environment facts that cost real time to learn
 
-- **Playwright works.** Chromium is pre-installed at `/opt/pw-browsers`. Never run
-  `playwright install`. A subagent reporting it cannot run Playwright is stating a
-  hypothesis — subagents do not inherit the main session's environment knowledge.
-- **Scratch probes belong in the session scratchpad, not the repo root** — otherwise the
-  Stop hook flags them as untracked work. A `vite-node` script importing `src/sim/*` is the
-  fastest way to measure the gate; keep one, keep it out of the tree.
+- **Playwright browsers: the sandbox and this Windows box differ.** The old note here said
+  "Chromium is pre-installed at `/opt/pw-browsers`, never run `playwright install`" — that
+  is true of the **Linux sandbox only**. On the Windows host the project's Playwright wanted
+  build **1187** while only 1179/1228 were present, and every browser spec failed with a
+  missing-executable error that reads like a code failure. `npx playwright install chromium`
+  fixes it (~240 MB, one time). `.claude/launch.json` now exists so the viewer can be
+  launched directly.
+- **A bare JSON import breaks ONLY the browser job.** `e2e/play.spec.ts` imports
+  `src/render/demo.ts` through Node's ESM loader, which requires
+  `with { type: "json" }`; Vite (dev, build, vitest) does not. So `npm run check` stays
+  green while `npm run test:visual` fails to even load.
+- **Scratch probes belong outside the tree.** `coverage/` is gitignored and works well; a
+  `vite-node` script importing `src/sim/*` is the fastest way to measure the gate.
 - **Use the check-runs API for CI.** The legacy commit-status endpoint reports
-  `pending / total_count: 0` because nothing posts there; that is not a failure.
-- **A job that fails in ~1s with `runner_id: 0`, no `steps`, and a 404 on its logs was
-  never dispatched** — it was refused at the environment gate. Do not read that as an
-  infra blip and do not go hunting in the job's log; there is none.
-- **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` (403) and
-  all `*.github.io` egress**, but a *runner* can reach them with `${{ github.token }}`.
-  When a repo-settings question is unanswerable from here, add a temporary workflow step
-  and read the answer out of the log rather than guessing or asking the human to look.
-- **A merged branch's remote ref may be deleted**, which makes `--force-with-lease` fail with
-  `stale info`. `git remote prune origin` first, then push normally.
-- **GitHub auto-merge is NOT enabled** on this repo, so "enable auto-merge" fails — watch
-  the checks and merge.
-- `claude.com` is egress-blocked; `github.com` is reachable.
+  `pending / total_count: 0` because nothing posts there.
+- **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` and all
+  `*.github.io` egress**, but a *runner* can reach them with `${{ github.token }}`.
+- **GitHub auto-merge is NOT enabled** on this repo — watch the checks and merge.
 
 ## Pages — RESOLVED 2026-08-12 (first successful deploy on run #23)
 
 `pages.yml` was always correct; runs #1–#22 failed on two sequential *settings*, both
-derived from the repository default branch: Pages was never enabled, then the
-`github-pages` environment's deployment-branch policy allowed only a dead day-one branch.
-Both fixed; the default branch is now `main` (re-verified). Two preflights now guard the
-`build` job — a `/pages` check and a branch-policy check — the second because the first is
-not sufficient (`/pages` answers 200 while the gate still refuses every branch you have).
-Its severity anchors on `PUBLISH_BRANCH`, never on the default branch, because anchoring
-on the setting that is itself the bug fails open. **An agent can confirm the deployment
-API reported success but cannot confirm the page renders** — `*.github.io` is blocked.
+derived from the repository default branch. Two preflights now guard the `build` job, the
+second because the first is not sufficient. **An agent can confirm the deployment API
+reported success but cannot confirm the page renders** — `*.github.io` is blocked.

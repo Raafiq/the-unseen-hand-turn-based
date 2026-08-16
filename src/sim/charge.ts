@@ -39,7 +39,8 @@
  */
 
 import { magicDamage, applyZodiac, applyShell, applyMagicEvasion, zodiacCompatibility } from "./formulas.js";
-import { CRYSTAL_TIMER_START } from "./resolve.js";
+import { applyInflicts, CRYSTAL_TIMER_START } from "./resolve.js";
+import { statusInterruptsCharge } from "./active-status.js";
 import { inBounds, unitsInAoeBox } from "./grid.js";
 import {
   rngFor,
@@ -49,18 +50,10 @@ import {
   type Position,
 } from "./state.js";
 
-/**
- * Does `st` interrupt a charge whose effect is `effectKind`? Behavior-flag driven
- * (docs/05 §2, ADR-0010 item 1), so it auto-covers every disabling status the
- * catalog defines — Stop/Sleep/Don't-Act/Petrify (`preventsAction`/
- * `interruptsCharge`) interrupt any charge; Silence (`interruptsMagicOnly`)
- * interrupts ONLY a magic charge (kind-aware). No id hard-coding.
- */
-export function statusInterruptsCharge(st: ActiveStatus, effectKind: ChargeEffect["kind"]): boolean {
-  if (!st.preventsAction && !st.interruptsCharge) return false;
-  if (st.interruptsMagicOnly && effectKind !== "magic") return false;
-  return true;
-}
+// MOVED to `active-status.ts` so `resolve.ts`'s on-hit inflict path can latch the
+// same interrupt without importing this module (charge.ts already imports resolve.ts,
+// so the reverse edge would be a cycle). Re-exported under its original name.
+export { statusInterruptsCharge } from "./active-status.js";
 
 /**
  * Apply an {@link ActiveStatus} to a unit AND latch the interrupt (ADR-0010 item
@@ -309,6 +302,9 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
           koOne = true;
           anyKo = true;
         }
+        // ON-HIT STATUS at maturity, per landed target (docs/05 §2 step d). The
+        // templates rode along on the charge effect, so nothing is re-read here.
+        applyInflicts(state, foe, effect.inflicts);
       }
       perTarget.push({ targetId: foe.id, hitChance: chance, hit: hitOne, damage: dmg, ko: koOne });
     }
@@ -382,6 +378,9 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
       target.crystalTimer = CRYSTAL_TIMER_START;
       ko = true;
     }
+    // ON-HIT STATUS at maturity (docs/05 §2 step d), from the templates the charge
+    // carried since it was declared.
+    applyInflicts(state, target, effect.inflicts);
   }
 
   state.rngCounter = rng.count;

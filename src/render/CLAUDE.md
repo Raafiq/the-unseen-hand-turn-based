@@ -54,6 +54,15 @@ enter `BattleState`.
   `assumedFrom` is computed at the *cheapest* legal turn (−60) so it is a lower bound and
   never overclaims. **When `ai.ts` learns the move+act fold, this assumption breaks** —
   `forecast.test.ts` is the oracle that will go red rather than let the UI lie quietly.
+- **When a deferred capability SHIPS, the absent row becomes a lie — go un-hide it.** The
+  rule is "never assert an effect the engine cannot back up", not "these keys stay hidden".
+  `preview.ts` correctly omitted `inflicts` while status-on-hit was unmodeled, and
+  `session.test.ts` asserted the key was *absent*. The moment the resolvers began applying
+  it, that same omission started hiding a Stop from a player about to commit the shot —
+  same rule, opposite verdict, because the engine moved. **Any slice that implements a
+  deferred effect owes a pass over the banned-key list**, and the new row needs a test
+  tying what the panel promises to what the sim actually does (not just that the key
+  exists).
 - **`pickTile` is not an algebraic inverse.** Per-tile height shifts a tile's screen position
   and taller tiles occlude those behind, so it walks reverse painter's order. A naive inverse
   picks the wrong tile on any raised terrain.
@@ -66,5 +75,22 @@ the demo map discriminates (it frequently does not; see the root's evidence prin
 Interaction tests drive the grid-coordinate seam, never raw canvas pixels — exactly one
 assertion (AC-V10) covers the pointer→tile mapping.
 
-`npm run test:visual` (build + Playwright). Chromium is **pre-installed** at
-`/opt/pw-browsers`; never run `playwright install`.
+**When you cannot INJECT a fixture, DISCOVER it.** The root `CLAUDE.md` says prefer
+purpose-built fixtures over shipped demo content — but `e2e/*.spec.ts` drives the real
+page, which mounts `makeDemoBattle()`, so there is nothing to inject and that advice is
+unreachable there. Hard-coded tiles in those specs were invalidated by demo drift **four
+times**, each fix writing down new coordinates that rotted the same way, and the file's own
+comment predicted the next break. Instead ask the board, through the shipped seam, for
+something with the property under test — `findArcPair` in `play.spec.ts` walks unoccupied
+tiles, stages each (staging is pure, AC-V6; an illegal stage is refused, so `moveRange`
+does the filtering) and returns any foe reachable from two tiles in **different facing
+arcs with the same ability**. Then assert the discovery succeeded and that the two cases
+genuinely differ: a discovered fixture can degenerate too, and the first version of that
+helper returned two tiles that selected *different* abilities, which would have blamed the
+arc for an ability difference.
+
+`npm run test:visual` (build + Playwright). In the **Linux sandbox** Chromium is
+pre-installed at `/opt/pw-browsers` — never run `playwright install` there. On a **Windows
+host** it may genuinely be missing, or be the wrong build number: every spec then fails
+with "Executable doesn't exist", which reads like a code failure and is not. Check the
+requested build against `~/AppData/Local/ms-playwright/` before believing it.

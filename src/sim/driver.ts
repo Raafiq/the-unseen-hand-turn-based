@@ -30,7 +30,7 @@ import { advanceToNextTurn, settleTurn } from "./scheduler.js";
 import { resolveAttack, resolveAbility, resolveAbilityAoe, tickCrystal } from "./resolve.js";
 import { declareCharge, resolveCharge } from "./charge.js";
 import { moveRange, inAbilityRange } from "./grid.js";
-import { PositionSchema, type BattleState, type Position } from "./state.js";
+import { isBasicAttack, PositionSchema, type BattleState, type Position } from "./state.js";
 
 /**
  * One active unit's decision. Discriminated by `kind`; the acting unit is chosen
@@ -440,17 +440,21 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
           // requirement below is relaxed here.
           after = resolveAbilityAoe(from, unitId, targetTile, ability.id).state;
         } else {
-          // SINGLE-TARGET — a basic weapon swing (formula "physical") delegates to
-          // resolveAttack so its rolls are byte-identical to the pre-Slice-5 path;
-          // every other instant reads its magnitude from the ability projection. A
-          // single-target instant still requires a locked unit target.
+          // SINGLE-TARGET — ONLY the weapon-derived basic swing delegates to
+          // resolveAttack (its magnitude comes from `weapon`, not from a projected
+          // `power`); every other instant, physical included, reads its magnitude
+          // from the ability projection. The discriminant is {@link isBasicAttack},
+          // NOT `formula === "physical"`: that older test swept up every authored
+          // physical skill, so `power` was projected and then discarded and six
+          // shipped abilities dealt a plain weapon swing regardless of tuning.
+          // Both branches draw exactly ONE hit roll, so the RNG cursor is unmoved
+          // by the routing itself — only the magnitude changes.
           if (!targetUnitId) {
             throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
           }
-          after =
-            ability.formula === "physical"
-              ? resolveAttack(from, unitId, targetUnitId).state
-              : resolveAbility(from, unitId, targetUnitId, ability.id).state;
+          after = isBasicAttack(ability)
+            ? resolveAttack(from, unitId, targetUnitId).state
+            : resolveAbility(from, unitId, targetUnitId, ability.id).state;
         }
         event = hpDiffEvent(from, after, unitId, ability.id);
       } else {
@@ -470,6 +474,12 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
             element: ability.element,
             accuracy: ability.accuracy,
             aoe: ability.aoe,
+            // Carried through the charge, not re-read at maturity: the charge outlives
+            // this turn and its resolver is registry-free (ADR-0010/ADR-0011). Omitting
+            // this would drop a charged ability's statuses at cast time, invisibly —
+            // no SHIPPED charged ability inflicts anything today, so nothing would
+            // have failed.
+            inflicts: ability.inflicts,
           },
         });
         const declared = after.chargeQueue.find((c) => !beforeIds.has(c.id));

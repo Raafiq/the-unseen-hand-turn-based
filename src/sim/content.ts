@@ -36,6 +36,32 @@ export const MIN_SUPPORTED_CONTENT_SCHEMA_VERSION = 1;
  */
 export const BASELINE_SKILLSETS: readonly string[] = ["basic", "item"];
 
+/**
+ * Job skillsets that ship with NO live-formula action — i.e. the balance-probe AI
+ * (and therefore the diversity gate, and therefore any measurement of that job)
+ * can never exercise them — each mapped to the NAMED capability that would unblock
+ * it. Mirrors {@link DEFERRED_SUPPORT_EFFECTS} and the gate's `EXCLUDED` manifest:
+ * a skillset is never SILENTLY dead, it is either live or listed here with a reason.
+ *
+ * WHY THIS EXISTS. `content-pack.test.ts` checked "the job's skillset donates a
+ * live-formula action" for the four **P2** jobs only. Knight, Monk, Wizard and Thief
+ * were never checked — so `battle-skill` and `steal`, two of the eight shipped
+ * skillsets, could be entirely inert (every action `formula: "none"`) with a green
+ * suite, for the whole life of the repo. The test now covers all eight and this
+ * manifest is what keeps the two known gaps honest instead of quiet; a THIRD skillset
+ * going dead fails the suite rather than joining them unnoticed.
+ *
+ * `content-pack.test.ts` asserts this partitions the shipped pack EXACTLY — a stale
+ * entry (a skillset that has since gained a live action) fails just as loudly as a
+ * missing one, so the manifest cannot rot in either direction.
+ */
+export const DEFERRED_SKILLSETS: Readonly<Record<string, string>> = {
+  "battle-skill":
+    "every `*-break` is a stat reduction with `formula: \"none\"`; needs stat-modifying statuses (an ActiveStatus stat-mod field) AND a probe that values a debuff, pending the multi-job skill rework",
+  steal:
+    "no action is reachable: `gil` needs the post-battle economy (docs/07), `armor`/`helmet`/`weapon` need the equipment modifier layer (docs/05 §4), and `heart` needs Charm BEHAVIOUR plus a probe that values control — the status itself now lands",
+};
+
 /** A content migration transforms a parsed pack one schema version forward. */
 export type ContentMigration = (pack: Record<string, unknown>) => Record<string, unknown>;
 

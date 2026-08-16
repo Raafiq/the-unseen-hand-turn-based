@@ -26,7 +26,8 @@ import {
   type Facing,
 } from "./formulas.js";
 import { CT_COST_WAIT } from "./scheduler.js";
-import { rngFor, type BattleState, type Position, type UnitState } from "./state.js";
+import { isBasicAttack, rngFor, type BattleState, type Position, type UnitState } from "./state.js";
+import { statusInterruptsCharge, type ActiveStatus } from "./active-status.js";
 import type { BattleAbility } from "./ability.js";
 
 export interface AttackOptions {
@@ -56,6 +57,55 @@ export interface ResolveResult {
 
 /** The crystal counter a unit gets on KO (docs/01 §11). */
 export const CRYSTAL_TIMER_START = 3;
+
+/**
+ * Apply an ability's on-hit statuses to a target that the blow LANDED on
+ * (docs/05 §2 step d). The templates are already resolved and self-contained
+ * ({@link BattleAbility.inflicts}, projected at build time), so this reads no
+ * registry and stays replay-safe.
+ *
+ * THREE DELIBERATE RULES, each with a reason:
+ *   1. NO RNG DRAW. Infliction is unconditional on a hit — there is no separate
+ *      status roll. That keeps the declared roll order (docs/05 §3) exactly as it
+ *      was, so wiring this path shifts no cursor and no existing golden. A real
+ *      per-status chance is a fidelity change with its own roll slot; when it
+ *      lands it must be declared there, not smuggled in here.
+ *   2. NOT ON A CORPSE. Called after the HP write, and skipped for a target at 0
+ *      HP — a KO'd unit is counting down to crystallization (docs/01 §11) and
+ *      stacking Slow on it would be state the UI cannot honestly show.
+ *   3. NO STACKING of the same id. Re-applying REFRESHES the existing record
+ *      rather than pushing a duplicate, so two Slows cannot halve CT twice or
+ *      leave a second copy behind when the first expires.
+ *
+ * Mutates `state` in place — callers already hold a clone.
+ */
+export function applyInflicts(
+  state: BattleState,
+  target: UnitState,
+  inflicts: readonly ActiveStatus[],
+): void {
+  if (inflicts.length === 0 || target.hp <= 0) return;
+  for (const template of inflicts) {
+    const existing = target.statuses.find((st) => st.id === template.id);
+    if (existing) {
+      // Refresh in place: keep the array position (deterministic iteration order)
+      // and take the longer remaining lifetime, so a re-hit never shortens a status.
+      existing.remainingCT = Math.max(existing.remainingCT, template.remainingCT);
+      continue;
+    }
+    target.statuses.push({ ...template });
+    // LATCH THE INTERRUPT (ADR-0010 item 2), mirroring `charge.ts`'s
+    // `applyStatusToUnit`: a caster disabled mid-charge stays cancelled at maturity
+    // even if the status decays first. Duplicated deliberately rather than calling
+    // that helper — it clones the whole state per status, which inside an AoE loop
+    // would be quadratic and would also discard the HP writes made above.
+    for (const c of state.chargeQueue) {
+      if (c.sourceUnitId === target.id && statusInterruptsCharge(template, c.effect.kind)) {
+        c.interrupted = true;
+      }
+    }
+  }
+}
 
 /**
  * Resolve a basic physical attack from `attackerId` against `targetId`. Pure:
@@ -177,6 +227,9 @@ export function resolveAbility(
         ko = true;
       }
     }
+    // ON-HIT STATUS (docs/05 §2 step d). Applied AFTER the HP write, so a lethal
+    // blow does not also stack a status on a corpse (see {@link applyInflicts}).
+    applyInflicts(state, target, ability.inflicts);
   }
 
   state.rngCounter = rng.count;
@@ -241,10 +294,12 @@ export interface AoeResolveResult {
  * function of state. An EMPTY box consumes NO draw. Pure: clones + returns state.
  *
  * Per-target resolution MIRRORS the single-target dispatch exactly so the AI's
- * estimate ({@link estMagnitude}) never drifts from the pipeline: a `physical`
- * ability uses the weapon-accuracy hit + {@link attackDamage} (as
- * {@link resolveAttack} does), everything else uses the ability-accuracy hit +
- * {@link abilityDamage} (as {@link resolveAbility} does).
+ * estimate ({@link estMagnitude}) never drifts from the pipeline: every target
+ * takes the ability-accuracy hit + {@link abilityDamage}, as {@link resolveAbility}
+ * does. There is no weapon-based branch here because the ONE weapon-derived
+ * ability — the basic swing — is single-target by construction (`basicAttackFrom`
+ * hard-codes `aoe: null`), so it can never reach this function. An `aoe`-carrying
+ * ability is authored content and always reads its own `power`.
  */
 export function resolveAbilityAoe(
   input: BattleState,
@@ -260,7 +315,12 @@ export function resolveAbilityAoe(
   if (ability.aoe === null) throw new Error(`resolveAbilityAoe: ${abilityId} is not an area ability`);
 
   const heal = ability.formula === "heal";
-  const physical = ability.formula === "physical";
+  // Defensive: the basic swing is single-target by construction, so it must never
+  // arrive here. Loud-fail rather than silently resolving a weapon-derived ability
+  // off a `power` it does not own.
+  if (isBasicAttack(ability)) {
+    throw new Error(`resolveAbilityAoe: ${abilityId} is the weapon-derived basic swing, never an area ability`);
+  }
   const base = { attackerId, abilityId, targetTile: { x: targetTile.x, y: targetTile.y }, heal };
 
   // TARGETED enumeration (id-ascending). Damage → foes; heal → allies incl. self.
@@ -283,13 +343,12 @@ export function resolveAbilityAoe(
     // Re-find on the live (mutating) clone so an earlier KO in the box is seen.
     const target = state.units.find((u) => u.id === ref.id)!;
     const facing = relativeFacing(target, attacker.pos);
-    const accuracy = physical ? attacker.weapon.accuracy : ability.accuracy;
-    const chance = hitChance(accuracy, target.evasion, facing);
+    const chance = hitChance(ability.accuracy, target.evasion, facing);
     const hit = rng.chance(chance); // ONE draw per target, id order.
     let amount = 0;
     let ko = false;
     if (hit) {
-      amount = physical ? attackDamage(attacker, target) : abilityDamage(attacker, target, ability);
+      amount = abilityDamage(attacker, target, ability);
       if (heal) {
         target.hp = Math.min(target.maxHp, target.hp + amount);
       } else {
@@ -301,6 +360,9 @@ export function resolveAbilityAoe(
           ko = true;
         }
       }
+      // ON-HIT STATUS, per target that the box LANDED on — id-ascending, same order
+      // as the hit rolls, and consuming no draw of its own (docs/05 §2 step d).
+      applyInflicts(state, target, ability.inflicts);
       total += amount;
     }
     perTarget.push({ targetId: target.id, facing, hitChance: chance, hit, amount, ko });

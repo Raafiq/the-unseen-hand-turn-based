@@ -60,8 +60,12 @@ magnitude) are **not** on this list.
 
 - **Stat-break line** (all `battle-skill.*-break`): the stat-reduction effect.
 - **Steal line** (`steal.gil/armor/helmet/weapon`): the item/gil transfer.
-- **`steal.heart`**: charm *is* wired via `inflicts: [status.charm]`; the
-  item-transfer side is deferred.
+- **`steal.heart`**: authored with `inflicts: [status.charm]`, and since the on-hit
+  inflict path landed (2026-08-16) a landed hit really does apply Charm as a status.
+  **Charm BEHAVIOUR — the inflicter controlling the target — is still unimplemented**,
+  so the status sits on the unit as an inert marker; the item-transfer side is deferred
+  too. This line previously claimed charm "*is* wired", which was false for the whole
+  life of the pack: nothing applied `inflicts` at all.
 - **`punch-art.chakra` / `revive`**: heal magnitude works; MP-restore (Chakra) and
   KO-raise (Revive) semantics are deferred.
 - **`punch-art.purification`**: status-cleanse.
@@ -104,3 +108,47 @@ condition) and *escort/protect* + reliable heal-in-encounter (need a support-awa
   Y-values are the strongest corroborated numbers; Geomancer is authored as `magic` +
   `power` (the engine has no FFT `⌊(PA+2)/2⌋×MA` formula — a flagged deviation) and
   Archer as instant physical shots, not FFT's charged Aim (engine-forced).
+
+## Physical-skill `power`: the pricing rule (2026-08-16)
+
+Until this slice the resolver routed **every** `formula: "physical"` action to the plain
+weapon swing, so an authored physical skill's `power` was projected, validated and then
+discarded — six abilities were untunable and all dealt identical damage.
+`power` is now live for authored skills; only the weapon-derived `basic.attack` still
+resolves off `weapon` (`isBasicAttack`, `src/sim/state.ts`).
+
+The six were re-priced against two rules that pull in opposite directions, and the values
+sit where both hold:
+
+- **Anti-convergence** (`docs/02` B5): reach must cost something, or a ranged skill is the
+  melee swing plus free range.
+- **Anti-masking** (AC-P6 corollary, `ttk.test.ts`): a signature must **strictly**
+  out-damage its owner's basic attack, or the greedy probe never picks it and the build
+  fights as the wrong job.
+
+So reach is priced in the **margin above** the basic attack (whose power is `weapon.wp`,
+8 on the placeholder weapon), never below it:
+
+> `power = 9` at maximum reach (h5), **+1** per tile of reach surrendered, **+** the AP
+> tier (0 / 1 / 2 for 60 / 120 / 240), **+1** for a vertically-restricted line (`v: 0`),
+> **−2** for an area.
+
+| ability | h / v | AP | area | power | derivation |
+|---|---|---|---|---|---|
+| `punch-art.wave-fist` | 3 / 1 | 60 | – | 11 | 9 +2 |
+| `punch-art.earth-slash` | 4 / 0 | 120 | – | 12 | 9 +1 +1 (line) +1 |
+| `aim.aimed-shot` | 5 / 3 | 60 | – | 9 | 9 |
+| `aim.piercing-shot` | 5 / 3 | 120 | – | 10 | 9 +1 |
+| `aim.head-shot` | 4 / 3 | 120 | – | 11 | 9 +1 +1 |
+| `aim.leg-shot` | 5 / 3 | 120 | – | 10 | 9 +1 |
+| `aim.volley` | 4 / 2 | 120 | 1×0 | 9 | 9 +1 −2 +1 |
+
+**The status riders are NOT priced in yet.** `head-shot` (Stop) and `leg-shot` (Slow)
+carry `inflicts`, but no resolver applies it, so discounting them for an effect that does
+not exist would be pricing a phantom. Re-price both **down** in the slice that lands the
+on-hit inflict path.
+
+Measured, not asserted: the diversity gate holds `N = 6`, `pass = true` and no new
+build in `winsAllInBand` across power −1 … +3 on every one of these values — a plateau, so
+the numbers sit on a mechanism rather than on a knife-edge. `aim.volley` is **unmeasured**:
+no shipped build learns it.

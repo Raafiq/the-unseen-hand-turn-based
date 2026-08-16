@@ -18,6 +18,7 @@
 import { z } from "zod";
 import { ElementSchema } from "./element.js";
 import { SupportEffectSchema } from "./support.js";
+import { ActiveStatusSchema } from "./active-status.js";
 
 const IntSchema = z.number().int();
 /** 0–100 accuracy percentage (matches state.ts's internal PercentSchema). */
@@ -112,7 +113,21 @@ export const BattleAbilitySchema = z
     element: ElementSchema,
     accuracy: PercentSchema,
     range: RangeBoxSchema,
-    inflicts: z.array(z.string().min(1)),
+    /**
+     * Statuses this ability applies to a target it LANDS on, as RESOLVED,
+     * self-contained {@link ActiveStatus} templates — not the authored ids.
+     *
+     * The resolution happens once, at build time (`build.ts` reads the pack's status
+     * catalog), for the ADR-0010/ADR-0011 reason the rest of this projection exists:
+     * a resolver must never read the content registry, or `replay` stops being a pure
+     * function of `(seed, commands)`. Carrying ids here was exactly why the inflict
+     * path stayed deferred from P0 — the resolver had a list of names it could not
+     * turn into behaviour (see the SCOPE note on `charge.ts`'s `applyStatusToUnit`).
+     *
+     * Each template is copied onto the target at inflict time, so its `remainingCT`
+     * counts down from the catalog `durationCT` independently per victim.
+     */
+    inflicts: z.array(ActiveStatusSchema),
     /** null ⇒ instant; positive int ⇒ charged action speed (docs/01 §3). */
     speed: IntSchema.min(1).nullable(),
     /**

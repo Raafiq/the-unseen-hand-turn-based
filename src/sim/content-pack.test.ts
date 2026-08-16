@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { loadContentPack, type ContentRegistry } from "./content.js";
+import { DEFERRED_SKILLSETS, loadContentPack, type ContentRegistry } from "./content.js";
 
 function loadShippedPack(): ContentRegistry {
   const path = fileURLToPath(new URL("../../data/base-pack.json", import.meta.url));
@@ -35,15 +35,15 @@ const EXPECTED_TREE_SIZES: Readonly<Record<string, number>> = {
   summoner: 8,
 };
 
-/** The four P2 jobs and the live combat formula their skillset MUST donate — the
- *  property that makes them measurable by the benchmark AI (which only ever
- *  selects action abilities with a physical/magic/heal formula). */
-const P2_JOB_LIVE_FORMULAS: ReadonlyArray<{ job: string; skillset: string; formulas: string[] }> = [
-  { job: "priest", skillset: "white-magic", formulas: ["heal", "magic"] },
-  { job: "archer", skillset: "aim", formulas: ["physical"] },
-  { job: "geomancer", skillset: "geomancy", formulas: ["magic"] },
-  { job: "summoner", skillset: "summon", formulas: ["magic"] },
-];
+/**
+ * The formulas the balance-probe AI can actually select (`ai.ts` skips `none` and
+ * every passive), so "the job is measurable at all" reduces to "its skillset donates
+ * an action with one of these".
+ */
+const LIVE_FORMULAS = new Set(["physical", "magic", "heal"]);
+
+/** Every shipped job. All eight are checked — see the note on the test below. */
+const ALL_JOBS = ["knight", "monk", "wizard", "thief", "priest", "archer", "geomancer", "summoner"];
 
 describe("shipped content pack (AC-R2, data/base-pack.json)", () => {
   it("loads through the real loader with no schema or integrity error", () => {
@@ -62,18 +62,41 @@ describe("shipped content pack (AC-R2, data/base-pack.json)", () => {
     expect(reg.jobById.size).toBe(8);
   });
 
-  it("makes every P2 job MEASURABLE — its skillset donates a live-formula action (AC-E2 raw material)", () => {
+  /**
+   * EVERY job's skillset is either LIVE or listed in {@link DEFERRED_SKILLSETS} with a
+   * named blocker — checked as an exact partition, so neither half can rot.
+   *
+   * This used to cover the four P2 jobs only (priest/archer/geomancer/summoner). The
+   * four P1 jobs were unchecked, and two of them — Knight's `battle-skill` and Thief's
+   * `steal` — are entirely inert: every action is `formula: "none"`, so the probe can
+   * never select one and neither job can be measured. That shipped green for the whole
+   * life of the repo, because nothing asked.
+   */
+  it("every job's skillset donates a live-formula action, or is a NAMED deferral", () => {
     const reg = loadShippedPack();
     const abilities = [...reg.abilityById.values()];
-    for (const { job, skillset, formulas } of P2_JOB_LIVE_FORMULAS) {
-      // The job's primarySkillset is exactly the one we expect (feeds the AI's castable set).
-      expect(reg.job(job).primarySkillset).toBe(skillset);
-      // ...and it has at least one ACTION with a live formula, or the balance-probe AI
-      // (which ignores none-formula + passives) could never exercise this job.
+    const live: string[] = [];
+    const dead: string[] = [];
+    for (const job of ALL_JOBS) {
+      const skillset = reg.job(job).primarySkillset;
       const liveActions = abilities.filter(
-        (a) => a.skillset === skillset && a.type === "action" && a.formula !== undefined && formulas.includes(a.formula),
+        (a) =>
+          a.skillset === skillset &&
+          a.type === "action" &&
+          a.formula !== undefined &&
+          LIVE_FORMULAS.has(a.formula),
       );
-      expect(liveActions.length).toBeGreaterThan(0);
+      (liveActions.length > 0 ? live : dead).push(skillset);
+    }
+    // NON-VACUITY: most skillsets really are live, so the partition below is a real
+    // split and not "everything is deferred".
+    expect(live.length).toBeGreaterThan(dead.length);
+    // EXACT partition, both directions: a newly-dead skillset is not in the manifest
+    // (fails), and a manifest entry for a skillset that has since gained a live action
+    // is stale (also fails).
+    expect(dead.sort()).toEqual(Object.keys(DEFERRED_SKILLSETS).sort());
+    for (const [skillset, blocker] of Object.entries(DEFERRED_SKILLSETS)) {
+      expect(blocker.length, `${skillset} needs a real blocker, not a placeholder`).toBeGreaterThan(30);
     }
   });
 

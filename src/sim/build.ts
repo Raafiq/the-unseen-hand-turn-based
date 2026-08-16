@@ -28,11 +28,14 @@
  */
 
 import type { Ability, BattleAbility } from "./ability.js";
+import { makeActiveStatus } from "./active-status.js";
+import type { StatusEffect } from "./status.js";
 import type { ContentRegistry } from "./content.js";
 import { equippedSecondaryAbilities } from "./loadout.js";
 import type { UnitRecord } from "./roster.js";
 import {
   basicAttackFrom,
+  BASIC_ATTACK_ID,
   createBattleState,
   defaultUnit,
   makeFlatTiles,
@@ -105,8 +108,26 @@ function clampToUnitStateBounds(s: TraitStatBase): TraitStatBase {
  * melee {h:1,v:1}, no inflicts ⇒ []. Accuracy has no authored numeric field yet
  * (only a `hitBase` tag the pipeline reads later), so it defaults to 100 here.
  * `speed` omitted ⇒ `null` (instant); a positive int ⇒ the charged-action speed.
+ *
+ * EXPORTED so a caller that needs ONE ability's projection without compiling a whole
+ * `UnitRecord` (the viewer's demo battle, which builds its units inline) goes through
+ * this same function. The alternative — hand-authoring a `BattleAbility` literal — puts
+ * a second copy of the pack's numbers in the render layer, where nothing would notice it
+ * drifting from `data/base-pack.json`.
  */
-function toBattleAbility(ability: Ability, support: SupportEffect | undefined): BattleAbility {
+export function toBattleAbility(
+  ability: Ability,
+  support: SupportEffect | undefined,
+  /**
+   * Resolves an authored status id to its catalog record. REQUIRED, with no default,
+   * on purpose: a caller that could omit it would silently project an ability with no
+   * inflicts, which is precisely the shape this slice exists to stop shipping. The
+   * pack's referential-integrity pass already guarantees every id here resolves
+   * (`content.ts` rejects an ability that inflicts an unknown status), so a throw from
+   * this lookup means the registry and the ability came from different packs.
+   */
+  statusOf: (id: string) => StatusEffect,
+): BattleAbility {
   const range = ability.range ?? { h: 1, v: 1 };
   // The equipped support's ability-side mods are baked in HERE, not read at
   // resolve time, so the projection stays self-contained (ADR-0010/ADR-0011).
@@ -119,7 +140,8 @@ function toBattleAbility(ability: Ability, support: SupportEffect | undefined): 
     element: ability.element ?? "none",
     accuracy: 100,
     range: { h: rangeH, v: range.v },
-    inflicts: ability.inflicts ?? [],
+    // Ids → resolved templates, ONCE, here. See BattleAbilitySchema.inflicts.
+    inflicts: (ability.inflicts ?? []).map((id) => makeActiveStatus(statusOf(id))),
     speed,
     aoe: ability.aoe ?? null,
   };
@@ -167,13 +189,13 @@ function projectAbilities(
 ): BattleAbility[] {
   const primarySkillset = registry.job(record.currentJob).primarySkillset;
   const byId = new Map<string, BattleAbility>();
-  byId.set("basic.attack", basicAttackFrom(weapon));
+  byId.set(BASIC_ATTACK_ID, basicAttackFrom(weapon));
 
   // Primary command: learned actions belonging to the current job's skillset.
   for (const abilityId of record.learned) {
     const ability = registry.ability(abilityId);
     if (ability.type === "action" && ability.skillset === primarySkillset && !byId.has(ability.id)) {
-      byId.set(ability.id, toBattleAbility(ability, support));
+      byId.set(ability.id, toBattleAbility(ability, support, (id) => registry.status(id)));
     }
   }
 
@@ -181,7 +203,7 @@ function projectAbilities(
   // filtered to action-type by loadout.ts; `[]` when no secondary is equipped).
   for (const ability of equippedSecondaryAbilities(record, registry)) {
     if (!byId.has(ability.id)) {
-      byId.set(ability.id, toBattleAbility(ability, support));
+      byId.set(ability.id, toBattleAbility(ability, support, (id) => registry.status(id)));
     }
   }
 

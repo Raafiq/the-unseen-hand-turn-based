@@ -154,14 +154,31 @@ reads `unit.abilities` and never grants an action the build did not earn.
 
 Known limitations of the shipped demo roster, stated rather than hidden:
 
-- Team 0 (Knight, Archer) projects exactly one action: `basic.attack`, instant, range
-  `{h:1,v:1}`. So **no charged casts for the player this slice.** A team-0 unit is
-  deliberately *not* handed a spell to demo charging — that is the "job identity masked
-  by a borrowed ability" failure CLAUDE.md logs twice.
-- Because weapon range is unmodeled, **the Archer is melee in the viewer.** "Click an
-  in-range enemy" means "click an adjacent enemy", so this slice cannot demonstrate the
-  range/tempo asymmetry that motivates the fold. Fixing it is a fidelity change with
-  golden vectors attached — not this slice.
+- **The Archer shoots (2026-08-16).** It carries `aim.aimed-shot` — its OWN job's skill,
+  range `{h:5,v:3}` — so the viewer now demonstrates the range/tempo asymmetry that
+  motivates the fold: fire from a standstill at −80, or spend the move to flank at −100.
+  > This bullet previously read *"because weapon range is unmodeled, the Archer is melee
+  > in the viewer… fixing it is a fidelity change with golden vectors attached"*. **That
+  > blocker was misidentified and the mistake outlived the whole viewer.** Weapon range
+  > being unmodeled is true and still is (`basicAttackFrom` hard-codes `{h:1,v:1}`, and
+  > equipment is deferred per `docs/05` §4) — but it never blocked THIS. An Archer reaches
+  > across the board through a bow *skill*, which needs no equipment layer at all. Naming
+  > an oversized blocker made the gap look better-understood than it was; cf. CLAUDE.md's
+  > rule that a stated reason must be the one that actually binds.
+- **No charged casts for the player**, and the Knight still projects only `basic.attack`.
+  Both are deliberate. A team-0 unit is not handed a *borrowed* ability (a Knight casting
+  Fire) — that is the "job identity masked by a borrowed ability" failure CLAUDE.md logs
+  twice, and it is why the Archer got its own skill rather than someone else's. The Knight
+  has no skill to get: `battle-skill` is the one shipped skillset with no live action at
+  all (every `*-break` is `formula: "none"`), so it stays a plain bruiser until the
+  break/debuff rework lands.
+- **The demo roster sits outside the `docs/07` §3 time-to-kill band.** Measured: a "tank"
+  dies in 2 committed actions where the band says 3–4, and a squishy dies in 1. ADR-0016
+  re-tuned the *shipped builds* to the band; the hand-authored demo units were never
+  brought with them. Consequence, also measured: the watch-mode battle now resolves in 6
+  turns, and giving a melee unit reach on top of this just delivers the one-shot sooner —
+  `punch-art.wave-fist` on the Brawler KO'd the player's Archer from three tiles on the
+  AI's first turn, so it was left out. Re-tune the roster before adding more reach.
 - **Victory/Defeat is a viewer-level reading, not a sim verdict.** The viewer ends the
   battle when a team is wiped, but the sim models only `terminal: "stalemate"`; no
   encounter victory/defeat condition is evaluated in the viewer path. A battle that an
