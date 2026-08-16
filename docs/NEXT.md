@@ -1,4 +1,4 @@
-<!-- written-against: 6b4b887dae8b7188d5af66f10c6b493ca4a02f9e -->
+<!-- written-against: 32d6cdc62037f68b38c62e74a53a95fb8531c974 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -9,10 +9,6 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 > **Trust rule.** This file is stamped with the commit it was written against, and the
 > SessionStart hook flags it once it falls more than 10 commits behind HEAD. If the hook
 > says it is stale, treat every claim below as a hypothesis and re-derive.
->
-> **STAMP WARNING:** written while the slice below was uncommitted, so the stamp is the
-> commit BEFORE it. Re-stamp to the branch head when committing, then run
-> `npm run check:handoff`.
 
 ---
 
