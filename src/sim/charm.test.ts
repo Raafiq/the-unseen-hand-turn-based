@@ -178,6 +178,28 @@ describe("charm and the objective", () => {
   });
 });
 
+describe("charm ENDS", () => {
+  it("allegiance reverts the moment the status decays off (AC-S8)", () => {
+    // The other half of a temporary effect. A charm that never lapsed would be a
+    // permanent capture, and the victory rule above would make it an unlosable win —
+    // so "it reverts" is load-bearing, not a detail. Driven through the real scheduler
+    // decay (1 CT per tick) rather than by deleting the status by hand.
+    let s = scene(true, "victim");
+    const thrallOf = (st: BattleState): UnitState => st.units.find((u) => u.id === "thrall")!;
+    expect(effectiveTeamOf(thrallOf(s))).toBe(0);
+    const durationCT = CHARM_TEMPLATE.remainingCT;
+    // Advance well past the duration; every unit just waits, so nothing else moves.
+    for (let i = 0; i < durationCT + 8; i++) {
+      const dec = advance(s);
+      if (dec.unitId === null) break;
+      s = applyCommand(dec.state, { kind: "wait" });
+    }
+    expect(s.tick).toBeGreaterThan(durationCT);
+    expect(thrallOf(s).statuses).toEqual([]);
+    expect(effectiveTeamOf(thrallOf(s))).toBe(1); // back on its own side
+  });
+});
+
 describe("what charm deliberately does NOT change", () => {
   it("SCHEDULING is untouched: the thrall's turn comes up exactly as before", () => {
     // Allegiance is not a CT concept. Same seed, same speeds → the same actor order,

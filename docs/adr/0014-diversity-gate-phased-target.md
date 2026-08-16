@@ -342,6 +342,31 @@ The support slot went live and `black-magic.` became a counted identity, carried
 - **The anti-convergence signals did not move.** `dominantBuilds` empty, `noLosingMatchup`
   unchanged at three builds — the monk watch from the previous amendment stands.
 
+## Amendment — 2026-08-16 (`N` 6 → 7, the CONTROL identity; see **ADR-0018**)
+
+`steal.` joins as the seventh signature prefix, carried by a new build, `bld-cutpurse`
+(4/6 phys maps, `losingMatchups: ["magic"]`, signature landed on every clear). It is the
+first identity whose signature action deals **no damage at all**: it charms, and a
+charmed unit fights for its captor.
+
+- **Three capabilities had to land together**, each of which had looked live: the probe
+  now prices a status in HP-equivalent (so a `none`-formula action can be chosen), Charm
+  has behaviour (`effectiveTeamOf`), and `inBand`'s contribution test counts a landed
+  STATUS — under the damage-only test the cutpurse scored zero on every map it decided.
+- **A livelock had to be fixed first, and a non-monotonic sweep is what exposed it.** The
+  first measurement read 3, 4, 3, 4 across adjacent Speed values. Cause: victory counted a
+  charmed body for its NOMINAL team, so charming the last defender froze the fight
+  (580-tick timeout, 18 charms landed). Once victory counted the EFFECTIVE team the jitter
+  vanished — 4/6 flat across speeds 8–11 and across raw-HP ×0.95…×1.15, `N` = 7 at every
+  step. **The plateau is the evidence that a mechanism was fixed rather than a number
+  moved.**
+- **The standing rule held again.** `N` is the honest observed count; it rose with the
+  measurement.
+- **Zero slack still:** all seven expressible prefixes count. The MP contingency
+  (`white-magic.`, `summon.`) is unchanged. `bld-spellblade` is still masked.
+- **The anti-convergence signals did not move:** `dominantBuilds` empty, `noLosingMatchup`
+  unchanged at three builds (the cutpurse is not among them, by design).
+
 ## References
 
 

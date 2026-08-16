@@ -290,9 +290,9 @@
     <div class="kpi fade"><div class="n">8</div><div class="k">Jobs</div></div>
     <div class="kpi fade"><div class="n">63</div><div class="k">Abilities</div></div>
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
-    <div class="kpi fade"><div class="n">14</div><div class="k">Unit builds</div></div>
+    <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">17</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">18</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
@@ -311,7 +311,7 @@
       </div>
       <div class="card sys">
         <div class="top"><h3>Content &amp; data &nbsp;<span class="sig mono">data/</span></h3><span class="pill accent"><span class="dot"></span>SEED SET</span></div>
-        <p>8 jobs, 63 abilities, statuses and traits — all schema-validated data, not hard-code. 14 reference unit builds and a 6-map benchmark suite exist to <em>test balance</em>, not to be a campaign.</p>
+        <p>8 jobs, 63 abilities, statuses and traits — all schema-validated data, not hard-code. 15 reference unit builds and a 6-map benchmark suite exist to <em>test balance</em>, not to be a campaign.</p>
         <div class="detail">battle-skill 8 · punch-art 8 · black-magic 7 · steal 8 · white-magic 8 · aim 8 · geomancy 8 · summon 8</div>
       </div>
       <div class="card sys">
@@ -386,7 +386,7 @@
 
   <section>
     <div class="sec-head"><span class="idx">GATE</span><h2>The build-diversity gate</h2></div>
-    <p class="lead">This is the pillar's safety net and the most recent work. A <b>substitution gauntlet</b> fields each reference build across the shipped maps against distinct <em>threat</em> profiles, and checks two things: enough <b>distinct viable identities</b> land their signature, and <b>no build strictly outclasses the field</b>. It fields two opposition axes — physical and magic — so a build can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table below is regenerated from a live gauntlet run every time this page is built.</p>
+    <p class="lead">This is the pillar's safety net and the most recent work. A <b>substitution gauntlet</b> fields each reference build across the shipped maps against distinct <em>threat</em> profiles, and checks two things: enough <b>distinct viable identities</b> land their signature, and <b>no build strictly outclasses the field</b>. It fields two opposition axes — physical and magic — so a build can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table below is regenerated from a live gauntlet run every time this page is built. The newest identity is the <b>Cutpurse</b>, whose signature deals no damage at all: it <em>charms</em>, and a charmed unit fights for whoever charmed it (<b>ADR-0018</b>).</p>
 
     <div class="card" style="margin-top:22px">
       <div class="matrix-shell">
@@ -444,6 +444,13 @@
               <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
+            <tr>
+              <td class="build">Cutpurse</td><td class="sig">steal.</td>
+              <td><span class="cellval viable">4/6</span></td>
+              <td><span class="cellval fold">1/6</span></td>
+              <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
+              <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
+            </tr>
             <tr class="muted-row">
               <td class="build">Spellblade</td><td class="sig">black-magic.</td>
               <td><span class="cellval fold">1/6</span></td>
@@ -455,7 +462,7 @@
         </table>
       </div>
       <div class="verdict">
-        <span><b>distinct identities</b> = <b style="color:var(--ok)">6</b> / 6 target</span>
+        <span><b>distinct identities</b> = <b style="color:var(--ok)">7</b> / 7 target</span>
         <span><b>dominant</b> = <b style="color:var(--ok)">none</b></span>
         <span><b>no-losing-matchup</b> = faithzero-monk, longshot, terrain-geo <span style="color:var(--ink-faint)">(surfaced, not failed)</span></span>
         <span class="pill ok" style="margin-left:auto"><span class="dot"></span>GATE PASSES</span>
@@ -520,7 +527,7 @@
         <div class="rank">03</div>
         <div>
           <h3>Beyond the job roster</h3>
-          <p>The job roster is being deprioritized. <b>All 6 signature prefixes the roster can express are now measured identities</b>, so there is zero slack: any regression fails the gate. The last two toward the <span class="mono">8</span>-archetype release bar come from new signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note <b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class="mono">white-magic.</span> and <span class="mono">summon.</span> currently ride unenforced MP.</p>
+          <p>The job roster is being deprioritized. <b>All 7 signature prefixes the roster can express are now measured identities</b>, so there is zero slack: any regression fails the gate. The last one toward the <span class="mono">8</span>-archetype release bar comes from a new signature prefix (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note <b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class="mono">white-magic.</span> and <span class="mono">summon.</span> currently ride unenforced MP.</p>
         </div>
         <span class="pill" style="align-self:center">pivot</span>
       </div>
@@ -532,8 +539,8 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 17 ADRs</span>
-    <span>· 25 spec files</span>
+    <span>· 18 ADRs</span>
+    <span>· 26 spec files</span>
   </div>
 
 </div>

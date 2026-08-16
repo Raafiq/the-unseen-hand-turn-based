@@ -105,7 +105,9 @@ export const content = {
       "checks two things: enough <b>distinct viable identities</b> land their signature, and <b>no build " +
       "strictly outclasses the field</b>. It fields two opposition axes — physical and magic — so a build " +
       "can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table " +
-      "below is regenerated from a live gauntlet run every time this page is built.",
+      "below is regenerated from a live gauntlet run every time this page is built. The newest identity is " +
+      "the <b>Cutpurse</b>, whose signature deals no damage at all: it <em>charms</em>, and a charmed unit " +
+      "fights for whoever charmed it (<b>ADR-0018</b>).",
     gateHonesty:
       "* Honesty note: the magic axis is a real second threat that makes cost non-uniform, but on the " +
       "aggregate roster it rewards tempo/range as much as personal Faith — the anti-mage's <em>own</em> " +
@@ -230,10 +232,10 @@ export const content = {
       title: "Beyond the job roster",
       badge: null,
       body:
-        "The job roster is being deprioritized. <b>All 6 signature prefixes the roster can express are now " +
+        "The job roster is being deprioritized. <b>All 7 signature prefixes the roster can express are now " +
         "measured identities</b>, so there is zero slack: any regression fails the gate. " +
-        "The last two toward the <span class=\"mono\">8</span>-archetype release bar come from new " +
-        "signature prefixes (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
+        "The last one toward the <span class=\"mono\">8</span>-archetype release bar comes from a new " +
+        "signature prefix (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
         "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
         "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",
       chip: "pivot",

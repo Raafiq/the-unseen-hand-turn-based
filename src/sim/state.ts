@@ -58,6 +58,13 @@
  *     it reproduces a migrated save's behaviour exactly, and re-resolving ids is
  *     impossible without the catalog a migration may not read. Infliction consumes
  *     NO rng draw, so the roll order (docs/05 §3) is unchanged.
+ *   - v10 (charm slice): {@link ActiveStatus} gains `controlsTarget` (a catalog
+ *     behaviour flag, ADR-0011) and `controlledByTeamId` (stamped at inflict time —
+ *     the catalog cannot know who landed it). Together they are the ONLY thing that
+ *     changes a unit's allegiance ({@link effectiveTeamOf}, docs/05 §6a, ADR-0018).
+ *     The 9→10 migration stamps `false`/`null` on every status AND every projected
+ *     `inflicts` template: no v9 status controlled anything, so a migrated save plays
+ *     byte-identically. Additive — no roll or result shift.
  */
 
 import { z } from "zod";
