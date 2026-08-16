@@ -89,7 +89,8 @@
       "kind": "debuff",
       "ctFactor": 1,
       "durationCT": 32,
-      "dispellable": true
+      "dispellable": true,
+      "controlsTarget": true
     }
   ],
   "abilities": [

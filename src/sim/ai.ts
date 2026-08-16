@@ -21,13 +21,14 @@
  *
  * SCOPE (D2): `effHp = hp` — no mitigation-aware (Protect/evasion/element) target
  * selection this slice, so AC-E3(c) ("counter the target's defenses") is only
- * partially met; (a) flank and (b) focus-lowest-HP are met fully. `none`-formula
- * and passive (reaction/support/movement) abilities are never picked — they do
- * nothing in the current resolver, so a DISABLE/BUFF class has no live candidate
- * yet (the class scaffold is kept for when status infliction lands).
+ * partially met; (a) flank and (b) focus-lowest-HP are met fully. Passive
+ * (reaction/support/movement) abilities are never picked — they do nothing in the
+ * current resolver. A `none`-formula ACTION is picked only when it is worth a turn,
+ * i.e. when the statuses it would inflict have a live effect ({@link statusValue}).
  */
 
-import { isBasicAttack, type BattleState, type UnitState, type Position } from "./state.js";
+import { effectiveTeamOf, isBasicAttack, type BattleState, type UnitState, type Position } from "./state.js";
+import type { ActiveStatus } from "./active-status.js";
 import type { BattleAbility } from "./ability.js";
 import type { Command } from "./driver.js";
 import { inAbilityRange, moveRange, relativeFacing, unitsInAoeBox } from "./grid.js";
@@ -35,11 +36,17 @@ import { attackDamage, abilityDamage } from "./resolve.js";
 
 /**
  * Lexicographic PRIMARY key — the action class, best first (docs/06). LETHAL (this
- * blow drops the target) outranks a mere CHIP; a HEAL sits between them. DISABLE
- * (status infliction) and BUFF are reserved for when their effects resolve; no
- * candidate is generated for them yet.
+ * blow drops the target) outranks a mere CHIP; a HEAL sits between them.
+ *
+ * THERE IS DELIBERATELY NO `DISABLE` CLASS. A scaffold for one sat here until status
+ * infliction went live; when it did, giving control its own class ABOVE chip would have
+ * made every landable status out-rank every attack unconditionally — the bucket-first
+ * key `src/sim/CLAUDE.md` bans, and it would have overridden the AC-E3(b) FOCUS rule
+ * (charm a healthy foe rather than finish a dying one). Control is instead priced in the
+ * SAME currency as damage — HP-equivalent, via {@link statusValue} — and added into
+ * `magnitude`, so it competes inside one uniform, transitive total order (ADR-0018).
  */
-const ACTION_CLASS = { LETHAL: 0, DISABLE: 1, HEAL: 2, CHIP: 3, BUFF: 4 } as const;
+const ACTION_CLASS = { LETHAL: 0, HEAL: 1, CHIP: 2 } as const;
 
 /** Facing preference (better hit-through): rear > side > front. Lower rank = better. */
 const FACING_RANK: Record<"front" | "side" | "rear", number> = { rear: 0, side: 1, front: 2 };
@@ -56,7 +63,9 @@ interface Candidate {
   /**
    * Effective magnitude: damage dealt / HP restored for a single-target act, or
    * the SUM over the aim box for an area act. Sorted DESC (the CHIP tie-break after
-   * effHp, and the LETHAL/HEAL primary).
+   * effHp, and the LETHAL/HEAL primary). For a damaging or `none`-formula act this
+   * INCLUDES the HP-equivalent worth of the statuses it would inflict
+   * ({@link statusValue}) — control and damage are one currency, never two classes.
    */
   magnitude: number;
   /** Facing rank from the tile the act resolves FROM ({@link from}). Sorted ASC (rear best). */
@@ -105,6 +114,75 @@ function estMagnitude(attacker: UnitState, target: UnitState, ability: BattleAbi
 }
 
 /**
+ * How much of a target's turn a debuff removes, per unit of CT it lasts (dimensionless):
+ *   - `preventsAction` (Stop/Sleep/Don't-Act/Petrify) → 1: it loses the whole turn;
+ *   - otherwise the CT-rate it loses, `1 - ctFactor` (Slow 0.5 → half its turns);
+ *   - 0 for anything the sim does not yet READ — a status whose only effect is a flag
+ *     no resolver honours denies nothing, so its ability stays unpicked. That is the
+ *     "must be able to come out the other way" half of this feature: an ability that
+ *     inflicts an INERT status must not become selectable just because `inflicts` is
+ *     non-empty.
+ *
+ * DELIBERATELY NOT VALUED: `interruptsCharge` (a strict subset of the units a
+ * `preventsAction` status already covers, and only when the target happens to be
+ * mid-charge — a positional accident this 1-ply policy would have to look ahead to
+ * price), and STAT-MODIFYING statuses, which do not exist yet (`battle-skill`'s
+ * `*-break`s are the pending case, `content.ts` DEFERRED_SKILLSETS).
+ */
+function statusSwingFactor(st: ActiveStatus): number {
+  // CONTROL (Charm) is a DOUBLE swing: the target's turn is not merely denied, it is
+  // spent against its own side — one turn lost to them, one gained by me. That 2 is a
+  // model of the mechanic, not a tuning dial: it falls out of `effectiveTeamOf` making
+  // the unit fight for the inflicter, and it is the same number a chess-style material
+  // swap would use.
+  if (st.controlsTarget) return 2;
+  return Math.max(st.preventsAction ? 1 : 0, 1 - st.ctFactor);
+}
+
+/**
+ * The HP-EQUIVALENT worth of the statuses `ability` would inflict on `target` — the
+ * term that lets CONTROL compete with DAMAGE inside ONE total order (ADR-0018).
+ *
+ * MECHANISM, not a tuning constant: a debuff is worth the damage the target will now
+ * NOT deal. A unit takes a turn every 100 CT accrued at `speed` per tick (scheduler.ts
+ * `ctRateOfUnit`) and a status decays 1 CT per tick, so a debuff lasting `addedCT`
+ * ticks denies `addedCT × swing × speed / 100` turns; each denied turn is worth one
+ * swing at ME, priced by the resolver's own {@link attackDamage} (the no-drift reuse
+ * rule — no combat constant is duplicated here). It is an APPROXIMATION in one known
+ * direction: a caster's real threat is its spell, not its basic swing, so control is
+ * UNDER-valued against casters. Sharpen it by pricing the target's best action once
+ * the probe can afford the recursion — never by adding a fudge factor.
+ *
+ * THE MARGINAL RULE: only the CT this cast would ADD counts (`applyInflicts` refreshes
+ * an existing status to the LONGER lifetime), so re-applying a status the target
+ * already carries is worth 0 and the probe cannot lock into a re-charm loop.
+ *
+ * THE CAP: never worth more than `target.hp`. A status can at most take the unit out
+ * of the fight, which is exactly what killing it does — so a PERMANENT status cannot
+ * price a turn above a lethal blow, and no horizon constant has to be invented.
+ *
+ * Buffs are ignored here: this is only ever called on a FOE (`none`-formula abilities
+ * target foes, {@link candidatesFrom}), and inflicting a buff on a foe helps it. That
+ * makes `white-magic.protect` — an ally buff with no ally-targeting path — inert by
+ * TWO independent gaps; see the deferral note in {@link candidatesFrom}.
+ */
+function statusValue(actor: UnitState, target: UnitState, ability: BattleAbility): number {
+  if (ability.inflicts.length === 0) return 0;
+  let value = 0;
+  for (const st of ability.inflicts) {
+    if (st.kind !== "debuff") continue;
+    const swing = statusSwingFactor(st);
+    if (swing <= 0) continue;
+    const existing = target.statuses.find((s) => s.id === st.id);
+    const addedCT = existing === undefined ? st.remainingCT : Math.max(0, st.remainingCT - existing.remainingCT);
+    if (addedCT <= 0) continue;
+    value += (addedCT * swing * target.speed * attackDamage(target, actor)) / 100;
+  }
+  // Integer HP-equivalent, so the comparator ranks on the same scale as damage.
+  return Math.min(Math.floor(value), target.hp);
+}
+
+/**
  * Enumerate every LEGAL, EFFECTIVE action resolving FROM the tile `from`: for each
  * ACTION ability (in `abilities` array order) crossed with its valid targets
  * (foes for damage, allies incl. self for heal) that are IN RANGE and would gain
@@ -127,9 +205,23 @@ function candidatesFrom(
   moved: number,
 ): Candidate[] {
   const cands: Candidate[] = [];
+  // ALLEGIANCE (state.ts `effectiveTeamOf`): a CHARMED actor hunts its own nominal
+  // team, and a charmed foe counts as an ally — targeting reads the effective team on
+  // BOTH sides, or a charmed unit would attack the side that charmed it.
+  const actorTeam = effectiveTeamOf(actor);
   actor.abilities.forEach((ability, abilityIndex) => {
     if (ability.actionKind !== "action") return; // reaction/support/movement are passive
-    if (ability.formula === "none") return; // no magnitude/effect in the current resolver
+    // NOTE a `none`-formula action is NO LONGER skipped here: it survives to the
+    // per-target effectiveness test below, where `statusValue` decides whether the
+    // statuses it inflicts are worth a turn. One with nothing live to inflict scores 0
+    // and is dropped there, so the skip is now a MEASURED one, not a blanket rule.
+    //
+    // NAMED DEFERRAL — ALLY-TARGETED support actions. Targeting below splits on
+    // `formula === "heal"` only, so a `none`-formula act always aims at FOES. A pure
+    // BUFF action (`white-magic.protect`) therefore has no path to an ally and stays
+    // unpicked; it needs a target-side discriminant (`targets: "ally" | "foe"` in the
+    // ability schema), not a comparator change. `white-magic.esuna` (cleanse) is behind
+    // the same gap plus an unimplemented effect.
     // LANDMINE: the driver enqueues EVERY charge as a MAGIC ChargeEffect
     // (driver.ts declareCharge dispatch; charge.ts resolves it via magicDamage),
     // so a charged NON-magic ability would misresolve — worst case a charged HEAL
@@ -143,7 +235,7 @@ function candidatesFrom(
     // aim units (not raw tiles) keeps the search finite and each aim deterministic.
     for (const aim of state.units) {
       if (aim.hp <= 0) continue;
-      const sameTeam = aim.teamId === actor.teamId;
+      const sameTeam = effectiveTeamOf(aim) === actorTeam;
       if (heal ? !sameTeam : sameTeam) continue; // heal allies (incl. self); damage foes
       if (!inAbilityRange(state.grid, from, aim.pos, ability.range)) continue;
 
@@ -154,7 +246,7 @@ function candidatesFrom(
         // is the SAME focus rule as single-target, so an AoE competes on (lowest-effHp,
         // total-magnitude) rather than on raw cluster size.
         const affected = unitsInAoeBox(state.grid, state.units, aim.pos, ability.aoe).filter((u) =>
-          heal ? u.teamId === actor.teamId : u.teamId !== actor.teamId,
+          heal ? effectiveTeamOf(u) === actorTeam : effectiveTeamOf(u) !== actorTeam,
         );
         let magnitude = 0;
         let affectedCount = 0;
@@ -167,9 +259,13 @@ function candidatesFrom(
             if (gain <= 0) continue; // this ally has no HP to restore
             magnitude += gain;
           } else {
-            if (raw <= 0) continue; // a 0-damage tick on this foe is worthless
-            magnitude += raw;
-            if (raw >= t.hp) kos += 1;
+            // A status is worth NOTHING on a foe this tick kills — `applyInflicts`
+            // skips a target already at 0 HP, so a lethal hit lands no debuff.
+            const lethal = raw >= t.hp;
+            const sv = lethal ? 0 : statusValue(actor, t, ability);
+            if (raw <= 0 && sv <= 0) continue; // no damage AND no live status → worthless
+            magnitude += raw + sv;
+            if (lethal) kos += 1;
           }
           affectedCount += 1;
           if (t.hp < minEffHp) minEffHp = t.hp;
@@ -199,9 +295,13 @@ function candidatesFrom(
         if (magnitude <= 0) continue; // no HP to restore → not worth a turn
         cls = ACTION_CLASS.HEAL;
       } else {
-        if (raw <= 0) continue; // a 0-damage swing is not worth a turn
-        magnitude = raw;
-        cls = raw >= aim.hp ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
+        // Same rule as the area branch: a killing blow's statuses never land, so a
+        // LETHAL candidate is priced on damage alone.
+        const lethal = raw >= aim.hp;
+        const sv = lethal ? 0 : statusValue(actor, aim, ability);
+        if (raw <= 0 && sv <= 0) continue; // no damage AND no live status → not worth a turn
+        magnitude = raw + sv;
+        cls = lethal ? ACTION_CLASS.LETHAL : ACTION_CLASS.CHIP;
       }
       const facing = relativeFacing(aim, from);
       cands.push({
@@ -261,7 +361,11 @@ function allCandidates(state: BattleState, actor: UnitState): Candidate[] {
  *     catching more units. [Decision: replaced an earlier spread-DESC-first key that
  *     preferred cluster size over focus and could rank a 2-for-1-damage tap above a
  *     near-lethal single-target chip; reviewer S2. Uniform effHp→magnitude keeps the
- *     comparator a single transitive total order and preserves AC-E3(b).]
+ *     comparator a single transitive total order and preserves AC-E3(b).] CONTROL rides
+ *     in the SAME `magnitude` (ADR-0018): a disable is priced in HP-equivalent and added
+ *     to the damage, so it out-ranks a plain chip on the focus target only when it is
+ *     worth more than that chip — and it can NEVER jump the focus key to hit a healthier
+ *     foe, which a DISABLE class would have done.
  *   - HEAL: effHp ASC first, then magnitude DESC — TRIAGE the dying ally. AC-E3(b) is
  *     a FOCUS rule and it applies on the ally side too: heal the LOWEST-effective-HP
  *     ally (the one closest to death), and only AMONG ties on urgency prefer the bigger
@@ -339,9 +443,10 @@ function toActCommand(c: Candidate): Command {
 
 /** The prime enemy to chase when no action is in range: lowest HP → nearest → id asc. */
 function primeEnemy(state: BattleState, actor: UnitState): UnitState | null {
+  const actorTeam = effectiveTeamOf(actor);
   let prime: UnitState | null = null;
   for (const e of state.units) {
-    if (e.hp <= 0 || e.teamId === actor.teamId) continue;
+    if (e.hp <= 0 || effectiveTeamOf(e) === actorTeam) continue;
     if (prime === null) {
       prime = e;
       continue;
@@ -422,6 +527,7 @@ interface ScreenKey {
  * AI).
  */
 function tryScreen(state: BattleState, actor: UnitState): Command | null {
+  const actorTeam = effectiveTeamOf(actor);
   // PROTECTEE — a living ALLY (never self) that is MID-CHARGE, i.e. owns a chargeQueue
   // entry (`sourceUnitId`). Only charging units qualify, so on the shipped roster only
   // the glass summoner / a charging black-mage is ever a protectee (fillers do not
@@ -433,7 +539,7 @@ function tryScreen(state: BattleState, actor: UnitState): Command | null {
   // only, minimal blast radius; see the measurement report.)
   let protectee: UnitState | null = null;
   for (const ally of state.units) {
-    if (ally.id === actor.id || ally.hp <= 0 || ally.teamId !== actor.teamId) continue;
+    if (ally.id === actor.id || ally.hp <= 0 || effectiveTeamOf(ally) !== actorTeam) continue;
     if (!state.chargeQueue.some((c) => c.sourceUnitId === ally.id)) continue;
     if (protectee === null) {
       protectee = ally;
@@ -457,7 +563,7 @@ function tryScreen(state: BattleState, actor: UnitState): Command | null {
   // THREAT E — the enemy nearest (Manhattan) to the protectee P; tie-break id ASC.
   let threat: UnitState | null = null;
   for (const e of state.units) {
-    if (e.hp <= 0 || e.teamId === actor.teamId) continue;
+    if (e.hp <= 0 || effectiveTeamOf(e) === actorTeam) continue;
     if (threat === null) {
       threat = e;
       continue;

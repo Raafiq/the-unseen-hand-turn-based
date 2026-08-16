@@ -93,6 +93,7 @@ function run(over: Partial<GauntletRun> & { buildId: string; mapId: string }): G
     hpFraction: 1,
     candidateDamage: 100,
     candidateHealing: 0,
+    candidateStatuses: 0,
     candidateSignatureLanded: 3,
     ...over,
   };

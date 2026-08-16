@@ -40,6 +40,13 @@ export const StatusEffectSchema = z
     interruptsCharge: z.boolean().optional(),
     /** Interrupt applies to magic charges only (e.g. Silence). */
     interruptsMagicOnly: z.boolean().optional(),
+    /**
+     * The afflicted unit FIGHTS FOR THE INFLICTER for the duration (Charm, docs/01 §8).
+     * A behaviour DISCRIMINANT, not the behaviour: the allegiance swap itself is code
+     * (`effectiveTeamOf`, state.ts), and the inflicting team is stamped onto the
+     * per-unit {@link ActiveStatus} at inflict time — the catalog cannot know it.
+     */
+    controlsTarget: z.boolean().optional(),
   })
   .strict();
 export type StatusEffect = z.infer<typeof StatusEffectSchema>;

@@ -66,6 +66,16 @@ export const ActiveStatusSchema = z
     interruptsCharge: z.boolean(),
     /** Interrupt applies to magic charges only (Silence). */
     interruptsMagicOnly: z.boolean(),
+    /** The unit fights for the INFLICTER while this lasts (Charm, docs/01 §8). */
+    controlsTarget: z.boolean(),
+    /**
+     * WHICH team it fights for — stamped when the status is APPLIED (`applyInflicts`),
+     * because only the resolver knows who landed it. `null` on a template (build.ts
+     * projects one per authored `inflicts` id, long before any inflicter exists) and on
+     * any status that does not control, so `controlsTarget && controlledByTeamId !== null`
+     * is the ONLY condition that swaps allegiance ({@link effectiveTeamOf}).
+     */
+    controlledByTeamId: IntSchema.min(0).nullable(),
   })
   .strict();
 export type ActiveStatus = z.infer<typeof ActiveStatusSchema>;
@@ -94,11 +104,11 @@ export function statusInterruptsCharge(st: ActiveStatus, effectKind: string): bo
 const LEGACY_STATUS_BEHAVIOR: Readonly<
   Record<StatusFlag, Omit<ActiveStatus, "id" | "remainingCT">>
 > = {
-  haste: { kind: "buff", ctFactor: 1.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  slow: { kind: "debuff", ctFactor: 0.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  stop: { kind: "debuff", ctFactor: 0, preventsAction: true, interruptsCharge: true, interruptsMagicOnly: false },
-  protect: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
-  shell: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false },
+  haste: { kind: "buff", ctFactor: 1.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false, controlsTarget: false, controlledByTeamId: null },
+  slow: { kind: "debuff", ctFactor: 0.5, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false, controlsTarget: false, controlledByTeamId: null },
+  stop: { kind: "debuff", ctFactor: 0, preventsAction: true, interruptsCharge: true, interruptsMagicOnly: false, controlsTarget: false, controlledByTeamId: null },
+  protect: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false, controlsTarget: false, controlledByTeamId: null },
+  shell: { kind: "buff", ctFactor: 1, preventsAction: false, interruptsCharge: false, interruptsMagicOnly: false, controlsTarget: false, controlledByTeamId: null },
 };
 
 /**
@@ -116,6 +126,9 @@ export function legacyActiveStatus(flag: StatusFlag, remainingCT: number = PERMA
  * the catalog `durationCT`; the behavior FLAGS are copied verbatim (omitted ⇒
  * false). Callers that want a permanent status (e.g. a `durationCT: 0`
  * "until-cured" status) pass {@link PERMANENT_STATUS_CT} explicitly.
+ *
+ * `controlledByTeamId` is ALWAYS null here: this builds a TEMPLATE, and who controls a
+ * charmed unit is only known when the status actually lands (`applyInflicts` stamps it).
  */
 export function makeActiveStatus(entry: StatusEffect, remainingCT?: number): ActiveStatus {
   return {
@@ -126,5 +139,7 @@ export function makeActiveStatus(entry: StatusEffect, remainingCT?: number): Act
     preventsAction: entry.preventsAction ?? false,
     interruptsCharge: entry.interruptsCharge ?? false,
     interruptsMagicOnly: entry.interruptsMagicOnly ?? false,
+    controlsTarget: entry.controlsTarget ?? false,
+    controlledByTeamId: null,
   };
 }

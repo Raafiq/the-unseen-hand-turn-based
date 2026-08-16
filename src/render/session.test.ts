@@ -475,6 +475,8 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
           preventsAction: false,
           interruptsCharge: false,
           interruptsMagicOnly: false,
+          controlsTarget: false,
+          controlledByTeamId: null,
         },
       ];
       return s;

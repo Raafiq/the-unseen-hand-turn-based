@@ -30,7 +30,7 @@ import { advanceToNextTurn, settleTurn } from "./scheduler.js";
 import { resolveAttack, resolveAbility, resolveAbilityAoe, tickCrystal } from "./resolve.js";
 import { declareCharge, resolveCharge } from "./charge.js";
 import { moveRange, inAbilityRange } from "./grid.js";
-import { isBasicAttack, PositionSchema, type BattleState, type Position } from "./state.js";
+import { effectiveTeamOf, isBasicAttack, PositionSchema, type BattleState, type Position } from "./state.js";
 
 /**
  * One active unit's decision. Discriminated by `kind`; the acting unit is chosen
@@ -105,9 +105,10 @@ export interface Decision {
  * new state; it only reads what the resolvers already computed.
  *
  * `landed` is the honesty linchpin: it is true ONLY when the action CONNECTED with
- * ≥ 1 target (a hit / heal that dealt something). A miss, an empty-box whiff, or a
- * cancelled charge is `landed:false` and contributes 0 — so the diversity gate keys
- * on what a build actually DID, never on the commands it merely issued.
+ * ≥ 1 target — a hit / heal that moved HP, OR a status it actually applied. A miss, an
+ * empty-box whiff, or a cancelled charge is `landed:false` and contributes 0 — so the
+ * diversity gate keys on what a build actually DID, never on the commands it merely
+ * issued.
  */
 export interface ResolutionEvent {
   /** The unit CREDITED with the action (the caster — the charge source for a charge). */
@@ -120,7 +121,18 @@ export interface ResolutionEvent {
   healingDone: number;
   /** Foes/units this action dropped to 0 HP. */
   kos: number;
-  /** Did the action connect with ≥ 1 target? (drives signature-landed counting). */
+  /**
+   * Statuses this action newly applied to OTHER units (a refresh of one the target
+   * already had is not counted — it adds no state). A control action deals no damage,
+   * so without this a landed Charm/Stop would be indistinguishable from a whiff.
+   */
+  statusesInflicted: number;
+  /**
+   * Did the action connect with ≥ 1 target? (drives signature-landed counting). TRUE
+   * for a 0-damage action that landed a STATUS — the discriminating case: judging
+   * "landed" by HP movement alone made every pure-control build score 0 contribution
+   * and 0 signature-landed, i.e. the diversity gate could never have credited one.
+   */
   landed: boolean;
 }
 
@@ -166,16 +178,32 @@ function hpDiffEvent(
   abilityId: string,
 ): ResolutionEvent {
   const beforeById = new Map(before.units.map((u) => [u.id, u]));
-  const srcTeam = beforeById.get(sourceUnitId)?.teamId;
+  const src = beforeById.get(sourceUnitId);
+  // EFFECTIVE team on BOTH sides (state.ts `effectiveTeamOf`): a CHARMED unit attacks
+  // its own nominal teammates, and reading raw `teamId` here would trip the
+  // friendly-fire tripwire below on a mechanic that is now modeled — while crediting
+  // the charmer's side with nothing.
+  const srcTeam = src === undefined ? undefined : effectiveTeamOf(src);
   let damageDealt = 0;
   let healingDone = 0;
   let kos = 0;
+  let statusesInflicted = 0;
   for (const u of after.units) {
     const prev = beforeById.get(u.id);
     if (prev === undefined) continue;
+    // NEW statuses on someone else — the LANDED signal for a 0-damage control action.
+    // Counted by id against the pre-action set, so a REFRESH (same id, longer timer)
+    // adds nothing: re-Stopping a Stopped foe is not a second landed action.
+    if (u.id !== sourceUnitId && u.statuses.length > 0) {
+      const had = new Set(prev.statuses.map((st) => st.id));
+      for (const st of u.statuses) if (!had.has(st.id)) statusesInflicted += 1;
+    }
     const delta = u.hp - prev.hp;
     if (delta === 0) continue;
-    const sameTeam = srcTeam !== undefined && u.teamId === srcTeam;
+    // Allegiance as it stood when the action was DECLARED (`prev`), not after it: an
+    // action that both charms and damages would otherwise look like friendly fire the
+    // instant its own charm flipped the target.
+    const sameTeam = srcTeam !== undefined && effectiveTeamOf(prev) === srcTeam;
     const isSelf = u.id === sourceUnitId;
     if (delta < 0) {
       if (sameTeam && !isSelf) {
@@ -203,7 +231,8 @@ function hpDiffEvent(
     damageDealt,
     healingDone,
     kos,
-    landed: damageDealt > 0 || healingDone > 0,
+    statusesInflicted,
+    landed: damageDealt > 0 || healingDone > 0 || statusesInflicted > 0,
   };
 }
 

@@ -85,7 +85,7 @@ export {
 } from "./active-status.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -389,6 +389,33 @@ export function isBasicAttack(ability: BattleAbility): boolean {
 }
 
 /**
+ * The team a unit currently FIGHTS FOR — its own, unless a controlling status (Charm,
+ * docs/01 §8) has stamped another team onto it. THE SINGLE ALLEGIANCE SEAM: every place
+ * that asks "friend or foe" reads this, never `unit.teamId` directly — the balance
+ * probe's targeting, the AoE resolvers' friend/foe filters, and the driver's damage
+ * attribution. Deterministic: the FIRST controlling status in the (stable) `statuses`
+ * array wins, so two charms from opposite teams resolve by application order, never by
+ * iteration accident.
+ *
+ * DELIBERATELY NOT read by three places, and each omission is a rule, not an oversight:
+ *   - VICTORY/DEFEAT conditions and the harness's team reports (condition.ts,
+ *     harness.ts) — a charmed unit is still ALIVE on its own team, so charming an
+ *     enemy must not win the battle by "eliminating" its team. Charm buys turns, not
+ *     the objective.
+ *   - MOVEMENT/traversal blocking (grid.ts) — a body blocks a lane because it is
+ *     THERE, not because of whose side it is on; a charmed unit keeps walking among
+ *     its old comrades. (FFT lets a unit pass through allies only; making that follow
+ *     charm would let a charmed unit phase through the team that charmed it.)
+ *   - The scheduler — allegiance changes nothing about when a turn comes up.
+ */
+export function effectiveTeamOf(unit: UnitState): number {
+  for (const st of unit.statuses) {
+    if (st.controlsTarget && st.controlledByTeamId !== null) return st.controlledByTeamId;
+  }
+  return unit.teamId;
+}
+
+/**
  * Derive a unit's basic-attack {@link BattleAbility} from its inline `weapon`.
  * The SINGLE source of a basic attack so a freshly-built unit ({@link defaultUnit}
  * / build.ts) and a migrated v4 unit (migrate4to5) always produce a byte-identical
@@ -686,6 +713,41 @@ const migrate8to9: Migration = (s) => {
 };
 
 /**
+ * v9 → v10: CHARM behaviour (docs/01 §8). Every {@link ActiveStatus} gains the
+ * `controlsTarget` behaviour flag and the `controlledByTeamId` stamp naming the team a
+ * charmed unit now fights for. Stamp `false` / `null` on every existing status: no v9
+ * status controlled anything (nothing read allegiance from a status before this slice),
+ * so a migrated save plays byte-identically. Additive; no roll or result shifts.
+ *
+ * Ability/charge-effect `inflicts` templates are migrated the same way — they are
+ * ActiveStatus records too, and a v9 template can only have come from a catalog entry
+ * that had no `controlsTarget` field to begin with.
+ */
+const migrate9to10: Migration = (s) => {
+  const stamp = (st: Record<string, unknown>): Record<string, unknown> => ({
+    ...st,
+    controlsTarget: false,
+    controlledByTeamId: null,
+  });
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    statuses: (u["statuses"] as Array<Record<string, unknown>>).map(stamp),
+    abilities: (u["abilities"] as Array<Record<string, unknown>>).map((a) => ({
+      ...a,
+      inflicts: ((a["inflicts"] ?? []) as Array<Record<string, unknown>>).map(stamp),
+    })),
+  }));
+  const chargeQueue = (s["chargeQueue"] as Array<Record<string, unknown>>).map((c) => {
+    const effect = c["effect"] as Record<string, unknown>;
+    return {
+      ...c,
+      effect: { ...effect, inflicts: ((effect["inflicts"] ?? []) as Array<Record<string, unknown>>).map(stamp) },
+    };
+  });
+  return { ...s, schemaVersion: 10, units, chargeQueue };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -698,6 +760,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   6: migrate6to7,
   7: migrate7to8,
   8: migrate8to9,
+  9: migrate9to10,
 };
 
 export class SchemaVersionError extends Error {

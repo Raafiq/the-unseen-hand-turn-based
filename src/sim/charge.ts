@@ -48,6 +48,7 @@ import {
   type BattleState,
   type ChargeEffect,
   type Position,
+  effectiveTeamOf,
 } from "./state.js";
 
 // MOVED to `active-status.ts` so `resolve.ts`'s on-hit inflict path can latch the
@@ -261,8 +262,9 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
   //     box → whiff, no draw. A `null` aoe falls through to the single-target
   //     path below, byte-identical (the no-op invariant).
   if (effect.aoe !== null) {
+    const casterTeam = effectiveTeamOf(caster);
     const foes = unitsInAoeBox(state.grid, state.units, targetTile, effect.aoe).filter(
-      (u) => u.teamId !== caster.teamId,
+      (u) => effectiveTeamOf(u) !== casterTeam,
     );
     if (foes.length === 0) {
       dequeue();
@@ -304,7 +306,7 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
         }
         // ON-HIT STATUS at maturity, per landed target (docs/05 §2 step d). The
         // templates rode along on the charge effect, so nothing is re-read here.
-        applyInflicts(state, foe, effect.inflicts);
+        applyInflicts(state, foe, effect.inflicts, effectiveTeamOf(caster));
       }
       perTarget.push({ targetId: foe.id, hitChance: chance, hit: hitOne, damage: dmg, ko: koOne });
     }
@@ -380,7 +382,7 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     }
     // ON-HIT STATUS at maturity (docs/05 §2 step d), from the templates the charge
     // carried since it was declared.
-    applyInflicts(state, target, effect.inflicts);
+    applyInflicts(state, target, effect.inflicts, effectiveTeamOf(caster));
   }
 
   state.rngCounter = rng.count;

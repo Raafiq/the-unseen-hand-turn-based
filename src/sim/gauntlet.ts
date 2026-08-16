@@ -531,6 +531,8 @@ export interface GauntletRun {
   /** The candidate's own landed contribution this run. */
   candidateDamage: number;
   candidateHealing: number;
+  /** Statuses the candidate newly applied — a control build's whole contribution. */
+  candidateStatuses: number;
   candidateSignatureLanded: number;
 }
 
@@ -592,6 +594,7 @@ export function runGauntlet(params: RunGauntletParams): GauntletRun[] {
           damageDealt: 0,
           healingDone: 0,
           kos: 0,
+          statusesInflicted: 0,
           signatureActionsLanded: 0,
         };
         const team0 = report.teams.find((t) => t.teamId === 0);
@@ -607,6 +610,7 @@ export function runGauntlet(params: RunGauntletParams): GauntletRun[] {
           hpFraction: team0?.hpFraction ?? 0,
           candidateDamage: c.damageDealt,
           candidateHealing: c.healingDone,
+          candidateStatuses: c.statusesInflicted,
           candidateSignatureLanded: c.signatureActionsLanded,
         });
       }
@@ -632,12 +636,19 @@ export const DEFAULT_BAND: BandConfig = {
   targetN: DIVERSITY_TARGET_N,
 };
 
-/** IN BAND: the candidate WON in time AND actually contributed (dealt/healed > 0). */
+/**
+ * IN BAND: the candidate WON in time AND actually contributed. CONTRIBUTION is damage,
+ * healing OR a landed STATUS — the third term is not a widening of the bar but a fix to
+ * it: a pure-control identity (the thief's `steal.heart`) deals no damage and heals
+ * nobody, so a damage-only proxy scored it 0 and the gate could never have credited a
+ * control build however decisive its charms were. The anti-"carried by the fillers"
+ * property is unchanged: an inert candidate still lands nothing of any of the three.
+ */
 export function inBand(run: GauntletRun, band: BandConfig): boolean {
   return (
     run.outcome === "victory" &&
     run.ticks <= band.winCeil &&
-    run.candidateDamage + run.candidateHealing > 0
+    run.candidateDamage + run.candidateHealing + run.candidateStatuses > 0
   );
 }
 
