@@ -59,13 +59,18 @@ abilities (Black Magic damage, Monk Wave Fist / Earth Slash, Chakra/Revive heal
 magnitude) are **not** on this list.
 
 - **Stat-break line** (all `battle-skill.*-break`): the stat-reduction effect.
-- **Steal line** (`steal.gil/armor/helmet/weapon`): the item/gil transfer.
-- **`steal.heart`**: authored with `inflicts: [status.charm]`, and since the on-hit
-  inflict path landed (2026-08-16) a landed hit really does apply Charm as a status.
-  **Charm BEHAVIOUR — the inflicter controlling the target — is still unimplemented**,
-  so the status sits on the unit as an inert marker; the item-transfer side is deferred
-  too. This line previously claimed charm "*is* wired", which was false for the whole
-  life of the pack: nothing applied `inflicts` at all.
+- **Steal line** (`steal.gil/armor/helmet/weapon`): the item/gil transfer — `gil` needs the
+  post-battle economy (`docs/07`), the other three the equipment modifier layer
+  (`docs/05` §4). NOTE the `steal` SKILLSET is live now (see `steal.heart` below) while
+  these four are not, which is why the deferral manifest is per-ABILITY
+  (`content.ts` `DEFERRED_ACTIONS`, read by the prep panel) and not per-skillset.
+- **`steal.heart` is LIVE — it is not on this list any more** (2026-08-16, ADR-0018). A
+  landed hit applies Charm, and a charmed unit fights for its inflicter until the status
+  decays: it acts for that team, is targeted as one of its units, and counts for it when
+  victory is checked. `bld-cutpurse` is built on it. (History, because the line was wrong
+  twice: the pack claimed charm "*is* wired" while **nothing applied `inflicts` at all**;
+  the inflict path then landed and the status became a real but **inert marker**, since
+  nothing read allegiance from it. Only the third step made it a mechanic.)
 - **`punch-art.chakra` / `revive`**: heal magnitude works; MP-restore (Chakra) and
   KO-raise (Revive) semantics are deferred.
 - **`punch-art.purification`**: status-cleanse.
@@ -85,6 +90,12 @@ only uses live-formula actions and picks the highest-magnitude one, so a build's
 job identity is *masked* if a borrowed secondary out-damages its primary — keep the
 showcased skillset's live action un-dominated (e.g. `bld-terrain-geo` runs a utility
 `thief` secondary so its geomancy is what fires).
+
+**`bld-cutpurse` (2026-08-16)** is the roster's first CONTROL build: its signature
+`steal.heart` deals no damage at all, so it wins by charming rather than by killing. Its
+raw Speed is the roster's uniform 8 deliberately — a *faster* thief outruns its escorts,
+arrives alone and dies, and a *slower* one clears every map with no losing matchup, which
+is the convergence failure `docs/02` B5 exists to prevent.
 
 ## `encounters/*.json` — benchmark suite (Slice 2–3)
 

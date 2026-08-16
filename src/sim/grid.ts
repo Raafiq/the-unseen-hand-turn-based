@@ -8,6 +8,7 @@
  * stable and comparable.
  */
 
+import { effectiveTeamOf } from "./state.js";
 import type { GridState, Position, Tile, UnitState, Facing } from "./state.js";
 import type { RangeBox } from "./ability.js";
 
@@ -58,8 +59,14 @@ export function moveRange(grid: GridState, units: readonly UnitState[], unitId: 
   const unit = units.find((u) => u.id === unitId);
   if (!unit) throw new Error(`moveRange: unknown unit ${unitId}`);
 
+  // ALLEGIANCE, not nominal team (state.ts `effectiveTeamOf`): the rule here is
+  // "ENEMIES block, allies are passable", so a CHARMED unit is passable to the side
+  // controlling it and blocks its old comrades. Reading raw `teamId` instead made a
+  // charmed body a door-stop nobody could pass and nobody would attack — measured as a
+  // 453-tick TIMEOUT on the corridor map (enc-the-breach) when charm first went live.
   const occupantTeam = new Map<string, number>();
-  for (const u of units) occupantTeam.set(posKey(u.pos.x, u.pos.y), u.teamId);
+  for (const u of units) occupantTeam.set(posKey(u.pos.x, u.pos.y), effectiveTeamOf(u));
+  const unitTeam = effectiveTeamOf(unit);
 
   const startKey = posKey(unit.pos.x, unit.pos.y);
   const dist = new Map<string, number>([[startKey, 0]]);
@@ -84,7 +91,7 @@ export function moveRange(grid: GridState, units: readonly UnitState[], unitId: 
       if (Math.abs(t.height - curTile.height) > unit.jump) continue;
 
       const occTeam = occupantTeam.get(nk);
-      if (occTeam !== undefined && occTeam !== unit.teamId) continue; // enemy blocks traversal
+      if (occTeam !== undefined && occTeam !== unitTeam) continue; // enemy blocks traversal
 
       dist.set(nk, d + 1);
       queue.push({ x: nx, y: ny });

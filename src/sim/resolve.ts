@@ -26,7 +26,7 @@ import {
   type Facing,
 } from "./formulas.js";
 import { CT_COST_WAIT } from "./scheduler.js";
-import { isBasicAttack, rngFor, type BattleState, type Position, type UnitState } from "./state.js";
+import { effectiveTeamOf, isBasicAttack, rngFor, type BattleState, type Position, type UnitState } from "./state.js";
 import { statusInterruptsCharge, type ActiveStatus } from "./active-status.js";
 import type { BattleAbility } from "./ability.js";
 
@@ -77,12 +77,20 @@ export const CRYSTAL_TIMER_START = 3;
  *      rather than pushing a duplicate, so two Slows cannot halve CT twice or
  *      leave a second copy behind when the first expires.
  *
+ * `sourceTeamId` is the INFLICTER's EFFECTIVE team (a charmed inflicter charms for its
+ * captor), stamped onto a `controlsTarget` status so {@link effectiveTeamOf} knows who
+ * the victim now fights for. Every shipped caller has a live inflicter — a charge whose
+ * caster is gone is CANCELLED before it can inflict — so `null` is reserved for a future
+ * source-less effect (a trap, a terrain hazard): the status lands but controls nobody,
+ * because a charm with no owner is an allegiance the state cannot name.
+ *
  * Mutates `state` in place — callers already hold a clone.
  */
 export function applyInflicts(
   state: BattleState,
   target: UnitState,
   inflicts: readonly ActiveStatus[],
+  sourceTeamId: number | null,
 ): void {
   if (inflicts.length === 0 || target.hp <= 0) return;
   for (const template of inflicts) {
@@ -91,9 +99,14 @@ export function applyInflicts(
       // Refresh in place: keep the array position (deterministic iteration order)
       // and take the longer remaining lifetime, so a re-hit never shortens a status.
       existing.remainingCT = Math.max(existing.remainingCT, template.remainingCT);
+      // A refresh keeps the ORIGINAL controller: re-charming an already-charmed unit
+      // extends the leash, it does not hand it to a second inflicter mid-status.
       continue;
     }
-    target.statuses.push({ ...template });
+    target.statuses.push({
+      ...template,
+      controlledByTeamId: template.controlsTarget ? sourceTeamId : null,
+    });
     // LATCH THE INTERRUPT (ADR-0010 item 2), mirroring `charge.ts`'s
     // `applyStatusToUnit`: a caster disabled mid-charge stays cancelled at maturity
     // even if the status decays first. Duplicated deliberately rather than calling
@@ -229,7 +242,7 @@ export function resolveAbility(
     }
     // ON-HIT STATUS (docs/05 §2 step d). Applied AFTER the HP write, so a lethal
     // blow does not also stack a status on a corpse (see {@link applyInflicts}).
-    applyInflicts(state, target, ability.inflicts);
+    applyInflicts(state, target, ability.inflicts, effectiveTeamOf(attacker));
   }
 
   state.rngCounter = rng.count;
@@ -324,8 +337,9 @@ export function resolveAbilityAoe(
   const base = { attackerId, abilityId, targetTile: { x: targetTile.x, y: targetTile.y }, heal };
 
   // TARGETED enumeration (id-ascending). Damage → foes; heal → allies incl. self.
+  const attackerTeam = effectiveTeamOf(attacker);
   const affected = unitsInAoeBox(state.grid, state.units, targetTile, ability.aoe).filter((u) =>
-    heal ? u.teamId === attacker.teamId : u.teamId !== attacker.teamId,
+    heal ? effectiveTeamOf(u) === attackerTeam : effectiveTeamOf(u) !== attackerTeam,
   );
   if (affected.length === 0) {
     state.turnLog.push({
@@ -362,7 +376,7 @@ export function resolveAbilityAoe(
       }
       // ON-HIT STATUS, per target that the box LANDED on — id-ascending, same order
       // as the hit rolls, and consuming no draw of its own (docs/05 §2 step d).
-      applyInflicts(state, target, ability.inflicts);
+      applyInflicts(state, target, ability.inflicts, effectiveTeamOf(attacker));
       total += amount;
     }
     perTarget.push({ targetId: target.id, facing, hitChance: chance, hit, amount, ko });

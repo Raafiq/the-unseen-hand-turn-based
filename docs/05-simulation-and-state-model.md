@@ -58,6 +58,10 @@ RESOLVE:  (immediate action now, or charged action on its matured tick)
      c. MAGNITUDE: weapon/magic formula (docs/01 §5), floor each bracket;
                    × elemental modifier (weak/half/absorb/null) × Zodiac
      d. APPLY: clamp HP≥0; on lethal → set KO + crystalTimer=3; apply status w/ CT-based duration
+                   (unconditional on a landed hit — NO separate status roll yet, so the §3
+                   roll order is unchanged; never onto a corpse; a re-hit REFRESHES to the
+                   longer lifetime rather than stacking; a `controlsTarget` status is
+                   stamped with the inflicter's team — §6a)
      e. REACTION POST: on-hit/on-damage reactions (Counter, Auto-Potion) enqueue their own actions
 ```
 
@@ -143,8 +147,10 @@ Content is **data-driven** so battles, jobs, and abilities are authored, not cod
   "tree":[ {"node":"n1","ability":"spell-blade.bolt","apCost":120,"requires":[]} , ... ],
   "masteryBonus":{"trait":"spell-parry"} }
 
-// StatusEffect
+// StatusEffect  (behaviour = code, tuning + discriminant FLAGS = data, ADR-0011)
 { "id":"haste", "kind":"buff", "ctFactor":1.5, "durationCT":320, "dispellable":true }
+{ "id":"status.charm", "kind":"debuff", "ctFactor":1, "durationCT":32, "dispellable":true,
+  "controlsTarget":true }                                  // §6a — allegiance
 
 // Battle / Map definition (the narrative-repo contract, docs/08)
 { "id":"story.ch1.gate", "map":"gate", "deployZones":[...], "spawns":[...],
@@ -159,6 +165,29 @@ Content is **data-driven** so battles, jobs, and abilities are authored, not cod
   "equipment":{"weapon":"...","armor":"...","accessory":"...","sockets":["..."]} }
 ```
 
+### 6a. Allegiance — who a unit fights for (Charm)
+
+`docs/01` §8 lists Charm as a hard disable: *the enemy controls it*. That is one flag in the
+catalog (`controlsTarget`) plus **one seam in code** — `effectiveTeamOf(unit)` — and nothing
+else may ask the question. At inflict time the resolver stamps the inflicter's team onto the
+status (`controlledByTeamId`); the catalog cannot know it, and a template carries `null`.
+
+Read the seam: **target selection** (the AI and every friend/foe filter, including area
+effects), **damage attribution** (a charmed unit hitting its old comrades is damage, not
+friendly fire), **movement traversal** (its rule is "enemies block, allies pass"), and the
+**victory/defeat conditions**.
+
+Do NOT read it: the **scheduler** (allegiance is not a CT concept) and per-team **reporting**
+(a body still belongs to the roster that deployed it).
+
+**A charmed unit counts for the team it fights for when victory is evaluated** — charming the
+last defender ends the battle exactly as felling it would, and symmetrically, if your last
+unit is charmed you lose. This is a design commitment, not an implementation detail: counting
+the body for its nominal team makes a battle nobody can end (no AI attacks an ally, and the
+charmer re-applies control the moment it lapses — measured as a 580-tick timeout with 18
+charms landed). See **ADR-0018**. `[UNCERTAIN vs FFT]` — the source game's rule for an
+all-charmed enemy team is unverified.
+
 ---
 
 ## Acceptance Criteria (SDD-ready)
@@ -170,3 +199,4 @@ Content is **data-driven** so battles, jobs, and abilities are authored, not cod
 - **AC-S5 (formula fidelity):** The damage pipeline SHALL match every golden test-vector (`docs/01` §12) exactly, including floor order.
 - **AC-S6 (serialization round-trip):** `deserialize(serialize(state)) == state` for BattleState and campaign save; a save with an unsupported `schemaVersion` SHALL fail with a clear error, never load partially.
 - **AC-S7 (rewind):** Rewinding K turns then replaying the same commands SHALL yield the same result as never having rewound.
+- **AC-S8 (allegiance):** A unit under a `controlsTarget` status SHALL act for, be targeted as, and be counted for the **inflicting** team — in AI target selection, area friend/foe filters, damage attribution, traversal and the victory/defeat check — and SHALL revert when the status expires. Turn order SHALL be unaffected. *Test:* the same battle with and without the stamped status, asserted on each reader (`src/sim/charm.test.ts`).

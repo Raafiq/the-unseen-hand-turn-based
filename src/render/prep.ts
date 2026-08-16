@@ -19,7 +19,7 @@
 
 import pack from "../../data/base-pack.json";
 import {
-  DEFERRED_SKILLSETS,
+  DEFERRED_ACTIONS,
   buildBattleUnit,
   checkMastery,
   defaultUnitRecord,
@@ -305,16 +305,18 @@ function render(): void {
           })
           .join("");
 
-  // A command from a DEFERRED skillset resolves to nothing in the current pipeline
-  // (`ai.ts` and the resolvers both skip a `formula: "none"` action), so listing it
+  // A DEFERRED command resolves to nothing in the current pipeline, so listing it
   // beside Attack as an equal option asserts a capability the sim does not have —
-  // pillar 4's absent-not-zero rule applied to a menu. The Knight's two Breaks are
-  // exactly this case. Marked, not hidden: they ARE learned and equipped, and hiding
-  // them would misrepresent the chassis in the other direction.
+  // pillar 4's absent-not-zero rule applied to a menu. The Knight's Breaks are exactly
+  // this case. Marked, not hidden: they ARE learned and equipped, and hiding them would
+  // misrepresent the chassis in the other direction.
+  //
+  // Keyed per ABILITY, not per skillset: `steal` is a live skillset now (`heart`
+  // charms) while `steal.gil` and the three equipment thefts still do nothing, so a
+  // skillset-level lookup would have quietly promoted four dead commands.
   const commandItems = commands
     .map((id) => {
-      const skillset = id.split(".")[0] ?? "";
-      const blocker = DEFERRED_SKILLSETS[skillset];
+      const blocker = DEFERRED_ACTIONS[id];
       return blocker === undefined
         ? `<li data-cmd="${id}">${abilityLabel(id)}</li>`
         : `<li data-cmd="${id}" class="deferred" title="No effect yet — ${blocker}">${abilityLabel(id)} <span class="tag">no effect yet</span></li>`;

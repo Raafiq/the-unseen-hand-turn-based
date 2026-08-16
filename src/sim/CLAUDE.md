@@ -52,6 +52,12 @@ come out the other way — specialised to the gate.
   out-rank a near-lethal focus. Value an AoE by `(lowest-effHp-hit, then summed magnitude)`.
   The comparator is load-bearing for every slice's benchmark numbers — treat it like
   determinism.
+- **A term folded into a SECONDARY key only decides ties on the primary one.** Teaching
+  the probe to value inflicted status changed ZERO shipped runs (A/B over the whole
+  gauntlet, every ability-usage histogram byte-identical): `magnitude` ranks only among
+  acts on the SAME focus target, and the inflicting abilities were already the biggest hit
+  there. Predict a new dimension's reach from where it sits in the key sequence — and say
+  plainly when a live capability moves nothing.
 - **Calibrate gate constants to DETECT, not to pass.** A threshold frozen just off a
   verdict-flip certifies nothing (a dominance cutoff `TOP_EFF` shipped 3 ticks under the
   point that would flag the strongest build, *documented* there, until review cut it).
@@ -82,6 +88,19 @@ come out the other way — specialised to the gate.
   shipped *reachability* screen delivered 1/6, because inflated HP changes targeting
   **globally** while a screen blocks **one lane locally**. Probe *each* stacked assumption,
   not just the named one.
+- **A GATE'S CONTRIBUTION PROXY ENCODES WHICH IDENTITIES CAN EXIST.** `inBand` counted
+  damage + healing, so a build whose whole contribution is CONTROL scored zero on every
+  map it decided — the gate could never have credited a control identity however decisive
+  it was, and nothing said so. `landed` had the same shape (true only when HP moved).
+  Before scoping a slice that adds a NEW KIND of identity, check the metric can represent
+  it; adding the build to the manifest is not enough.
+- **A GATE ROW CANNOT TELL "LOST" FROM "COULD NOT END".** A mechanic that removes a reason
+  to attack a unit can LIVELOCK a fight — charm did it twice (a body blocking a corridor
+  nobody would clear; the last defender nobody would attack), each surfacing only as
+  `outcome: "timeout"` among the non-clears. Read the turn log of a non-clear before
+  attributing it to the build. Corollary: the sites you deliberately do NOT change are
+  hypotheses — two of three "charm doesn't affect this" calls (traversal, victory) were
+  wrong, and only an integrated run said so.
 
 > **Changing `DIVERSITY_TARGET_N`, or moving a build EXCLUDED↔MEASURABLE, is a scope-time
 > decision — see the root `CLAUDE.md`.** It moves the `gauntlet.ts` manifest, an ADR-0014

@@ -56,6 +56,12 @@ export interface UnitContribution {
   /** Foes/units this unit dropped to 0 HP. */
   kos: number;
   /**
+   * Σ statuses this unit newly applied to others (a refresh is not counted). The only
+   * contribution a PURE-CONTROL build makes: without it a thief that charmed its way to
+   * a win would be indistinguishable from one carried by its fillers.
+   */
+  statusesInflicted: number;
+  /**
    * Landed actions whose abilityId starts with THIS unit's signature prefix (from
    * {@link RunOptions.signaturePrefixes}). 0 when no prefix is registered for the
    * unit — so a masked build whose signature never lands scores 0 here even if it
@@ -170,7 +176,7 @@ export function runFromState(
   // report always has a complete, presence-check-free contribution map.
   const contributionByUnit: Record<string, UnitContribution> = {};
   for (const u of initial.units) {
-    contributionByUnit[u.id] = { damageDealt: 0, healingDone: 0, kos: 0, signatureActionsLanded: 0 };
+    contributionByUnit[u.id] = { damageDealt: 0, healingDone: 0, kos: 0, statusesInflicted: 0, signatureActionsLanded: 0 };
   }
   // chargeId → the abilityId that declared it, so a matured charge is credited to
   // its original ability for signature counting. Filled as charges are declared.
@@ -182,11 +188,13 @@ export function runFromState(
         damageDealt: 0,
         healingDone: 0,
         kos: 0,
+        statusesInflicted: 0,
         signatureActionsLanded: 0,
       });
       c.damageDealt += e.damageDealt;
       c.healingDone += e.healingDone;
       c.kos += e.kos;
+      c.statusesInflicted += e.statusesInflicted;
       const prefix = signaturePrefixes[e.sourceUnitId];
       if (e.landed && prefix !== undefined && prefix !== "" && e.abilityId.startsWith(prefix)) {
         c.signatureActionsLanded += 1;

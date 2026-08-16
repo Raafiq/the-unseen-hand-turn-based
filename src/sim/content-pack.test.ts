@@ -12,7 +12,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { DEFERRED_SKILLSETS, loadContentPack, type ContentRegistry } from "./content.js";
+import { DEFERRED_ACTIONS, DEFERRED_SKILLSETS, loadContentPack, type ContentRegistry } from "./content.js";
+import { statusSwingFactor } from "./ai.js";
+import { makeActiveStatus } from "./state.js";
+import type { Ability } from "./ability.js";
 
 function loadShippedPack(): ContentRegistry {
   const path = fileURLToPath(new URL("../../data/base-pack.json", import.meta.url));
@@ -36,11 +39,24 @@ const EXPECTED_TREE_SIZES: Readonly<Record<string, number>> = {
 };
 
 /**
- * The formulas the balance-probe AI can actually select (`ai.ts` skips `none` and
- * every passive), so "the job is measurable at all" reduces to "its skillset donates
- * an action with one of these".
+ * The formulas the balance-probe AI can actually select for their MAGNITUDE (`ai.ts`
+ * routes `physical`/`magic`/`heal` to a damage or heal number; a passive is never
+ * picked at all).
  */
 const LIVE_FORMULAS = new Set(["physical", "magic", "heal"]);
+
+/**
+ * Is this ACTION worth a turn in the current engine? Two ways to be live, and the
+ * second one arrived with the on-hit inflict path: a `none`-formula action is live if
+ * it inflicts a status the sim READS. The predicate is the probe's own
+ * ({@link statusSwingFactor}), imported rather than restated, so this test and `ai.ts`
+ * cannot drift into disagreeing about what "live" means.
+ */
+function isLiveAction(a: Ability, reg: ContentRegistry): boolean {
+  if (a.type !== "action") return false;
+  if (a.formula !== undefined && LIVE_FORMULAS.has(a.formula)) return true;
+  return (a.inflicts ?? []).some((id) => statusSwingFactor(makeActiveStatus(reg.status(id))) > 0);
+}
 
 /** Every shipped job. All eight are checked — see the note on the test below. */
 const ALL_JOBS = ["knight", "monk", "wizard", "thief", "priest", "archer", "geomancer", "summoner"];
@@ -79,13 +95,7 @@ describe("shipped content pack (AC-R2, data/base-pack.json)", () => {
     const dead: string[] = [];
     for (const job of ALL_JOBS) {
       const skillset = reg.job(job).primarySkillset;
-      const liveActions = abilities.filter(
-        (a) =>
-          a.skillset === skillset &&
-          a.type === "action" &&
-          a.formula !== undefined &&
-          LIVE_FORMULAS.has(a.formula),
-      );
+      const liveActions = abilities.filter((a) => a.skillset === skillset && isLiveAction(a, reg));
       (liveActions.length > 0 ? live : dead).push(skillset);
     }
     // NON-VACUITY: most skillsets really are live, so the partition below is a real
@@ -98,6 +108,40 @@ describe("shipped content pack (AC-R2, data/base-pack.json)", () => {
     for (const [skillset, blocker] of Object.entries(DEFERRED_SKILLSETS)) {
       expect(blocker.length, `${skillset} needs a real blocker, not a placeholder`).toBeGreaterThan(30);
     }
+  });
+
+  /**
+   * The ABILITY-level partition. The skillset check above goes quiet as soon as ONE
+   * action in a set is live — which `steal` now is (`heart` charms), while four of its
+   * five actions still do nothing. A test that covers a subset reads as covering the
+   * set (CLAUDE.md), so the honest unit is the ACTION, and the prep panel reads this
+   * same manifest to mark a command "no effect yet".
+   */
+  it("every INERT action is named in DEFERRED_ACTIONS with a blocker — an exact partition", () => {
+    const reg = loadShippedPack();
+    const inert = [...reg.abilityById.values()]
+      .filter((a) => a.type === "action" && !isLiveAction(a, reg))
+      .map((a) => a.id)
+      .sort();
+    // NON-VACUITY, both ways: the pack really does have live actions AND inert ones, so
+    // neither side of the partition is trivially empty.
+    expect(inert.length).toBeGreaterThan(0);
+    expect([...reg.abilityById.values()].filter((a) => isLiveAction(a, reg)).length).toBeGreaterThan(0);
+    // STALE entries fail here just as loudly as missing ones — `steal.heart` leaving
+    // this list is exactly what the charm slice had to do.
+    expect(inert).toEqual(Object.keys(DEFERRED_ACTIONS).sort());
+    for (const [id, blocker] of Object.entries(DEFERRED_ACTIONS)) {
+      expect(blocker.length, `${id} needs a real blocker, not a placeholder`).toBeGreaterThan(20);
+    }
+  });
+
+  it("steal.heart is LIVE — the thief's signature is not in the deferred list", () => {
+    // Pinned POSITIVELY: the manifest test above would still pass if `heart` were inert
+    // AND listed. This says the capability exists, and it is the one the thief build's
+    // whole identity rests on.
+    const reg = loadShippedPack();
+    expect(isLiveAction(reg.ability("steal.heart"), reg)).toBe(true);
+    expect(DEFERRED_ACTIONS["steal.heart"]).toBeUndefined();
   });
 
   it("prices every skill-tree node at an ADR-0012 AP tier (60/120/240)", () => {

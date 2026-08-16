@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { decideBalanceProbe } from "./ai.js";
 import { inAbilityRange, moveRange, relativeFacing } from "./grid.js";
 import { applyCommand } from "./driver.js";
+import { abilityDamage } from "./resolve.js";
+import type { ActiveStatus } from "./active-status.js";
 import {
   createBattleState,
   defaultUnit,
@@ -191,6 +193,188 @@ describe("decideBalanceProbe — HEAL is a TRIAGE (focus) rule, not biggest-heal
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 30, maxHp: 30 });
     const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
     expect(cmd).toEqual({ kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } });
+  });
+});
+
+describe("decideBalanceProbe — CONTROL is valued in the same currency as damage (ADR-0018)", () => {
+  /**
+   * A `none`-formula action whose only effect is `inflicts` — the shape of
+   * `steal.heart`, `battle-skill`'s breaks, and every future disable. `over` swaps the
+   * status template so the SAME fixture can be run with a LIVE and an INERT status: that
+   * pair is the discriminating evidence, since a valuation that merely checked
+   * `inflicts.length > 0` would pick this act in BOTH runs.
+   */
+  const controlAct = (st: ActiveStatus): BattleAbility => ({
+    id: "steal.heart",
+    actionKind: "action",
+    formula: "none",
+    power: 0,
+    element: "none",
+    accuracy: 100,
+    range: { h: 1, v: 1 },
+    inflicts: [st],
+    speed: null,
+    aoe: null,
+  });
+  /** Stop as the shipped pack authors it: 20 CT, ctFactor 0, preventsAction. LIVE. */
+  const STOP: ActiveStatus = {
+    id: "status.stop",
+    kind: "debuff",
+    ctFactor: 0,
+    remainingCT: 20,
+    preventsAction: true,
+    interruptsCharge: true,
+    interruptsMagicOnly: false,
+    controlsTarget: false,
+    controlledByTeamId: null,
+  };
+  /** Charm as the shipped pack authors it TODAY: ctFactor 1, acts freely. INERT. */
+  const CHARM_INERT: ActiveStatus = {
+    id: "status.charm",
+    kind: "debuff",
+    ctFactor: 1,
+    remainingCT: 32,
+    preventsAction: false,
+    interruptsCharge: false,
+    interruptsMagicOnly: false,
+    controlsTarget: false,
+    controlledByTeamId: null,
+  };
+  /** A weak-swing actor, so the choice is decided by the status, not by a big weapon. */
+  const feeble = { wp: 1, formula: "paWp" as const, element: "none" as const, accuracy: 100 };
+
+  it("C1: picks a 0-damage disable over its own attack — but NOT when the status is inert", () => {
+    // Same fixture twice; ONLY the status template differs. LIVE Stop denies the foe
+    // 20 ticks × speed 10 / 100 = 2 turns of its 80-damage swing (160 HP-equivalent),
+    // which beats the actor's feeble 10-damage poke. The INERT twin (ctFactor 1, no
+    // preventsAction — literally the shipped `status.charm`) denies NOTHING, so it must
+    // score 0 and lose to the poke. A length-only check passes both; only a valuation
+    // that reads the status BEHAVIOUR can come out the other way.
+    const scene = (st: ActiveStatus): BattleState => {
+      const hero = unitWith("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: feeble }, [controlAct(st)]);
+      const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500, speed: 10 });
+      return field([hero, foe]);
+    };
+    expect(decideBalanceProbe(scene(STOP), "hero")).toEqual({
+      kind: "act",
+      abilityId: "steal.heart",
+      target: { unitId: "foe" },
+    });
+    expect(decideBalanceProbe(scene(CHARM_INERT), "hero")).toEqual({
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "foe" },
+    });
+  });
+
+  it("C2: re-applying a status the foe ALREADY carries is worth 0 (no disable loop)", () => {
+    // The marginal rule: `applyInflicts` refreshes to the LONGER lifetime, so re-Stopping
+    // a foe that already has 20 CT of Stop buys nothing. Without it the probe would spend
+    // every turn re-casting the same disable and never deal damage. Discriminating: the
+    // fixture is C1's LIVE case, which the probe DOES take when the foe is clean.
+    const hero = unitWith("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: feeble }, [controlAct(STOP)]);
+    const foe = defaultUnit("foe", 1, {
+      pos: { x: 3, y: 2 },
+      facing: "N",
+      hp: 500,
+      maxHp: 500,
+      speed: 10,
+      statuses: [{ ...STOP }],
+    });
+    expect(decideBalanceProbe(field([hero, foe]), "hero")).toEqual({
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "foe" },
+    });
+  });
+
+  it("C3: control does NOT jump the FOCUS key — a disable on a healthy foe loses to a chip on a dying one", () => {
+    // The reason there is no DISABLE action class. A class ABOVE chip would make the
+    // disable win outright here; folding it into `magnitude` keeps AC-E3(b) primary, so
+    // the 12-HP foe (out of the disable's melee reach) is still what the probe hits.
+    // Discriminating BOTH ways: the disable is worth 160 HP-equivalent, far MORE than the
+    // 10-damage poke it is beaten by — so only the key ORDER can explain the choice.
+    // A RANGED poke reaches both foes; the melee disable reaches only the healthy one.
+    const poke: BattleAbility = {
+      id: "aim.aimed-shot",
+      actionKind: "action",
+      formula: "physical",
+      power: 2,
+      element: "none",
+      accuracy: 100,
+      range: { h: 4, v: 3 },
+      inflicts: [],
+      speed: null,
+      aoe: null,
+    };
+    const hero = unitWith("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10, weapon: feeble }, [
+      controlAct(STOP),
+      poke,
+    ]);
+    const healthy = defaultUnit("healthy", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500, speed: 10 });
+    const dying = defaultUnit("dying", 1, { pos: { x: 2, y: 4 }, facing: "N", hp: 30, maxHp: 500, speed: 10 });
+    const state = field([hero, healthy, dying]);
+    const heroU = state.units[0]!;
+    // Fixture guards — all three make the choice real: the disable canNOT reach `dying`
+    // (so control and focus point at DIFFERENT units), the poke CAN, and the poke does
+    // NOT one-shot it (a LETHAL would decide by class, not by the focus key under test).
+    expect(inAbilityRange(state.grid, heroU.pos, dying.pos, controlAct(STOP).range)).toBe(false);
+    expect(inAbilityRange(state.grid, heroU.pos, dying.pos, poke.range)).toBe(true);
+    const chip = abilityDamage(heroU, dying, poke);
+    expect(chip).toBeGreaterThan(0);
+    expect(chip).toBeLessThan(dying.hp);
+    const cmd = decideBalanceProbe(state, "hero");
+    expect(cmd.kind).toBe("act");
+    if (cmd.kind !== "act") throw new Error("unreachable");
+    expect(cmd.abilityId).toBe("aim.aimed-shot");
+    expect(cmd.target).toEqual({ unitId: "dying" });
+  });
+
+  it("C4: a LETHAL blow is priced on DAMAGE alone — the status never lands on a corpse", () => {
+    // `applyInflicts` skips a target already at 0 HP, so crediting a killing blow with its
+    // status would be a magnitude the resolver never delivers. Two lethal candidates on
+    // the same foe: the bigger swing (50) must win over the smaller one (25) that would
+    // ALSO Stop — a Stop worth 160 HP-equivalent, so if the corpse rule were missing the
+    // weaker blow would win by 185 to 50.
+    const stopBlow: BattleAbility = {
+      id: "aim.head-shot",
+      actionKind: "action",
+      formula: "physical",
+      power: 25,
+      element: "none",
+      accuracy: 100,
+      range: { h: 1, v: 1 },
+      inflicts: [STOP],
+      speed: null,
+      aoe: null,
+    };
+    const bigBlow: BattleAbility = { ...stopBlow, id: "aim.aimed-shot", power: 50, inflicts: [] };
+    const hero = unitWith("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10, weapon: feeble }, [stopBlow, bigBlow]);
+    const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 20, maxHp: 500, speed: 10 });
+    const state = field([hero, foe]);
+    // Fixture guard: BOTH blows really are lethal here (else this measures the class key).
+    const heroU = state.units[0]!;
+    const foeU = state.units[1]!;
+    expect(abilityDamage(heroU, foeU, stopBlow)).toBeGreaterThanOrEqual(foeU.hp);
+    expect(abilityDamage(heroU, foeU, bigBlow)).toBeGreaterThan(abilityDamage(heroU, foeU, stopBlow));
+    expect(decideBalanceProbe(state, "hero")).toEqual({
+      kind: "act",
+      abilityId: "aim.aimed-shot",
+      target: { unitId: "foe" },
+    });
+  });
+
+  it("C5: the same disable is worth MORE on a FASTER foe (turns denied, not a flat bonus)", () => {
+    // The mechanism, isolated: two foes identical but for Speed, both in reach, equal HP
+    // (so the focus key ties and magnitude decides). Turn-economy pricing prefers the
+    // faster foe — a flat per-status bonus would tie and fall through to the id
+    // tie-break, picking "fast" only by accident of the alphabet, so the ids are chosen
+    // to make the WRONG rule pick the OTHER unit.
+    const hero = unitWith("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: feeble }, [controlAct(STOP)]);
+    const fast = defaultUnit("z-fast", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500, speed: 12 });
+    const slow = defaultUnit("a-slow", 1, { pos: { x: 1, y: 2 }, facing: "N", hp: 500, maxHp: 500, speed: 4 });
+    const cmd = decideBalanceProbe(field([hero, fast, slow]), "hero");
+    expect(cmd).toEqual({ kind: "act", abilityId: "steal.heart", target: { unitId: "z-fast" } });
   });
 });
 

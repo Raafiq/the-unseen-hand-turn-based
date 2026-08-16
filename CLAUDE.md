@@ -59,10 +59,12 @@ Design lives in `docs/`. Read in this order before proposing changes:
 - **When a metric collapses, check the REGIME before you accept the last change as the cause.** ADR-0015's move+act fold landed and the diversity count fell 6 → 1, so the fold was blamed and a whole follow-up slice was scoped around "give ranged builds an answer to fast melee". Wrong: the fold merely removed the one turn of slack that had been hiding the TTK violation above, and the scoped slice was **unmeasurable as written** — at one-shot lethality no tactical lever can be observed at all. The last thing that changed is the *trigger*, not necessarily the *cause*. **Trace one actual run before committing a diagnosis** (the turn log showed three units dying on the first tick anyone acted, which no amount of reasoning about tempo would have produced).
 - **A non-monotonic sweep is a SIGNAL, not noise — never read a value off one.** Sweeping a global HP scale gave counts of 5, 2, 4, 3 at adjacent steps. That jitter was not measurement error and not a reason to pick the best-scoring step: it meant the system was straddling a **discontinuity** (integer time-to-kill crossing 1), where every matchup flips at a slightly different threshold. Picking the local maximum there would have been calibrating to the metric *and* frozen on a knife-edge. Once the band was met the jitter disappeared and the count held at 5–6 across ±15%. **Find the plateau; the plateau is the evidence that you fixed a mechanism rather than moved a number.** If there is no plateau, you have not found the real variable yet. **Perturb the BASELINE too, not just your fix.** Before the support slot landed, the *pre-fix* count read 6, 6, **5**, 5, 5, 6 across adjacent HP scales: the build two consecutive handoffs called sub-viable was straddling a discontinuity, not stably failing. A metric that jitters *before you change anything* means the recorded diagnosis of why it fails is probably wrong too — which it was, twice.
 
-> **Three more forms of this principle live in `src/sim/CLAUDE.md`** — gate constants
+> **Six more forms of this principle live in `src/sim/CLAUDE.md`** — gate constants
 > calibrated to detect rather than pass, viability proxies that must exercise the real
-> causal mechanism, and benchmark identities that can be masked or propped up by an
-> unmodeled cost. They are edit-time rules for the probe and the diversity gate, so they
+> causal mechanism, benchmark identities that can be masked or propped up by an unmodeled
+> cost, a comparator term whose reach is decided by where it sits in the key sequence, a
+> contribution proxy that silently decides which identities can exist at all, and a gate
+> row that cannot tell "lost" from "could not end". They are edit-time rules for the probe and the diversity gate, so they
 > load when you work in that subtree.
 
 ### Engine and process rules

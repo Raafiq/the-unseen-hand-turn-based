@@ -70,6 +70,7 @@ const BUILD_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
   "bld-battle-cleric": "tank",
   "bld-spellblade": "mid",
   "bld-longshot": "mid",
+  "bld-cutpurse": "mid",
   "bld-terrain-geo": "mid",
   "bld-glass-bruiser": "squishy",
   "bld-arcane-artillery": "squishy",

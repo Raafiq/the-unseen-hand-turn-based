@@ -1,0 +1,26 @@
+{
+  "rosterSchemaVersion": 2,
+  "id": "bld-cutpurse",
+  "name": "Cutpurse",
+  "level": 10,
+  "currentJob": "thief",
+  "raw": { "pa": 8, "ma": 8, "speed": 8, "hp": 216, "mp": 24 },
+  "brave": 70,
+  "faith": 50,
+  "ap": 0,
+  "learned": [
+    "steal.gil",
+    "steal.armor",
+    "steal.gilgame-heart",
+    "steal.heart",
+    "steal.move-plus-2"
+  ],
+  "mastered": ["thief"],
+  "loadout": {
+    "secondary": null,
+    "reaction": null,
+    "support": null,
+    "movement": null,
+    "traits": ["lightfoot"]
+  }
+}

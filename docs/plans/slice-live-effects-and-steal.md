@@ -1,6 +1,11 @@
 # Slice plan — make authored effects real (`power` + `inflicts`)
 
-**Status: Steps 1, 2 and 5 IMPLEMENTED (2026-08-16). Steps 3–4 are the next slice.** Written against `6b4b887` (main).
+**Status: COMPLETE (2026-08-16).** Steps 1, 2 and 5 shipped in `32d6cdc`; Steps 3–4 shipped in
+the follow-up control slice (ADR-0018) — the probe values control, Charm has behaviour,
+`bld-cutpurse` is the seventh identity and `DIVERSITY_TARGET_N` is 7. Two things the plan
+below did NOT predict: Step 3 changed **zero** shipped runs on its own (magnitude is only
+the comparator's SECOND key), and Charm behaviour required a **victory-condition** change
+to avoid a livelock. Written against `6b4b887` (main).
 Source of the slice: `docs/NEXT.md` § "The next slice", **redirected by the decisions in §0**.
 
 ---
