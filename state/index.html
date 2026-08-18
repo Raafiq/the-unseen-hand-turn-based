@@ -292,7 +292,7 @@
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">19</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">20</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
@@ -377,7 +377,7 @@
     <div class="sec-head"><span class="idx">SPINE</span><h2>The customization spine</h2></div>
     <p class="lead">The whole game is organized around one locked design decision (ADR-0001): depth comes from <b>three customization axes</b>, and success is measured in <em>meaningfully different, viable builds</em> — not in the number of options. Everything else is optional or deferred.</p>
     <div class="inv" style="margin-top:20px">
-      <div class="card cell"><div class="n mono">4 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support · reaction — movement is the last inert slot</div></div>
+      <div class="card cell"><div class="n mono">4 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support · reaction — movement is blocked by the AI, measured (ADR-0020)</div></div>
       <div class="card cell"><div class="n mono">AP</div><div class="k">Job / skill trees</div><div class="sub">directed progression · permanent mastery bonuses</div></div>
       <div class="card cell"><div class="n mono">×</div><div class="k">Hybrid / fusion jobs</div><div class="sub">the recombination layer — curated, not the full N² web</div></div>
     </div>
@@ -517,10 +517,10 @@
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>Wake the movement slot &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety <b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same file, one slot over: a slot that type-checks its input and then discards it looks identical to a working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts the slot changes nothing &mdash; that test is what must go red when this lands.</p>
+          <h3>Teach the AI to fear open ground &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>The last dead equip slot turned out to be an AI problem.</b> Move+2 was built and run (<b>ADR-0020</b>): it dropped the variety score <b>7 &rarr; 5</b> and failed the gate. Every caster collapsed and <em>nothing improved anywhere</em>. The reason is that the AI looks at every tile it can walk to, scores the attack it could make from there, and never asks <em>how many enemies can reach me on that tile</em>. Low Move had been keeping fragile builds alive by accident. So extra movement is a pure liability, and the slot cannot ship until the AI weighs danger. That is a bigger change than it sounds &mdash; the exposure has to outrank target choice, which turns a greedy attacker into a cautious one. A test pins the current behaviour and goes red the day it changes.</p>
         </div>
-        <span class="pill" style="align-self:center">1 dead slot</span>
+        <span class="pill" style="align-self:center">measured</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
@@ -546,7 +546,7 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 19 ADRs</span>
+    <span>· 20 ADRs</span>
     <span>· 27 spec files</span>
   </div>
 

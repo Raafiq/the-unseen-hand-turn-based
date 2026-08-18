@@ -1,4 +1,4 @@
-<!-- written-against: 0b6cc99edc040d5e12db75f1f934dd5e8a753747 -->
+<!-- written-against: 45c5a9cf41efc3f43ebd4ea1155b24b0d08153a0 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -14,97 +14,99 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 560 tests / 31 files, 12 Playwright specs.
+**P2 — customization depth, in progress.** 562 tests / 31 files, 12 Playwright specs.
 **Variety score is 7**, release bar 8. `pass=true`, no dominant build.
 
-The last slice (ADR-0019) woke the **reaction** chassis slot. Counter and Hamedo now fire
-at Brave%, and a fired reaction is credited to the **reactor** rather than vanishing into
-the attacker's HP diff.
+Two slices back to back on the chassis slots:
 
-| what | was | now |
-|---|---|---|
-| the reaction slot | validated at equip time, then discarded | live — 7 of 15 builds stopped wearing a dead slot |
-| a counter's damage | lands on the attacker, which the diff never credits ⇒ **scores zero** | its own event, credited to the reactor |
-| `bld-counter-wall` | EXCLUDED ("reaction-as-live modeling") | MEASURABLE, 6/6, signature landed |
-| the variety score | 7 | **still 7** — `punch-art.` collapses onto the monk |
-| the movement slot | silently inert | inert **on the record**, with an A/B asserting it |
+- **ADR-0019** woke the **reaction** slot. Counter and Hamedo fire at Brave%, and a fired
+  reaction is credited to the **reactor** rather than vanishing into the attacker's HP diff.
+- **ADR-0020** measured the **movement** slot and did **not** ship it. See below — this is
+  the important one, because it inverts what the previous handoff told you.
 
 ---
 
-## The next slice — NOT YET CHOSEN. The candidates, by leverage
+## The last dead slot is an AI problem. Read this before scoping anything.
 
-Nothing is green-lit. Pick with the human.
+The previous handoff called movement "one line of code and a measurement". The code was
+one line. **The measurement failed: +2 Move dropped the variety score 7 → 5 and failed the
+gate.** Every caster collapsed (`arcane-artillery` and `glass-summoner` 5/12 → 1/12,
+`spellblade` 6 → 2), melee went flat or slightly worse, and **no build improved anywhere.**
 
-1. **Wake the movement slot.** The last dead slot. It is a one-line fold onto `move`
-   (and `jump`), so the *code* is small — the whole slice is the **measurement**. Eight of
-   fifteen builds equip `steal.move-plus-2`, so switching it on hands more than half the
-   roster +2 Move at once. `DEFERRED_MOVEMENT_EFFECTS` in `build.ts` already names every
-   ability and splits SCOPE from BLOCKED; `build.test.ts`'s A/B is the test that must go
-   red when this lands.
-2. **Provoke / threat.** Retires `bld-aggro-tank`'s exclusion. Read its **re-measured**
-   tag first: it is no longer blocked from being *measured* (it clears 6/6 now that
-   Counter fires) but from being **distinct** — its gauntlet rows are byte-identical to
-   `bld-counter-wall`'s.
-3. **The eighth identity.** Jobs are deprioritised (user decision), and **no remaining
-   EXCLUDED entry can supply a new signature prefix.** The road to 8 needs new content or
-   a new mechanic that creates one. Say this out loud before scoping anything as "gets us
-   to 8".
+The fold was fine. `compareCandidate` enumerates every reachable tile, prices the **act**
+available from each, and has **no term for how exposed the tile is**. Low Move was keeping
+fragile builds alive *by accident*. Traced on `skirmish-a`: at Move 3 the wizard casts from
+behind its own line and wins in 19 turns; at Move 5 it walks to `5,0` inside two enemies'
+strike envelope, casts, and dies on that tick with its charge cancelled.
 
-### If you pick anything that touches the resolvers or a slot
+`ai.test.ts` now pins this on a purpose-built Move ladder — exposure `[0, 0, 2, 3, 3, 3]`
+across Move 2…7 — and **goes red the day the probe learns to weigh danger.** That is the
+moment `steal.move-plus-2` may leave `DEFERRED_MOVEMENT_EFFECTS`.
 
-Read **ADR-0019** first. Two rules it sets: a reaction draw is taken **only** when the
-equipped reaction can actually fire (so a reaction-less unit's roll sequence is untouched),
-and **any effect that moves HP on behalf of someone other than the acting unit accounts for
-itself** rather than riding `hpDiffEvent`.
+---
+
+## The next slice — NOT YET CHOSEN. Pick with the human.
+
+1. **Teach the probe to price exposure.** The named blocker above, and the biggest lever
+   left. **Scope it honestly:** a safety term at the BOTTOM of the comparator will not
+   work — in the discriminating pair the exposure is lost to `targetEffHp`, the PRIMARY
+   key. So this turns a greedy attacker into a cautious one and will move every benchmark
+   number in the repo. `src/sim/CLAUDE.md` calls `compareCandidate` load-bearing; treat it
+   that way — own measurement, own robustness sweep, own ADR.
+2. **Give casters a second life instead.** The other reading of the same finding: at
+   `docs/07` §3's TTK band every caster dies to one blow, so *any* forward step is fatal
+   and no amount of AI caution creates a safe tile. A field where a squishy survives one
+   hit might unblock movement without touching the comparator. **Price both before
+   committing** — that is ADR-0020's explicit instruction, not a suggestion.
+3. **Provoke / threat.** Unchanged from the last handoff. Retires `bld-aggro-tank`'s
+   exclusion; read its **re-measured** tag first (it clears 6/6 now that Counter fires — it
+   is blocked from being *distinct*, not from being measured).
+4. **The eighth identity.** Jobs are deprioritised (user decision), and **no remaining
+   EXCLUDED entry can supply a new signature prefix.** Say that out loud before scoping
+   anything as "gets us to 8".
 
 ---
 
 ## Traps waiting for you
 
-1. **An aggregate A/B can read "identical" while 13 % of the rows moved.** Stripping the
-   reaction effects and comparing `pass` / `N` / `dominantBuilds` / in-band tallies gave a
-   byte-identical answer — which looks exactly like the dead slot the slice was fixing.
-   Per-row it was **13 of 96 runs**. Diff at the resolution the change acts on.
-2. **`bld-counter-wall` and `bld-aggro-tank` are the same build in practice.** Identical
-   gauntlet rows; they differ only in raw HP (255 vs 242) and trait order, and neither has
-   ever mattered in a shipped run. Do not treat them as two data points.
-3. **`punch-art.` now has TWO carriers.** Anything that assumes "one credited build per
-   identity" is wrong — the gate's per-identity sweep had to be re-keyed on the prefix
-   because of it, and the collapse is now asserted in both directions.
-4. **`bld-cutpurse` still sits EXACTLY at `VIABLE_MIN_MAPS` (4/6)**, unchanged by this
-   slice. Any content change that effectively lowers HP still costs the seventh identity.
-5. **Hamedo draws the hit roll it then discards.** Deliberate (ADR-0019 decision 5): it
-   keeps "the hit roll is unconditional" an invariant instead of a special case. Do not
-   "optimise" it away — it moves every downstream roll.
-6. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
+1. **Do not re-derive the movement fold.** It was built, measured, and deliberately
+   reverted. ADR-0020 has the numbers and the trace. Building it again to "see for
+   yourself" costs an hour and lands on the same wall.
+2. **A mobility, reach or range grant is not automatically a buff here.** The probe cannot
+   use extra reachable tiles safely. Check that before scoping any content that grants one.
+3. **An aggregate A/B can read "identical" while 13 % of the rows moved.** From the
+   reaction slice: stripping the effects gave byte-identical `pass` / `N` / dominance while
+   13 of 96 gauntlet runs had changed. Diff at the resolution the change acts on.
+4. **`bld-counter-wall` and `bld-aggro-tank` are the same build in practice.** Identical
+   gauntlet rows; they differ only in raw HP (255 vs 242) and trait order.
+5. **`punch-art.` now has TWO carriers.** Anything assuming "one credited build per
+   identity" is wrong — the gate's per-identity sweep is keyed on the prefix for this reason.
+6. **`bld-cutpurse` still sits EXACTLY at `VIABLE_MIN_MAPS` (4/6).** Any content change
+   that effectively lowers HP costs the seventh identity.
+7. **Hamedo draws the hit roll it then discards.** Deliberate (ADR-0019 decision 5) — it
+   keeps "the hit roll is unconditional" an invariant. Do not optimise it away; it moves
+   every downstream roll.
+8. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
 
 ---
 
 ## What changed that you would not guess
 
 - **A reaction's reach is the reactor's own basic-attack range**, asked of
-  `inAbilityRange`, not re-derived. So a ranged physical blow draws no answer from a melee
-  unit — a real tactical lever, and the discriminating negative in the tests.
+  `inAbilityRange`, not re-derived. A ranged physical blow draws no answer from a melee unit.
 - **There is no reaction chain, structurally.** The counter-swing resolves inline in
-  `tryReaction` and is never routed back through `resolveAttack`. A refactor that
-  "simplifies" it into a recursive call breaks the invariant; one test exists for exactly
-  that.
-- **Charges are not a reaction site, and the reason is a schema fact**, not an omission:
+  `tryReaction` and never routes back through `resolveAttack`. One test exists for exactly
+  the refactor that would break it.
+- **Charges are not a reaction site, and the reason is a schema fact**:
   `ChargeEffectSchema.shape.kind` is the literal `"magic"`, and no reaction wakes on magic.
   A test asserts that literal, so adding a physical charge kind goes red.
-- **`winsAllInBand` now has two entries** (`bld-counter-wall`, `bld-faithzero-monk`). Two
-  builds sweep every cell without outclassing the field. Surfaced, not failed — but it is a
-  list that should not keep growing (`docs/02` B5).
-- **Schema v10 → v11** (`UnitState.reaction`). The frozen golden was regenerated by two
-  mechanical edits — bump the version, append `"reaction":null` per unit — and then matched
-  the engine byte for byte. That *is* the classification; a re-paste would not have been.
-- **The viewer's "not modeled" list was stale**, naming `status-on-hit` two slices after
-  the resolvers began applying it. It is prose in two places (`main.ts`'s hint and
-  `docs/10` §4) and nothing type-checks it. Grep the word out of both when a capability
-  lands.
-- **The prep dropdowns now tag inert equips** with "no effect yet", reading the three
-  DEFERRED manifests. Before, offering a live and a dead ability identically re-created the
-  dead-slot illusion at the UI layer.
+- **`winsAllInBand` has two entries** (`bld-counter-wall`, `bld-faithzero-monk`). Surfaced,
+  not failed — but a list that should not keep growing (`docs/02` B5).
+- **Schema is v11** (`UnitState.reaction`). The frozen golden was regenerated by two
+  mechanical edits and then matched the engine byte for byte — that *is* the classification.
+- **The prep dropdowns tag inert equips** with "no effect yet", reading the three DEFERRED
+  manifests. The viewer's "not modeled" list is prose in two places (`main.ts`'s hint and
+  `docs/10` §4) and nothing type-checks it — grep both when a capability lands.
 
 ## Standing constraints that outlive any one slice
 
@@ -120,13 +122,20 @@ itself** rather than riding `hpDiffEvent`.
   onto the wizard's).
 - **`battle-skill` is still excluded by user decision** (2026-08-16), pending a multi-job
   skill rework. Its breaks inflict nothing, so they need stat-modifying statuses.
+- **`compareCandidate` is the most load-bearing function in the repo.** Every benchmark
+  number, every ADR's measurement and the gate's verdict all key on it. Changing it is
+  never a small slice.
 
 ## Environment facts that cost real time to learn
 
 - **Scratch probes belong outside the tree.** `coverage/` is gitignored; a `vite-node`
-  script importing `src/sim/*` is the fastest way to measure the gate. This slice used
-  four — gate summary, a stripped-effects A/B over all 96 runs, a single-candidate detail
-  table, and a build-level debug — and the **summary one was actively misleading** (trap 1).
+  script importing `src/sim/*` is the fastest way to measure the gate. Six now exist there
+  (gate summary, stripped-effects A/B over all 96 runs, single-candidate detail, a
+  single-run turn-log trace, an exposure ladder, a build-level debug). The **trace is what
+  produced ADR-0020's diagnosis** — the summary table alone said only "N fell to 5".
+- **`buildGauntletEncounter(source, candidateId, oppositionBuildIds)`** — the opposition
+  argument is `OPPOSITIONS[i].buildIds`, not the `Opposition` object. Passing the object
+  fails with a confusing "cannot seat 20 units" grid error.
 - **Never round-trip `data/base-pack.json` through a JSON parser to edit it.** Re-serialising
   reformats the whole file: a two-line change came back as **1181 lines**. Do a surgical
   text replace and check `git diff --stat` says what you expect.

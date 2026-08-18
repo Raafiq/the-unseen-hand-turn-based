@@ -8,6 +8,7 @@ import {
   createBattleState,
   defaultUnit,
   legacyActiveStatus,
+  makeFlatTiles,
   serialize,
   type BattleState,
   type ChargedActionState,
@@ -687,5 +688,130 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
     const moved = after.units.find((u) => u.id === "hero")!;
     expect(moved.pos).toEqual({ x: 3, y: 0 }); // the move half happened
     expect(moved.ct).toBe(0); // 100 − 100: ONE settle at the both-sub-phases price
+  });
+});
+
+// ── the probe prices the ACT, never the TILE (ADR-0020) ─────────────────────
+
+describe("more Move makes the probe MORE exposed — the movement slot's real blocker", () => {
+  /**
+   * WHY THIS TEST EXISTS. `steal.move-plus-2` is the last chassis ability still inert,
+   * and until ADR-0020 its manifest entry called that a SCOPE decision. It is not: the
+   * fold was built and run, and +2 Move dropped the diversity score 7 → 5. The fold was
+   * fine. `compareCandidate` enumerates every reachable tile, prices the ACT it can make
+   * from each, and carries **no term for how many foes can strike that tile** — so extra
+   * Move only ever hands a fragile unit more rope.
+   *
+   * The manifest entry now rests on THIS assertion rather than on prose. It is written
+   * so it goes RED when the probe learns to weigh exposure, which is exactly the moment
+   * the movement slot becomes shippable.
+   *
+   * DISCRIMINATING BY CONSTRUCTION: the fixture is one actor at successive Move values
+   * on an otherwise byte-identical board, so nothing but reach differs. The load-bearing
+   * pair is Move 4 vs Move 5 — both ACT (so it is not "acting beats not acting"), and the
+   * extra tile buys a lower-effective-HP target at the cost of standing inside one more
+   * foe's strike envelope. That is exposure losing to the comparator's PRIMARY key, not
+   * to a tiebreak — a safety term added merely at the bottom of the key sequence would
+   * not fix it, and this test says so.
+   */
+  const RANGED: BattleAbility = {
+    id: "test.bolt",
+    actionKind: "action",
+    formula: "physical",
+    power: 12,
+    element: "none",
+    accuracy: 100,
+    range: { h: 4, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+
+  /** A fragile ranged actor facing two tanks and one nearly-dead foe further back. */
+  function field(move: number): BattleState {
+    const noEv = { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+    const cand = defaultUnit("cand", 0, {
+      pos: { x: 0, y: 1 },
+      speed: 20,
+      move,
+      hp: 100,
+      maxHp: 100,
+      pa: 10,
+      evasion: { ...noEv },
+    });
+    cand.abilities = [...cand.abilities, RANGED];
+    const foe = (id: string, x: number, y: number, hp: number): UnitState =>
+      defaultUnit(id, 1, {
+        pos: { x, y },
+        speed: 5,
+        move: 3,
+        hp,
+        maxHp: 400,
+        pa: 10,
+        evasion: { ...noEv },
+      });
+    return createBattleState({
+      seed: 1,
+      grid: { width: 14, height: 3, tiles: makeFlatTiles(14, 3) },
+      units: [cand, foe("tough-a", 8, 0, 300), foe("tough-b", 8, 2, 300), foe("weak", 9, 1, 30)],
+    });
+  }
+
+  /**
+   * How many living foes could strike `tile` on their next turn: `move` steps plus one
+   * tile of melee reach. A deliberately generous, pathing-free upper bound — the claim
+   * is about the DIRECTION the number moves, not its exact value, so an approximation
+   * that is identical across the compared cases cannot manufacture the result.
+   */
+  function exposure(state: BattleState, tile: { x: number; y: number }): number {
+    return state.units.filter(
+      (u) =>
+        u.teamId !== 0 &&
+        u.hp > 0 &&
+        Math.max(Math.abs(u.pos.x - tile.x), Math.abs(u.pos.y - tile.y)) <= u.move + 1,
+    ).length;
+  }
+
+  /** The tile the probe commits to this turn (its own tile when it does not move). */
+  function chosen(move: number): { tile: { x: number; y: number }; cmd: ReturnType<typeof decideBalanceProbe> } {
+    const state = field(move);
+    const cmd = decideBalanceProbe(state, "cand");
+    const tile =
+      cmd.kind === "act" && cmd.move ? cmd.move.to : cmd.kind === "move" ? cmd.to : { x: 0, y: 1 };
+    return { tile, cmd };
+  }
+
+  it("trades a safer tile for a better target as Move rises — act vs act", () => {
+    const lo = chosen(4);
+    const hi = chosen(5);
+    // BOTH act, so this is not "it can finally reach something".
+    expect(lo.cmd.kind).toBe("act");
+    expect(hi.cmd.kind).toBe("act");
+
+    // One extra tile of Move buys the lower-effective-HP target…
+    expect(lo.cmd.kind === "act" && lo.cmd.target).toEqual({ unitId: "tough-a" });
+    expect(hi.cmd.kind === "act" && hi.cmd.target).toEqual({ unitId: "weak" });
+    // …and is paid for with a tile one more foe can reach. The probe never weighs that.
+    expect(exposure(field(4), lo.tile)).toBe(2);
+    expect(exposure(field(5), hi.tile)).toBe(3);
+  });
+
+  it("exposure never DECREASES with Move — there is no safety term anywhere in the key", () => {
+    // The general form. If a future slice teaches `compareCandidate` to weigh exposure,
+    // this staircase stops being monotone and the test goes red — which is the signal
+    // that `steal.move-plus-2` can leave DEFERRED_MOVEMENT_EFFECTS.
+    const ladder = [2, 3, 4, 5, 6, 7].map((m) => {
+      const { tile } = chosen(m);
+      return exposure(field(m), tile);
+    });
+    expect(ladder).toEqual([0, 0, 2, 3, 3, 3]);
+    for (let i = 1; i < ladder.length; i++) {
+      expect(ladder[i]!, `Move ${i + 2} is safer than Move ${i + 1}`).toBeGreaterThanOrEqual(
+        ladder[i - 1]!,
+      );
+    }
+    // NON-VACUITY: the ladder actually MOVES. A fixture where every step scored the same
+    // would satisfy the monotonicity check above while proving nothing.
+    expect(new Set(ladder).size).toBeGreaterThan(1);
   });
 });

@@ -187,26 +187,34 @@ function equippedReaction(record: UnitRecord, registry: ContentRegistry): Reacti
 }
 
 /**
- * THE MOVEMENT SLOT IS STILL INERT — and this is where that is recorded, rather than
- * being a silence someone has to notice (ADR-0019).
+ * THE MOVEMENT SLOT IS STILL INERT — and every entry here now names a MEASURED
+ * blocker, not a scope call (ADR-0019 recorded it; **ADR-0020 measured it**).
  *
- * The reaction slice woke the reaction slot and deliberately left movement alone: it
- * is a different mechanism (the `move`/`jump` stats and the traversal rules, not the
- * resolve pipeline), and EIGHT of fifteen shipped builds equip `steal.move-plus-2`,
- * so waking it hands +2 Move to more than half the roster in one step — a roster-wide
- * tempo change on a roster whose seventh identity (`bld-cutpurse`) sits EXACTLY at the
- * viability floor. That is a measurement, not a refactor, and it deserves its own slice.
+ * `steal.move-plus-2` was the one entry deferred by SCOPE rather than by a missing
+ * mechanic. ADR-0020 built the fold and ran it: **the variety score fell 7 → 5 and the
+ * gate failed.** The fold is not what is wrong. The balance probe (`ai.ts`) enumerates
+ * every reachable tile, prices the ACT it can make from each, and has **no term for how
+ * exposed the tile is** — so a bigger `move` simply hands it more rope. Traced on
+ * `skirmish-a`: at Move 3 the wizard casts from `1,0` and lives to turn 19; at Move 5 it
+ * walks to `5,0`, into the enemy line, casts, and is KO'd on that same tick with its
+ * charge cancelled. Every caster collapsed the same way (`arcane-artillery` and
+ * `glass-summoner` 5/12 → 1/12, `spellblade` 6 → 2), melee went flat or slightly worse,
+ * and **no build improved anywhere**. A stat that can only ever hurt is not a shippable
+ * capability.
  *
- * Every authored `type: "movement"` ability appears here with the reason it does
- * nothing yet, split into the two honest kinds: SCOPE (nothing blocks it, we chose not
- * to) and BLOCKED (the mechanic it needs does not exist). `build.test.ts` asserts this
- * partitions the shipped pack EXACTLY, in both directions — so the remaining dead slot
- * cannot rot back into an unrecorded silence, which is precisely how the support slot
- * survived two slices.
+ * So the blocker is precise and testable: **the probe must price a tile's exposure
+ * before extra Move can be an advantage.** `ai.test.ts` pins the mechanism directly —
+ * with more Move, the probe picks a tile more foes can reach — so this entry rests on an
+ * assertion rather than on this comment.
+ *
+ * `build.test.ts` asserts this manifest partitions the shipped pack EXACTLY, in both
+ * directions, and A/Bs that equipping one changes nothing — so the dead slot cannot rot
+ * back into an unrecorded silence, which is precisely how the support slot survived two
+ * slices.
  */
 export const DEFERRED_MOVEMENT_EFFECTS: Readonly<Record<string, string>> = {
   "steal.move-plus-2":
-    "SCOPE, not blocked: +2 Move is a one-line fold onto the derived `move` stat, but 8 of 15 shipped builds equip it, so it is a roster-wide tempo change that must be measured against the diversity gate on its own slice",
+    "BLOCKED by the balance probe, MEASURED (ADR-0020): the fold was built and run, and +2 Move dropped the variety score 7 → 5 because `ai.ts` prices the act it can make from a tile and never the tile's exposure, so more Move walks a fragile unit into the enemy line. Needs an exposure term in `compareCandidate` before it can ship",
   "aim.scout":
     "BLOCKED: vision/line-of-sight is not modeled at all (ADR-0010 item 5 — range is reach + height tolerance with no LoS), so there is no sight radius for a vision movement to widen",
   "geomancy.lava-walk":

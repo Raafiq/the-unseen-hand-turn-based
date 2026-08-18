@@ -23,3 +23,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0017](0017-support-slot-goes-live.md) | The support slot gets real effects; a dead slot is a defect class | Accepted | 2026-08-12 |
 | [0018](0018-control-is-priced-in-damage.md) | Control is priced in the same currency as damage; Charm decides battles | Accepted | 2026-08-16 |
 | [0019](0019-reaction-slot-goes-live.md) | The reaction slot gets real effects; a fired reaction credits the reactor | Accepted | 2026-08-18 |
+| [0020](0020-movement-slot-blocked-by-the-probe.md) | The movement slot is blocked by the AI, not by scope — measured | Accepted | 2026-08-18 |

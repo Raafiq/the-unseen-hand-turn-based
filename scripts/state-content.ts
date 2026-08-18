@@ -177,7 +177,7 @@ export const content = {
 
   /** The three customization-spine cells. */
   spineCells: [
-    { n: "4 of 5", k: "Chassis slots live", sub: "primary · secondary · support · reaction — movement is the last inert slot" },
+    { n: "4 of 5", k: "Chassis slots live", sub: "primary · secondary · support · reaction — movement is blocked by the AI, measured (ADR-0020)" },
     { n: "AP", k: "Job / skill trees", sub: "directed progression · permanent mastery bonuses" },
     { n: "×", k: "Hybrid / fusion jobs", sub: "the recombination layer — curated, not the full N² web" },
   ] satisfies SpineCell[],
@@ -205,18 +205,19 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Wake the movement slot",
+      title: "Teach the AI to fear open ground",
       badge: "recommended",
       body:
-        "<b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety " +
-        "<b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same " +
-        "file, one slot over: a slot that type-checks its input and then discards it looks identical to a " +
-        "working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen " +
-        "builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a " +
-        "roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a " +
-        "refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts " +
-        "the slot changes nothing &mdash; that test is what must go red when this lands.",
-      chip: "1 dead slot",
+        "<b>The last dead equip slot turned out to be an AI problem.</b> Move+2 was built and run " +
+        "(<b>ADR-0020</b>): it dropped the variety score <b>7 &rarr; 5</b> and failed the gate. Every caster " +
+        "collapsed and <em>nothing improved anywhere</em>. The reason is that the AI looks at every tile it " +
+        "can walk to, scores the attack it could make from there, and never asks <em>how many enemies can " +
+        "reach me on that tile</em>. Low Move had been keeping fragile builds alive by accident. So extra " +
+        "movement is a pure liability, and the slot cannot ship until the AI weighs danger. That is a " +
+        "bigger change than it sounds &mdash; the exposure has to outrank target choice, which turns a " +
+        "greedy attacker into a cautious one. A test pins the current behaviour and goes red the day it " +
+        "changes.",
+      chip: "measured",
       recommended: true,
     },
     {

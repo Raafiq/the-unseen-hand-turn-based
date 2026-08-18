@@ -94,6 +94,17 @@ come out the other way — specialised to the gate.
   it was, and nothing said so. `landed` had the same shape (true only when HP moved).
   Before scoping a slice that adds a NEW KIND of identity, check the metric can represent
   it; adding the build to the manifest is not enough.
+- **THE PROBE PRICES THE ACT, NEVER THE TILE — so a mobility buff is a LIABILITY.**
+  `compareCandidate` enumerates every reachable tile, scores the best action available
+  from each, and carries **no term for how many foes can strike the tile it lands on**.
+  Low `move` therefore keeps fragile builds alive *by accident*. Measured (ADR-0020):
+  authoring `steal.move-plus-2` as a real +2 Move dropped the variety score **7 → 5** —
+  every caster collapsed, melee went flat or worse, and **no build improved anywhere**.
+  Before scoping anything that grants reach, mobility or extra reachable tiles, check
+  whether the probe can *use* it without walking into a kill zone; and note a safety term
+  at the BOTTOM of the key sequence cannot fix it, because the exposure is lost to
+  `targetEffHp`, the primary key. `ai.test.ts` pins the ladder and goes red the day this
+  stops being true.
 - **A GATE ROW CANNOT TELL "LOST" FROM "COULD NOT END".** A mechanic that removes a reason
   to attack a unit can LIVELOCK a fight — charm did it twice (a body blocking a corridor
   nobody would clear; the last defender nobody would attack), each surfacing only as

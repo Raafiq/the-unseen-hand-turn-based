@@ -41,9 +41,16 @@ Cross-job equipping is what turns a class list into a build sandbox.
 > Every slot now keeps a manifest of what is authored-but-inert and why:
 > `DEFERRED_SUPPORT_EFFECTS`, `DEFERRED_REACTION_EFFECTS`, `DEFERRED_MOVEMENT_EFFECTS`. A test
 > asserts each partitions the shipped pack **exactly, in both directions** — an unlisted inert
-> ability fails, and so does a stale entry for one that has since gained an effect. Movement is
-> held back by SCOPE, not by a missing mechanic: eight of fifteen builds equip `move-plus-2`, so
-> waking it is a roster-wide tempo change that has to be measured on its own slice.
+> ability fails, and so does a stale entry for one that has since gained an effect.
+>
+> **Movement is blocked by the AI, not by scope, and that was measured (ADR-0020).** The fold
+> was built and run: +2 Move dropped the build-variety score **7 → 5** and failed the gate. The
+> fold is fine — the balance probe prices the *action* it can take from a tile and never the
+> tile's *exposure*, so extra Move only walks a fragile unit into the enemy line. Every caster
+> collapsed; nothing improved anywhere. Low Move had been keeping fragile builds alive by
+> accident. The fifth slot is therefore **not** one more slice of the same work: it needs an
+> exposure term in the probe first, and `ai.test.ts` pins that mechanism so the manifest entry
+> rests on an assertion rather than on this paragraph.
 
 ### A3. The job web (representative)
 Generic human jobs: Squire, Chemist (both starting), Knight, Archer, Monk, Priest, Wizard, Time Mage, Summoner, Thief, Mystic/Oracle, Geomancer, Lancer/Dragoon, Samurai, Ninja, **Calculator/Arithmetician**, Bard (♂), Dancer (♀), **Mime**. `[WotL]` adds **Dark Knight** and **Onion Knight**. Representative gates: Knight/Archer ← Squire 2; Priest/Wizard ← Chemist 2; Monk ← Knight 3; Geomancer ← Monk 3; Thief ← Archer 2; Dragoon ← Thief 3; Summoner ← Time Mage 3; Ninja ← Archer 4 + Thief 5 + Geomancer 2; Calculator ← Priest 4 + Wizard 4 + Time 3 + Oracle 4; Mime ← very steep. `[WotL]` gates are generally stricter. **(All thresholds verify-against-BMG before use — see `docs/01` §12.)**
