@@ -24,8 +24,9 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > source matches reality. A phase marked done stays marked done until a human corrects it.
 > Re-check this list whenever you touch the roadmap, and treat a tick as a claim that needs
 > evidence (a shipped file, a passing AC), not as proof. Last reconciled against the code
-> on **2026-08-09**; a stale header here once claimed "pre-code" against 428 passing tests,
-> and a later one claimed P3 while P3's own deliverables were unshipped.
+> on **2026-08-18**; a stale header here once claimed "pre-code" against 428 passing tests,
+> a later one claimed P3 while P3's own deliverables were unshipped, and a third still read
+> `N = 6` two slices after the gate reached 7.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -41,12 +42,25 @@ job/ability/encounter schemas, AP purchase, Spec Kit initialized (`.specify/`, `
       before→after, and the CT price of the turn as staged (`docs/10` §4). Shipped with the
       playable viewer; this is a **P2** deliverable, not P3.
 - [x] Build-diversity gate exists, runs live in CI, and can FAIL (ADR-0014)
-- [ ] **The gate reaches the release bar — N ≥ 8. Currently N = 6.** This is P2's open exit
-      criterion. Remaining EXCLUDED identities: `aggro-tank` (provoke/threat), `counter-wall`
-      (reaction-as-live), `battle-cleric` (prefix-collapse — structurally uncountable),
-      `warlord` (boss).
-- [ ] MP enforcement. Blocked, deliberately: two of six counted prefixes ride unenforced MP,
-      so enforcing it today would drop **N 6→4**. Needs durable carriers first.
+- [x] **All five chassis slots are live** — support (ADR-0017), reaction (ADR-0019),
+      movement (ADR-0020). The customization spine's first axis is complete.
+- [ ] **The gate reaches the release bar — N ≥ 8. Currently N = 7** (`DIVERSITY_TARGET_N`
+      in `src/sim/gauntlet.ts`). This is P2's open exit criterion. The MEASURABLE manifest
+      holds **9 builds** over **7 distinct signature prefixes** — `black-magic.` and
+      `punch-art.` each have two carriers, so two builds add no identity.
+      Remaining EXCLUDED entries: `aggro-tank` (provoke/threat — re-measured 2026-08-18: it
+      now clears 6/6, but its rows are byte-identical to `counter-wall`, so it is blocked
+      from being *distinct*, not from being measured), `battle-cleric` (prefix collapse —
+      structurally uncountable), `warlord` (boss chassis, not an archetype). `counter-wall`
+      is no longer excluded — ADR-0019 moved it to MEASURABLE, where its `punch-art.`
+      prefix collapses onto `faithzero-monk`'s and adds no identity.
+      **No remaining EXCLUDED entry can supply a new prefix**, so the eighth identity must
+      come from new content or a new mechanic, not from retiring an exclusion.
+- [ ] MP enforcement. Blocked, deliberately: two of the seven counted identities ride
+      unenforced MP — `white-magic.` (holy costs 56 MP off a 24 budget) and `summon.` — so
+      enforcing it today would drop the count. Needs durable carriers first. (The old
+      **N 6→4** figure was measured at N = 6 and has NOT been re-measured since; treat it
+      as a direction, not a number.)
 
 **P3 — Enhancements · NOT STARTED.** Hybrid/fusion jobs (partial sim support in `job.ts`;
 no player-facing path), **rewind UI** (the substrate exists, the UI does not), scan, speed
