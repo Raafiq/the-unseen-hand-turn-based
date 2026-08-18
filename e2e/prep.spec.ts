@@ -174,3 +174,37 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   await page.waitForTimeout(HOLD_MS);
   await expect(maCell).toHaveText(String(maInert));
 });
+
+/**
+ * THE SLOT DROPDOWNS SAY WHICH EQUIPS ARE REAL (ADR-0019).
+ *
+ * Once the reaction slot went live while two of its abilities stayed deferred — and the
+ * whole movement slot stayed inert — "it is in the dropdown" stopped meaning "it will do
+ * something". A panel that offers all four identically re-creates the dead-slot illusion
+ * at the UI layer, which is the thing that cost two slices to diagnose in the sim.
+ *
+ * DISCRIMINATING: the LIVE reaction and the DEFERRED one sit in the SAME dropdown, so
+ * the assertion is a contrast, not the presence of a string. A build that tagged
+ * everything, or nothing, fails one half or the other.
+ */
+test("prep viewer: an equip that does nothing SAYS it does nothing", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("prep-stats").scrollIntoViewIfNeeded();
+
+  const optionText = async (testId: string, value: string): Promise<string> =>
+    (await page.locator(`[data-testid="${testId}"] option[value="${value}"]`).innerText()).trim();
+
+  // Counter is LIVE — no tag.
+  expect(await optionText("prep-reaction", "punch-art.counter")).not.toContain("no effect yet");
+  // Gilgame Heart is a reaction whose effect is post-battle economy — tagged.
+  expect(await optionText("prep-reaction", "steal.gilgame-heart")).toContain("no effect yet");
+  // The whole movement slot is still inert, equipped default included.
+  expect(await optionText("prep-movement", "steal.move-plus-2")).toContain("no effect yet");
+  // …and the support slot keeps its existing split.
+  expect(await optionText("prep-support", "battle-skill.equip-heavy-armor")).toContain(
+    "no effect yet",
+  );
+  expect(await optionText("prep-support", "black-magic.magic-attack-up")).not.toContain(
+    "no effect yet",
+  );
+});

@@ -249,6 +249,15 @@ function checkReferentialIntegrity(
           `(only a "support" ability's effect is ever applied)`,
       );
     }
+    // Same rule for the reaction slot (ADR-0019): a reactionEffect is read ONLY from
+    // the equipped REACTION slot, so one authored anywhere else is an effect nothing
+    // will ever apply.
+    if (ability.reactionEffect !== undefined && ability.type !== "reaction") {
+      throw new ContentIntegrityError(
+        `ability "${ability.id}" declares a reactionEffect but has type "${ability.type}" ` +
+          `(only a "reaction" ability's effect is ever applied)`,
+      );
+    }
   }
 
   for (const job of pack.jobs) {

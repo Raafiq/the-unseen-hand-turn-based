@@ -39,6 +39,7 @@ import {
   type BattleAbility,
   type BattleState,
   type Position,
+  type ReactionKind,
   type UnitState,
   type ZodiacTier,
 } from "../sim/index.js";
@@ -127,7 +128,51 @@ export interface ActPreview {
    * here ("this act applies no status"), unlike a fabricated zero.
    */
   inflicts: PreviewStatus[];
+  /**
+   * What the TARGET's equipped reaction will do to the actor if this act wakes it
+   * (docs/10 §4, ADR-0019). ABSENT — genuinely missing from the object, not zeroed —
+   * whenever no reaction can trigger: the target has none, the act is not physical,
+   * or the actor stands outside the target's reach.
+   *
+   * ADDED THE MOMENT REACTIONS SHIPPED, and that timing is the rule, not a detail.
+   * `preview.ts` correctly said nothing about reactions while they were unmodeled;
+   * the instant the resolver started firing them, silence became a LIE — the player
+   * would commit a melee swing at a Counter Wall seeing only what it costs the
+   * target, with no hint that half the damage is coming straight back
+   * (`src/render/CLAUDE.md`, "when a deferred capability SHIPS, go un-hide it").
+   */
+  counterRisk?: CounterRisk;
   turn: TurnCost;
+}
+
+/**
+ * The reaction the target would answer this act with (docs/10 §4 item 8).
+ *
+ * `chance` is the target's Brave — the real trigger odds the resolver rolls, read off
+ * the unit, not a constant. `magnitude` is the EXACT damage the counter-swing deals
+ * on a hit, from the same `attackDamage` the resolver uses, so the panel cannot
+ * promise a number the engine would not produce. `hitChance` is that swing's own
+ * post-evasion odds AGAINST THE ACTOR, which is why repositioning changes it.
+ */
+export interface CounterRisk {
+  /** The reaction ability that would fire (e.g. `punch-art.counter`). */
+  abilityId: string;
+  kind: ReactionKind;
+  /** Trigger odds, 0–100: the target's Brave (docs/01 §4). */
+  chance: number;
+  /** The counter-swing's post-evasion hit chance against the ACTOR, 0–100. */
+  hitChance: number;
+  /** Exact damage the counter-swing deals to the actor on a hit. */
+  magnitude: number;
+  /** Would the counter drop the ACTOR to 0 HP? */
+  lethal: boolean;
+  /**
+   * True for `preemptive` (Hamedo): this act would be CANCELLED, so the damage and
+   * statuses shown above it will not happen at all. The renderer must lead with this
+   * — a preview that shows a lethal blow the target simply blocks is worse than no
+   * preview.
+   */
+  cancelsAct: boolean;
 }
 
 /** An action the actor can legally take on a unit FROM a given tile. */
@@ -283,6 +328,8 @@ export function computeActPreview(
     ? Math.min(target.maxHp, target.hp + magnitude)
     : Math.max(0, target.hp - magnitude);
 
+  const counterRisk = counterRiskOf(state, actor, from, target, ability);
+
   return {
     actorId,
     abilityId: ability.id,
@@ -303,6 +350,62 @@ export function computeActPreview(
     // will copy onto the target — so the preview cannot promise a status the sim
     // would not apply.
     inflicts: ability.inflicts.map((s) => ({ id: s.id, kind: s.kind })),
+    // `exactOptionalPropertyTypes` is on, so this spread is how the key stays
+    // genuinely ABSENT rather than present-and-undefined (docs/10 §4, absent-not-zero).
+    ...(counterRisk ? { counterRisk } : {}),
     turn: turnCost(state, actorId, { didMove: moved, didAct: true }),
+  };
+}
+
+/**
+ * The target's answer to this act, or `null` when it has none.
+ *
+ * MIRRORS `resolve.ts`'s `tryReaction` conditions — physical only, the actor inside
+ * the target's OWN basic-attack range, both alive — and reuses `inAbilityRange` and
+ * `attackDamage` rather than restating either. The sim owns legality and magnitude;
+ * the preview only asks (`src/render/CLAUDE.md`, the "never re-derive" rule).
+ *
+ * PURE: no resolver, no RNG, no clock. The one thing it CANNOT know is whether the
+ * Brave roll will pass — which is why `chance` is surfaced instead of a verdict.
+ *
+ * THE ACT-KILLS-THE-TARGET CASE. A `counter` cannot fire from a corpse, so an act the
+ * preview already calls `lethal` carries no counter risk and this returns `null` for
+ * it. That is a real answer, not an omission: "kill it before it swings back" is
+ * exactly the tactical read the panel exists to support. `preemptive` is unaffected —
+ * it fires BEFORE the blow, so a lethal act does not escape it.
+ */
+function counterRiskOf(
+  state: BattleState,
+  actor: UnitState,
+  from: Position,
+  target: UnitState,
+  ability: BattleAbility,
+): CounterRisk | null {
+  const reaction = target.reaction;
+  if (reaction === null) return null;
+  if (target.hp <= 0 || actor.hp <= 0) return null;
+  const physical = isBasicAttack(ability) || ability.formula === "physical";
+  if (!physical) return null;
+  const swing = target.abilities.find((a) => isBasicAttack(a));
+  if (!swing) return null;
+  if (!inAbilityRange(state.grid, target.pos, from, swing.range)) return null;
+  if (reaction.kind === "counter") {
+    const magnitude = routeMagnitude(actor, target, ability);
+    const wouldKill = !(ability.formula === "heal") && target.hp > 0 && target.hp - magnitude <= 0;
+    if (wouldKill) return null;
+  }
+  // The counter-swing is aimed at the ACTOR standing on the staged tile `from`, so
+  // facing/evasion are read from there — repositioning changes the risk, and the panel
+  // must move with it.
+  const swingFacing = relativeFacing({ ...actor, pos: from }, target.pos);
+  const counterDamage = attackDamage(target, { ...actor, pos: from });
+  return {
+    abilityId: reaction.abilityId,
+    kind: reaction.kind,
+    chance: target.brave,
+    hitChance: hitChance(target.weapon.accuracy, actor.evasion, swingFacing),
+    magnitude: counterDamage,
+    lethal: actor.hp > 0 && actor.hp - counterDamage <= 0,
+    cancelsAct: reaction.kind === "preemptive",
   };
 }

@@ -107,7 +107,10 @@ export const content = {
       "can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table " +
       "below is regenerated from a live gauntlet run every time this page is built. The newest identity is " +
       "the <b>Cutpurse</b>, whose signature deals no damage at all: it <em>charms</em>, and a charmed unit " +
-      "fights for whoever charmed it (<b>ADR-0018</b>).",
+      "fights for whoever charmed it (<b>ADR-0018</b>). The <b>Counter Wall</b> joined the measured field " +
+      "when reactions went live (<b>ADR-0019</b>) &mdash; and it adds <em>zero</em> to the variety score, " +
+      "because it shares the monk's <span class=\"mono\">punch-art.</span> family. A retired blocker does " +
+      "not owe the count a point.",
     gateHonesty:
       "* Honesty note: the magic axis is a real second threat that makes cost non-uniform, but on the " +
       "aggregate roster it rewards tempo/range as much as personal Faith — the anti-mage's <em>own</em> " +
@@ -174,7 +177,7 @@ export const content = {
 
   /** The three customization-spine cells. */
   spineCells: [
-    { n: "3 of 5", k: "Chassis slots live", sub: "primary · secondary · support — reaction and movement are still inert" },
+    { n: "4 of 5", k: "Chassis slots live", sub: "primary · secondary · support · reaction — movement is the last inert slot" },
     { n: "AP", k: "Job / skill trees", sub: "directed progression · permanent mastery bonuses" },
     { n: "×", k: "Hybrid / fusion jobs", sub: "the recombination layer — curated, not the full N² web" },
   ] satisfies SpineCell[],
@@ -202,18 +205,18 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Wake the reaction and movement slots",
+      title: "Wake the movement slot",
       badge: "recommended",
       body:
-        "<b>Three of the five equip slots did nothing.</b> The support slot just went live " +
-        "(<b>ADR-0017</b>) and took variety <b>5 &rarr; 6</b> on its own &mdash; the black mage had been " +
-        "wearing Magic Attack Up for two slices without receiving it, and its weakness was twice " +
-        "mis-diagnosed as a balance problem. <b>Reaction and movement are still inert.</b> They are the same " +
-        "defect, and the fix is the same shape: a slot that type-checks its input and then discards it looks " +
-        "identical to a working one, so assert that equipping something <em>changes the built unit</em>. " +
-        "Reactions also retire a named gate exclusion (the counter-wall) and the priest's unmodeled sustain " +
-        "identity. Release bar is <span class=\"mono\">8</span>.",
-      chip: "2 dead slots",
+        "<b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety " +
+        "<b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same " +
+        "file, one slot over: a slot that type-checks its input and then discards it looks identical to a " +
+        "working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen " +
+        "builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a " +
+        "roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a " +
+        "refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts " +
+        "the slot changes nothing &mdash; that test is what must go red when this lands.",
+      chip: "1 dead slot",
       recommended: true,
     },
     {

@@ -4,17 +4,26 @@
  * in later slices.
  *
  * Determinism (docs/05 §3a): randomness is drawn from the battle's single
- * seeded stream, reconstructed from the state cursor, in a DECLARED order. For a
- * basic attack that order is:
- *   1. HIT ROLL   (one draw vs the post-evasion hit%)
- *   2. CRIT       (deferred — no draw consumed yet; ~5% random XA-boost, PR3+)
+ * seeded stream, reconstructed from the state cursor, in a DECLARED order. Per
+ * (attacker, defender) blow that order is:
+ *   1. HIT ROLL       (one draw vs the post-evasion hit%) — ALWAYS drawn
+ *   2. REACTION ROLL  (one draw vs the DEFENDER's Brave%) — drawn ONLY when the
+ *                     defender's equipped reaction can actually trigger on this
+ *                     blow ({@link tryReaction}). A unit equips at most one
+ *                     reaction, so this is at most one draw.
+ *   3. COUNTER SWING  (one hit draw) — only when 2 fired and the reaction strikes
+ *                     back.
+ *   4. CRIT           (deferred — no draw consumed yet; ~5% random XA-boost)
+ * A unit with NO reaction, or one whose trigger condition does not hold, consumes
+ * exactly the draws it consumed before ADR-0019 — which is why every frozen golden
+ * moves by the new `reaction` field alone.
  * On resolve, the advanced RNG cursor is written back to `rngCounter`.
  *
  * Magnitude floor order (docs/05 §2): base weapon damage → element → Zodiac →
  * Protect → clamp ≥ 0.
  */
 
-import { relativeFacing, unitsInAoeBox } from "./grid.js";
+import { inAbilityRange, relativeFacing, unitsInAoeBox } from "./grid.js";
 import {
   applyProtect,
   applyShell,
@@ -26,9 +35,19 @@ import {
   type Facing,
 } from "./formulas.js";
 import { CT_COST_WAIT } from "./scheduler.js";
-import { effectiveTeamOf, isBasicAttack, rngFor, type BattleState, type Position, type UnitState } from "./state.js";
+import {
+  BASIC_ATTACK_ID,
+  effectiveTeamOf,
+  isBasicAttack,
+  rngFor,
+  type BattleState,
+  type Position,
+  type UnitState,
+} from "./state.js";
 import { statusInterruptsCharge, type ActiveStatus } from "./active-status.js";
+import type { ReactionKind } from "./reaction.js";
 import type { BattleAbility } from "./ability.js";
+import type { SeededRng } from "./rng.js";
 
 export interface AttackOptions {
   /** Concentrate: physical attack ignores evasion (docs/01 §5c). */
@@ -44,10 +63,16 @@ export interface AttackOutcome {
   /** Post-evasion hit chance actually used (0–100). */
   hitChance: number;
   hit: boolean;
-  /** Damage dealt (0 on a miss). */
+  /** Damage dealt (0 on a miss, and 0 when a `preemptive` reaction cancelled it). */
   damage: number;
   /** True only on the attack that drops the target to 0 HP. */
   ko: boolean;
+  /**
+   * Reactions the DEFENDER's equipped reaction slot fired against this blow
+   * (ADR-0019) — empty for the overwhelmingly common no-reaction case. The driver
+   * turns each into its own accounting event; see {@link ReactionOutcome}.
+   */
+  reactions: ReactionOutcome[];
 }
 
 export interface ResolveResult {
@@ -121,6 +146,140 @@ export function applyInflicts(
 }
 
 /**
+ * One reaction that actually FIRED, as the resolvers report it (ADR-0019). Only
+ * fired reactions appear — a reaction whose trigger condition did not hold consumes
+ * no draw and produces nothing, and one whose Brave roll failed consumes its draw and
+ * produces nothing.
+ *
+ * THE DRIVER TURNS EACH OF THESE INTO ITS OWN `ResolutionEvent`, credited to
+ * `reactorId`. That is not bookkeeping polish: counter damage lands on the ATTACKER,
+ * which is the acting unit's own id, and `hpDiffEvent` deliberately never credits a
+ * unit for its own HP loss — so without this the counter would fire correctly, change
+ * the fight, and still score ZERO on every measurement the project has (the
+ * "contribution proxy encodes which identities can exist" rule in `src/sim/CLAUDE.md`).
+ */
+export interface ReactionOutcome {
+  /** The DEFENDER whose equipped reaction fired. */
+  reactorId: string;
+  /** The equipped reaction ability's id — the label the reactor is credited under. */
+  abilityId: string;
+  kind: ReactionKind;
+  /** The attacker whose blow woke it, and the target of the counter-swing. */
+  againstId: string;
+  /** Did the counter-swing connect? */
+  hit: boolean;
+  /** HP actually removed from `againstId` (0 on a miss; never counts overkill). */
+  damage: number;
+  /** Did the counter-swing drop `againstId` to 0 HP? */
+  ko: boolean;
+  /** `preemptive` only: the incoming blow was cancelled outright. */
+  nullified: boolean;
+}
+
+/**
+ * The REACTION STAGE (docs/05 §2 steps b and e, ADR-0019). Called once per
+ * (attacker, defender) blow at each of the two stages; the defender's equipped
+ * reaction kind decides which stage it answers on, so at most one call can fire.
+ *
+ *   - `stage: "pre"`  — the {@link ReactionKind} `preemptive` (Hamedo) stage, run
+ *                       BEFORE the incoming blow is applied. When it fires, the
+ *                       caller must discard the blow entirely: no damage, no KO, no
+ *                       status.
+ *   - `stage: "post"` — the `counter` stage, run AFTER the blow has been applied.
+ *
+ * TRIGGER CONDITIONS, all required (each is a discriminating negative with its own
+ * test):
+ *   - the blow is PHYSICAL — a magic/heal/utility blow wakes nothing, which is why
+ *     charged actions (magic-only by `ChargeEffectSchema`) are not a reaction site;
+ *   - `post` only: the blow actually REMOVED HP, and the defender is still standing
+ *     (a corpse does not counter — it is counting down to crystallization);
+ *   - the attacker is alive and stands inside the DEFENDER's own basic-attack range,
+ *     asked of `inAbilityRange` rather than re-derived here;
+ *   - the defender is not the attacker.
+ *
+ * NO REACTION CHAIN, STRUCTURALLY. The counter-swing is resolved INLINE here and
+ * never routed back through {@link resolveAttack}, so there is no path on which a
+ * counter can wake another counter — the invariant is a property of the call graph,
+ * not a flag someone must remember to pass.
+ *
+ * RNG: exactly ONE draw (the Brave% trigger) when the conditions hold, plus ONE more
+ * (the swing's hit roll) when it fires. Zero draws otherwise. Mutates `state` in place
+ * — every caller already holds a clone — and advances the SHARED `rng` cursor the
+ * caller writes back.
+ */
+export function tryReaction(
+  state: BattleState,
+  rng: SeededRng,
+  attackerId: string,
+  defenderId: string,
+  stage: "pre" | "post",
+  blow: { physical: boolean; removedHp: number },
+): ReactionOutcome | null {
+  if (attackerId === defenderId) return null;
+  if (!blow.physical) return null;
+  const defender = state.units.find((u) => u.id === defenderId);
+  const attacker = state.units.find((u) => u.id === attackerId);
+  if (!defender || !attacker) return null;
+  const reaction = defender.reaction;
+  if (reaction === null) return null;
+  const wants: ReactionKind = stage === "pre" ? "preemptive" : "counter";
+  if (reaction.kind !== wants) return null;
+  if (defender.hp <= 0 || attacker.hp <= 0) return null;
+  if (stage === "post" && blow.removedHp <= 0) return null;
+  // Reach = the reactor's OWN basic attack (docs/01 §9). A unit always carries one
+  // (`basicAttackFrom`), but a hand-built fixture might not — no basic swing means
+  // nothing to answer with, so nothing fires and no draw is taken.
+  const swing = defender.abilities.find((a) => a.id === BASIC_ATTACK_ID);
+  if (!swing) return null;
+  if (!inAbilityRange(state.grid, defender.pos, attacker.pos, swing.range)) return null;
+
+  // ROLL — the Brave% trigger (docs/01 §4). Drawn only now, once every condition
+  // above holds, so a reaction that could never have fired shifts no cursor.
+  if (!rng.chance(defender.brave)) return null;
+
+  // THE COUNTER-SWING: the reactor's basic weapon attack, back at the attacker.
+  // Resolved inline (see "no reaction chain" above) but with the SAME facing /
+  // hit-chance / magnitude pipeline `resolveAttack` uses, so a counter can never
+  // deal a number a normal swing from that unit would not.
+  const facing = relativeFacing(attacker, defender.pos);
+  const chance = hitChance(defender.weapon.accuracy, attacker.evasion, facing);
+  const hit = rng.chance(chance);
+  let damage = 0;
+  let ko = false;
+  if (hit) {
+    const before = attacker.hp;
+    const newHp = Math.max(0, before - attackDamage(defender, attacker));
+    attacker.hp = newHp;
+    // EXACT HP removed, not the raw magnitude: overkill is not a contribution, the
+    // same rule `hpDiffEvent` holds itself to.
+    damage = before - newHp;
+    if (newHp === 0 && before > 0) {
+      attacker.crystalTimer = CRYSTAL_TIMER_START;
+      ko = true;
+    }
+  }
+
+  state.turnLog.push({
+    tick: state.tick,
+    unitId: defenderId,
+    action: `${reaction.kind} ${reaction.abilityId} → ${attackerId}${
+      !hit ? " miss" : ko ? " KO" : ` −${damage}`
+    }`,
+  });
+
+  return {
+    reactorId: defenderId,
+    abilityId: reaction.abilityId,
+    kind: reaction.kind,
+    againstId: attackerId,
+    hit,
+    damage,
+    ko,
+    nullified: stage === "pre",
+  };
+}
+
+/**
  * Resolve a basic physical attack from `attackerId` against `targetId`. Pure:
  * clones the input and returns a new state; consumes the seeded RNG in the
  * declared order above.
@@ -154,15 +313,26 @@ export function resolveAttack(
   // ROLL 1 — hit. Always consumed so the roll cursor is deterministic.
   const hit = rng.chance(chance);
 
+  // REACTION PRE-CHECK (docs/05 §2 step b): a `preemptive` reaction strikes first and
+  // CANCELS this blow. Run before the magnitude/apply block so the cancellation is
+  // structural — there is no damage to un-apply. The hit roll above is still drawn:
+  // "the hit roll is unconditional" stays an invariant rather than a special case,
+  // and the discarded result is unobservable in the outcome.
+  const reactions: ReactionOutcome[] = [];
+  const pre = tryReaction(state, rng, attackerId, targetId, "pre", { physical: true, removedHp: 0 });
+  if (pre) reactions.push(pre);
+
   let damage = 0;
   let ko = false;
-  if (hit) {
+  let removedHp = 0;
+  if (hit && !pre) {
     // MAGNITUDE — floor order per docs/05 §2 (extracted, RNG-free: {@link attackDamage}).
     damage = attackDamage(attacker, target, opts);
 
     // APPLY — clamp HP ≥ 0; on lethal, start the crystal counter (docs/01 §11).
     const newHp = Math.max(0, target.hp - damage);
     const wasAlive = target.hp > 0;
+    removedHp = target.hp - newHp;
     target.hp = newHp;
     if (newHp === 0 && wasAlive) {
       target.crystalTimer = CRYSTAL_TIMER_START;
@@ -170,14 +340,33 @@ export function resolveAttack(
     }
   }
 
-  state.rngCounter = rng.count;
+  // The attacker's own log line goes in BEFORE the post-reaction's, so the turn log
+  // reads in the order the blows actually landed (a `pre` reaction's line is already
+  // above this one — Hamedo does strike first).
   state.turnLog.push({
     tick: state.tick,
     unitId: attackerId,
-    action: !hit ? `miss ${targetId}` : ko ? `KO ${targetId}` : `hit ${targetId} −${damage}`,
+    action: pre
+      ? `blocked by ${targetId}`
+      : !hit
+        ? `miss ${targetId}`
+        : ko
+          ? `KO ${targetId}`
+          : `hit ${targetId} −${damage}`,
   });
 
-  return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+  // REACTION POST (docs/05 §2 step e): a `counter` answers a blow that removed HP
+  // from a defender still standing — `removedHp` is HP actually taken, not the raw
+  // magnitude, so overkill is not what wakes it.
+  const post = tryReaction(state, rng, attackerId, targetId, "post", { physical: true, removedHp });
+  if (post) reactions.push(post);
+
+  state.rngCounter = rng.count;
+
+  return {
+    state,
+    outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko, reactions },
+  };
 }
 
 /**
@@ -222,9 +411,17 @@ export function resolveAbility(
   const hit = rng.chance(chance);
 
   const heal = ability.formula === "heal";
+  // Only a PHYSICAL-formula ability wakes a reaction (docs/01 §9): magic, heals and
+  // pure-utility acts (`formula: "none"`, e.g. `steal.heart`) wake nothing.
+  const physical = ability.formula === "physical";
+  const reactions: ReactionOutcome[] = [];
+  const pre = tryReaction(state, rng, attackerId, targetId, "pre", { physical, removedHp: 0 });
+  if (pre) reactions.push(pre);
+
   let damage = 0;
   let ko = false;
-  if (hit) {
+  let removedHp = 0;
+  if (hit && !pre) {
     // MAGNITUDE — floor order mirrors resolve.ts / charge.ts: formula → Zodiac →
     // Protect/Shell → clamp ≥ 0 (extracted, RNG-free: {@link abilityDamage}).
     damage = abilityDamage(attacker, target, ability);
@@ -234,6 +431,7 @@ export function resolveAbility(
     } else {
       const newHp = Math.max(0, target.hp - damage);
       const wasAlive = target.hp > 0;
+      removedHp = target.hp - newHp;
       target.hp = newHp;
       if (newHp === 0 && wasAlive) {
         target.crystalTimer = CRYSTAL_TIMER_START;
@@ -245,20 +443,29 @@ export function resolveAbility(
     applyInflicts(state, target, ability.inflicts, effectiveTeamOf(attacker));
   }
 
-  state.rngCounter = rng.count;
   state.turnLog.push({
     tick: state.tick,
     unitId: attackerId,
-    action: !hit
-      ? `miss ${targetId}`
-      : heal
-        ? `heal ${targetId} +${damage}`
-        : ko
-          ? `KO ${targetId}`
-          : `hit ${targetId} −${damage}`,
+    action: pre
+      ? `blocked by ${targetId}`
+      : !hit
+        ? `miss ${targetId}`
+        : heal
+          ? `heal ${targetId} +${damage}`
+          : ko
+            ? `KO ${targetId}`
+            : `hit ${targetId} −${damage}`,
   });
 
-  return { state, outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko } };
+  const post = tryReaction(state, rng, attackerId, targetId, "post", { physical, removedHp });
+  if (post) reactions.push(post);
+
+  state.rngCounter = rng.count;
+
+  return {
+    state,
+    outcome: { attackerId, targetId, facing, hitChance: chance, hit, damage, ko, reactions },
+  };
 }
 
 /** One affected unit's result inside an area act (id-sorted in {@link AoeOutcome.perTarget}). */
@@ -280,6 +487,8 @@ export interface AoeOutcome {
   heal: boolean;
   /** Per-target results in the DECLARED id-ascending order the rolls were drawn. */
   perTarget: AoeTargetOutcome[];
+  /** Reactions fired by the units this area blow struck (id-ascending, ADR-0019). */
+  reactions: ReactionOutcome[];
   /** Units the roll landed on. */
   hits: number;
   /** Units dropped to 0 HP (0 for a heal). */
@@ -347,11 +556,15 @@ export function resolveAbilityAoe(
       unitId: attackerId,
       action: `aoe ${abilityId} 0 hit / 0 ${heal ? "healed" : "ko"}`,
     });
-    return { state, outcome: { ...base, perTarget: [], hits: 0, kos: 0, total: 0 } };
+    return { state, outcome: { ...base, perTarget: [], reactions: [], hits: 0, kos: 0, total: 0 } };
   }
 
   const rng = rngFor(state);
   const perTarget: AoeTargetOutcome[] = [];
+  // Only a PHYSICAL area ability wakes reactions (`aim.volley` is the one shipped
+  // case); magic and heal areas wake nothing.
+  const physical = ability.formula === "physical";
+  const reactions: ReactionOutcome[] = [];
   let total = 0;
   for (const ref of affected) {
     // Re-find on the live (mutating) clone so an earlier KO in the box is seen.
@@ -359,15 +572,23 @@ export function resolveAbilityAoe(
     const facing = relativeFacing(target, attacker.pos);
     const chance = hitChance(ability.accuracy, target.evasion, facing);
     const hit = rng.chance(chance); // ONE draw per target, id order.
+    // REACTION PRE-CHECK for THIS target. Per-target and in the same id-ascending
+    // order as the hit rolls, so the draw sequence stays a pure function of state.
+    // A `preemptive` defender cancels the box's blow ON ITSELF only — the rest of the
+    // area still resolves, which is what "the reactor struck first" means locally.
+    const pre = tryReaction(state, rng, attackerId, target.id, "pre", { physical, removedHp: 0 });
+    if (pre) reactions.push(pre);
     let amount = 0;
     let ko = false;
-    if (hit) {
+    let removedHp = 0;
+    if (hit && !pre) {
       amount = abilityDamage(attacker, target, ability);
       if (heal) {
         target.hp = Math.min(target.maxHp, target.hp + amount);
       } else {
         const newHp = Math.max(0, target.hp - amount);
         const wasAlive = target.hp > 0;
+        removedHp = target.hp - newHp;
         target.hp = newHp;
         if (newHp === 0 && wasAlive) {
           target.crystalTimer = CRYSTAL_TIMER_START;
@@ -379,6 +600,8 @@ export function resolveAbilityAoe(
       applyInflicts(state, target, ability.inflicts, effectiveTeamOf(attacker));
       total += amount;
     }
+    const post = tryReaction(state, rng, attackerId, target.id, "post", { physical, removedHp });
+    if (post) reactions.push(post);
     perTarget.push({ targetId: target.id, facing, hitChance: chance, hit, amount, ko });
   }
 
@@ -390,7 +613,7 @@ export function resolveAbilityAoe(
     unitId: attackerId,
     action: `aoe ${abilityId} ${hits} hit / ${kos} ${heal ? "healed" : "ko"}`,
   });
-  return { state, outcome: { ...base, perTarget, hits, kos, total } };
+  return { state, outcome: { ...base, perTarget, reactions, hits, kos, total } };
 }
 
 /**

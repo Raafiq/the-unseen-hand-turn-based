@@ -27,8 +27,12 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
   the Zodiac tier. Computed **only** from pure, RNG-free sim helpers (`hitChance`,
   `attackDamage`/`abilityDamage`, `relativeFacing`, `inAbilityRange`,
   `moveRange`, `settleTurn` on a throwaway clone) — **never by resolving**.
-  Deferred rows (crit, reactions, status-on-hit, elemental, AoE, LoS, charge
-  forecast) are **absent from the type**, not printed as zero.
+  It also carries `inflicts` (the statuses the act will apply) and — since
+  ADR-0019 — an optional `counterRisk`: what the target's equipped reaction would
+  do back, present **only** when one can actually trigger from the staged tile.
+  Still-deferred rows (crit, elemental, AoE spread, LoS, charge forecast) are
+  **absent from the type**, not printed as zero. That list shrinks as capabilities
+  land: once the engine does a thing, hiding it is the dishonest option.
 - `iso.ts` — the isometric renderer: a pure projection `screen = f(x, y, height)`
   drawing the grid (with per-tile height), units (team colour, facing pip, HP
   bar, KO crystal + revive countdown, and a row of **status badges** — buff/debuff

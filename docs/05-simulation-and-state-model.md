@@ -54,7 +54,9 @@ RESOLVE:  (immediate action now, or charged action on its matured tick)
   3. per target, per hit (Two Swords = 2 hits):
      a. HIT ROLL:  base = abilityAcc; apply facing→evasion (independent multiplicative rolls);
                    apply Faith (magic) and Zodiac to hit%; roll vs seeded RNG (§3)
-     b. REACTION PRE-CHECK: Brave-based reactions (Blade Grasp) checked BEFORE damage; Concentrate bypasses evasion
+     b. REACTION PRE-CHECK: a `preemptive` reaction (Hamedo) is checked BEFORE damage —
+                   it strikes first and CANCELS the blow (damage, KO and status alike);
+                   Concentrate bypasses evasion
      c. MAGNITUDE: weapon/magic formula (docs/01 §5), floor each bracket;
                    × elemental modifier (weak/half/absorb/null) × Zodiac
      d. APPLY: clamp HP≥0; on lethal → set KO + crystalTimer=3; apply status w/ CT-based duration
@@ -62,8 +64,24 @@ RESOLVE:  (immediate action now, or charged action on its matured tick)
                    roll order is unchanged; never onto a corpse; a re-hit REFRESHES to the
                    longer lifetime rather than stacking; a `controlsTarget` status is
                    stamped with the inflicter's team — §6a)
-     e. REACTION POST: on-hit/on-damage reactions (Counter, Auto-Potion) enqueue their own actions
+     e. REACTION POST: a `counter` reaction answers a blow that REMOVED HP from a
+                   defender still standing, striking back with the reactor's own basic
+                   attack. Resolved INLINE, never routed back through the attack path, so
+                   a counter can never wake a counter. Each fired reaction reports itself
+                   and is accounted to the REACTOR (§2a)
 ```
+
+### 2a. Who gets the credit `[ENHANCEMENT]`
+
+Contribution is measured by diffing HP across a resolution and crediting the acting unit.
+A counter breaks that mapping in a way that is easy to miss: its damage lands on the
+**attacker**, which is the diff's own source, and a unit is never credited for its own HP
+loss. A live counter would therefore change the fight and still score **zero** everywhere
+the project measures — the diversity gate's band, its signature-landed count, all of it.
+
+So a fired reaction **emits its own accounting event**, credited to the reactor under the
+reaction ability's id. Any future effect that moves HP on behalf of someone other than the
+acting unit SHALL do the same rather than ride the diff.
 
 **Truncation points** (must floor, in this order): PA/Brave scaling → × weapon power → elemental → Zodiac → Protect/Shell. Getting the *order* wrong drifts damage even if every step floors.
 
@@ -76,7 +94,7 @@ RESOLVE:  (immediate action now, or charged action on its matured tick)
 ### 3a. Seeded PRNG, single stream
 - One **seeded PRNG** (e.g. a small counter-based / splitmix-style generator) per battle, seeded from `battleSeed`.
 - **All nondeterminism flows through it** — hit rolls, status rolls, crits, AI choices, loot. No `Math.random`, no wall-clock, no unseeded platform RNG anywhere in the sim.
-- **Declared roll-consumption order** per action (hit → reaction → crit → status → …), so the Nth roll is always the same given the same state. Document the order alongside the pipeline (§2).
+- **Declared roll-consumption order** per action (hit → reaction → crit → status → …), so the Nth roll is always the same given the same state. Document the order alongside the pipeline (§2). Per (attacker, defender) blow the live order is: **1.** hit roll — always drawn; **2.** reaction trigger (the defender's Brave%) — drawn **only** when its equipped reaction's condition holds for this blow, and a unit equips at most one; **3.** the reaction's own swing hit roll — only when 2 fired. A unit with no reaction consumes exactly the draws it did before reactions existed, which is why the frozen golden moved by representation alone.
 
 ### 3b. Rewind substrate — decision
 Two viable substrates; **we choose seeded command-replay as primary, with periodic snapshots as an optimization:**
@@ -199,4 +217,5 @@ all-charmed enemy team is unverified.
 - **AC-S5 (formula fidelity):** The damage pipeline SHALL match every golden test-vector (`docs/01` §12) exactly, including floor order.
 - **AC-S6 (serialization round-trip):** `deserialize(serialize(state)) == state` for BattleState and campaign save; a save with an unsupported `schemaVersion` SHALL fail with a clear error, never load partially.
 - **AC-S7 (rewind):** Rewinding K turns then replaying the same commands SHALL yield the same result as never having rewound.
+- **AC-S9 (the reaction draw is conditional):** A reaction trigger roll SHALL be drawn **iff** the defender's equipped reaction can actually trigger on that blow, and the reaction's own swing roll **iff** the trigger passed. A unit with no equipped reaction — or one whose condition fails — SHALL leave `rngCounter` exactly where the pre-reaction engine left it. *Test:* asserted draw counts of 1 (no reaction), 1 (out of reach), 2 (rolled, failed) and 3 (fired) on the same fixture; and the frozen golden regenerated by a mechanical field-add, which only reproduces the engine's output if no roll moved.
 - **AC-S8 (allegiance):** A unit under a `controlsTarget` status SHALL act for, be targeted as, and be counted for the **inflicting** team — in AI target selection, area friend/foe filters, damage attribution, traversal and the victory/defeat check — and SHALL revert when the status expires. Turn order SHALL be unaffected. *Test:* the same battle with and without the stamped status, asserted on each reader (`src/sim/charm.test.ts`).

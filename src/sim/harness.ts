@@ -243,6 +243,10 @@ export function runFromState(
     const applied = applyCommandDetailed(state, command);
     state = applied.state;
     if (applied.event) account([applied.event]);
+    // Reactions the command WOKE, each credited to the reactor, not to the actor
+    // (ADR-0019). Accounted after the actor's own event so the contribution order
+    // matches the order the blows landed.
+    if (applied.reactionEvents.length > 0) account(applied.reactionEvents);
     if (applied.declaredChargeId !== null && command.kind === "act") {
       chargeLabels.set(applied.declaredChargeId, command.abilityId);
     }

@@ -27,7 +27,13 @@
 
 import { z } from "zod";
 import { advanceToNextTurn, settleTurn } from "./scheduler.js";
-import { resolveAttack, resolveAbility, resolveAbilityAoe, tickCrystal } from "./resolve.js";
+import {
+  resolveAttack,
+  resolveAbility,
+  resolveAbilityAoe,
+  tickCrystal,
+  type ReactionOutcome,
+} from "./resolve.js";
 import { declareCharge, resolveCharge } from "./charge.js";
 import { moveRange, inAbilityRange } from "./grid.js";
 import { effectiveTeamOf, isBasicAttack, PositionSchema, type BattleState, type Position } from "./state.js";
@@ -146,7 +152,45 @@ export interface ResolutionEvent {
 export interface AppliedCommand {
   state: BattleState;
   event: ResolutionEvent | null;
+  /**
+   * One event per reaction the command's blow WOKE (ADR-0019), each credited to the
+   * REACTOR — never to the acting unit. Separate from `event` because a counter is a
+   * different unit's contribution that happened inside this unit's turn, and folding
+   * it into `event` would credit the attacker with the damage it just took.
+   *
+   * Empty on every command that woke none, which is all of them until a build equips
+   * a live reaction. See {@link reactionEvents}.
+   */
+  reactionEvents: ResolutionEvent[];
   declaredChargeId: string | null;
+}
+
+/**
+ * Turn the reactions a blow woke into LANDED accounting events, credited to each
+ * REACTOR under its reaction ability's id.
+ *
+ * WHY THESE CANNOT COME FROM {@link hpDiffEvent}. A counter's damage lands on the
+ * ATTACKER — which is the diff's own `sourceUnitId` — and the diff deliberately never
+ * credits a unit for its own HP loss. So a live counter would change the fight and
+ * still score ZERO everywhere the project measures contribution: the gate's `inBand`,
+ * `signatureActionsLanded`, the whole diversity count. Building the event from the
+ * resolver's own {@link ReactionOutcome} is what makes a counter countable, and it is
+ * exact for the same reason the diff is: `damage` is HP actually removed, never
+ * overkill.
+ */
+function reactionEvents(reactions: readonly ReactionOutcome[]): ResolutionEvent[] {
+  return reactions.map((r) => ({
+    sourceUnitId: r.reactorId,
+    abilityId: r.abilityId,
+    damageDealt: r.damage,
+    healingDone: 0,
+    kos: r.ko ? 1 : 0,
+    statusesInflicted: 0,
+    // A reaction that fired but MISSED landed nothing — same honesty rule as a missed
+    // attack. Nullifying an incoming blow is not itself a landed contribution either:
+    // it removes damage, it does not deal any.
+    landed: r.damage > 0,
+  }));
 }
 
 /**
@@ -158,14 +202,18 @@ export interface AppliedCommand {
  * (the sums and the KO count do not depend on `units` array order). `abilityId`
  * labels the source action for signature counting.
  *
- * ATTRIBUTION ASSUMPTION (valid ONLY while no live reactions / friendly-fire exist):
- * damage is attributed by TEAM — HP LOSS on a FOE of the source is the source's
- * damage; HP GAIN on an ALLY (incl. self) is the source's healing. A future
- * counter/friendly-fire/self-damage path would break this simple mapping, so it is
- * GUARDED rather than left to silently inflate `damageDealt`/`kos`: HP loss on a
- * same-team unit OTHER than the source THROWS (that is the mis-attribution tripwire —
- * make the new mechanic surface here and account itself, don't credit it to the
- * caster). Self HP loss (a future recoil) is deliberately NOT counted as damage dealt.
+ * ATTRIBUTION ASSUMPTION: damage is attributed by TEAM — HP LOSS on a FOE of the
+ * source is the source's damage; HP GAIN on an ALLY (incl. self) is the source's
+ * healing. HP loss on a same-team unit OTHER than the source THROWS: that is the
+ * mis-attribution tripwire for a future friendly-fire path — make the new mechanic
+ * surface here and account itself, don't credit it to the caster.
+ *
+ * THE REACTION PATH DID EXACTLY THAT (ADR-0019). A counter's damage lands on the
+ * SOURCE itself, which this diff leaves uncredited by design (self HP loss is not
+ * "damage dealt"), so it never trips the tripwire and never mis-credits — but it also
+ * means the diff CANNOT see a counter at all. Reactions therefore account themselves,
+ * in {@link reactionEvents}, credited to the reactor. Self HP loss from a future
+ * recoil stays deliberately uncounted here.
  *
  * EDGE: healing a full-HP ally moves no HP → the action is `landed:false` and
  * contributes 0 (an "overheal" is not a landed contribution). Likewise a 0-magnitude
@@ -394,6 +442,7 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
           didAct: false,
         }),
         event: null,
+        reactionEvents: [],
         declaredChargeId: null,
       };
     case "act": {
@@ -459,6 +508,7 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
       // accounts identically and exactly (no overkill, miss ⇒ 0).
       let after: BattleState;
       let event: ResolutionEvent | null = null;
+      let reactions: ReactionOutcome[] = [];
       let declaredChargeId: string | null = null;
       if (ability.speed === null) {
         // INSTANT — resolve now.
@@ -467,7 +517,9 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
           // (foes for damage, allies incl. self for heal — TARGETED, no friendly
           // fire). A tile target is legal for an area act, so the unit-target
           // requirement below is relaxed here.
-          after = resolveAbilityAoe(from, unitId, targetTile, ability.id).state;
+          const aoe = resolveAbilityAoe(from, unitId, targetTile, ability.id);
+          after = aoe.state;
+          reactions = aoe.outcome.reactions;
         } else {
           // SINGLE-TARGET — ONLY the weapon-derived basic swing delegates to
           // resolveAttack (its magnitude comes from `weapon`, not from a projected
@@ -481,9 +533,11 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
           if (!targetUnitId) {
             throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
           }
-          after = isBasicAttack(ability)
-            ? resolveAttack(from, unitId, targetUnitId).state
-            : resolveAbility(from, unitId, targetUnitId, ability.id).state;
+          const single = isBasicAttack(ability)
+            ? resolveAttack(from, unitId, targetUnitId)
+            : resolveAbility(from, unitId, targetUnitId, ability.id);
+          after = single.state;
+          reactions = single.outcome.reactions;
         }
         event = hpDiffEvent(from, after, unitId, ability.id);
       } else {
@@ -522,12 +576,18 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
 
       // THE single settle for this command: −100 when both sub-phases were used,
       // −80 for the act alone (docs/01 §1, AC-02).
-      return { state: settleTurn(after, unitId, { didMove, didAct: true }), event, declaredChargeId };
+      return {
+        state: settleTurn(after, unitId, { didMove, didAct: true }),
+        event,
+        reactionEvents: reactionEvents(reactions),
+        declaredChargeId,
+      };
     }
     case "wait":
       return {
         state: settleTurn(state, unitId, { didMove: false, didAct: false }),
         event: null,
+        reactionEvents: [],
         declaredChargeId: null,
       };
   }

@@ -235,6 +235,7 @@
       "type": "reaction",
       "skillset": "punch-art",
       "apCost": 240,
+      "reactionEffect": { "kind": "counter" },
       "tags": ["reaction", "counter", "capstone"]
     },
     {
@@ -242,6 +243,7 @@
       "type": "reaction",
       "skillset": "punch-art",
       "apCost": 240,
+      "reactionEffect": { "kind": "preemptive" },
       "tags": ["reaction", "preemptive", "capstone"]
     },
     {

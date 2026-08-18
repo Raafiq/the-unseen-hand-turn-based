@@ -65,12 +65,20 @@
  *     The 9→10 migration stamps `false`/`null` on every status AND every projected
  *     `inflicts` template: no v9 status controlled anything, so a migrated save plays
  *     byte-identically. Additive — no roll or result shift.
+ *   - v11 (reaction slice): {@link UnitState} gains `reaction` — the equipped
+ *     REACTION-slot ability as projected at build time (ADR-0019), or `null` for a
+ *     unit that equips none. The 10→11 migration stamps `null` on every unit: no v10
+ *     unit had a live reaction (the slot was validated then discarded), so a migrated
+ *     save consumes the same rolls and plays byte-identically. Additive — a reaction
+ *     draw is taken ONLY when an equipped reaction's trigger condition holds, so a
+ *     `null` reaction leaves the docs/05 §3 roll order exactly where it was.
  */
 
 import { z } from "zod";
 import { SeededRng, type RngState } from "./rng.js";
 import { ElementSchema } from "./element.js";
 import { BattleAbilitySchema, RangeBoxSchema, type BattleAbility } from "./ability.js";
+import { ReactionStateSchema } from "./reaction.js";
 import { ActiveStatusSchema, legacyActiveStatus, type StatusFlag } from "./active-status.js";
 
 // Re-export the element enum from its leaf module so existing
@@ -92,7 +100,7 @@ export {
 } from "./active-status.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -234,6 +242,16 @@ export const UnitStateSchema = z
      * removable once the resolvers read `abilities` (cleanup owed then).
      */
     abilities: z.array(BattleAbilitySchema),
+    /**
+     * The EQUIPPED reaction-slot ability, projected at build time (ADR-0019), or
+     * `null` when the unit equips none. Added at schemaVersion 11.
+     *
+     * Self-contained like `abilities` and `statuses`: the resolver reads the KIND
+     * from here and never the registry, so `replay` stays a pure function of
+     * `(seed, commands)`. `null` is the identity — a unit with no reaction consumes
+     * exactly the rolls it did before this field existed.
+     */
+    reaction: ReactionStateSchema.nullable(),
   })
   .strict();
 export type UnitState = z.infer<typeof UnitStateSchema>;
@@ -480,6 +498,9 @@ export function defaultUnit(id: string, teamId: number, over: Partial<UnitState>
     crystalTimer: 0,
     statuses: [],
     abilities: [basicAttackFrom(weapon)],
+    // No reaction by default: `null` is the identity and consumes no reaction draw,
+    // so every existing fixture keeps its exact roll sequence (ADR-0019).
+    reaction: null,
     ...over,
   };
 }
@@ -756,6 +777,22 @@ const migrate9to10: Migration = (s) => {
 };
 
 /**
+ * v10 → v11: the REACTION slot goes live (ADR-0019). Every {@link UnitState} gains
+ * `reaction`, the projected equipped reaction. Stamp `null` on every existing unit:
+ * up to v10 the slot was validated at equip time and then discarded, so no v10 unit
+ * ever reacted, and a migration may not read the registry to recover which ability
+ * the record equipped. A `null` reaction takes no reaction draw, so a migrated save
+ * consumes the identical roll sequence and plays byte-identically.
+ */
+const migrate10to11: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    reaction: null,
+  }));
+  return { ...s, schemaVersion: 11, units };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -769,6 +806,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   7: migrate7to8,
   8: migrate8to9,
   9: migrate9to10,
+  10: migrate10to11,
 };
 
 export class SchemaVersionError extends Error {

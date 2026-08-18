@@ -20,6 +20,9 @@
 import pack from "../../data/base-pack.json";
 import {
   DEFERRED_ACTIONS,
+  DEFERRED_MOVEMENT_EFFECTS,
+  DEFERRED_REACTION_EFFECTS,
+  DEFERRED_SUPPORT_EFFECTS,
   buildBattleUnit,
   checkMastery,
   defaultUnitRecord,
@@ -289,9 +292,29 @@ function render(): void {
     record.loadout.secondary ?? "",
   );
 
+  // A slot whose equipped ability does nothing must SAY so — the same rule the
+  // command list already follows for DEFERRED_ACTIONS. The reaction slot went live
+  // (ADR-0019) while two of its abilities stayed deferred and the whole movement slot
+  // stayed inert, so "it is in the dropdown" stopped meaning "it will do something".
+  // Without this the panel reads as if every equip is real, which is exactly the
+  // dead-slot illusion at the UI layer.
+  const deferredFor: Record<"reaction" | "support" | "movement", Readonly<Record<string, string>>> = {
+    reaction: DEFERRED_REACTION_EFFECTS,
+    support: DEFERRED_SUPPORT_EFFECTS,
+    movement: DEFERRED_MOVEMENT_EFFECTS,
+  };
   const abilitySelect = (slot: "reaction" | "support" | "movement"): string =>
     optionList(
-      [noneOpt, ...learnedByType(record, slot).map((id) => ({ value: id, label: abilityLabel(id) }))],
+      [
+        noneOpt,
+        ...learnedByType(record, slot).map((id) => ({
+          value: id,
+          label:
+            deferredFor[slot][id] === undefined
+              ? abilityLabel(id)
+              : `${abilityLabel(id)} — no effect yet`,
+        })),
+      ],
       record.loadout[slot] ?? "",
     );
 

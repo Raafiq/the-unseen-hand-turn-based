@@ -86,6 +86,13 @@
  * behind a capability tag (ADR-0014). The mask is pinned POSITIVELY in `ttk.test.ts` so
  * it cannot be forgotten or silently fixed.
  *
+ * A SECOND COLLAPSE JOINED THE LIST AT THE REACTION SLICE (ADR-0019). `bld-counter-wall`
+ * is now MEASURABLE — Counter fires and is credited to the reactor, so it clears 6/6 phys
+ * maps with its signature landed — and it raises the count by ZERO, because `punch-art.`
+ * is already carried by `bld-faithzero-monk`. That is the honest shape of this slice:
+ * the CAPABILITY is real, the identity is not new. A retired blocker does not owe the
+ * count a point.
+ *
  * DOMINANCE is a THRESHOLD-FREE RELATIVE verdict (no calibrated tick cut-off to
  * gerrymander): a build is dominant only if it clears EVERY {map × opposition} cell
  * AND no other measurable build clears ANY cell faster than it (fastest-or-tied
@@ -140,6 +147,7 @@ export const MEASURABLE: Readonly<Record<string, MeasurableEntry>> = {
   "bld-reraise-cleric": { archetypeId: "white-mage", signaturePrefix: "white-magic." },
   "bld-glass-summoner": { archetypeId: "summoner", signaturePrefix: "summon." },
   "bld-cutpurse": { archetypeId: "cutpurse", signaturePrefix: "steal." },
+  "bld-counter-wall": { archetypeId: "counter-wall", signaturePrefix: "punch-art." },
 };
 
 /**
@@ -157,8 +165,21 @@ export const EXCLUDED: Readonly<Record<string, string>> = {
   // range that opens `summon.` from the backline. Result: 4/6 phys maps with `summon.`
   // landed, losingMatchups still ["magic"] (anti-convergence guardrail intact). Heal summons
   // (golem/moogle) were NOT touched. See DIVERSITY_TARGET_N.
-  "bld-aggro-tank": "provoke/threat mechanic (the probe ignores threat)",
-  "bld-counter-wall": "reaction-as-live modeling (Counter is a passive reaction)",
+  // bld-counter-wall MOVED → MEASURABLE (2026-08-18, the reaction slice). Its named
+  // blocker was "reaction-as-live modeling (Counter is a passive reaction)", and
+  // ADR-0019 delivered exactly that: `punch-art.counter` now fires from the equipped
+  // reaction slot and is credited to the REACTOR as a landed `punch-art.` action.
+  // Result: 6/6 phys maps in band, signature landed on all six. It raises N by ZERO —
+  // its prefix COLLAPSES onto `bld-faithzero-monk`'s `punch-art.` (the ADR-0014
+  // collapse, same shape as spellblade/arcane-artillery on `black-magic.`). It is
+  // listed anyway because it is measurable, and hiding a measurable build behind a
+  // retired capability tag is the thing this manifest exists to prevent.
+  "bld-aggro-tank":
+    "provoke/threat mechanic (the probe ignores threat). MEASURED 2026-08-18: with " +
+    "reactions live it clears 6/6 with rows BYTE-IDENTICAL to bld-counter-wall — the " +
+    "two differ only in raw HP (255 vs 242) and trait ORDER, and neither ever mattered " +
+    "in a shipped run. So it is no longer blocked from being *measured*; it is blocked " +
+    "from being DISTINCT. Promoting it would count the counter identity twice",
   "bld-battle-cleric":
     "signature-prefix collapse (cure→white-magic. shares reraise-cleric; punch-art.→shares faithzero-monk) + reference axis has no sustained ally damage; heal-triage makes cure land when allies are hurt but adds no DISTINCT prefix",
   "bld-warlord": "boss chassis, not an archetype (the assassinate target, not a diversity build)",
@@ -430,7 +451,10 @@ export const VIABLE_MIN_MAPS = 4; // docs/plans viability fraction (4/6)
  * EXCLUDED capabilities (which RAISE N as they land), MP enforcement LOWERS it. NOTE the
  * summoner's `summon.` also has an unenforced-MP contingency (each summon costs 14–30 MP
  * off a 24 budget), so MP enforcement could bite it too — re-verify BOTH on any MP change.
- * ZERO SLACK: exactly 7 prefixes exist, so all 7 must stay viable — healthy
+ * ZERO SLACK STILL, AFTER THE REACTION SLICE: exactly 7 prefixes exist, so all 7 must
+ * stay viable. Waking the reaction slot (ADR-0019) added a second CARRIER for
+ * `punch-art.` (`bld-counter-wall`, 6/6) but no eighth prefix, so the slack is unchanged
+ * — healthy
  * calibrate-to-detect for a DETERMINISTIC gate (TEST 2/TEST 5 prove it can fail), but it
  * means the MP landing flips the whole gate, not just one identity. Re-verify on any MP,
  * roster, or content change.
