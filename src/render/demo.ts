@@ -123,6 +123,13 @@ export function makeDemoBattle(): BattleState {
       pa: 13, brave: 75, zodiac: { sign: "gemini", gender: "male" },
       weapon: { wp: 0, formula: "bareHands", element: "none", accuracy: 100 },
       evasion: { classEv: 25, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+      // THE ONE REACTION ON THE FIELD (ADR-0019). Without it the demo never shows the
+      // capability that just shipped: the preview's counter-risk row would be dead code
+      // in the only build a player actually touches. The Monk-alike is where it belongs
+      // (`punch-art.counter` is a Punch Art capstone), it costs the brawler no stat, and
+      // at Brave 75 it makes "walk up and swing at the brawler" a decision rather than a
+      // default — which is the whole point of surfacing it.
+      reaction: { abilityId: "punch-art.counter", kind: "counter" },
     }),
     unit("mage", 1, {
       pos: { x: 7, y: 5 }, facing: "N", speed: 13, move: 3, jump: 1, hp: 160, maxHp: 160,

@@ -114,6 +114,13 @@ export {
   type CrystalResult,
 } from "./resolve.js";
 export {
+  SupportEffectSchema,
+  applySupportEffect,
+  applySupportToAbility,
+  DEFERRED_SUPPORT_EFFECTS,
+  type SupportEffect,
+} from "./support.js";
+export {
   ReactionKindSchema,
   ReactionEffectSchema,
   ReactionStateSchema,

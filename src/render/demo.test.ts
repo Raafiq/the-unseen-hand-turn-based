@@ -13,8 +13,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { makeDemoBattle } from "./demo.js";
+import { makeDemoBattle, PLAYER_TEAM } from "./demo.js";
 import { abilityDamage, attackDamage, isBasicAttack, type UnitState } from "../sim/index.js";
+import { computeActPreview } from "./preview.js";
 
 /** `docs/07` §3 verbatim, matching `src/sim/ttk.test.ts`'s table. */
 const BANDS = {
@@ -119,5 +120,50 @@ describe("the demo roster shows what the viewer claims to show", () => {
     // When the break/debuff rework lands, this test goes red and the Knight gets its kit.
     const knight = unit("knight");
     expect(knight.abilities.map((a) => a.id)).toEqual(["basic.attack"]);
+  });
+});
+
+describe("the demo fields the reaction capability, and the panel surfaces it", () => {
+  // A CAPABILITY NOBODY CAN SEE SHIPS AS NOTHING. ADR-0019 claims the counter-risk row
+  // makes reactions visible to a player; that claim is only true if the demo — the one
+  // build anyone actually touches — puts a reaction on the field where a melee attack
+  // can wake it. Asserted rather than captioned.
+  it("exactly one demo unit carries a reaction, and it is an ENEMY melee brawler", () => {
+    const carriers = state.units.filter((u) => u.reaction !== null);
+    expect(carriers.map((u) => u.id)).toEqual(["brawler"]);
+    expect(carriers[0]!.teamId).not.toBe(PLAYER_TEAM); // the player must be the one at risk
+    expect(carriers[0]!.reaction).toEqual({ abilityId: "punch-art.counter", kind: "counter" });
+  });
+
+  it("a melee act on it previews a counter risk that matches what the swing would deal", () => {
+    // Adjacency is staged directly: the Knight cannot close the 6 tiles in one turn, and
+    // the claim under test is about the CONTENT carrying a live reaction, not about
+    // pathing (which `session.test.ts` covers).
+    const adjacent = makeDemoBattle();
+    const knight = adjacent.units.find((u) => u.id === "knight")!;
+    const brawler = adjacent.units.find((u) => u.id === "brawler")!;
+    knight.pos = { x: brawler.pos.x - 1, y: brawler.pos.y };
+    const swing = knight.abilities.find((a) => isBasicAttack(a))!;
+    const p = computeActPreview(adjacent, "knight", knight.pos, false, {
+      unit: brawler,
+      ability: swing,
+    })!;
+    expect(p.counterRisk).toBeDefined();
+    expect(p.counterRisk!.chance).toBe(brawler.brave);
+    // The number shown IS the brawler's own swing — no viewer-side arithmetic.
+    expect(p.counterRisk!.magnitude).toBe(attackDamage(brawler, knight));
+
+    // NON-VACUITY: from range, the same act shows nothing. Without this the assertion
+    // above would pass against a panel that warns about every target unconditionally.
+    const far = makeDemoBattle();
+    const archer = far.units.find((u) => u.id === "archer")!;
+    const bow = archer.abilities.find((a) => a.id === "aim.aimed-shot")!;
+    const brawlerFar = far.units.find((u) => u.id === "brawler")!;
+    archer.pos = { x: brawlerFar.pos.x - 4, y: brawlerFar.pos.y };
+    const shot = computeActPreview(far, "archer", archer.pos, false, {
+      unit: brawlerFar,
+      ability: bow,
+    })!;
+    expect(shot.counterRisk).toBeUndefined();
   });
 });
