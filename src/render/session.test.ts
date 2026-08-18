@@ -360,7 +360,11 @@ describe("AC-V6 — preview purity: hovering/staging/cancelling move NOTHING", (
     const s = newSession();
     s.onTileHover(FOE_TILE);
     const keys = Object.keys(s.preview()!);
-    for (const banned of ["crit", "critical", "reaction", "reactions", "status", "element", "elemental", "aoe", "los"]) {
+    // The hover is on an ordinary foe with NO equipped reaction, so `counterRisk` must
+    // be absent here too — that is what the absent-not-zero rule means for a key that
+    // now exists but does not apply. `reaction`/`reactions` stay banned as NAMES: the
+    // preview never carries the raw slot, only the derived risk, and only when real.
+    for (const banned of ["crit", "critical", "reaction", "reactions", "status", "element", "elemental", "aoe", "los", "counterRisk"]) {
       expect(keys).not.toContain(banned);
     }
     // …while the honest minimum set IS present (docs/10 §4).
@@ -442,6 +446,90 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     });
     return createBattleState({ seed: 4242, grid: { width, height, tiles }, units: [hero, foe] });
   }
+
+  /** `skillFixture` with the foe carrying an equipped reaction. */
+  function reactionFixture(kind: "counter" | "preemptive"): () => BattleState {
+    return () => {
+      const st = skillFixture();
+      const foe = st.units.find((u) => u.id === "foe")!;
+      foe.reaction = { abilityId: `punch-art.${kind === "counter" ? "counter" : "hamedo"}`, kind };
+      foe.brave = 100; // pin the trigger so the panel's claim is checkable against the commit
+      foe.weapon = { ...foe.weapon, accuracy: 100 };
+      return st;
+    };
+  }
+
+  it("surfaces the target's COUNTER — and the number it shows is the damage taken", () => {
+    // The absent row became a lie the moment reactions shipped (src/render/CLAUDE.md).
+    // This is the honesty invariant for the new row, the same shape as the magnitude
+    // and inflicts ones: the panel must not merely warn, it must name the number the
+    // resolver then deals to the actor.
+    const s = new Session({ makeState: reactionFixture("counter"), playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const risk = s.preview()!.counterRisk!;
+    expect(risk).toMatchObject({ abilityId: "punch-art.counter", kind: "counter", chance: 100 });
+    expect(risk.magnitude).toBeGreaterThan(0);
+    expect(risk.cancelsAct).toBe(false);
+
+    const before = unit(s.state, "hero").hp;
+    s.onPick(FOE_TILE);
+    expect(before - unit(s.state, "hero").hp).toBe(risk.magnitude);
+
+    // NON-VACUITY: the same fixture WITHOUT the reaction shows no risk row and the
+    // hero takes nothing — so the assertions above are about the reaction, not about
+    // a hero that was always going to lose HP.
+    const plain = new Session({ makeState: skillFixture, playerTeam: 0 });
+    plain.onTileHover(FOE_TILE);
+    expect(plain.preview()!.counterRisk).toBeUndefined();
+    const heroBefore = unit(plain.state, "hero").hp;
+    plain.onPick(FOE_TILE);
+    expect(unit(plain.state, "hero").hp).toBe(heroBefore);
+  });
+
+  it("flags a HAMEDO target as cancelling the act, and the commit then cancels it", () => {
+    const s = new Session({ makeState: reactionFixture("preemptive"), playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const p = s.preview()!;
+    expect(p.counterRisk!.cancelsAct).toBe(true);
+    // The panel still shows the act's damage above the warning — and the warning is
+    // what makes that number honest, because the commit delivers NONE of it.
+    expect(p.magnitude).toBeGreaterThan(0);
+    const foeBefore = unit(s.state, "foe").hp;
+    s.onPick(FOE_TILE);
+    expect(unit(s.state, "foe").hp).toBe(foeBefore);
+  });
+
+  it("shows NO counter risk from out of reach — a ranged act against a melee reactor", () => {
+    // The discriminating negative: same reaction, same Brave, only the distance
+    // differs. A risk row that ignored reach would fire here and mis-warn the player
+    // off a perfectly safe shot.
+    const makeState = (): BattleState => {
+      const st = reactionFixture("counter")();
+      const hero = st.units.find((u) => u.id === "hero")!;
+      hero.abilities[0] = { ...hero.abilities[0]!, range: { h: 4, v: 1 } };
+      hero.pos = { x: 0, y: 2 }; // 4 tiles out: in the skill's range, outside the foe's swing
+      return st;
+    };
+    const s = new Session({ makeState, playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    expect(s.preview()!.counterRisk).toBeUndefined();
+  });
+
+  it("shows NO counter risk when the act would KILL the target first", () => {
+    // A corpse does not counter, so "kill it before it swings back" is a real read the
+    // panel must support rather than warn against.
+    const makeState = (): BattleState => {
+      const st = reactionFixture("counter")();
+      const foe = st.units.find((u) => u.id === "foe")!;
+      foe.hp = 1;
+      return st;
+    };
+    const s = new Session({ makeState, playerTeam: 0 });
+    s.onTileHover(FOE_TILE);
+    const p = s.preview()!;
+    expect(p.lethal).toBe(true);
+    expect(p.counterRisk).toBeUndefined();
+  });
 
   it("previews a physical SKILL at its own power, and deals exactly that", () => {
     const s = new Session({ makeState: skillFixture, playerTeam: 0 });

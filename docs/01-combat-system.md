@@ -191,6 +191,30 @@ Statuses (Haste, Reraise, Petrify, Stop, Charm, Don't-Act) swing battles more th
 - **Charm/Confusion/Berserk** hand unit control to AI/RNG — a core disable axis.
 - **Reflect** redirects single-target magic; AoE and some spells ignore it.
 
+### 9a. Reaction abilities `[BASELINE]`
+
+An equipped **Reaction** answers a blow aimed at its bearer. Two are modeled (ADR-0019):
+
+| Reaction | When | Effect |
+|---|---|---|
+| **Counter** | after taking a landed **physical** blow | the bearer strikes back once with its own basic attack |
+| **Hamedo** `[WotL]` | before an incoming **physical** blow | the bearer strikes **first**; the incoming blow is cancelled outright |
+
+Shared rules:
+
+- **Trigger chance is Brave%** (§4). No per-ability modifier.
+- **Reach is the bearer's own attack range** — the attacker must be standing inside it,
+  so a ranged physical blow draws no answer from a melee unit.
+- **No chains.** A reaction's own swing never wakes another reaction.
+- **A corpse does not react**, and a reaction does not fire on a blow that missed.
+- **Magic wakes nothing** here. A magic counter (Retribution) needs a magic-formula
+  counter-swing, which no unit has — `[DEFERRED]`.
+- **Reraise** (auto-revive on KO) is `[DEFERRED]`: nothing in the engine can revive a
+  downed unit, and §11's crystal countdown has no reverse.
+
+`[UNCERTAIN]` — Counter's exact FFT reach (its own weapon range vs a fixed 1 tile) and
+whether Hamedo consumes the attacker's turn are not verified against BMG/FFHacktics.
+
 ---
 
 ## 10. Battle flow
@@ -236,6 +260,7 @@ When this becomes a Spec Kit feature spec, these are its testable requirements. 
 - **AC-06 (evasion by facing):** Evasion SHALL be computed as independent multiplicative rolls, with Class ignored from the side and Class+Shield+Weapon ignored from the rear. *Test:* rear-attack hit-rate == accessory-only computation.
 - **AC-07 (Zodiac/Faith on hit and damage):** Zodiac (×0.5–×1.5 across 5 tiers) and Faith SHALL modify both the %-hit/status-infliction chance and the magnitude.
 - **AC-08 (special units):** Phoenix Down/Raise on Undead SHALL kill; a side entirely KO'd or Petrified SHALL be defeated.
+- **AC-010 (reactions):** An equipped Reaction SHALL trigger at **Brave%** on a blow that meets its condition, and SHALL NOT trigger on a magic blow, a miss, a blow from outside the bearer's own attack range, or a blow that KO'd the bearer. A `counter` SHALL strike the attacker after the blow lands; a `preemptive` SHALL strike first and cancel the blow's damage, KO **and** status. A reaction's own swing SHALL never trigger a further reaction. *Test:* each negative asserted against a fixture that differs from the firing case in exactly one respect (`src/sim/reaction.test.ts`).
 - **AC-09 (permadeath):** A KO'd unit SHALL decrement its crystal counter from 3 on each of its would-be turns and SHALL become a Crystal/Chest at 0.
 
 ## Sources

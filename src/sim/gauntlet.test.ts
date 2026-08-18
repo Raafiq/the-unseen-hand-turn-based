@@ -127,8 +127,13 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // threat axes. That is a genuine anti-convergence signal to watch — a build with
     // nothing to lose to is what docs/02 B5 exists to prevent — but clearing everything
     // WITHOUT outclassing the field is a design conversation, not a gate failure.
-    expect(rep.winsAllInBand).toEqual(["bld-faithzero-monk"]);
+    // The reaction slice added a SECOND every-cell sweeper: `bld-counter-wall` clears all
+    // 12 cells once its Counter fires (ADR-0019). Same reading as the monk — surfaced,
+    // not failed — and it does NOT make either one dominant, because neither is
+    // fastest-or-tied everywhere.
+    expect(rep.winsAllInBand).toEqual(["bld-counter-wall", "bld-faithzero-monk"]);
     expect(rep.noLosingMatchup).toEqual([
+      "bld-counter-wall",
       "bld-faithzero-monk",
       "bld-longshot",
       "bld-terrain-geo",
@@ -177,7 +182,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     }
   });
 
-  it("credits exactly the seven builds whose signature landed while viable", () => {
+  it("credits exactly the eight builds whose signature landed while viable", () => {
     const rep = computeDiversityReport(frozenRuns);
     const measurable = rep.perBuild.filter((b) => b.measurableIdentity).map((b) => b.buildId).sort();
     // INVERTED THREE TIMES. Pre-fold arcane-artillery was the ONLY build that did NOT
@@ -186,6 +191,7 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // outside — masked, not sub-viable.
     expect(measurable).toEqual([
       "bld-arcane-artillery",
+      "bld-counter-wall",
       "bld-cutpurse",
       "bld-faithzero-monk",
       "bld-glass-summoner",
@@ -193,6 +199,11 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
       "bld-reraise-cleric",
       "bld-terrain-geo",
     ]);
+    // EIGHT CREDITED BUILDS, SEVEN IDENTITIES. `bld-counter-wall` joined at the reaction
+    // slice and shares `punch-art.` with `bld-faithzero-monk`, so the credited-build count
+    // and the identity count are no longer the same number. That gap is asserted right
+    // here so nobody re-reads one as the other.
+    expect(measurable.length).toBe(DIVERSITY_TARGET_N + 1);
     for (const id of measurable) {
       const b = rep.perBuild.find((x) => x.buildId === id)!;
       expect(b.inBandMaps.length, id).toBeGreaterThanOrEqual(VIABLE_MIN_MAPS);
@@ -590,30 +601,71 @@ describe("diversity gate — TEST 4b: bld-cutpurse counts as a CONTROL identity"
 // ── TEST 5: the gate can FAIL (calibrated to DETECT, not to pass) ──────────
 describe("diversity gate — TEST 5: N detects the loss of the surviving identity", () => {
   it("dropping any one measurable build collapses distinct N→N−1 → FAIL", () => {
-    // RESTORED AS A PER-IDENTITY SWEEP (2026-08-12, the TTK re-tune). It began as two
-    // tests (drop glass-summoner; drop reraise-cleric), collapsed to one when the fold
-    // left `black-magic.` the only counted identity, and is now a loop over EVERY
-    // measurable build — each carries a distinct signature prefix, so dropping any one of
-    // them must cost exactly one identity. That is stronger than the single-build version
-    // and self-maintaining: a build added to (or lost from) MEASURABLE is covered without
-    // anyone remembering to add a case.
+    // RESTORED AS A PER-IDENTITY SWEEP (2026-08-12, the TTK re-tune), then RE-KEYED FROM
+    // BUILDS TO PREFIXES (2026-08-18, the reaction slice). It began as two tests (drop
+    // glass-summoner; drop reraise-cleric), collapsed to one when the fold left
+    // `black-magic.` the only counted identity, and became a loop over every measurable
+    // build. That loop rested on an assumption that has now STOPPED HOLDING: one credited
+    // build per counted identity. `bld-counter-wall` and `bld-faithzero-monk` both carry
+    // `punch-art.`, so dropping either alone costs NOTHING — the old loop would have gone
+    // red claiming the gate no longer detects a lost identity, when what actually changed
+    // is that an identity gained a second carrier.
+    //
+    // So the sweep is keyed on the SIGNATURE PREFIX, which is what the count is keyed on:
+    // dropping EVERY carrier of a prefix costs exactly one identity. And the collapse
+    // itself is asserted in the other direction below — dropping ONE of two carriers must
+    // cost nothing — so "these two builds are one identity" is proved, not assumed.
     const rep0 = computeDiversityReport(frozenRuns, DEFAULT_BAND);
     const measurable = rep0.perBuild.filter((b) => b.measurableIdentity);
-    expect(measurable.length).toBe(DIVERSITY_TARGET_N); // one build per counted identity
+    const carriersByPrefix = new Map<string, string[]>();
+    for (const b of measurable) {
+      carriersByPrefix.set(b.signaturePrefix, [
+        ...(carriersByPrefix.get(b.signaturePrefix) ?? []),
+        b.buildId,
+      ]);
+    }
+    expect(carriersByPrefix.size).toBe(DIVERSITY_TARGET_N); // one PREFIX per identity
     // The other side of the discriminator: the UNMODIFIED frozen set passes. Without this
     // the loop could not tell "removal caused the failure" from "the gate always fails".
     expect(rep0.pass).toBe(true);
 
-    for (const dropped of measurable) {
+    for (const [prefix, carriers] of carriersByPrefix) {
       const rep = computeDiversityReport(
-        frozenRuns.filter((r) => r.buildId !== dropped.buildId),
+        frozenRuns.filter((r) => !carriers.includes(r.buildId)),
         DEFAULT_BAND,
       );
-      expect(rep.distinctSignatures, dropped.buildId).not.toContain(dropped.signaturePrefix);
-      expect(rep.distinctMeasurableArchetypes, dropped.buildId).toBe(DIVERSITY_TARGET_N - 1);
-      expect(rep.pass, dropped.buildId).toBe(false);
+      expect(rep.distinctSignatures, prefix).not.toContain(prefix);
+      expect(rep.distinctMeasurableArchetypes, prefix).toBe(DIVERSITY_TARGET_N - 1);
+      expect(rep.pass, prefix).toBe(false);
       // Not a spurious fail via dominance — it fails purely on the count.
-      expect(rep.dominantBuilds, dropped.buildId).toEqual([]);
+      expect(rep.dominantBuilds, prefix).toEqual([]);
+    }
+  });
+
+  it("a prefix with TWO carriers survives losing either one — the collapse is real", () => {
+    // The discriminating half of the sweep above. `punch-art.` is the only shared prefix
+    // among credited builds, and the manifest CLAIMS that sharing means the reaction
+    // slice raised N by zero. If that claim were wrong — if the two builds were somehow
+    // counted separately — dropping one would move the count, and this goes red.
+    const rep0 = computeDiversityReport(frozenRuns, DEFAULT_BAND);
+    const shared = new Map<string, string[]>();
+    for (const b of rep0.perBuild.filter((x) => x.measurableIdentity)) {
+      shared.set(b.signaturePrefix, [...(shared.get(b.signaturePrefix) ?? []), b.buildId]);
+    }
+    const multi = [...shared.entries()].filter(([, ids]) => ids.length > 1);
+    // Guards the guard: with no shared prefix this test would be vacuously true.
+    expect(multi.map(([p]) => p)).toEqual(["punch-art."]);
+
+    for (const [prefix, carriers] of multi) {
+      for (const dropped of carriers) {
+        const rep = computeDiversityReport(
+          frozenRuns.filter((r) => r.buildId !== dropped),
+          DEFAULT_BAND,
+        );
+        expect(rep.distinctSignatures, dropped).toContain(prefix);
+        expect(rep.distinctMeasurableArchetypes, dropped).toBe(DIVERSITY_TARGET_N);
+        expect(rep.pass, dropped).toBe(true);
+      }
     }
   });
 

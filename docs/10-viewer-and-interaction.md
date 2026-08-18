@@ -137,15 +137,33 @@ commit-click, and computed for the **staged** position, the player SHALL see:
    > signal instead of a landmine — it must keep the prefix exact under the −100 model,
    > and the only thing it may need to touch is the one constant.
 8. The target's active statuses.
+9. **The statuses this act will apply on a hit** — read off the ability's own resolved
+   templates, so the panel cannot promise one the resolver would not.
+10. **What the target's equipped reaction will do back** — the reaction's id, its trigger
+    odds (the target's Brave), the counter-swing's own hit % against the actor, the exact
+    damage, and whether it would be lethal. Shown **only when a reaction can actually
+    trigger from the staged tile**: absent when the target has none, when the act is not
+    physical, when the actor is outside the target's reach, and when the act would kill
+    the target first (a corpse does not counter — "kill it before it swings back" is a
+    real read the panel must support). A `preemptive` reaction leads with the fact that it
+    **cancels the act**, because every number above that row is then moot.
 
 `[ENHANCEMENT]` The Zodiac / Faith contribution line (`zodiacCompatibility` is already
 exported, and the total already includes it). `docs/04` §3 requires surfacing hidden
 multipliers, so shipping only the total is *partial* compliance.
 
-**`[DEFERRED]` — and these MUST BE ABSENT, not shown as zero:** crit, reactions,
-status-on-hit, elemental weak/half/absorb (all unmodeled per ADR-0010); AoE preview and
-LoS; charge-maturity forecast. Printing "Crit 0%" asserts a modeled zero, which is a
-dishonest UI under pillar 4. Omit the row entirely.
+**`[DEFERRED]` — and these MUST BE ABSENT, not shown as zero:** crit, elemental
+weak/half/absorb (unmodeled per ADR-0010); AoE preview and LoS; charge-maturity forecast.
+Printing "Crit 0%" asserts a modeled zero, which is a dishonest UI under pillar 4. Omit
+the row entirely.
+
+> **This list SHRINKS as capabilities land, and keeping it current is part of the slice.**
+> The rule is "never assert an effect the engine cannot back up" — not "these rows stay
+> hidden". `status-on-hit` and `reactions` both sat on this list *after* the engine had
+> started doing them, so the omission had flipped from honest to dishonest: a player would
+> commit a melee swing at a Counter Wall seeing only what it costs the target, with no hint
+> that half the damage is coming straight back. When a deferred capability ships, go
+> un-hide its row in the same slice.
 
 ## 5. Available player actions (current slice)
 
@@ -210,6 +228,7 @@ degenerate fixture where all orderings coincide).
 - **AC-V8 (no viewer/harness divergence):** For an AI turn, the viewer's resulting state SHALL serialize identically to the headless harness's from the same input state.
 - **AC-V9 (a played session is replayable):** The viewer's recorded `(seed, commands)` — including at least one **combined** command and at least one **cancelled** draft — replayed through `replay()` SHALL reproduce the live final state byte-for-byte, and a rewind-to-K-then-replay SHALL match. *Discriminator:* the cancelled draft must leave no trace in the log.
 - **AC-V10 (screen→tile picking respects height):** A canvas click SHALL resolve to the tile actually drawn on top at that point. *Discriminator:* on a map with a raised plateau, a height-ignoring inverse projection returns a different tile than the one the player sees — the test asserts the drawn-on-top tile and fails against the naive inverse.
+- **AC-V12 (a reaction is surfaced before the player commits):** When the hovered target carries a reaction that can trigger from the staged tile, the preview SHALL surface it with its trigger odds and the **exact** damage the counter-swing deals the actor; when it cannot trigger, the field SHALL be **absent**, never zeroed. *Discriminator:* the previewed number must equal the HP the actor actually loses on commit (a warning without the number is not transparency), and the same fixture **without** the reaction must show no row and cost the actor nothing — plus one out-of-reach and one lethal-act fixture that differ from the firing case in exactly one respect.
 - **AC-V11 (the forecast declares where it stops being a fact):** `forecast()` SHALL return the index `assumedFrom` from which its entries depend on `ASSUMED_FUTURE_TURN_COST`, and a **forecast-vs-replay oracle** SHALL assert that driving the sim with real commands realizes the forecast order over `[0, assumedFrom)` under **both** the −80 and the −100 cost model. The viewer SHALL mark slots `≥ assumedFrom` as projected, and the preview's "next slot" row SHALL be labelled projected **iff** its slot falls outside the prefix. *Discriminator:* the fixture must be one where the two cost models give a **different actor order** — measured, the shipped demo state does **not** (its first eight slots are identical under −80 and −100), so the oracle uses a purpose-built speed ladder in which one folded −100 command flips slot 3 from `hasty` to `slow`. A test that passes under both cost models certifies nothing here; a boundary computed from the *assumed* walk instead of the cheapest one overclaims by a slot and must fail.
 
 ## 7. Required module shape

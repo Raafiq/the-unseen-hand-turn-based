@@ -526,9 +526,17 @@ const matrixRows = rows
     const losesTo = b.measurableIdentity && b.losingMatchups.length === 0
       ? `<span class="pill ok" style="font-size:10.5px">no losing matchup</span>`
       : `<span class="pill crit" style="font-size:10.5px">${b.losingMatchups.map(esc).join(" · ") || "—"}</span>`;
-    const measured = b.measurableIdentity
-      ? `<span class="pill accent" style="font-size:10.5px">✓ identity</span>`
-      : `<span class="pill" style="font-size:10.5px">sub-viable</span>`;
+    // A CREDITED BUILD IS NOT NECESSARILY A DISTINCT IDENTITY. The count keys on the
+    // signature PREFIX, so two builds sharing one contribute a single identity — and a
+    // reader counting ✓ marks would otherwise get a number that disagrees with the
+    // verdict line below (8 ticks, 7 identities, since the reaction slice).
+    const sharesPrefix =
+      rows.filter((o) => o.measurableIdentity && o.signaturePrefix === b.signaturePrefix).length > 1;
+    const measured = !b.measurableIdentity
+      ? `<span class="pill" style="font-size:10.5px">sub-viable</span>`
+      : sharesPrefix
+        ? `<span class="pill" style="font-size:10.5px" title="credited, but shares its signature family with another build — counts as the same identity">✓ shared identity</span>`
+        : `<span class="pill accent" style="font-size:10.5px">✓ identity</span>`;
     const rowClass = b.measurableIdentity ? "" : ' class="muted-row"';
     return `            <tr${rowClass}>
               <td class="build">${name}</td><td class="sig">${esc(b.signaturePrefix)}</td>

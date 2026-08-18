@@ -193,6 +193,21 @@ function renderPreview(): void {
     (p.inflicts.length > 0
       ? row("Inflicts on hit", p.inflicts.map((i) => `${i.id} (${i.kind})`).join(", "), "lethal")
       : "") +
+    // The target's reaction, shown ONLY when one can actually trigger from here
+    // (ADR-0019). Absent, never "Counter: 0%" — and it leads with the cancellation
+    // when the reaction is Hamedo, because every number above this row is then moot.
+    (p.counterRisk
+      ? (p.counterRisk.cancelsAct
+          ? row("⚠ Blocked", `${p.counterRisk.abilityId} would CANCEL this act (${p.counterRisk.chance}%)`, "lethal")
+          : "") +
+        row(
+          p.counterRisk.cancelsAct ? "…and strikes back" : "⚠ Counter risk",
+          `${p.counterRisk.abilityId} · ${p.counterRisk.chance}% to trigger` +
+            ` · ${p.counterRisk.hitChance}% to hit you for ${p.counterRisk.magnitude}`,
+          p.counterRisk.lethal ? "lethal" : "",
+        ) +
+        (p.counterRisk.lethal ? row("Outcome", "the counter would KO YOU", "lethal") : "")
+      : "") +
     row(
       "Turn price",
       `${p.moved ? "Move + Act" : "Act"} · −${p.turn.cost} CT` +
@@ -204,8 +219,12 @@ function renderPreview(): void {
         ? "beyond the next 8 turns"
         : `${p.turn.timelineSlotExact ? "" : "≈ "}#${p.turn.timelineSlot + 1} in the timeline`,
     ) +
-    `<p class="phint">Not modeled yet, so not shown: crit, reactions, status-on-hit, elemental
-     weak/half/absorb, AoE spread, line of sight (ADR-0010). ${slotHonesty(p.turn)}</p>`;
+    // THIS LIST IS AN ASSERTION, and it has to shrink as capabilities land. It named
+    // `status-on-hit` while the Inflicts row above was already live, and `reactions`
+    // until ADR-0019 wired them — each one a claim the engine had stopped backing.
+    // Only genuinely unmodeled things belong here.
+    `<p class="phint">Not modeled yet, so not shown: crit, elemental weak/half/absorb,
+     AoE spread, line of sight (ADR-0010). ${slotHonesty(p.turn)}</p>`;
 }
 
 /**

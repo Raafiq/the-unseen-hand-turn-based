@@ -105,12 +105,23 @@ export {
   attackDamage,
   abilityDamage,
   tickCrystal,
+  tryReaction,
   CRYSTAL_TIMER_START,
   type AttackOptions,
   type AttackOutcome,
+  type ReactionOutcome,
   type ResolveResult,
   type CrystalResult,
 } from "./resolve.js";
+export {
+  ReactionKindSchema,
+  ReactionEffectSchema,
+  ReactionStateSchema,
+  DEFERRED_REACTION_EFFECTS,
+  type ReactionKind,
+  type ReactionEffect,
+  type ReactionState,
+} from "./reaction.js";
 export {
   declareCharge,
   resolveCharge,
@@ -235,6 +246,7 @@ export {
   buildBattleUnit,
   toBattleAbility,
   buildBattleState,
+  DEFERRED_MOVEMENT_EFFECTS,
   type BuildUnitInput,
   type BuildBattleGridOptions,
 } from "./build.js";

@@ -11,6 +11,10 @@
  * Integer/floored math only, floored per step; no RNG, no wall-clock, no IO. The
  * registry is an injected parameter, never a global.
  *
+ * THE REACTION LAYER (ADR-0019) is projected too, but it is NOT a stat layer: the
+ * equipped reaction lands on `UnitState.reaction` and is read by `resolve.ts` when a
+ * blow wakes it, so it never enters the derivation order above.
+ *
  * THE SUPPORT LAYER (ADR-0017) sits AFTER the trait fold and BEFORE the final
  * clamp, and it has two halves that land in different places: its stat mods
  * (pa/ma/maxHp) join the scalar pipeline above, while its ability mods (charge
@@ -47,6 +51,7 @@ import {
 } from "./state.js";
 import { applyTraitEffects, type TraitStatBase } from "./trait.js";
 import { applySupportEffect, applySupportToAbility, type SupportEffect } from "./support.js";
+import { type ReactionState } from "./reaction.js";
 
 /**
  * Placeholder weapon until an equipment layer lands — a UnitRecord carries no
@@ -161,6 +166,54 @@ function equippedSupportEffect(
   if (supportId === null) return undefined;
   return registry.ability(supportId).supportEffect;
 }
+
+/**
+ * The record's EQUIPPED reaction as projected onto the unit (ADR-0019), or `null`
+ * when the slot is empty or the equipped reaction is one of the deliberately-inert
+ * {@link DEFERRED_REACTION_EFFECTS}. `null`, never a no-op object — a `null`
+ * reaction takes no reaction draw, so a reaction-less build's roll sequence is
+ * byte-identical to the pre-slice engine.
+ *
+ * The projected record carries the ABILITY ID as well as the kind, because the
+ * driver credits a fired reaction to the reactor under that id. Without it the
+ * counter would work and still score nothing on every measurement we have.
+ */
+function equippedReaction(record: UnitRecord, registry: ContentRegistry): ReactionState | null {
+  const reactionId = record.loadout.reaction;
+  if (reactionId === null) return null;
+  const effect = registry.ability(reactionId).reactionEffect;
+  if (effect === undefined) return null;
+  return { abilityId: reactionId, kind: effect.kind };
+}
+
+/**
+ * THE MOVEMENT SLOT IS STILL INERT — and this is where that is recorded, rather than
+ * being a silence someone has to notice (ADR-0019).
+ *
+ * The reaction slice woke the reaction slot and deliberately left movement alone: it
+ * is a different mechanism (the `move`/`jump` stats and the traversal rules, not the
+ * resolve pipeline), and EIGHT of fifteen shipped builds equip `steal.move-plus-2`,
+ * so waking it hands +2 Move to more than half the roster in one step — a roster-wide
+ * tempo change on a roster whose seventh identity (`bld-cutpurse`) sits EXACTLY at the
+ * viability floor. That is a measurement, not a refactor, and it deserves its own slice.
+ *
+ * Every authored `type: "movement"` ability appears here with the reason it does
+ * nothing yet, split into the two honest kinds: SCOPE (nothing blocks it, we chose not
+ * to) and BLOCKED (the mechanic it needs does not exist). `build.test.ts` asserts this
+ * partitions the shipped pack EXACTLY, in both directions — so the remaining dead slot
+ * cannot rot back into an unrecorded silence, which is precisely how the support slot
+ * survived two slices.
+ */
+export const DEFERRED_MOVEMENT_EFFECTS: Readonly<Record<string, string>> = {
+  "steal.move-plus-2":
+    "SCOPE, not blocked: +2 Move is a one-line fold onto the derived `move` stat, but 8 of 15 shipped builds equip it, so it is a roster-wide tempo change that must be measured against the diversity gate on its own slice",
+  "aim.scout":
+    "BLOCKED: vision/line-of-sight is not modeled at all (ADR-0010 item 5 — range is reach + height tolerance with no LoS), so there is no sight radius for a vision movement to widen",
+  "geomancy.lava-walk":
+    "BLOCKED: terrain hazards do not exist — a `Tile` carries only `height` and `passable`, so there is no damaging terrain to ignore",
+  "geomancy.terrain-stride":
+    "SCOPE for its ignore-height half (it would fold onto `jump` exactly as move-plus-2 folds onto `move`), BLOCKED for its ignore-terrain half — impassable is binary in `Tile.passable` with no per-unit override, so honouring only half would ship a capability that reads as complete",
+};
 
 /**
  * The unit's castable-action projection: a basic attack, then the learned ACTION
@@ -279,6 +332,12 @@ export function buildBattleUnit(
   const weapon: Weapon = over.weapon ?? DEFAULT_BUILD_WEAPON;
   const abilities = projectAbilities(record, registry, weapon, support);
 
+  // Equipped-reaction layer (ADR-0019). Unlike the support's stat mods this touches
+  // NO stat and NO projected ability — a reaction is read at RESOLVE time, by the
+  // blow that wakes it — so it sits outside the docs/05 §4 derivation pipeline
+  // entirely and cannot perturb the clamp.
+  const reaction = equippedReaction(record, registry);
+
   return defaultUnit(record.id, over.teamId ?? 0, {
     pa: adjusted.pa,
     ma: adjusted.ma,
@@ -291,6 +350,7 @@ export function buildBattleUnit(
     faith: record.faith,
     weapon,
     abilities,
+    reaction,
     // `over` wins on anything above (pos/facing/teamId/…, and any deliberate stat
     // override a caller passes) — this is a placement/setup helper.
     ...over,

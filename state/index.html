@@ -292,7 +292,7 @@
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">18</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">19</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
@@ -300,7 +300,7 @@
     <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness. The <b>viewer is intentionally behind it</b> — it draws movement and turn order but not yet attacks. There is <b>no narrative or long-form content</b>; that's by design for this phase.</p>
     <div class="board" style="margin-top:20px">
       <div class="card sys">
-        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 26 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
+        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 27 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
         <p>CT-tick scheduler with pinned tie-break, hit/damage/status/crit resolution, charged actions, area abilities, the greedy balance-probe AI, seeded RNG, and a serializable battle state that backs both saves and rewind.</p>
         <div class="detail">scheduler · resolve · formulas · charge · aoe · status · ai · rng · state · codec</div>
       </div>
@@ -377,7 +377,7 @@
     <div class="sec-head"><span class="idx">SPINE</span><h2>The customization spine</h2></div>
     <p class="lead">The whole game is organized around one locked design decision (ADR-0001): depth comes from <b>three customization axes</b>, and success is measured in <em>meaningfully different, viable builds</em> — not in the number of options. Everything else is optional or deferred.</p>
     <div class="inv" style="margin-top:20px">
-      <div class="card cell"><div class="n mono">3 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support — reaction and movement are still inert</div></div>
+      <div class="card cell"><div class="n mono">4 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support · reaction — movement is the last inert slot</div></div>
       <div class="card cell"><div class="n mono">AP</div><div class="k">Job / skill trees</div><div class="sub">directed progression · permanent mastery bonuses</div></div>
       <div class="card cell"><div class="n mono">×</div><div class="k">Hybrid / fusion jobs</div><div class="sub">the recombination layer — curated, not the full N² web</div></div>
     </div>
@@ -386,7 +386,7 @@
 
   <section>
     <div class="sec-head"><span class="idx">GATE</span><h2>The build-diversity gate</h2></div>
-    <p class="lead">This is the pillar's safety net and the most recent work. A <b>substitution gauntlet</b> fields each reference build across the shipped maps against distinct <em>threat</em> profiles, and checks two things: enough <b>distinct viable identities</b> land their signature, and <b>no build strictly outclasses the field</b>. It fields two opposition axes — physical and magic — so a build can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table below is regenerated from a live gauntlet run every time this page is built. The newest identity is the <b>Cutpurse</b>, whose signature deals no damage at all: it <em>charms</em>, and a charmed unit fights for whoever charmed it (<b>ADR-0018</b>).</p>
+    <p class="lead">This is the pillar's safety net and the most recent work. A <b>substitution gauntlet</b> fields each reference build across the shipped maps against distinct <em>threat</em> profiles, and checks two things: enough <b>distinct viable identities</b> land their signature, and <b>no build strictly outclasses the field</b>. It fields two opposition axes — physical and magic — so a build can finally <em>lose to something</em> (real opportunity cost), not just win everywhere. The table below is regenerated from a live gauntlet run every time this page is built. The newest identity is the <b>Cutpurse</b>, whose signature deals no damage at all: it <em>charms</em>, and a charmed unit fights for whoever charmed it (<b>ADR-0018</b>). The <b>Counter Wall</b> joined the measured field when reactions went live (<b>ADR-0019</b>) &mdash; and it adds <em>zero</em> to the variety score, because it shares the monk's <span class="mono">punch-art.</span> family. A retired blocker does not owe the count a point.</p>
 
     <div class="card" style="margin-top:22px">
       <div class="matrix-shell">
@@ -403,11 +403,18 @@
           </thead>
           <tbody>
             <tr>
+              <td class="build">Counter Wall</td><td class="sig">punch-art.</td>
+              <td><span class="cellval viable">6/6</span></td>
+              <td><span class="cellval viable">6/6</span></td>
+              <td><span class="pill ok" style="font-size:10.5px">no losing matchup</span></td>
+              <td><span class="pill" style="font-size:10.5px" title="credited, but shares its signature family with another build — counts as the same identity">✓ shared identity</span></td>
+            </tr>
+            <tr>
               <td class="build">Faith-Zero Monk</td><td class="sig">punch-art.</td>
               <td><span class="cellval viable">6/6</span></td>
               <td><span class="cellval viable">6/6</span></td>
               <td><span class="pill ok" style="font-size:10.5px">no losing matchup</span></td>
-              <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
+              <td><span class="pill" style="font-size:10.5px" title="credited, but shares its signature family with another build — counts as the same identity">✓ shared identity</span></td>
             </tr>
             <tr>
               <td class="build">Longshot Skirmisher</td><td class="sig">aim.</td>
@@ -464,7 +471,7 @@
       <div class="verdict">
         <span><b>distinct identities</b> = <b style="color:var(--ok)">7</b> / 7 target</span>
         <span><b>dominant</b> = <b style="color:var(--ok)">none</b></span>
-        <span><b>no-losing-matchup</b> = faithzero-monk, longshot, terrain-geo <span style="color:var(--ink-faint)">(surfaced, not failed)</span></span>
+        <span><b>no-losing-matchup</b> = counter-wall, faithzero-monk, longshot, terrain-geo <span style="color:var(--ink-faint)">(surfaced, not failed)</span></span>
         <span class="pill ok" style="margin-left:auto"><span class="dot"></span>GATE PASSES</span>
       </div>
     </div>
@@ -510,10 +517,10 @@
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>Wake the reaction and movement slots &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>Three of the five equip slots did nothing.</b> The support slot just went live (<b>ADR-0017</b>) and took variety <b>5 &rarr; 6</b> on its own &mdash; the black mage had been wearing Magic Attack Up for two slices without receiving it, and its weakness was twice mis-diagnosed as a balance problem. <b>Reaction and movement are still inert.</b> They are the same defect, and the fix is the same shape: a slot that type-checks its input and then discards it looks identical to a working one, so assert that equipping something <em>changes the built unit</em>. Reactions also retire a named gate exclusion (the counter-wall) and the priest's unmodeled sustain identity. Release bar is <span class="mono">8</span>.</p>
+          <h3>Wake the movement slot &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety <b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same file, one slot over: a slot that type-checks its input and then discards it looks identical to a working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts the slot changes nothing &mdash; that test is what must go red when this lands.</p>
         </div>
-        <span class="pill" style="align-self:center">2 dead slots</span>
+        <span class="pill" style="align-self:center">1 dead slot</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
@@ -539,8 +546,8 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 18 ADRs</span>
-    <span>· 26 spec files</span>
+    <span>· 19 ADRs</span>
+    <span>· 27 spec files</span>
   </div>
 
 </div>

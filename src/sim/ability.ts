@@ -18,6 +18,7 @@
 import { z } from "zod";
 import { ElementSchema } from "./element.js";
 import { SupportEffectSchema } from "./support.js";
+import { ReactionEffectSchema } from "./reaction.js";
 import { ActiveStatusSchema } from "./active-status.js";
 
 const IntSchema = z.number().int();
@@ -90,6 +91,19 @@ export const AbilitySchema = z
      * so a stray effect on an action can never silently do nothing.
      */
     supportEffect: SupportEffectSchema.optional(),
+    /**
+     * What an EQUIPPED `type: "reaction"` ability does (docs/02 §2, ADR-0019).
+     * ADDITIVE + OPTIONAL for the same reason as `supportEffect` above: an
+     * unspecified optional field can never invalidate prior data, so
+     * CONTENT_SCHEMA_VERSION does NOT bump — a pre-slice pack loads unchanged and
+     * its reactions stay inert, which is the behaviour it already had.
+     *
+     * Absent on a reaction ⇒ deliberately still inert; every such id must appear in
+     * {@link DEFERRED_REACTION_EFFECTS} with its blocker (asserted). Absent on a
+     * non-reaction type ⇒ meaningless and rejected by the pack's integrity pass, so
+     * a stray effect on an action can never silently do nothing.
+     */
+    reactionEffect: ReactionEffectSchema.optional(),
     tags: z.array(z.string().min(1)).optional(),
   })
   .strict();

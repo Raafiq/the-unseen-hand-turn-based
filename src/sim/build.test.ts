@@ -12,7 +12,7 @@ import { describe, it, expect } from "vitest";
 import { loadContentPack, type ContentPack, type ContentRegistry } from "./content.js";
 import { defaultUnitRecord } from "./roster.js";
 import { emptyLoadout, setLoadoutSlot, setLoadoutTraits } from "./loadout.js";
-import { buildBattleUnit, buildBattleState } from "./build.js";
+import { buildBattleUnit, buildBattleState, DEFERRED_MOVEMENT_EFFECTS } from "./build.js";
 import { deserialize, serialize } from "./state.js";
 
 function loadShippedPack(): ContentRegistry {
@@ -336,5 +336,51 @@ describe("buildBattleState — deterministic layout + wrap", () => {
     expect(s1).toEqual(s2);
     expect(s1.units[1]?.teamId).toBe(1);
     expect(s1.units[1]?.pos).toEqual({ x: 4, y: 4 });
+  });
+});
+
+// ── the MOVEMENT slot is inert, on the record ───────────────────────────────
+
+describe("the movement slot: still inert, and that is asserted rather than assumed", () => {
+  // A TEST THAT COVERS A SUBSET READS AS COVERING THE SET (CLAUDE.md). The reaction
+  // slice woke reaction and left movement dead; without this, "movement does nothing"
+  // is a silence, which is exactly the state the support slot survived two slices in.
+  const rawPack = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../data/base-pack.json", import.meta.url)), "utf8"),
+  ) as { abilities: Array<Record<string, unknown>> };
+  const movements = rawPack.abilities.filter((a) => a["type"] === "movement");
+
+  it("has movement abilities to check (guards the guard)", () => {
+    expect(movements.length).toBeGreaterThan(0);
+  });
+
+  it("every authored movement ability names why it does nothing yet", () => {
+    const unrecorded = movements
+      .map((a) => a["id"] as string)
+      .filter((id) => DEFERRED_MOVEMENT_EFFECTS[id] === undefined);
+    expect(unrecorded, "authored movement ability with no recorded reason").toEqual([]);
+  });
+
+  it("the manifest names no ability that does not exist, and each reason is real prose", () => {
+    for (const [id, reason] of Object.entries(DEFERRED_MOVEMENT_EFFECTS)) {
+      expect(
+        movements.find((a) => a["id"] === id),
+        `manifest names unknown movement ability "${id}"`,
+      ).toBeDefined();
+      expect(reason.length, id).toBeGreaterThan(20);
+    }
+  });
+
+  it("equipping one changes NOTHING about the built unit — the claim, not the assumption", () => {
+    // The A/B that makes "inert" a measured fact. When the movement slot is woken,
+    // THIS test is the one that must go red; a manifest alone could rot silently.
+    const registry = loadShippedPack();
+    const base = defaultUnitRecord("mover", "thief", {
+      learned: ["steal.move-plus-2"],
+      loadout: emptyLoadout(),
+    });
+    const equipped = setLoadoutSlot(base, "movement", "steal.move-plus-2", registry);
+    expect(equipped.loadout.movement).toBe("steal.move-plus-2"); // it really is equipped
+    expect(buildBattleUnit(equipped, registry)).toEqual(buildBattleUnit(base, registry));
   });
 });

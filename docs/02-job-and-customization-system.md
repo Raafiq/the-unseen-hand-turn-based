@@ -28,14 +28,22 @@ Every unit fields five equip slots, filled from abilities learned across any job
 
 Cross-job equipping is what turns a class list into a build sandbox.
 
-> **Implementation status (2026-08-12, ADR-0017).** Primary, Secondary and **Support** are
-> live in the sim. **Reaction and Movement are still inert** — validated at equip time, then
-> ignored at build time. That is a real gap, not a rounding error: it cost two slices, because
-> nine of fourteen shipped builds equipped a support ability that did nothing and the resulting
-> weakness read as a *content-tuning* problem. A slot that type-checks its input and then
-> discards it looks identical to a working one. Supports that are authored but deliberately
-> effect-less are listed in `DEFERRED_SUPPORT_EFFECTS` with a named blocker, and a test asserts
-> that list partitions the shipped pack exactly, so "silently inert" cannot recur.
+> **Implementation status (2026-08-18, ADR-0019).** Primary, Secondary, **Support** and
+> **Reaction** are live in the sim. **Movement is the last inert slot** — validated at equip
+> time, then ignored at build time.
+>
+> That gap is a real one, not a rounding error: it cost two slices, because nine of fourteen
+> shipped builds equipped a support ability that did nothing and the resulting weakness read as
+> a *content-tuning* problem. **A slot that type-checks its input and then discards it looks
+> identical to a working one.** Reaction had the same shape — seven of fifteen builds wore a
+> dead reaction, and the diversity gate had to EXCLUDE `bld-counter-wall` for it.
+>
+> Every slot now keeps a manifest of what is authored-but-inert and why:
+> `DEFERRED_SUPPORT_EFFECTS`, `DEFERRED_REACTION_EFFECTS`, `DEFERRED_MOVEMENT_EFFECTS`. A test
+> asserts each partitions the shipped pack **exactly, in both directions** — an unlisted inert
+> ability fails, and so does a stale entry for one that has since gained an effect. Movement is
+> held back by SCOPE, not by a missing mechanic: eight of fifteen builds equip `move-plus-2`, so
+> waking it is a roster-wide tempo change that has to be measured on its own slice.
 
 ### A3. The job web (representative)
 Generic human jobs: Squire, Chemist (both starting), Knight, Archer, Monk, Priest, Wizard, Time Mage, Summoner, Thief, Mystic/Oracle, Geomancer, Lancer/Dragoon, Samurai, Ninja, **Calculator/Arithmetician**, Bard (♂), Dancer (♀), **Mime**. `[WotL]` adds **Dark Knight** and **Onion Knight**. Representative gates: Knight/Archer ← Squire 2; Priest/Wizard ← Chemist 2; Monk ← Knight 3; Geomancer ← Monk 3; Thief ← Archer 2; Dragoon ← Thief 3; Summoner ← Time Mage 3; Ninja ← Archer 4 + Thief 5 + Geomancer 2; Calculator ← Priest 4 + Wizard 4 + Time 3 + Oracle 4; Mime ← very steep. `[WotL]` gates are generally stricter. **(All thresholds verify-against-BMG before use — see `docs/01` §12.)**
@@ -121,4 +129,5 @@ One paragraph, deliberately: a **Unit** references a **Job** (with growth multip
 - **AC-J5 (hybrid unlock):** A hybrid job SHALL become available iff its two required base jobs are both mastered; recipes SHALL be hinted, not enumerated, in-game.
 - **AC-J6 (anti-convergence):** No two mutually-exclusive strong branches SHALL be simultaneously equippable; deployment SHALL be capped below roster size.
 - **AC-J7 (no degenerate AP):** No single repeatable action SHALL yield disproportionate AP; growth SHALL NOT reward de-leveling.
+- **AC-J9 (no decorative slot):** For every chassis slot, equipping an ability SHALL either change the built unit (and, where the effect is behavioural, the fight) or the ability SHALL appear in that slot's DEFERRED manifest with a named reason. *Test:* an **A/B on the built object** — the same record with the slot filled and emptied must produce different output — plus a manifest test that partitions the shipped pack exactly in both directions. Equip-time validation alone SHALL NOT count as evidence: it looks identical whether or not the effect exists.
 - **AC-J8 (currency distinctness):** The shipped currency set SHALL contain no two currencies with identical earn+spend semantics (the B0 rule, enforced in review).
