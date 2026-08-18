@@ -151,6 +151,7 @@ least invasive of them.
 - **Never round-trip `data/base-pack.json` through a JSON parser to edit it.** Re-serialising
   reformats the whole file: a two-line change came back as **1181 lines**. Do a surgical
   text replace and check `git diff --stat` says what you expect.
+- **Two `npm run test:visual` runs cannot overlap.** They share a preview port and the `visual-artifacts/` tree, so a second concurrent run failed **7 of 12** specs — and the failures read exactly like a real regression (refused clicks, a missing fatal chip, the proof sheet). Run it alone; a red visual suite right after you started one in the background is that, not your change.
 - **Playwright browsers: the sandbox and a Windows box differ.** Chromium at
   `/opt/pw-browsers` is the **Linux sandbox only**; elsewhere `npx playwright install
   chromium` fixes a missing-executable error that reads like a code failure.
