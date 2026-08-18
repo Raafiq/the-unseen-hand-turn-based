@@ -258,6 +258,14 @@ function checkReferentialIntegrity(
           `(only a "reaction" ability's effect is ever applied)`,
       );
     }
+    // …and the movement slot (ADR-0020). All three slot-effect fields follow one rule:
+    // an effect authored on the wrong ability type is one nothing will ever apply.
+    if (ability.movementEffect !== undefined && ability.type !== "movement") {
+      throw new ContentIntegrityError(
+        `ability "${ability.id}" declares a movementEffect but has type "${ability.type}" ` +
+          `(only a "movement" ability's effect is ever applied)`,
+      );
+    }
   }
 
   for (const job of pack.jobs) {

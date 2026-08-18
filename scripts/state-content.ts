@@ -177,7 +177,7 @@ export const content = {
 
   /** The three customization-spine cells. */
   spineCells: [
-    { n: "4 of 5", k: "Chassis slots live", sub: "primary · secondary · support · reaction — movement is the last inert slot" },
+    { n: "5 of 5", k: "Chassis slots live", sub: "primary · secondary · support · reaction · movement — the spine's first axis is complete" },
     { n: "AP", k: "Job / skill trees", sub: "directed progression · permanent mastery bonuses" },
     { n: "×", k: "Hybrid / fusion jobs", sub: "the recombination layer — curated, not the full N² web" },
   ] satisfies SpineCell[],
@@ -205,18 +205,17 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Wake the movement slot",
+      title: "Teach the AI to hold a line",
       badge: "recommended",
       body:
-        "<b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety " +
-        "<b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same " +
-        "file, one slot over: a slot that type-checks its input and then discards it looks identical to a " +
-        "working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen " +
-        "builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a " +
-        "roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a " +
-        "refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts " +
-        "the slot changes nothing &mdash; that test is what must go red when this lands.",
-      chip: "1 dead slot",
+        "<b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is " +
+        "what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers " +
+        "as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit " +
+        "this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a " +
+        "risky square for a decisive one. Making that trade explicit is the next step. Watch for " +
+        "stalemates while you do: two cautious armies can decline to engage, and a battle that never " +
+        "ends reads in the results table exactly like a loss.",
+      chip: "AI depth",
       recommended: true,
     },
     {

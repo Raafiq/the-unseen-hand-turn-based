@@ -27,7 +27,14 @@
  * i.e. when the statuses it would inflict have a live effect ({@link statusValue}).
  */
 
-import { effectiveTeamOf, isBasicAttack, type BattleState, type UnitState, type Position } from "./state.js";
+import {
+  BASIC_ATTACK_ID,
+  effectiveTeamOf,
+  isBasicAttack,
+  type BattleState,
+  type UnitState,
+  type Position,
+} from "./state.js";
 import type { ActiveStatus } from "./active-status.js";
 import type { BattleAbility } from "./ability.js";
 import type { Command } from "./driver.js";
@@ -86,6 +93,52 @@ interface Candidate {
   ability: BattleAbility;
   /** The single target, or the AIM CENTRE unit whose tile the area is centred on. */
   target: UnitState;
+  /** How many living foes could strike {@link from} on their next turn. Sorted ASC. */
+  exposure: number;
+}
+
+/**
+ * How many living FOES could strike `tile` on their next turn: their `move` steps plus
+ * their basic attack's horizontal reach (docs/01 §7). The probe's only survival term
+ * (ADR-0020), and the reason the movement chassis slot could ship at all.
+ *
+ * WHY IT EXISTS. `compareCandidate` enumerates every reachable tile and prices the ACT
+ * available from each. Nothing priced the TILE — so `move` was, in effect, a liability
+ * stat: measured on its own, authoring `steal.move-plus-2` as a real +2 Move dropped the
+ * diversity score 7 → 5, because every extra reachable tile was one more chance to walk a
+ * fragile unit into the open. Low `move` had been keeping casters alive by accident.
+ *
+ * DELIBERATELY A GENEROUS UPPER BOUND, not a pathing result: Chebyshev distance against
+ * `move + reach`, ignoring obstacles, occupancy and height. Pathfinding here would cost
+ * |reachable| × |foes| path searches per turn, and the extra precision would not change
+ * the ORDER it is used for — this is a comparison key, not a displayed number. Pure and
+ * RNG-free like everything else the probe reads.
+ *
+ * EFFECTIVE team on both sides (`effectiveTeamOf`), so a charmed unit is afraid of the
+ * side it now fights against rather than the side its `teamId` still says.
+ *
+ * ITS POSITION IN THE KEY SEQUENCE WAS CALIBRATED, NOT ASSUMED. Six placements were
+ * measured against the gate: above the class-focus keys → N=7; inside the CHIP branch
+ * above `targetEffHp` → 5; below `targetEffHp` → 5; **above `facingRank` → 7**; below
+ * `facingRank` → 5; absent → 5. Two work. The one shipped is the LEAST invasive of them:
+ * it sits BELOW the focus keys, so AC-E3(b)'s "focus the lowest-effective-HP target" rule
+ * is untouched and exposure only decides WHICH TILE to do that from. The aggressive
+ * placement also passes but overrides a documented AC, and measures worse on
+ * anti-convergence (two every-cell sweepers instead of one).
+ */
+export function exposureOf(
+  state: BattleState,
+  actor: UnitState,
+  tile: { x: number; y: number },
+): number {
+  const team = effectiveTeamOf(actor);
+  let n = 0;
+  for (const u of state.units) {
+    if (u.hp <= 0 || effectiveTeamOf(u) === team) continue;
+    const reach = u.move + (u.abilities.find((ab) => ab.id === BASIC_ATTACK_ID)?.range.h ?? 1);
+    if (Math.max(Math.abs(u.pos.x - tile.x), Math.abs(u.pos.y - tile.y)) <= reach) n += 1;
+  }
+  return n;
 }
 
 function manhattan(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -287,6 +340,7 @@ function candidatesFrom(
           abilityIndex,
           ability,
           target: aim,
+          exposure: exposureOf(state, actor, from),
         });
         continue;
       }
@@ -319,6 +373,7 @@ function candidatesFrom(
         abilityIndex,
         ability,
         target: aim,
+        exposure: exposureOf(state, actor, from),
       });
     }
   });
@@ -401,6 +456,9 @@ function compareCandidate(a: Candidate, b: Candidate): number {
     if (a.magnitude !== b.magnitude) return b.magnitude - a.magnitude;
     if (a.targetEffHp !== b.targetEffHp) return a.targetEffHp - b.targetEffHp;
   }
+  // EXPOSURE (ADR-0020): among acts the focus keys rank EQUALLY, prefer the tile fewer
+  // foes can strike. Its POSITION was calibrated, not assumed — see {@link exposureOf}.
+  if (a.exposure !== b.exposure) return a.exposure - b.exposure;
   if (a.facingRank !== b.facingRank) return a.facingRank - b.facingRank;
   // TEMPO (ADR-0015): among acts that are otherwise IDENTICAL, prefer the one that does
   // not move — a folded turn costs −100 CT versus −80, so moving must buy something.

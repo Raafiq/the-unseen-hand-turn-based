@@ -28,22 +28,26 @@ Every unit fields five equip slots, filled from abilities learned across any job
 
 Cross-job equipping is what turns a class list into a build sandbox.
 
-> **Implementation status (2026-08-18, ADR-0019).** Primary, Secondary, **Support** and
-> **Reaction** are live in the sim. **Movement is the last inert slot** — validated at equip
-> time, then ignored at build time.
+> **Implementation status (2026-08-20, ADR-0020). All five chassis slots are live.**
+> Primary, Secondary, Support (ADR-0017), Reaction (ADR-0019) and Movement (ADR-0020) all
+> apply real effects at build time.
 >
-> That gap is a real one, not a rounding error: it cost two slices, because nine of fourteen
-> shipped builds equipped a support ability that did nothing and the resulting weakness read as
-> a *content-tuning* problem. **A slot that type-checks its input and then discards it looks
-> identical to a working one.** Reaction had the same shape — seven of fifteen builds wore a
-> dead reaction, and the diversity gate had to EXCLUDE `bld-counter-wall` for it.
+> Getting here cost three slices, and the reason is worth keeping: **a slot that
+> type-checks its input and then discards it looks identical to a working one.** Nine of
+> fourteen builds wore a dead support; seven of fifteen wore a dead reaction; and in both
+> cases the resulting weakness was first diagnosed as *content tuning*.
 >
-> Every slot now keeps a manifest of what is authored-but-inert and why:
-> `DEFERRED_SUPPORT_EFFECTS`, `DEFERRED_REACTION_EFFECTS`, `DEFERRED_MOVEMENT_EFFECTS`. A test
-> asserts each partitions the shipped pack **exactly, in both directions** — an unlisted inert
-> ability fails, and so does a stale entry for one that has since gained an effect. Movement is
-> held back by SCOPE, not by a missing mechanic: eight of fifteen builds equip `move-plus-2`, so
-> waking it is a roster-wide tempo change that has to be measured on its own slice.
+> **The fifth slot was not a slot problem at all.** Authoring Move +2 on its own dropped
+> the build-variety score **7 → 5** and failed the gate: every caster collapsed and nothing
+> improved anywhere. The balance probe priced the *action* it could take from a tile and
+> never the tile's *exposure*, so low Move had been keeping fragile builds alive by
+> accident. Movement shipped together with an exposure term in the AI, never before it.
+>
+> Each slot keeps a manifest of what is authored-but-inert and why —
+> `DEFERRED_SUPPORT_EFFECTS`, `DEFERRED_REACTION_EFFECTS`, `DEFERRED_MOVEMENT_EFFECTS` —
+> and a test asserts each partitions the shipped pack **exactly, in both directions**: an
+> unlisted inert ability fails, and so does a stale entry for one that has since gained an
+> effect. That second direction is what went red the day Move +2 was authored.
 
 ### A3. The job web (representative)
 Generic human jobs: Squire, Chemist (both starting), Knight, Archer, Monk, Priest, Wizard, Time Mage, Summoner, Thief, Mystic/Oracle, Geomancer, Lancer/Dragoon, Samurai, Ninja, **Calculator/Arithmetician**, Bard (♂), Dancer (♀), **Mime**. `[WotL]` adds **Dark Knight** and **Onion Knight**. Representative gates: Knight/Archer ← Squire 2; Priest/Wizard ← Chemist 2; Monk ← Knight 3; Geomancer ← Monk 3; Thief ← Archer 2; Dragoon ← Thief 3; Summoner ← Time Mage 3; Ninja ← Archer 4 + Thief 5 + Geomancer 2; Calculator ← Priest 4 + Wizard 4 + Time 3 + Oracle 4; Mime ← very steep. `[WotL]` gates are generally stricter. **(All thresholds verify-against-BMG before use — see `docs/01` §12.)**
