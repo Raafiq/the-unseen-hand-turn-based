@@ -1,4 +1,4 @@
-<!-- written-against: a11f0aac4fd15f74640d2e01ef228fc52d921821 -->
+<!-- written-against: 0b6cc99edc040d5e12db75f1f934dd5e8a753747 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -7,104 +7,109 @@ merge state, unpushed work) because those cannot rot. This file holds what only 
 a departing session knows: **what the next slice is, why, and what will bite.**
 
 > **Trust rule.** This file is stamped with the commit it was written against, and the
-> SessionStart hook flags it once it falls more than 10 commits behind HEAD. If the hook
-> says it is stale, treat every claim below as a hypothesis and re-derive.
+> SessionStart hook flags it once it falls behind. If the hook says it is stale, treat
+> every claim below as a hypothesis and re-derive.
 
 ---
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 520 tests / 30 files, 11 Playwright specs.
+**P2 — customization depth, in progress.** 560 tests / 31 files, 12 Playwright specs.
 **Variety score is 7**, release bar 8. `pass=true`, no dominant build.
 
-The last slice (ADR-0018) added the seventh identity: **a thief that wins by charming**.
-`bld-cutpurse`'s signature action deals no damage at all — it charms, and a charmed unit
-fights for whoever charmed it.
+The last slice (ADR-0019) woke the **reaction** chassis slot. Counter and Hamedo now fire
+at Brave%, and a fired reaction is credited to the **reactor** rather than vanishing into
+the attacker's HP diff.
 
 | what | was | now |
 |---|---|---|
-| a 0-damage control action | invisible to the probe (`formula: "none"` skipped) | priced in HP-equivalent, folded into `magnitude` |
-| `status.charm` | an inert marker on the unit | real allegiance, one seam (`effectiveTeamOf`) |
-| "landed" / contribution | HP movement only | a landed STATUS counts too |
-| deferral manifest | per SKILLSET | per ABILITY (`DEFERRED_ACTIONS`) |
+| the reaction slot | validated at equip time, then discarded | live — 7 of 15 builds stopped wearing a dead slot |
+| a counter's damage | lands on the attacker, which the diff never credits ⇒ **scores zero** | its own event, credited to the reactor |
+| `bld-counter-wall` | EXCLUDED ("reaction-as-live modeling") | MEASURABLE, 6/6, signature landed |
+| the variety score | 7 | **still 7** — `punch-art.` collapses onto the monk |
+| the movement slot | silently inert | inert **on the record**, with an A/B asserting it |
 
 ---
 
-## The next slice — NOT YET CHOSEN. The three candidates, by leverage
+## The next slice — NOT YET CHOSEN. The candidates, by leverage
 
-Nothing is green-lit. The state page's "what's next" ranks these; pick with the human.
+Nothing is green-lit. Pick with the human.
 
-1. **Wake the reaction and movement slots.** Two of the five chassis slots are still
-   validated-then-ignored (`build.ts`). The support slot alone moved the count 5 → 6
-   (ADR-0017). Reactions also retire a named gate exclusion (`bld-counter-wall`).
-2. **Provoke / threat.** Retires `bld-aggro-tank`'s exclusion; the probe has no reason to
-   attack a tank today.
-3. **The last identity toward 8.** Jobs are deprioritised (user decision), so it has to
-   come from an EXCLUDED unblock, not from new content.
+1. **Wake the movement slot.** The last dead slot. It is a one-line fold onto `move`
+   (and `jump`), so the *code* is small — the whole slice is the **measurement**. Eight of
+   fifteen builds equip `steal.move-plus-2`, so switching it on hands more than half the
+   roster +2 Move at once. `DEFERRED_MOVEMENT_EFFECTS` in `build.ts` already names every
+   ability and splits SCOPE from BLOCKED; `build.test.ts`'s A/B is the test that must go
+   red when this lands.
+2. **Provoke / threat.** Retires `bld-aggro-tank`'s exclusion. Read its **re-measured**
+   tag first: it is no longer blocked from being *measured* (it clears 6/6 now that
+   Counter fires) but from being **distinct** — its gauntlet rows are byte-identical to
+   `bld-counter-wall`'s.
+3. **The eighth identity.** Jobs are deprioritised (user decision), and **no remaining
+   EXCLUDED entry can supply a new signature prefix.** The road to 8 needs new content or
+   a new mechanic that creates one. Say this out loud before scoping anything as "gets us
+   to 8".
 
-### If you pick anything that touches the AI or a status
+### If you pick anything that touches the resolvers or a slot
 
-Read **ADR-0018** first. It states the two rules the next mechanic will meet: control is
-priced in the same currency as damage (there is no DISABLE class, deliberately), and
-allegiance has exactly one seam.
+Read **ADR-0019** first. Two rules it sets: a reaction draw is taken **only** when the
+equipped reaction can actually fire (so a reaction-less unit's roll sequence is untouched),
+and **any effect that moves HP on behalf of someone other than the acting unit accounts for
+itself** rather than riding `hpDiffEvent`.
 
 ---
 
 ## Traps waiting for you
 
-1. **A new term in the comparator's SECOND key changes almost nothing.** Teaching the
-   probe to value status changed **zero** shipped runs — measured by A/B over the whole
-   gauntlet, every ability-usage histogram byte-identical. `magnitude` only decides among
-   acts on the *same* focus target, and the inflicting abilities were already the biggest
-   hit there. Budget for that: a capability can be genuinely live and still move nothing.
-2. **Charm can hang a battle, and the gate reports a hang as a loss.** Twice this slice a
-   charmed body produced a *timeout*, not a defeat: once blocking a corridor nobody would
-   clear (traversal), once as the last defender nobody would attack (victory). Both are
-   fixed, but any future mechanic that removes a reason to attack a unit can do it again —
-   and `outcome: "timeout"` in a gate row looks exactly like a build that merely lost.
-3. **`bld-cutpurse` sits EXACTLY at `VIABLE_MIN_MAPS` (4/6).** That is a plateau, not
-   slack: 4/6 flat across speeds 8–11 and raw-HP ×0.95…×1.15. It drops out at ×0.90, so
-   any content change that effectively lowers HP costs the seventh identity.
-4. **Do not make the thief faster or slower without re-measuring.** At raw Speed 7 it
-   clears 6/6 with *no* losing matchup — the B5 convergence failure. Its raw Speed is the
-   roster's uniform 8 on purpose.
-5. **Infliction is still unconditional on a hit.** No status roll (ADR-0010's deferral).
-   Adding one is a fidelity change needing a declared slot in `docs/05` §3's roll order —
-   and it would change the whole control calculus, since a 100 % charm is what the victory
-   rule had to be designed around.
+1. **An aggregate A/B can read "identical" while 13 % of the rows moved.** Stripping the
+   reaction effects and comparing `pass` / `N` / `dominantBuilds` / in-band tallies gave a
+   byte-identical answer — which looks exactly like the dead slot the slice was fixing.
+   Per-row it was **13 of 96 runs**. Diff at the resolution the change acts on.
+2. **`bld-counter-wall` and `bld-aggro-tank` are the same build in practice.** Identical
+   gauntlet rows; they differ only in raw HP (255 vs 242) and trait order, and neither has
+   ever mattered in a shipped run. Do not treat them as two data points.
+3. **`punch-art.` now has TWO carriers.** Anything that assumes "one credited build per
+   identity" is wrong — the gate's per-identity sweep had to be re-keyed on the prefix
+   because of it, and the collapse is now asserted in both directions.
+4. **`bld-cutpurse` still sits EXACTLY at `VIABLE_MIN_MAPS` (4/6)**, unchanged by this
+   slice. Any content change that effectively lowers HP still costs the seventh identity.
+5. **Hamedo draws the hit roll it then discards.** Deliberate (ADR-0019 decision 5): it
+   keeps "the hit roll is unconditional" an invariant instead of a special case. Do not
+   "optimise" it away — it moves every downstream roll.
 6. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
 
 ---
 
 ## What changed that you would not guess
 
-- **There is no `DISABLE` action class, and that is deliberate.** A scaffold for one had
-  sat in `ai.ts` since Slice 2. Using it would have made every landable status out-rank
-  every attack unconditionally — the bucket-first key `src/sim/CLAUDE.md` bans.
-- **Status value is a MECHANISM, not a constant:** turns denied × the target's own swing
-  (`attackDamage`, reused not re-derived), marginal over what it already carries, capped
-  at its HP. A status the sim does not read scores 0 — that is the half that can come out
-  the other way.
-- **Victory counts the team a unit FIGHTS FOR** (`condition.ts`). Charming the last
-  defender ends the battle; symmetrically, if your last unit is charmed you lose. This is
-  the livelock fix, and it is `[UNCERTAIN]` against FFT.
-- **Traversal reads allegiance too** (`grid.ts`), because its rule is "enemies block,
-  allies pass" — not "bodies block".
-- **Schema v9 → v10** (`controlsTarget`, `controlledByTeamId` on every `ActiveStatus`).
-  The frozen golden moved by representation only; the diff was classified field-by-field
-  before regeneration.
-- **`DEFERRED_SKILLSETS` now holds only `battle-skill`.** `steal` is live (heart charms)
-  while four of its five actions are not, so the honest unit became the ABILITY —
-  `DEFERRED_ACTIONS`, which the prep panel also reads to mark a command "no effect yet".
-- **`battle-skill` is still excluded by user decision** (2026-08-16), pending a multi-job
-  skill rework. Its blocker is now precise: its breaks inflict *nothing*, so they need
-  stat-modifying statuses — the probe already values a status that exists.
+- **A reaction's reach is the reactor's own basic-attack range**, asked of
+  `inAbilityRange`, not re-derived. So a ranged physical blow draws no answer from a melee
+  unit — a real tactical lever, and the discriminating negative in the tests.
+- **There is no reaction chain, structurally.** The counter-swing resolves inline in
+  `tryReaction` and is never routed back through `resolveAttack`. A refactor that
+  "simplifies" it into a recursive call breaks the invariant; one test exists for exactly
+  that.
+- **Charges are not a reaction site, and the reason is a schema fact**, not an omission:
+  `ChargeEffectSchema.shape.kind` is the literal `"magic"`, and no reaction wakes on magic.
+  A test asserts that literal, so adding a physical charge kind goes red.
+- **`winsAllInBand` now has two entries** (`bld-counter-wall`, `bld-faithzero-monk`). Two
+  builds sweep every cell without outclassing the field. Surfaced, not failed — but it is a
+  list that should not keep growing (`docs/02` B5).
+- **Schema v10 → v11** (`UnitState.reaction`). The frozen golden was regenerated by two
+  mechanical edits — bump the version, append `"reaction":null` per unit — and then matched
+  the engine byte for byte. That *is* the classification; a re-paste would not have been.
+- **The viewer's "not modeled" list was stale**, naming `status-on-hit` two slices after
+  the resolvers began applying it. It is prose in two places (`main.ts`'s hint and
+  `docs/10` §4) and nothing type-checks it. Grep the word out of both when a capability
+  lands.
+- **The prep dropdowns now tag inert equips** with "no effect yet", reading the three
+  DEFERRED manifests. Before, offering a live and a dead ability identically re-created the
+  dead-slot illusion at the UI layer.
 
 ## Standing constraints that outlive any one slice
 
 - **Jobs are deprioritised** (user decision). The road to ≥8 runs through **new signature
-  prefixes**, not through the EXCLUDED manifest — three of its four entries are
-  prefix-collapse cases.
+  prefixes**, and the EXCLUDED manifest can no longer supply one.
 - **The frozen golden is a tripwire, not a maintenance item.** Never regenerate it to make
   a test pass — classify the diff, and expect only representation fields to move.
 - **`order: "after"`** (act-then-move) exists in the schema and driver, covered headlessly,
@@ -113,16 +118,21 @@ allegiance has exactly one seam.
   budget) and `summon.*` ride unenforced MP; enforcing it would drop the count.
 - **`bld-spellblade` is still masked** and buys the count nothing (its prefix collapses
   onto the wizard's).
+- **`battle-skill` is still excluded by user decision** (2026-08-16), pending a multi-job
+  skill rework. Its breaks inflict nothing, so they need stat-modifying statuses.
 
 ## Environment facts that cost real time to learn
 
 - **Scratch probes belong outside the tree.** `coverage/` is gitignored; a `vite-node`
   script importing `src/sim/*` is the fastest way to measure the gate. This slice used
-  four (gate summary, per-run detail with turn log, ability-usage A/B, HP/speed sweep) and
-  they are what caught both livelocks — the summary table alone said only "3/6".
-- **Playwright browsers: the sandbox and this Windows box differ.** Chromium at
-  `/opt/pw-browsers` is the **Linux sandbox only**; on this host `npx playwright install
-  chromium` is what fixes a missing-executable error that reads like a code failure.
+  four — gate summary, a stripped-effects A/B over all 96 runs, a single-candidate detail
+  table, and a build-level debug — and the **summary one was actively misleading** (trap 1).
+- **Never round-trip `data/base-pack.json` through a JSON parser to edit it.** Re-serialising
+  reformats the whole file: a two-line change came back as **1181 lines**. Do a surgical
+  text replace and check `git diff --stat` says what you expect.
+- **Playwright browsers: the sandbox and a Windows box differ.** Chromium at
+  `/opt/pw-browsers` is the **Linux sandbox only**; elsewhere `npx playwright install
+  chromium` fixes a missing-executable error that reads like a code failure.
 - **A bare JSON import breaks ONLY the browser job** — `e2e/play.spec.ts` goes through
   Node's ESM loader, which requires `with { type: "json" }`; Vite does not.
 - **Use the check-runs API for CI.** The legacy commit-status endpoint reports
