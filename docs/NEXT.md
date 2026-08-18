@@ -1,4 +1,4 @@
-<!-- written-against: 1fb282ed114fd1eaa428cb7ac743ae5ba216a101 -->
+<!-- written-against: 1b0d88182105218c9b1a3ecb691b8f35e4053bd5 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -14,7 +14,7 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**P2 — customization depth, in progress.** 564 tests / 32 files, 12 Playwright specs.
+**P2 — customization depth, in progress.** 580 tests / 32 files, 12 Playwright specs.
 **Variety score is 7**, release bar 8. `pass=true`, no dominant build.
 
 **Two coverage gaps closed 2026-08-18 (AC-E6, AC-V13).** "Does a battle finish?" was
@@ -23,6 +23,15 @@ all, and the benchmark suite only checked that an encounter *ended* (a defeat an
 timeout both satisfy that). Both are covered now, and the measurement that came out of it
 is in the traps below: **as authored, the balance probe loses all five shipped encounters
 from team 0**, two of them across 200 seeds.
+
+**Progression is now DECIDED (ADR-0021), and it changes what may be built next.** The
+question "where do levels and EXP come in?" had no answer: `docs/02` B0's currency table
+never listed character Level, so it was neither cut nor reconciled, while B4 and AC-J7
+both forbade rewarding "de-leveling" — meaningless unless levels drive growth. Decided:
+**level grants zero stats**, **all power moves on an authored schedule the player cannot
+accelerate by repetition**, and **equipment is horizontal — no weapon-power ladder**. The
+EXP band is written down, DEFERRED, and explicitly aspirational. Read the ADR before
+scoping an equipment layer; the second clause is the load-bearing one, not the first.
 
 **All five chassis slots are live.** The customization spine's first axis is complete:
 support (ADR-0017), reaction (ADR-0019), movement (ADR-0020). All three were the same
@@ -92,7 +101,18 @@ least invasive of them.
    target. That is recorded in `docs/06` AC-E6 and deliberately **not** asserted (it would
    freeze a tuning state). Whether it is a content problem or an AI one is open — do not
    assume the first answer.
-10. **A killing CLICK does not discriminate the "banner a turn late" bug.** The wipe check
+10. **A WP ladder is NOT a safe way to move stats onto gear — measured, twice.** Holding
+    `raw.hp` fixed and raising only the weapon tier, shipped builds outside their
+    `docs/07` TTK band go **0/15 → 1/15 → 6/15** at WP 8 → 12 → 16 (at WP 16 every tank
+    dies in 2 hits). And it is not uniform: `bareHands` has **no WP term at all**, so a
+    monk gains nothing — and 2 of the 7 counted identities are `punch-art.` carriers —
+    while `wpWp` is quadratic where `paWp` is linear. Any equipment slice must re-measure
+    both before touching a number.
+11. **AC-J10 and AC-J11 pass before any work.** `level` and `ap` were already unread, so
+    both went green the moment they were written. They are REGRESSION GUARDS and say so;
+    the mutations are what prove them (scale `pa` by level → J10 red; add `ap` to `maxHp`
+    → J11 red; both run). Do not read their green tick as evidence ADR-0021 is right.
+12. **A killing CLICK does not discriminate the "banner a turn late" bug.** The wipe check
     before the advance already sees it. Only a KO landing *during* the advance — a charge
     maturing on the last survivor — reaches the second check. Measured by mutation, not
     reasoned: the first draft of that test claimed the wrong discriminator and was green
@@ -125,6 +145,11 @@ least invasive of them.
 
 - **Jobs are deprioritised** (user decision). The road to ≥8 runs through **new signature
   prefixes**, and the EXCLUDED manifest can no longer supply one.
+- **ADR-0021 constrains every future power source.** No stat may scale with a quantity a
+  player can farm. An equipment layer is now scoped as HORIZONTAL (formula, range,
+  element, resistance, Brave/Faith shifts) — reversing that needs a new ADR, not a slice
+  decision. Note the equipment layer itself is a `rosterSchemaVersion` bump + migration +
+  a regenerated frozen golden + a re-measured gate: not a small slice.
 - **The frozen golden is a tripwire, not a maintenance item.** Never regenerate it to make
   a test pass — classify the diff, and expect only representation fields to move.
 - **`order: "after"`** (act-then-move) exists in the schema and driver, covered headlessly,
