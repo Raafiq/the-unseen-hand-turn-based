@@ -17,6 +17,13 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 **P2 — customization depth, in progress.** 564 tests / 32 files, 12 Playwright specs.
 **Variety score is 7**, release bar 8. `pass=true`, no dominant build.
 
+**Two coverage gaps closed 2026-08-18 (AC-E6, AC-V13).** "Does a battle finish?" was
+never asserted anywhere. It does — but the viewer's Victory/Defeat banner had no test at
+all, and the benchmark suite only checked that an encounter *ended* (a defeat and a
+timeout both satisfy that). Both are covered now, and the measurement that came out of it
+is in the traps below: **as authored, the balance probe loses all five shipped encounters
+from team 0**, two of them across 200 seeds.
+
 **All five chassis slots are live.** The customization spine's first axis is complete:
 support (ADR-0017), reaction (ADR-0019), movement (ADR-0020). All three were the same
 defect — a slot that validates its input and then discards it reads as working.
@@ -77,6 +84,19 @@ least invasive of them.
 7. **Hamedo draws the hit roll it then discards** (ADR-0019 decision 5). Deliberate — do
    not optimise it away; it moves every downstream roll.
 8. **The browser tests are NOT in `npm run check`.** Run `npm run test:visual` too.
+9. **AC-E6 is REACHABILITY, not balance, and the difference matters.** It runs each
+   encounter with the opposition passive and requires `victory`. All five pass. Run **as
+   authored**, all five end in **defeat** for team 0 — `enc-mixed-company` and
+   `enc-behead-the-warlord` lose **200 of 200 seeds**, and in the latter the warlord never
+   drops below **86% HP** because nothing in the greedy probe prefers the objective
+   target. That is recorded in `docs/06` AC-E6 and deliberately **not** asserted (it would
+   freeze a tuning state). Whether it is a content problem or an AI one is open — do not
+   assume the first answer.
+10. **A killing CLICK does not discriminate the "banner a turn late" bug.** The wipe check
+    before the advance already sees it. Only a KO landing *during* the advance — a charge
+    maturing on the last survivor — reaches the second check. Measured by mutation, not
+    reasoned: the first draft of that test claimed the wrong discriminator and was green
+    against the mutant.
 
 ---
 

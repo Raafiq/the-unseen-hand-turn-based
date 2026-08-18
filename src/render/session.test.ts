@@ -869,6 +869,188 @@ describe("docs/10 §1 — a viewer/sim FORK is surfaced, never swallowed", () =>
   });
 });
 
+/**
+ * AC-V13 fixture — deliberately SEPARATE from `fixture()` above, whose units all
+ * carry 400 HP precisely so no KO ever ends its six-turn session early.
+ *
+ * 5×3 flat board. `striker` (team 0) stands adjacent to `doomed` (team 1), which
+ * has **1 HP**, zero evasion, and a 100-accuracy attacker facing it — so ONE act
+ * is a certain kill and the wipe is not a coin flip. `doomed` is team 1's ONLY
+ * unit, so that kill wipes a team. `striker` is faster, so it opens the battle.
+ */
+const STRIKER_TILE: Position = { x: 1, y: 1 };
+const DOOMED_TILE: Position = { x: 2, y: 1 };
+
+function wipeFixture(): BattleState {
+  const width = 5;
+  const height = 3;
+  const striker = defaultUnit("striker", 0, {
+    pos: { ...STRIKER_TILE },
+    facing: "E",
+    speed: 12,
+    move: 3,
+    jump: 1,
+    hp: 200,
+    maxHp: 200,
+    pa: 10,
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+  });
+  const doomed = defaultUnit("doomed", 1, {
+    pos: { ...DOOMED_TILE },
+    facing: "W",
+    speed: 8,
+    move: 3,
+    jump: 1,
+    hp: 1,
+    maxHp: 200,
+    pa: 6,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+  });
+  return createBattleState({ seed: 909, grid: { width, height, tiles: makeFlatTiles(width, height, 0) }, units: [striker, doomed] });
+}
+
+/**
+ * As {@link wipeFixture}, but the killing blow is a CHARGE already in flight: it
+ * matures during the very first advance, before anyone has taken a turn. Both units
+ * open at ct 0, the charge at 99 with speed 20, so tick 1 resolves it.
+ */
+function chargeWipeFixture(): BattleState {
+  const base = wipeFixture();
+  return {
+    ...base,
+    chargeQueue: [
+      {
+        id: "chg-doom",
+        sourceUnitId: "striker",
+        ct: 99,
+        speed: 20,
+        targetTile: { ...DOOMED_TILE },
+        effect: { kind: "magic", power: 40, element: "none", accuracy: 100, aoe: null, inflicts: [] },
+        interrupted: false,
+      },
+    ],
+  };
+}
+
+describe("AC-V13 — the battle ENDS, and the banner is team-relative", () => {
+  it("the killing click ends the battle on the SAME commit, with a Victory banner", () => {
+    const s = new Session({ makeState: wipeFixture, playerTeam: 0 });
+    expect(s.phase).toBe("PLAYER_IDLE");
+    expect(s.outcome).toBeNull();
+
+    s.onPick(DOOMED_TILE); // one certain-kill swing
+
+    // Immediately — not after another step: a viewer that only banners on the NEXT
+    // pick would leave `phase` asking for a command in a battle that is already over.
+    // (This case is caught by the PRE-advance check; the mid-advance one has its own
+    // test below — measured, not assumed.)
+    expect(s.phase).toBe("ENDED");
+    expect(s.outcome).toBe("Victory — enemy team is down");
+    expect(s.activeUnitId).toBeNull();
+    expect(unit(s.state, "doomed").hp).toBeLessThanOrEqual(0);
+    expect(s.fatal).toBeNull();
+  });
+
+  it("the SAME wipe reads Defeat when the wiped team is the player's", () => {
+    // The discriminating pair: identical sim events, opposite banner, decided only by
+    // `playerTeam`. Both sides are driven by `step()` (watch mode resolves whichever
+    // unit is active regardless of team), so the two runs cannot differ in what
+    // HAPPENED — only in who is reading it. A viewer that hard-codes team 0 as the
+    // player passes the test above and fails this one.
+    const asAttacker = new Session({ makeState: wipeFixture, playerTeam: 0 });
+    const asVictim = new Session({ makeState: wipeFixture, playerTeam: 1 });
+    asAttacker.step();
+    asVictim.step();
+
+    expect(serialize(asAttacker.state)).toBe(serialize(asVictim.state)); // same events
+    expect(asAttacker.commands()).toEqual(asVictim.commands());
+    expect(asAttacker.outcome).toBe("Victory — enemy team is down");
+    expect(asVictim.outcome).toBe("Defeat — your team is down");
+    expect(asVictim.phase).toBe("ENDED");
+  });
+
+  it("a KO that lands DURING the advance ends the battle too (the charge case)", () => {
+    // The `finishIfDecided` call the killing-click test above does NOT reach. There
+    // the KO happens inside the commit, so the check BEFORE the advance already sees
+    // it; a viewer that checked only there passes that test. This one queues a charge
+    // that matures mid-advance, on the last enemy — nobody has committed anything, so
+    // only the post-advance check can catch it. Verified by mutation: deleting that
+    // second check leaves every other AC-V13 test green and fails exactly this one.
+    const s = new Session({ makeState: chargeWipeFixture, playerTeam: 0 });
+    expect(s.phase).toBe("ENDED");
+    expect(s.outcome).toBe("Victory — enemy team is down");
+    expect(unit(s.state, "doomed").hp).toBeLessThanOrEqual(0);
+    expect(s.state.chargeQueue).toEqual([]); // it really did mature, not get dropped
+  });
+
+  it("a decided battle is NOT reported as a stalemate", () => {
+    // The wipe check must run BEFORE the "nobody can reach a turn" branch: the winner
+    // is alive and perfectly able to act, so an implementation that only detected
+    // "no actor" would either keep asking for commands or print the stalemate banner.
+    const s = new Session({ makeState: wipeFixture, playerTeam: 0 });
+    s.onPick(DOOMED_TILE);
+    expect(s.outcome).not.toMatch(/Stalemate/);
+    expect(unit(s.state, "striker").hp).toBeGreaterThan(0);
+  });
+
+  it("every input is refused once the battle is over, and nothing moves", () => {
+    const s = new Session({ makeState: wipeFixture, playerTeam: 0 });
+    s.onPick(DOOMED_TILE);
+    const after = serialize(s.state);
+    const commands = s.commands().length;
+
+    s.onPick({ x: 0, y: 0 });
+    expect(s.reason).toBe("The battle is over");
+    s.endTurn();
+    expect(s.reason).toBe("The battle is over");
+    s.step();
+    expect(s.reason).toBe("The battle is over");
+
+    expect(serialize(s.state)).toBe(after);
+    expect(s.commands().length).toBe(commands);
+    expect(s.outcome).toBe("Victory — enemy team is down");
+  });
+});
+
+/**
+ * AC-V13, second half: the claim "a battle can be finished" asserted on the content a
+ * player actually loads. The fixtures above prove the banner logic; these prove the
+ * SHIPPED demo reaches it — the gap that let a playable-looking viewer go untested.
+ */
+describe("AC-V13 — the shipped demo battle reaches a decided end", () => {
+  const STEP_CAP = 500; // ~45× the measured length; a cap, not an expectation
+
+  it("watch mode drives makeDemoBattle() to a decided outcome", () => {
+    const s = new Session(); // the real demo state and player team
+    let steps = 0;
+    while (s.phase !== "ENDED" && steps < STEP_CAP) {
+      s.step();
+      steps++;
+    }
+    expect(s.phase).toBe("ENDED");
+    expect(steps).toBeLessThan(STEP_CAP);
+    // WHICH side wins is content, and content is retuned; that a side wins is the spec.
+    expect(s.outcome).toMatch(/^(Victory|Defeat) — /);
+    expect(s.fatal).toBeNull();
+  });
+
+  it("a player who never acts LOSES the demo battle", () => {
+    // Durable and meaningful in a way "someone wins" is not: if this ever came out
+    // Victory, the demo's enemies could not finish an opponent who does nothing.
+    const s = new Session();
+    let steps = 0;
+    while (s.phase !== "ENDED" && steps < STEP_CAP) {
+      if (s.phase === "AI_TURN") s.step();
+      else s.endTurn();
+      steps++;
+    }
+    expect(s.phase).toBe("ENDED");
+    expect(s.outcome).toBe("Defeat — your team is down");
+    expect(s.commands().length).toBeGreaterThan(0);
+  });
+});
+
 describe("Session — watch mode and reset", () => {
   it("Step resolves the active unit regardless of team (the scripted path)", () => {
     const s = newSession();
