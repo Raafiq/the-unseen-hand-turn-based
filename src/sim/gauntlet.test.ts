@@ -127,11 +127,12 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // threat axes. That is a genuine anti-convergence signal to watch — a build with
     // nothing to lose to is what docs/02 B5 exists to prevent — but clearing everything
     // WITHOUT outclassing the field is a design conversation, not a gate failure.
-    // The reaction slice added a SECOND every-cell sweeper: `bld-counter-wall` clears all
-    // 12 cells once its Counter fires (ADR-0019). Same reading as the monk — surfaced,
-    // not failed — and it does NOT make either one dominant, because neither is
-    // fastest-or-tied everywhere.
-    expect(rep.winsAllInBand).toEqual(["bld-counter-wall", "bld-faithzero-monk"]);
+    // BACK TO ONE every-cell sweeper (ADR-0020). The reaction slice made it two
+    // (`bld-counter-wall` joined the monk); teaching the probe to weigh a tile's exposure
+    // took it back to one, because a candidate that no longer walks into the open loses
+    // some cells it used to sweep. That is anti-convergence moving the RIGHT way — the
+    // list docs/02 B5 exists to watch got shorter, not longer.
+    expect(rep.winsAllInBand).toEqual(["bld-faithzero-monk"]);
     expect(rep.noLosingMatchup).toEqual([
       "bld-counter-wall",
       "bld-faithzero-monk",
@@ -151,12 +152,18 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
     // build was viable, its signature also landed — i.e. nothing is masked, the builds are
     // just losing. If a future change breaks this equality, the re-tune is chasing the
     // wrong problem and this test says so.
-    // ONE NAMED EXCEPTION (2026-08-12, the TTK re-tune): `bld-spellblade` IS masked, and
-    // that is asserted POSITIVELY below rather than excused — a knight's MA 6 makes its
-    // borrowed black magic (37) lose to its own PA × WP swing (90), so the greedy probe
-    // never picks it. The mask always existed; it only became OBSERVABLE once spellblade
-    // started winning a map at all. `ttk.test.ts` pins the magnitude cause.
-    const MASKED_KNOWN = new Set(["bld-spellblade"]);
+    // THE NAMED EXCEPTION IS GONE (2026-08-20, ADR-0020). `bld-spellblade` was masked
+    // from the TTK re-tune until the probe learned to weigh exposure: a knight's MA 6
+    // makes its borrowed black magic (37) lose to its own PA × WP swing (90), so the
+    // greedy probe always closed to melee and never cast.
+    //
+    // THE MAGNITUDE CAUSE DID NOT CHANGE — `ttk.test.ts` still pins 37 < 90 and still
+    // passes. What changed is that the swing is no longer REACHABLE from the tiles the
+    // probe now prefers: caution removes the melee option, and range-5 black magic is
+    // what is left. The mask was never purely a magnitude fact; it was a magnitude fact
+    // PLUS a probe that always closed. Asserted positively below so the un-masking cannot
+    // silently regress either.
+    const MASKED_KNOWN = new Set<string>();
     const rep = computeDiversityReport(frozenRuns);
     for (const b of rep.perBuild) {
       if (MASKED_KNOWN.has(b.buildId)) continue;
@@ -164,17 +171,18 @@ describe("diversity gate — AC-E2 interim: the frozen gauntlet passes honestly"
         b.inBandMaps,
       );
     }
-    // The exception is REAL — it wins a map without its signature landing. Asserted so it
-    // cannot be quietly fixed (or quietly spread to another build) without this noticing.
+    // THE UN-MASKING, ASSERTED POSITIVELY. `bld-spellblade` now lands `black-magic.` on
+    // every map it is in band for — the equality above already covers it, but pinning the
+    // non-empty list here is what would catch a silent regression back to the mask.
     const spellblade = rep.perBuild.find((b) => b.buildId === "bld-spellblade")!;
     expect(spellblade.inBandMaps.length).toBeGreaterThan(0);
-    expect(spellblade.signatureBandMaps).toEqual([]);
+    expect(spellblade.signatureBandMaps.length).toBeGreaterThan(0);
 
-    // ONE build still misses the band: `bld-spellblade`, and it misses for the MASKING
-    // reason above rather than the viability one — which is why its prefix-mate
-    // `bld-arcane-artillery` (same `black-magic.` prefix, real MA) carries the identity
-    // now that its support is live. Their causes always differed; ADR-0017 fixed only
-    // one of them, and a spellblade chassis is still owed.
+    // ONE build still misses the band: `bld-spellblade`. Its cause has CHANGED — it is no
+    // longer masked (it casts, and lands `black-magic.` on every map it is in band for);
+    // it is now honestly sub-viable, clearing 3 of the 6 reference maps against a floor of
+    // 4. That is a smaller gap than the mask was, and a content problem rather than an AI
+    // one. `bld-arcane-artillery` still carries the `black-magic.` identity.
     const subViable = rep.perBuild.filter((b) => !b.measurableIdentity);
     expect(subViable.map((b) => b.buildId).sort()).toEqual(["bld-spellblade"]);
     for (const b of subViable) {

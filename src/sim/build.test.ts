@@ -339,12 +339,13 @@ describe("buildBattleState — deterministic layout + wrap", () => {
   });
 });
 
-// ── the MOVEMENT slot is inert, on the record ───────────────────────────────
+// ── the MOVEMENT slot (ADR-0020) ────────────────────────────────────────────
 
-describe("the movement slot: still inert, and that is asserted rather than assumed", () => {
-  // A TEST THAT COVERS A SUBSET READS AS COVERING THE SET (CLAUDE.md). The reaction
-  // slice woke reaction and left movement dead; without this, "movement does nothing"
-  // is a silence, which is exactly the state the support slot survived two slices in.
+describe("the movement slot is LIVE, and the abilities that are not say why", () => {
+  // A TEST THAT COVERS A SUBSET READS AS COVERING THE SET (CLAUDE.md). This block used
+  // to assert the whole slot was inert; ADR-0020 woke `steal.move-plus-2` together with
+  // the probe's exposure term, so it now asserts the split — one live, three blocked —
+  // and would fail if either half rotted.
   const rawPack = JSON.parse(
     readFileSync(fileURLToPath(new URL("../../data/base-pack.json", import.meta.url)), "utf8"),
   ) as { abilities: Array<Record<string, unknown>> };
@@ -354,33 +355,55 @@ describe("the movement slot: still inert, and that is asserted rather than assum
     expect(movements.length).toBeGreaterThan(0);
   });
 
-  it("every authored movement ability names why it does nothing yet", () => {
+  it("every authored movement ability either carries an effect or names its blocker", () => {
     const unrecorded = movements
+      .filter((a) => a["movementEffect"] === undefined)
       .map((a) => a["id"] as string)
       .filter((id) => DEFERRED_MOVEMENT_EFFECTS[id] === undefined);
-    expect(unrecorded, "authored movement ability with no recorded reason").toEqual([]);
+    expect(unrecorded, "authored movement ability with no effect and no blocker").toEqual([]);
   });
 
-  it("the manifest names no ability that does not exist, and each reason is real prose", () => {
-    for (const [id, reason] of Object.entries(DEFERRED_MOVEMENT_EFFECTS)) {
-      expect(
-        movements.find((a) => a["id"] === id),
-        `manifest names unknown movement ability "${id}"`,
-      ).toBeDefined();
-      expect(reason.length, id).toBeGreaterThan(20);
+  it("every DEFERRED entry names a real, still-effect-less ability and a non-empty blocker", () => {
+    // Keeps the manifest from rotting the OTHER way — a stale entry for an ability that
+    // has since gained an effect. This is the direction that would have gone red the day
+    // `move-plus-2` was authored, and it is why the manifest is trustworthy.
+    for (const [id, blocker] of Object.entries(DEFERRED_MOVEMENT_EFFECTS)) {
+      const authored = movements.find((a) => a["id"] === id);
+      expect(authored, `DEFERRED names unknown movement ability "${id}"`).toBeDefined();
+      expect(authored!["movementEffect"], `"${id}" has an effect but is still DEFERRED`).toBeUndefined();
+      expect(blocker.length, id).toBeGreaterThan(20);
     }
   });
 
-  it("equipping one changes NOTHING about the built unit — the claim, not the assumption", () => {
-    // The A/B that makes "inert" a measured fact. When the movement slot is woken,
-    // THIS test is the one that must go red; a manifest alone could rot silently.
+  it("equipping Move+2 moves the derived Move stat — the A/B, not the assumption", () => {
+    // The dead-slot A/B (AC-J9). Equip-time validation looks identical whether or not the
+    // effect exists; only building the SAME record twice, with the slot filled and empty,
+    // can come out the other way. This is the exact assertion whose INVERSE this file
+    // carried until ADR-0020.
     const registry = loadShippedPack();
     const base = defaultUnitRecord("mover", "thief", {
       learned: ["steal.move-plus-2"],
       loadout: emptyLoadout(),
     });
     const equipped = setLoadoutSlot(base, "movement", "steal.move-plus-2", registry);
-    expect(equipped.loadout.movement).toBe("steal.move-plus-2"); // it really is equipped
+    const off = buildBattleUnit(base, registry);
+    const on = buildBattleUnit(equipped, registry);
+    expect(on.move).toBe(off.move + 2);
+    // …and NOTHING else moved: the movement layer touches `move` alone, which is what
+    // makes its position next to the support layer order-independent.
+    expect({ ...on, move: off.move }).toEqual(off);
+  });
+
+  it("a DEFERRED movement ability still changes nothing", () => {
+    // The other half of the split. Without this, "the slot works" would be satisfied by
+    // an implementation that applied a default to every movement ability.
+    const registry = loadShippedPack();
+    const base = defaultUnitRecord("scout", "archer", {
+      learned: ["aim.scout"],
+      loadout: emptyLoadout(),
+    });
+    const equipped = setLoadoutSlot(base, "movement", "aim.scout", registry);
+    expect(equipped.loadout.movement).toBe("aim.scout"); // it really is equipped
     expect(buildBattleUnit(equipped, registry)).toEqual(buildBattleUnit(base, registry));
   });
 });

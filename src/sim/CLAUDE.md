@@ -94,6 +94,18 @@ come out the other way — specialised to the gate.
   it was, and nothing said so. `landed` had the same shape (true only when HP moved).
   Before scoping a slice that adds a NEW KIND of identity, check the metric can represent
   it; adding the build to the manifest is not enough.
+- **THE PROBE NOW PRICES THE TILE AS WELL AS THE ACT — and getting there says where a new
+  key must SIT.** `compareCandidate` used to score only the action available from a tile,
+  which made `move` a *liability* stat: authoring Move +2 alone dropped the variety score
+  **7 → 5**, every caster collapsing, nothing improving (ADR-0020). `exposureOf` (foes whose
+  `move` + weapon reach covers a tile) is the fix, and **its position was calibrated across
+  six placements, not assumed** — two work, and the one shipped is the least invasive:
+  BELOW the AC-E3(b) focus keys, so it decides only *which tile* an already-chosen act is
+  made from. Two plausible alternatives were measured and both failed: "prefer the nearest
+  tile" (nearest ≠ safest) and "stay put unless you cannot act" (also tripped dominance).
+  **When you add a comparator key, sweep its placement and report what each one scored** —
+  a key that works at one position and not another is telling you what it actually
+  overrides.
 - **A GATE ROW CANNOT TELL "LOST" FROM "COULD NOT END".** A mechanic that removes a reason
   to attack a unit can LIVELOCK a fight — charm did it twice (a body blocking a corridor
   nobody would clear; the last defender nobody would attack), each surfacing only as

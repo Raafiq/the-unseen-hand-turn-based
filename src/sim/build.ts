@@ -11,6 +11,10 @@
  * Integer/floored math only, floored per step; no RNG, no wall-clock, no IO. The
  * registry is an injected parameter, never a global.
  *
+ * THE MOVEMENT LAYER (ADR-0020) joins the support layer at the same position — after
+ * the trait fold, before the final clamp. It touches only `move`, which is disjoint from
+ * the support layer's pa/ma/maxHp, so the two need no ordering between them.
+ *
  * THE REACTION LAYER (ADR-0019) is projected too, but it is NOT a stat layer: the
  * equipped reaction lands on `UnitState.reaction` and is read by `resolve.ts` when a
  * blow wakes it, so it never enters the derivation order above.
@@ -52,6 +56,7 @@ import {
 import { applyTraitEffects, type TraitStatBase } from "./trait.js";
 import { applySupportEffect, applySupportToAbility, type SupportEffect } from "./support.js";
 import { type ReactionState } from "./reaction.js";
+import { applyMovementEffect, type MovementEffect } from "./movement.js";
 
 /**
  * Placeholder weapon until an equipment layer lands — a UnitRecord carries no
@@ -187,33 +192,43 @@ function equippedReaction(record: UnitRecord, registry: ContentRegistry): Reacti
 }
 
 /**
- * THE MOVEMENT SLOT IS STILL INERT — and this is where that is recorded, rather than
- * being a silence someone has to notice (ADR-0019).
+ * Movement abilities that are authored but INTENTIONALLY have no effect, each mapped
+ * to the NAMED capability that would unblock it. Mirrors
+ * {@link DEFERRED_SUPPORT_EFFECTS} and {@link DEFERRED_REACTION_EFFECTS}: a movement
+ * ability is never silently inert — it is either effect-bearing or listed here with a
+ * reason. `build.test.ts` asserts this partitions the shipped pack EXACTLY, in BOTH
+ * directions (an unlisted inert ability fails, and so does a stale entry for one that
+ * has since gained an effect).
  *
- * The reaction slice woke the reaction slot and deliberately left movement alone: it
- * is a different mechanism (the `move`/`jump` stats and the traversal rules, not the
- * resolve pipeline), and EIGHT of fifteen shipped builds equip `steal.move-plus-2`,
- * so waking it hands +2 Move to more than half the roster in one step — a roster-wide
- * tempo change on a roster whose seventh identity (`bld-cutpurse`) sits EXACTLY at the
- * viability floor. That is a measurement, not a refactor, and it deserves its own slice.
- *
- * Every authored `type: "movement"` ability appears here with the reason it does
- * nothing yet, split into the two honest kinds: SCOPE (nothing blocks it, we chose not
- * to) and BLOCKED (the mechanic it needs does not exist). `build.test.ts` asserts this
- * partitions the shipped pack EXACTLY, in both directions — so the remaining dead slot
- * cannot rot back into an unrecorded silence, which is precisely how the support slot
- * survived two slices.
+ * `steal.move-plus-2` LEFT THIS LIST at ADR-0020, together with the probe's exposure
+ * term. It could not ship without it: measured on its own, +2 Move dropped the
+ * diversity score 7 → 5, because a probe that never prices a tile's exposure spends
+ * extra reach walking fragile builds into the enemy line. The three entries that
+ * remain are blocked by missing MECHANICS, not by the AI.
  */
 export const DEFERRED_MOVEMENT_EFFECTS: Readonly<Record<string, string>> = {
-  "steal.move-plus-2":
-    "SCOPE, not blocked: +2 Move is a one-line fold onto the derived `move` stat, but 8 of 15 shipped builds equip it, so it is a roster-wide tempo change that must be measured against the diversity gate on its own slice",
   "aim.scout":
-    "BLOCKED: vision/line-of-sight is not modeled at all (ADR-0010 item 5 — range is reach + height tolerance with no LoS), so there is no sight radius for a vision movement to widen",
+    "vision/line-of-sight is not modeled at all (ADR-0010 item 5 — range is reach + height tolerance with no LoS), so there is no sight radius for a vision movement to widen",
   "geomancy.lava-walk":
-    "BLOCKED: terrain hazards do not exist — a `Tile` carries only `height` and `passable`, so there is no damaging terrain to ignore",
+    "terrain hazards do not exist — a `Tile` carries only `height` and `passable`, so there is no damaging terrain to ignore",
   "geomancy.terrain-stride":
-    "SCOPE for its ignore-height half (it would fold onto `jump` exactly as move-plus-2 folds onto `move`), BLOCKED for its ignore-terrain half — impassable is binary in `Tile.passable` with no per-unit override, so honouring only half would ship a capability that reads as complete",
+    "its ignore-terrain half has no mechanism — impassable is binary in `Tile.passable` with no per-unit override — and shipping only its ignore-height half would read as a complete capability while half of it silently did nothing",
 };
+
+/**
+ * The record's EQUIPPED movement effect (ADR-0020), or `undefined` when the slot is
+ * empty or the equipped ability is one of the deliberately-inert
+ * {@link DEFERRED_MOVEMENT_EFFECTS}. Absent, never a zero-effect object — so the
+ * no-movement path short-circuits to the identity in {@link applyMovementEffect}.
+ */
+function equippedMovementEffect(
+  record: UnitRecord,
+  registry: ContentRegistry,
+): MovementEffect | undefined {
+  const movementId = record.loadout.movement;
+  if (movementId === null) return undefined;
+  return registry.ability(movementId).movementEffect;
+}
 
 /**
  * The unit's castable-action projection: a basic attack, then the learned ACTION
@@ -321,12 +336,19 @@ export function buildBattleUnit(
   // ordering to be independent of. Absent support ⇒ the identity, so a support-less
   // build stays byte-identical to the pre-layer build.
   const support = equippedSupportEffect(record, registry);
+  // Equipped-MOVEMENT layer (ADR-0020), alongside the support layer and before the same
+  // final clamp. The two are folded independently rather than merged because they touch
+  // DISJOINT fields — support carries pa/ma/maxHp, movement carries move — so there is no
+  // ordering question between them to get wrong, and each floors exactly once. Absent
+  // movement ⇒ the identity, so a movement-less build stays byte-identical.
+  const movement = equippedMovementEffect(record, registry);
   const adjusted = clampToUnitStateBounds({
     ...withTraits,
     ...applySupportEffect(
       { pa: withTraits.pa, ma: withTraits.ma, maxHp: withTraits.maxHp },
       support,
     ),
+    move: applyMovementEffect(withTraits.move, movement),
   });
 
   const weapon: Weapon = over.weapon ?? DEFAULT_BUILD_WEAPON;

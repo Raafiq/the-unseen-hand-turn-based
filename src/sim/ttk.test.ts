@@ -198,12 +198,18 @@ describe("AC-P6 corollary: a showcase build's signature out-damages its own basi
 
   it("KNOWN VIOLATION: bld-spellblade's borrowed black-magic is dominated by its knight swing", () => {
     // NOT relaxed into the list above — asserted POSITIVELY so the defect cannot be
-    // forgotten and cannot be silently fixed without this test noticing. A knight's MA
-    // (6) is too low for borrowed magic to compete with its own PA × WP swing, so
+    // forgotten and cannot be silently fixed. A knight's MA (6) is too low for borrowed
+    // magic (37) to compete with its own PA × WP swing (90).
+    //
+    // ⚠ WHAT THIS NO LONGER IMPLIES (ADR-0020). This comment used to end "…so
     // `bld-spellblade` fights as a knight and its declared `black-magic.` signature never
-    // lands. Fixing it needs a build/chassis change, not a magnitude tweak, and buys the
-    // diversity count NOTHING (its prefix collapses onto bld-arcane-artillery's). Flip
-    // this to the list above when a spellblade chassis lands.
+    // lands". That conclusion is now FALSE while the premise is still true. Once the probe
+    // began weighing a tile's exposure, the knight stopped closing to melee — and from the
+    // tiles it now prefers the 90-damage swing is simply OUT OF REACH, so range-5 black
+    // magic is what is left. It lands `black-magic.` on every map it is in band for
+    // (`gauntlet.test.ts` pins that positively). The magnitude violation below is real and
+    // unfixed; the MASK it used to cause is gone. Two different claims — the prose said
+    // one and asserted the other, which is exactly how a comment turns into a decoy.
     const caster = buildBattleUnit(records["bld-spellblade"]!, registry);
     const target = buildBattleUnit(records["bld-filler-bruiser"]!, registry);
     const fire = caster.abilities.find((a) => a.id === "black-magic.fire");

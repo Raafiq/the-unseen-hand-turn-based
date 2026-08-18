@@ -198,8 +198,10 @@ test("prep viewer: an equip that does nothing SAYS it does nothing", async ({ pa
   expect(await optionText("prep-reaction", "punch-art.counter")).not.toContain("no effect yet");
   // Gilgame Heart is a reaction whose effect is post-battle economy — tagged.
   expect(await optionText("prep-reaction", "steal.gilgame-heart")).toContain("no effect yet");
-  // The whole movement slot is still inert, equipped default included.
-  expect(await optionText("prep-movement", "steal.move-plus-2")).toContain("no effect yet");
+  // MOVE+2 WENT LIVE at ADR-0020 and this assertion INVERTED with it. It read
+  // `.toContain` while the movement slot was inert; the day the slot shipped, this line
+  // going red is the tripwire doing its job rather than a test to relax.
+  expect(await optionText("prep-movement", "steal.move-plus-2")).not.toContain("no effect yet");
   // …and the support slot keeps its existing split.
   expect(await optionText("prep-support", "battle-skill.equip-heavy-armor")).toContain(
     "no effect yet",

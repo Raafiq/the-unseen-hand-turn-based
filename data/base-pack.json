@@ -408,6 +408,7 @@
       "type": "movement",
       "skillset": "steal",
       "apCost": 60,
+      "movementEffect": { "move": { "flat": 2 } },
       "tags": ["movement", "move-plus-2"]
     },
     {

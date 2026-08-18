@@ -117,12 +117,19 @@ raw (hidden PA/MA/Speed/HP/MP/Brave/Faith)
   → + equipment modifiers (weapon/armor/accessory)
   → + socket/set-bonus modifiers        [OPTIONAL modules]
   → + mastery-trait modifiers
-  → + equipped-SUPPORT modifiers        [LIVE — ADR-0017]
+  → + equipped-SUPPORT modifiers        [LIVE — ADR-0017]  (pa / ma / maxHp)
+  → + equipped-MOVEMENT modifiers       [LIVE — ADR-0020]  (move)
   → + active status modifiers (Protect/Shell/Haste as flags, Faith/Innocent as overrides)
   → clamp (Brave/Faith 0–100; HP/MP ≥ 0; Speed ≥ 1)
   = derived stat used by the pipeline
 ```
 Store **raw** and **derived** separately; never mutate raw from equipment/status.
+
+The SUPPORT and MOVEMENT layers sit at the same position and touch **disjoint** fields, so
+there is no ordering question between them; each floors once, and the final clamp follows
+both. (`docs/02` §2's fifth slot could not ship until the AI weighed a tile's exposure —
+see `docs/06` AC-E3(d) and ADR-0020 — because until then extra `move` only bought a
+fragile unit a deeper grave.)
 
 **The support layer has two halves, and only one of them is in the ladder above** (ADR-0017,
 `src/sim/support.ts`). Its **stat** mods (`pa`/`ma`/`maxHp`) fold in at the marked position —

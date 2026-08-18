@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decideBalanceProbe } from "./ai.js";
+import { decideBalanceProbe, exposureOf } from "./ai.js";
 import { inAbilityRange, moveRange, relativeFacing } from "./grid.js";
 import { applyCommand } from "./driver.js";
 import { abilityDamage } from "./resolve.js";
@@ -8,6 +8,7 @@ import {
   createBattleState,
   defaultUnit,
   legacyActiveStatus,
+  makeFlatTiles,
   serialize,
   type BattleState,
   type ChargedActionState,
@@ -687,5 +688,130 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
     const moved = after.units.find((u) => u.id === "hero")!;
     expect(moved.pos).toEqual({ x: 3, y: 0 }); // the move half happened
     expect(moved.ct).toBe(0); // 100 − 100: ONE settle at the both-sub-phases price
+  });
+});
+
+// ── the probe weighs a tile's exposure (ADR-0020) ───────────────────────────
+
+describe("the probe prices the TILE, not just the act — so Move stops being a liability", () => {
+  /**
+   * WHY THIS EXISTS. `compareCandidate` enumerated every reachable tile and priced the
+   * ACT available from each. Nothing priced the TILE, so `move` was effectively a
+   * LIABILITY stat: authoring `steal.move-plus-2` as a real +2 Move dropped the diversity
+   * score 7 → 5, every caster collapsed, and no build improved anywhere (ADR-0020). The
+   * movement chassis slot could not ship until this key existed.
+   *
+   * TWO PLAUSIBLE WRONG FIXES WERE MEASURED AND REJECTED, and the fixture below is built
+   * so BOTH still fail it:
+   *   - "prefer the tile nearest where you stand" — nearest is not safest; N stayed 5.
+   *   - "stay put unless you cannot act at all" — worse; N stayed 5 AND it tripped the
+   *     dominance ban.
+   * Here the safest tile is neither the start tile nor the nearest one: the actor must
+   * walk BACKWARD to shoot. A test that merely asserted "it does not advance" would pass
+   * against both rejected rules and prove nothing.
+   */
+  const BOLT: BattleAbility = {
+    id: "test.bolt",
+    actionKind: "action",
+    formula: "physical",
+    power: 12,
+    element: "none",
+    accuracy: 100,
+    range: { h: 4, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+  const NO_EV = { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+
+  /**
+   * A ranged actor standing at (4,1), one step inside two tanks' strike envelope, with a
+   * nearly-dead foe at (6,1) it wants to finish. Every tile from x=2 to x=8 can reach the
+   * target, but only the ones BEHIND the actor are out of the tanks' reach.
+   */
+  function kiteField(): BattleState {
+    const cand = defaultUnit("cand", 0, {
+      pos: { x: 4, y: 1 },
+      speed: 20,
+      move: 3,
+      hp: 100,
+      maxHp: 100,
+      pa: 10,
+      evasion: { ...NO_EV },
+    });
+    cand.abilities = [...cand.abilities, BOLT];
+    const foe = (id: string, x: number, y: number, hp: number): UnitState =>
+      defaultUnit(id, 1, {
+        pos: { x, y },
+        speed: 5,
+        move: 2,
+        hp,
+        maxHp: 400,
+        pa: 10,
+        evasion: { ...NO_EV },
+      });
+    return createBattleState({
+      seed: 1,
+      grid: { width: 12, height: 3, tiles: makeFlatTiles(12, 3) },
+      units: [cand, foe("tank-a", 7, 0, 300), foe("tank-b", 7, 2, 300), foe("weak", 6, 1, 30)],
+    });
+  }
+
+  it("retreats to shoot: it walks AWAY to a safer tile and still lands the same act", () => {
+    const state = kiteField();
+    const actor = state.units.find((u) => u.id === "cand")!;
+    const cmd = decideBalanceProbe(state, "cand");
+
+    expect(cmd.kind).toBe("act");
+    if (cmd.kind !== "act") return;
+    expect(cmd.target).toEqual({ unitId: "weak" }); // the act itself is unchanged
+    expect(cmd.move, "it must MOVE to reach safety — staying put is the wrong answer").toBeDefined();
+    const to = cmd.move!.to;
+
+    // It went BACKWARD, away from the enemy line. This is what kills the "stay put" and
+    // "prefer the nearest tile" rules: both would leave it on (4,1).
+    expect(to.x).toBeLessThan(actor.pos.x);
+    expect(exposureOf(state, actor, to)).toBeLessThan(exposureOf(state, actor, actor.pos));
+
+    // And it is the SAFEST tile available, not merely a safer one.
+    const reaching = moveRange(state.grid, state.units, "cand").filter((t) =>
+      inAbilityRange(state.grid, t, { x: 6, y: 1 }, BOLT.range),
+    );
+    expect(reaching.length, "guards the guard: there must be a real choice of tile").toBeGreaterThan(1);
+    const exposures = reaching.map((t) => exposureOf(state, actor, t));
+    expect(new Set(exposures).size, "the tiles must DIFFER in exposure").toBeGreaterThan(1);
+    expect(exposureOf(state, actor, to)).toBe(Math.min(...exposures));
+  });
+
+  it("counts only LIVING foes, by EFFECTIVE team", () => {
+    const state = kiteField();
+    const actor = state.units.find((u) => u.id === "cand")!;
+    const tile = { x: 5, y: 1 };
+    expect(exposureOf(state, actor, tile)).toBeGreaterThan(0);
+    for (const u of state.units) if (u.teamId === 1) u.hp = 0;
+    expect(exposureOf(state, actor, tile)).toBe(0);
+  });
+
+  it("a foe's reach is its Move PLUS its weapon range, not Move alone", () => {
+    // The metric must match what a foe can actually DO on its turn. Counting `move` alone
+    // would under-report every melee threat by exactly one tile — the difference between
+    // "safe" and "dies next turn".
+    //
+    // A TWO-UNIT BOARD ON PURPOSE: on the shared fixture several foes overlap, so a count
+    // of 1 could come from any of them and the boundary would prove nothing. Here the
+    // only possible contributor is the tank.
+    const cand = defaultUnit("cand", 0, { pos: { x: 0, y: 0 }, evasion: { ...NO_EV } });
+    const tank = defaultUnit("tank", 1, { pos: { x: 8, y: 0 }, move: 2, evasion: { ...NO_EV } });
+    const state = createBattleState({
+      seed: 1,
+      grid: { width: 12, height: 3, tiles: makeFlatTiles(12, 3) },
+      units: [cand, tank],
+    });
+    expect(tank.abilities.find((a) => a.id === "basic.attack")!.range.h).toBe(1); // reach 1
+    // Move 2 + reach 1 = 3. THREE tiles away is inside the envelope — a move-only metric
+    // would score this 0, which is the whole point of the assertion.
+    expect(exposureOf(state, cand, { x: 5, y: 0 })).toBe(1);
+    // FOUR tiles away is outside it.
+    expect(exposureOf(state, cand, { x: 4, y: 0 })).toBe(0);
   });
 });

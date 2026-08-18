@@ -292,7 +292,7 @@
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">19</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">20</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
@@ -300,7 +300,7 @@
     <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness. The <b>viewer is intentionally behind it</b> — it draws movement and turn order but not yet attacks. There is <b>no narrative or long-form content</b>; that's by design for this phase.</p>
     <div class="board" style="margin-top:20px">
       <div class="card sys">
-        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 27 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
+        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 28 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
         <p>CT-tick scheduler with pinned tie-break, hit/damage/status/crit resolution, charged actions, area abilities, the greedy balance-probe AI, seeded RNG, and a serializable battle state that backs both saves and rewind.</p>
         <div class="detail">scheduler · resolve · formulas · charge · aoe · status · ai · rng · state · codec</div>
       </div>
@@ -377,7 +377,7 @@
     <div class="sec-head"><span class="idx">SPINE</span><h2>The customization spine</h2></div>
     <p class="lead">The whole game is organized around one locked design decision (ADR-0001): depth comes from <b>three customization axes</b>, and success is measured in <em>meaningfully different, viable builds</em> — not in the number of options. Everything else is optional or deferred.</p>
     <div class="inv" style="margin-top:20px">
-      <div class="card cell"><div class="n mono">4 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support · reaction — movement is the last inert slot</div></div>
+      <div class="card cell"><div class="n mono">5 of 5</div><div class="k">Chassis slots live</div><div class="sub">primary · secondary · support · reaction · movement — the spine's first axis is complete</div></div>
       <div class="card cell"><div class="n mono">AP</div><div class="k">Job / skill trees</div><div class="sub">directed progression · permanent mastery bonuses</div></div>
       <div class="card cell"><div class="n mono">×</div><div class="k">Hybrid / fusion jobs</div><div class="sub">the recombination layer — curated, not the full N² web</div></div>
     </div>
@@ -403,16 +403,16 @@
           </thead>
           <tbody>
             <tr>
-              <td class="build">Counter Wall</td><td class="sig">punch-art.</td>
+              <td class="build">Faith-Zero Monk</td><td class="sig">punch-art.</td>
               <td><span class="cellval viable">6/6</span></td>
               <td><span class="cellval viable">6/6</span></td>
               <td><span class="pill ok" style="font-size:10.5px">no losing matchup</span></td>
               <td><span class="pill" style="font-size:10.5px" title="credited, but shares its signature family with another build — counts as the same identity">✓ shared identity</span></td>
             </tr>
             <tr>
-              <td class="build">Faith-Zero Monk</td><td class="sig">punch-art.</td>
+              <td class="build">Counter Wall</td><td class="sig">punch-art.</td>
               <td><span class="cellval viable">6/6</span></td>
-              <td><span class="cellval viable">6/6</span></td>
+              <td><span class="cellval viable">5/6</span></td>
               <td><span class="pill ok" style="font-size:10.5px">no losing matchup</span></td>
               <td><span class="pill" style="font-size:10.5px" title="credited, but shares its signature family with another build — counts as the same identity">✓ shared identity</span></td>
             </tr>
@@ -433,13 +433,13 @@
             <tr>
               <td class="build">Reraise Cleric</td><td class="sig">white-magic.</td>
               <td><span class="cellval viable">6/6</span></td>
-              <td><span class="cellval fold">3/6</span></td>
+              <td><span class="cellval fold">2/6</span></td>
               <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
             </tr>
             <tr>
               <td class="build">Arcane Artillery</td><td class="sig">black-magic.</td>
-              <td><span class="cellval viable">5/6</span></td>
+              <td><span class="cellval viable">6/6</span></td>
               <td><span class="cellval fold">0/6</span></td>
               <td><span class="pill crit" style="font-size:10.5px">magic</span></td>
               <td><span class="pill accent" style="font-size:10.5px">✓ identity</span></td>
@@ -460,9 +460,9 @@
             </tr>
             <tr class="muted-row">
               <td class="build">Spellblade</td><td class="sig">black-magic.</td>
-              <td><span class="cellval fold">1/6</span></td>
-              <td><span class="cellval viable">5/6</span></td>
-              <td><span class="pill crit" style="font-size:10.5px">phys</span></td>
+              <td><span class="cellval fold">3/6</span></td>
+              <td><span class="cellval fold">2/6</span></td>
+              <td><span class="pill crit" style="font-size:10.5px">magic · phys</span></td>
               <td><span class="pill" style="font-size:10.5px">sub-viable</span></td>
             </tr>
           </tbody>
@@ -517,10 +517,10 @@
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>Wake the movement slot &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>One equip slot still does nothing.</b> Support went live first (<b>ADR-0017</b>, variety <b>5 &rarr; 6</b>), reactions second (<b>ADR-0019</b>) &mdash; the same defect twice, in the same file, one slot over: a slot that type-checks its input and then discards it looks identical to a working one. <b>Movement is held back by scope, not by a missing mechanic.</b> Eight of fifteen builds equip Move+2, so switching it on hands more than half the roster extra reach at once, on a roster whose seventh identity sits exactly on the viability floor. That is a measurement, not a refactor. Every authored movement ability is already listed with its reason, and an A/B test asserts the slot changes nothing &mdash; that test is what must go red when this lands.</p>
+          <h3>Teach the AI to hold a line &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a risky square for a decisive one. Making that trade explicit is the next step. Watch for stalemates while you do: two cautious armies can decline to engage, and a battle that never ends reads in the results table exactly like a loss.</p>
         </div>
-        <span class="pill" style="align-self:center">1 dead slot</span>
+        <span class="pill" style="align-self:center">AI depth</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
@@ -546,7 +546,7 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 19 ADRs</span>
+    <span>· 20 ADRs</span>
     <span>· 27 spec files</span>
   </div>
 

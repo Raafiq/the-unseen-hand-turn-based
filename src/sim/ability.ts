@@ -19,6 +19,7 @@ import { z } from "zod";
 import { ElementSchema } from "./element.js";
 import { SupportEffectSchema } from "./support.js";
 import { ReactionEffectSchema } from "./reaction.js";
+import { MovementEffectSchema } from "./movement.js";
 import { ActiveStatusSchema } from "./active-status.js";
 
 const IntSchema = z.number().int();
@@ -104,6 +105,16 @@ export const AbilitySchema = z
      * a stray effect on an action can never silently do nothing.
      */
     reactionEffect: ReactionEffectSchema.optional(),
+    /**
+     * What an EQUIPPED `type: "movement"` ability does (docs/02 §2, ADR-0020).
+     * ADDITIVE + OPTIONAL like its two siblings above, so CONTENT_SCHEMA_VERSION does
+     * NOT bump and a pre-slice pack loads unchanged with its movement abilities inert.
+     *
+     * Absent on a movement ability ⇒ deliberately still inert; every such id must
+     * appear in {@link DEFERRED_MOVEMENT_EFFECTS} with its blocker. Absent on any
+     * other type ⇒ meaningless and rejected by the pack's integrity pass.
+     */
+    movementEffect: MovementEffectSchema.optional(),
     tags: z.array(z.string().min(1)).optional(),
   })
   .strict();
