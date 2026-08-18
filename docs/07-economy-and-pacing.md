@@ -16,6 +16,8 @@ Currencies defined in `docs/02` B0. Target magnitudes:
 | **Jobs to first hybrid** | 2 mastered (~20–30 battles) | First fusion lands in the early-mid game as a milestone |
 | **Respec cost** | **0** (free, `docs/02` B7) | Experimentation is encouraged; only *learning* costs AP |
 | **Mastery bonus** | 1 permanent trait per job | The long-tail reward that never expires |
+| **Character Level** | **No stat value at all** (ADR-0021) | A gate on job/equipment tiers; it rises on the critical path and is never bought with EXP |
+| **Equipment** | Horizontal: formula, range, element, resistance, Brave/Faith shifts | Counterplay and identity, **not** a rising weapon-power ladder — see §3 |
 
 ## 2. The grind-budget curve (the falsifiable contract)
 
@@ -29,6 +31,7 @@ Currencies defined in `docs/02` B0. Target magnitudes:
 
 - **Integers everywhere in the sim**, floored per step (`docs/05` §2). No floats in damage; multipliers (Haste 1.5, Zodiac 1.25…) applied then floored.
 - **Target time-to-kill (TTK):** a squishy unit dies in ~1–2 committed actions; a tank in ~3–4. Encounters (`docs/06`) are budgeted to a TTK band, not to player level.
+  - **Measured, and the reason equipment stays horizontal (ADR-0021):** holding `raw.hp` fixed and raising only the weapon tier, shipped builds outside their band go **0/15 → 1/15 → 6/15** at WP 8 → 12 → 16. At WP 16 the reference committed action is 180 damage and **every tank dies in 2 hits**. Offense on gear and defence on the record scale independently, so a vertical gear ladder relocates the balance problem rather than solving it.
 - **Power-vs-slot-count rule:** adding a slot/option must be paired with matched opportunity cost (`docs/02` B5). Total build power is bounded by **scarcity**, not by capping individual numbers.
 - **"Allowed to be strong" rule (`docs/04` §2):** a combo may exceed the power curve **iff** it has telegraphed, actionable counterplay. Otherwise it's tuned down.
 - **Soft caps > hard bans:** Speed/Haste, evasion, and hard-disable duration follow diminishing returns so stacking is a choice with falling marginal value, not a forbidden move or an auto-win.
@@ -40,6 +43,12 @@ Economy pacing and *systems* pacing are linked: the player shouldn't be handed a
 - **Act 2:** first masteries land → trait slots + first hybrid unlock.
 - **Act 3+:** full hybrid web, optional sockets (`if kept`), deep specialization.
 This keeps the AP economy legible while the player learns it (no 2-hour bounce, `docs/00`).
+
+### 3a. EXP and the level band `[DEFERRED]`
+
+**Not built, and deliberately given no acceptance criterion** (ADR-0021 decision 5). If character Level ever becomes *earned* rather than authored, the mechanism of record is a **level-gap-scaled EXP curve** — a large award when a unit is under the encounter's level, near-nothing when it is over — which makes farming a favourite converge to zero while letting a benched unit catch up cheaply. Triangle Strategy and Fire Emblem both ship this shape.
+
+This paragraph is **aspirational, not governing**. Nothing asserts it, no number here is a target, and per the repo's own rule an unasserted number in `docs/` is worse than an absent one — so it stays tagged until there is an EXP system to test. Note also that in both cited games **levels grant stats**; they are evidence for the EXP band only, never for ADR-0021's decision 1.
 
 ## 5. MP & in-battle economy
 

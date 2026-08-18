@@ -64,6 +64,65 @@ describe("buildBattleUnit — stat derivation (docs/05 §4: raw × job growth, f
   });
 });
 
+describe("ADR-0021 — progression is authored: level and AP are not power", () => {
+  /**
+   * AC-J10 / AC-J11. READ THE CAVEAT BEFORE TRUSTING THE GREEN TICK: both of these
+   * PASS TODAY, before any work — `deriveStats` reads neither `level` nor `ap`. They
+   * are REGRESSION GUARDS, not evidence that ADR-0021's design is right, and the only
+   * thing that proves they discriminate is the mutation named in each docstring
+   * (verified by hand when they were written; re-run it if you doubt them).
+   *
+   * They exist because the shipped behaviour was an ACCIDENT until ADR-0021 — `level`
+   * has been on `UnitRecord` since rosterSchemaVersion 2 and nothing ever read it, so
+   * there was nothing to stop a future slice quietly wiring growth to it and
+   * reintroducing the overlevel bulldoze the ADR rules out.
+   */
+  const LEVELS = [1, 10, 40, 99] as const;
+
+  it("AC-J10: the same record built at any two levels is byte-identical", () => {
+    // Mutation that must turn this red: multiply any stat by a level term in
+    // `deriveStats` (e.g. `raw.pa * job.growth.pa * (1 + record.level / 20)`).
+    let base = defaultUnitRecord("climber", "knight", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 255, mp: 24 },
+      mastered: ["knight", "monk"],
+    });
+    base = setLoadoutTraits(base, ["bulwark", "inner-focus"], registry);
+    const built = LEVELS.map((level) => buildBattleUnit({ ...base, level }, registry));
+
+    // The fixture must be one where a level term COULD show up: non-zero raw stats in
+    // every slot, or "identical" is trivially true and the test certifies nothing.
+    expect(built[0]!.pa).toBeGreaterThan(0);
+    expect(built[0]!.maxHp).toBeGreaterThan(1);
+    for (const unit of built.slice(1)) expect(unit).toEqual(built[0]);
+  });
+
+  it("AC-J11: the same record built with any AP total is byte-identical", () => {
+    // AP is the one quantity on the record a player CAN farm, so it is the concrete
+    // subject of "no power source scales with a repeatable quantity". AP must buy
+    // abilities (which change the unit through the loadout) and nothing else.
+    // Mutation that must turn this red: add `record.ap` to any derived stat.
+    const base = defaultUnitRecord("earner", "monk", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 208, mp: 24 },
+    });
+    const poor = buildBattleUnit({ ...base, ap: 0 }, registry);
+    const rich = buildBattleUnit({ ...base, ap: 100_000 }, registry);
+    expect(rich).toEqual(poor);
+  });
+
+  it("the guard is not vacuous: the SAME builder does move for a real power source", () => {
+    // The other half of the evidence. Without this, all the assertions above would
+    // also pass against a `buildBattleUnit` that ignored its inputs entirely and
+    // returned a constant — the degenerate way to satisfy "nothing changes it".
+    const base = defaultUnitRecord("mover", "knight", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 255, mp: 24 },
+      mastered: ["knight"],
+    });
+    const plain = buildBattleUnit(base, registry);
+    const trained = buildBattleUnit(setLoadoutTraits(base, ["bulwark"], registry), registry);
+    expect(trained).not.toEqual(plain);
+  });
+});
+
 describe("buildBattleUnit — abilities projection (primary + secondary + basic attack)", () => {
   it("projects basic attack, learned primary actions, and learned secondary actions", () => {
     // Knight (primary = battle-skill) with a learned battle-skill action, plus a
