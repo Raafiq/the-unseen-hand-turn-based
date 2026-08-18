@@ -20,14 +20,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { runEncounter, runEncounterDetailed } from "./harness.js";
+import { runEncounter, runEncounterDetailed, type RunReport } from "./harness.js";
 import { loadEncounter } from "./encounter.js";
-import { replay, advanceToDecision } from "./driver.js";
+import { replay, advanceToDecision, type Command } from "./driver.js";
 import { buildBattleUnit } from "./build.js";
 import { decideBalanceProbe } from "./ai.js";
 import { loadContentPack, type ContentRegistry } from "./content.js";
 import { deserializeRecord, type UnitRecord } from "./roster.js";
-import { createBattleState, makeFlatTiles, serialize } from "./state.js";
+import { createBattleState, makeFlatTiles, serialize, type BattleState } from "./state.js";
 
 function loadShippedPack(): ContentRegistry {
   const path = fileURLToPath(new URL("../../data/base-pack.json", import.meta.url));
@@ -92,6 +92,79 @@ describe("benchmark suite — AC-E1: every §2 encounter runs headlessly to a de
       expect(replayed.rngCounter).toBe(a.report.finalRngCounter);
     });
   }
+});
+
+/**
+ * The passive opposition (AC-E6): team 1 waits every turn, team 0 plays the ordinary
+ * balance probe. Injected through `RunOptions.decide`, so it is the SAME decision seam
+ * the real run uses — pure and RNG-free, exactly as the option requires.
+ */
+const OPPOSITION_TEAM = 1;
+
+function passiveOpposition(state: BattleState, unitId: string): Command {
+  const u = state.units.find((x) => x.id === unitId);
+  return u !== undefined && u.teamId === OPPOSITION_TEAM
+    ? { kind: "wait" }
+    : decideBalanceProbe(state, unitId);
+}
+
+/** Team 0's share of its maximum HP at the end of a run. */
+function playerHpFraction(report: RunReport): number {
+  return report.teams.find((t) => t.teamId !== OPPOSITION_TEAM)!.hpFraction;
+}
+
+describe("benchmark suite — AC-E6: every shipped encounter can actually be WON", () => {
+  /**
+   * AC-E1 above proves each encounter *ends*. A defeat and a timeout both satisfy that,
+   * so it cannot see an encounter whose victory condition is unreachable — a boss no
+   * path leads to, a roster whose abilities land nothing, a `defeatUnit` naming a unit
+   * that is not on the field. This asserts the other half: run with the opposition
+   * standing still, team 0 reaches `victory`.
+   *
+   * READ THE SCOPE. This is REACHABILITY, not balance — it says the win exists, not that
+   * a player is likely to find it. As authored, with the probe driving both sides, all
+   * five of these end in DEFEAT for team 0 (measured 2026-08-18; see docs/06 AC-E6 for
+   * the seed sweep). That is deliberately NOT asserted here: pinning it would freeze a
+   * tuning state, and the honest place for a number nobody wants to keep is the doc.
+   */
+  for (const id of SUITE) {
+    it(`${id} reaches VICTORY against a passive opposition`, () => {
+      const def = loadEncDef(id);
+      const passive = runEncounter(def, resolver, undefined, { decide: passiveOpposition });
+      expect(passive.outcome).toBe("victory");
+      expect(passive.turns).toBeGreaterThan(0);
+
+      // NON-DEGENERACY (docs/06 AC-E6): the injected decider must actually be honored.
+      // If `decide` were ignored, this run and the as-authored one would be identical
+      // and the assertion above would certify nothing about the encounter — it would
+      // just be re-running AC-E1. A live opposition costs team 0 strictly more HP.
+      const authored = runEncounter(def, resolver);
+      expect(playerHpFraction(passive)).toBeGreaterThan(playerHpFraction(authored));
+    });
+  }
+
+  it("the lever itself: `passiveOpposition` waits for team 1 and defers for team 0", () => {
+    // The HP guard above proves the injected decider CHANGED the run; this proves it
+    // changed it in the way claimed. Commands do not name their actor (driver.ts: the
+    // scheduler picks it), so team attribution has to be read here, at the decider.
+    for (const id of SUITE) {
+      const state = loadEncounter(loadEncDef(id), resolver);
+      const byTeam = { passive: 0, probe: 0 };
+      for (const u of state.units) {
+        const cmd = passiveOpposition(state, u.id);
+        if (u.teamId === OPPOSITION_TEAM) {
+          expect(cmd, `${id}/${u.id}`).toEqual({ kind: "wait" });
+          byTeam.passive += 1;
+        } else {
+          expect(cmd, `${id}/${u.id}`).toEqual(decideBalanceProbe(state, u.id));
+          byTeam.probe += 1;
+        }
+      }
+      // Both branches must be exercised, or the loop above asserts only one of them.
+      expect(byTeam.passive, id).toBeGreaterThan(0);
+      expect(byTeam.probe, id).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("benchmark suite — AC-E2 raw material: the new jobs are actually MEASURED", () => {
