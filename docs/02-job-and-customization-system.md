@@ -78,6 +78,7 @@ No feature below is real until it earns a row here. **Rule: if any two rows can'
 | **Mastery** | Fully completing a job's tree | Unlocks a **permanent, portable passive** + counts toward hybrid eligibility | A milestone, **never a wallet and never lost** — long-term goal, not a resource you juggle. | `[CORE]` |
 | **Hybrid unlock** | Mastering **two specific** base jobs | Opens a fusion job | Gated by **combinations**, not accumulation — orthogonal to AP/mastery totals. | `[CORE]` |
 | **Socket loot** | Encounter/boss rewards | Modular passives **moved between units** | The only **transferable** axis — solves "I want this passive on two builds" without re-earning it. | `[OPTIONAL]` |
+| **Level** | **Authored progression only** — it rises on the critical path, it is not bought with EXP | **Nothing.** It is a gate, not a wallet: it opens job and equipment tiers | Distinct because it grants **no stats and no power** (ADR-0021) — the one row a player cannot spend, farm, or optimise | `[CORE]` |
 
 Everything else considered (weapon skill-trees, ability rank-up, set bonuses) collapses into **"AP walks a tree"** and is therefore **not** a separate currency — they are presentation variants of the AP spend, kept only if `docs/03` needs them. **Behavior scripting is `[DEFERRED]`** (a different game's spine).
 
@@ -96,7 +97,7 @@ Keep the 5 slots. Add **exactly two Trait slots** for mastery-earned passives. *
 
 ### B4. Kill the grind, kill the exploits `[CORE]`
 - **AP is earned by meaningful action**, and **all deployed units earn**, so the optimal path is never "spam Throw Stone on your own ally." No action rewards more AP for being degenerate.
-- **Normalize stat growth** so there is **no incentive to de-level** (flat per-level growth, or Tactics-Ogre-Reborn-style per-unit leveling). The A1 exploit is designed out.
+- **No stat growth per level at all** (**ADR-0021**) — derived stats are `raw × job growth`, modified by trait → support → clamp, and `level` is never an input. The A1 de-level exploit is designed out **by construction** rather than by tuning: growth cannot reward a level it is never given. Stat power beyond job growth comes from **equipment**, which is horizontal (formula, range, element, resistance, Brave/Faith shifts) and never a rising weapon-power ladder — measured, a WP ladder puts 6 of 15 shipped builds outside the `docs/07` §3 TTK band and scales unequally across the five weapon formulas (`bareHands` gains nothing, `wpWp` is quadratic).
 - The **grind-budget curve** (`docs/07`) makes "investment, not grind" a falsifiable number, not a slogan.
 
 ### B5. The anti-convergence / opportunity-cost design law `[CORE]`
@@ -132,6 +133,8 @@ One paragraph, deliberately: a **Unit** references a **Job** (with growth multip
 - **AC-J4 (free respec):** Changing any loadout slot in the prep screen SHALL cost no resource and SHALL be reversible.
 - **AC-J5 (hybrid unlock):** A hybrid job SHALL become available iff its two required base jobs are both mastered; recipes SHALL be hinted, not enumerated, in-game.
 - **AC-J6 (anti-convergence):** No two mutually-exclusive strong branches SHALL be simultaneously equippable; deployment SHALL be capped below roster size.
-- **AC-J7 (no degenerate AP):** No single repeatable action SHALL yield disproportionate AP; growth SHALL NOT reward de-leveling.
+- **AC-J7 (no degenerate AP):** No single repeatable action SHALL yield disproportionate AP; growth SHALL NOT reward de-leveling. *Amended by ADR-0021:* the de-leveling half is now satisfied **by construction** (see AC-J10) rather than by tuning a growth curve; the AP half — capped, level-independent grants — is unchanged and remains tested in `progression.test.ts`.
+- **AC-J10 (level is not power):** The same `UnitRecord` built at **any two levels**, with the same job, loadout and equipment, SHALL produce a **byte-identical** battle unit. *Discriminator:* wire `level` into `deriveStats` and this must go red. ⚠ **This criterion PASSES TODAY, before any work** — `level` is already unread. It is therefore a **regression guard, not evidence for the design**, and its value is proven by that mutation, never by its green tick.
+- **AC-J11 (no unauthored power source):** Every source of derived stat power SHALL be either a job growth multiplier or an equipment property supplied on the authored schedule (ADR-0021). No power source SHALL scale with a quantity the player can increase by repeating battles. *Discriminator:* an A/B over the same record with a farmable quantity varied — the built unit must not move.
 - **AC-J9 (no decorative slot):** For every chassis slot, equipping an ability SHALL either change the built unit (and, where the effect is behavioural, the fight) or the ability SHALL appear in that slot's DEFERRED manifest with a named reason. *Test:* an **A/B on the built object** — the same record with the slot filled and emptied must produce different output — plus a manifest test that partitions the shipped pack exactly in both directions. Equip-time validation alone SHALL NOT count as evidence: it looks identical whether or not the effect exists.
 - **AC-J8 (currency distinctness):** The shipped currency set SHALL contain no two currencies with identical earn+spend semantics (the B0 rule, enforced in review).
