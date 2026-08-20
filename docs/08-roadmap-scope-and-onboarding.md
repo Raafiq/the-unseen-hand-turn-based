@@ -6,6 +6,8 @@ How the design becomes a game, what a small team must cut to ship, how a new pla
 
 ## 1. Phased roadmap
 
+> **Scope note.** The phases below are the **engine** roadmap. The **game** roadmap — the shell, the campaign container, persistence, story delivery, equipment, failure handling — lives in **`docs/11`**, which also defines the **MVP slice (M0)** that should come before deepening any of this. `docs/11` records the call that P2's diversity-gate exit criterion is *not* an MVP blocker.
+
 Guiding rule: **foundational invariants come first, even if their UI comes later.** The architect's warning (`docs/05` §3) is honored — determinism and data-driven state are P0, not features bolted on late.
 
 | Phase | Goal | Ships | Notes |
