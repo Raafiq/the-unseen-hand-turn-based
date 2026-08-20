@@ -56,6 +56,14 @@ export interface UnitContribution {
   /** Foes/units this unit dropped to 0 HP. */
   kos: number;
   /**
+   * Actions this unit LANDED (a whiff / miss / cancelled charge counts 0). Accounted
+   * from the resolvers' outcomes exactly like the totals above, so it is the honest
+   * "how much did this unit actually do" counter — a pure healer, a pure controller and
+   * a striker all score on it, which a damage-only proxy could not. The campaign's AP
+   * grant (campaign-run.ts) reads THIS rather than `damageDealt`.
+   */
+  landedActions: number;
+  /**
    * Σ statuses this unit newly applied to others (a refresh is not counted). The only
    * contribution a PURE-CONTROL build makes: without it a thief that charmed its way to
    * a win would be indistinguishable from one carried by its fillers.
@@ -176,7 +184,7 @@ export function runFromState(
   // report always has a complete, presence-check-free contribution map.
   const contributionByUnit: Record<string, UnitContribution> = {};
   for (const u of initial.units) {
-    contributionByUnit[u.id] = { damageDealt: 0, healingDone: 0, kos: 0, statusesInflicted: 0, signatureActionsLanded: 0 };
+    contributionByUnit[u.id] = { damageDealt: 0, healingDone: 0, kos: 0, statusesInflicted: 0, landedActions: 0, signatureActionsLanded: 0 };
   }
   // chargeId → the abilityId that declared it, so a matured charge is credited to
   // its original ability for signature counting. Filled as charges are declared.
@@ -189,12 +197,14 @@ export function runFromState(
         healingDone: 0,
         kos: 0,
         statusesInflicted: 0,
+        landedActions: 0,
         signatureActionsLanded: 0,
       });
       c.damageDealt += e.damageDealt;
       c.healingDone += e.healingDone;
       c.kos += e.kos;
       c.statusesInflicted += e.statusesInflicted;
+      if (e.landed) c.landedActions += 1;
       const prefix = signaturePrefixes[e.sourceUnitId];
       if (e.landed && prefix !== undefined && prefix !== "" && e.abilityId.startsWith(prefix)) {
         c.signatureActionsLanded += 1;

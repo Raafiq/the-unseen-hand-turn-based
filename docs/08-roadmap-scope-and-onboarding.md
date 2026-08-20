@@ -28,7 +28,10 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > evidence (a shipped file, a passing AC), not as proof. Last reconciled against the code
 > on **2026-08-18**; a stale header here once claimed "pre-code" against 428 passing tests,
 > a later one claimed P3 while P3's own deliverables were unshipped, and a third still read
-> `N = 6` two slices after the gate reached 7.
+> `N = 6` two slices after the gate reached 7. Reconciled again on **2026-08-20** for the
+> first `docs/11` M0 slice — which lands OUTSIDE this list, since M0 is the *game* roadmap
+> and P0–P4 is the *engine* one. Nothing below moved; the campaign container is tracked in
+> `docs/11` §3's own status table.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -72,6 +75,11 @@ no player-facing path), **rewind UI** (the substrate exists, the UI does not), s
 toggle.
 
 **P4 — Content, balance, polish · NOT STARTED.**
+
+> **Where the work actually is right now (2026-08-20):** `docs/11`'s **M0 playable slice**,
+> not P2's remaining boxes. The two P2 items still open (N ≥ 8, MP enforcement) are carried
+> into `docs/11` M1 by the user decision recorded above. M0's first slice — the campaign
+> container and the party save (ADR-0022) — has landed headlessly.
 
 ## 2. Scope & cut-lines (for a small/solo team)
 

@@ -657,6 +657,7 @@ export function runGauntlet(params: RunGauntletParams): GauntletRun[] {
           healingDone: 0,
           kos: 0,
           statusesInflicted: 0,
+          landedActions: 0,
           signatureActionsLanded: 0,
         };
         const team0 = report.teams.find((t) => t.teamId === 0);

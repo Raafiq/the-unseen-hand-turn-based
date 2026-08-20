@@ -238,7 +238,7 @@
       <h1>The Unseen Hand</h1>
       <p class="lede">A turn-based tactics engine in the lineage of <em>Final Fantasy Tactics: War of the Lions</em> — built spine-first around a deep job &amp; customization system. Narrative is a separate, not-yet-started repo; this codebase stays content-agnostic and loads battles as data.</p>
       <div class="statusline">
-        <span class="pill accent"><span class="dot"></span>PHASE P2 · CUSTOMIZATION DEPTH</span>
+        <span class="pill accent"><span class="dot"></span>MILESTONE M0 · THE PLAYABLE SLICE</span>
         <span class="pill ok"><span class="dot"></span>ENGINE GREEN · GATE PASSES</span>
         <span class="pill warn"><span class="dot"></span>PRE-CONTENT</span>
       </div>
@@ -291,16 +291,16 @@
     <div class="kpi fade"><div class="n">63</div><div class="k">Abilities</div></div>
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
-    <div class="kpi fade"><div class="n">6</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">21</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">11</div><div class="k">Encounters</div></div>
+    <div class="kpi fade"><div class="n">22</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
     <div class="sec-head"><span class="idx">SYS</span><h2>Where it stands</h2></div>
-    <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness. The <b>viewer is intentionally behind it</b> — it draws movement and turn order but not yet attacks. There is <b>no narrative or long-form content</b>; that's by design for this phase.</p>
+    <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness, a playable click-to-act viewer, and — new — a <b>campaign</b> that sequences 5 battles and carries a party between them, with a save file that round-trips (<b>ADR-0022</b>). What is still missing is everything around it: no title screen, no between-battle prep loop, no story text, no equipment. There is <b>no narrative content</b>; that is by design.</p>
     <div class="board" style="margin-top:20px">
       <div class="card sys">
-        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 28 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
+        <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 30 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
         <p>CT-tick scheduler with pinned tie-break, hit/damage/status/crit resolution, charged actions, area abilities, the greedy balance-probe AI, seeded RNG, and a serializable battle state that backs both saves and rewind.</p>
         <div class="detail">scheduler · resolve · formulas · charge · aoe · status · ai · rng · state · codec</div>
       </div>
@@ -480,7 +480,7 @@
 
   <section>
     <div class="sec-head"><span class="idx">ROAD</span><h2>Roadmap position</h2></div>
-    <p class="lead">Foundational invariants shipped first, UI later. Two phases are behind us; we're mid-way through the third — the one that <em>is</em> the pillar.</p>
+    <p class="lead">Foundational invariants shipped first, UI later. Two phases are behind us; we're mid-way through the third — the one that <em>is</em> the pillar. <b>The work has moved off this list for now:</b> the current slice is <b>M0, the playable MVP</b> (the <em>game</em> roadmap, not the engine one), and P2's two open items — the variety score reaching 8, and MP enforcement — are carried into M1 by an explicit decision. They are not weakened; only their due date moved.</p>
     <div class="road" style="margin-top:22px">
       <div class="phase done">
         <div class="p">P0</div><h4>Core loop</h4>
@@ -512,31 +512,31 @@
 
   <section>
     <div class="sec-head"><span class="idx">NEXT</span><h2>What's next</h2></div>
-    <p class="lead">Several reference builds are still <em>unmeasured</em> because the greedy 1-ply probe can't exercise their identities yet — each is tagged in the manifest with the capability that unblocks it. The moves, by leverage:</p>
+    <p class="lead">The MVP comes first: a stranger should be able to start the game, play 30&ndash;45 minutes and reach a real ending. The campaign that sequences the battles now exists; what it needs is the shell around it. After that, the engine backlog resumes. The moves, by leverage:</p>
     <div class="next" style="margin-top:20px">
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>Teach the AI to hold a line &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a risky square for a decisive one. Making that trade explicit is the next step. Watch for stalemates while you do: two cautious armies can decline to engage, and a battle that never ends reads in the results table exactly like a loss.</p>
+          <h3>The shell — title, New Game, Continue &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>The campaign container and the save file landed</b> (<b>ADR-0022</b>): five battles in order, a party that carries AP and learned abilities across them, a lost battle that becomes a retryable game-over, and a save that round-trips byte-for-byte. All of it is <em>headless</em> &mdash; there is no way for a person to reach any of it. The next slice is the screen that starts a game, the one that continues it, and the wiring that writes the save to disk.</p>
         </div>
-        <span class="pill" style="align-self:center">AI depth</span>
+        <span class="pill" style="align-self:center">MVP</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
         <div>
-          <h3>Provoke / threat</h3>
-          <p>An independent medium slice that retires a named manifest exclusion: a <b>threat</b> mechanic unlocks the aggro-tank, whose identity the greedy probe cannot express today because nothing makes it worth attacking. Hardens the gate's teeth; the N gain is build-dependent.</p>
+          <h3>The between-battle loop and the story seam</h3>
+          <p>The prep screen already equips abilities and traits; it just is not reachable between battles. Routing it through the campaign is cheap now that <span class="mono">updatePartyMember</span> exists. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo contract shape, so the seam is real before anyone writes a word of story.</p>
         </div>
-        <span class="pill" style="align-self:center">+1 build</span>
+        <span class="pill" style="align-self:center">MVP</span>
       </div>
       <div class="card opt">
         <div class="rank">03</div>
         <div>
-          <h3>Beyond the job roster</h3>
-          <p>The job roster is being deprioritized. <b>All 7 signature prefixes the roster can express are now measured identities</b>, so there is zero slack: any regression fails the gate. The last one toward the <span class="mono">8</span>-archetype release bar comes from a new signature prefix (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note <b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class="mono">white-magic.</span> and <span class="mono">summon.</span> currently ride unenforced MP.</p>
+          <h3>Teach the AI to hold a line</h3>
+          <p><b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a risky square for a decisive one. Deferred to M1 with the rest of the engine backlog; watch for stalemates when it lands, since a battle that never ends reads in the results table exactly like a loss.</p>
         </div>
-        <span class="pill" style="align-self:center">pivot</span>
+        <span class="pill" style="align-self:center">AI depth</span>
       </div>
     </div>
   </section>
@@ -546,8 +546,8 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 21 ADRs</span>
-    <span>· 27 spec files</span>
+    <span>· 22 ADRs</span>
+    <span>· 29 spec files</span>
   </div>
 
 </div>

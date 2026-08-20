@@ -25,6 +25,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
+import { parseCampaign } from "./campaign.js";
 import { loadContentPack, type ContentRegistry } from "./content.js";
 import { deserializeRecord, type UnitRecord } from "./roster.js";
 import { buildBattleUnit } from "./build.js";
@@ -45,8 +46,27 @@ function loadShippedBuilds(): Record<string, UnitRecord> {
   return records;
 }
 
+/**
+ * Every unit the SHIPPED CAMPAIGN fields — its party and its cast — keyed by record id.
+ *
+ * WHY THIS IS HERE. `data/builds/*` is the benchmark roster; it is not the only content
+ * a player meets. The last time a hand-authored roster shipped outside this check (the
+ * viewer's demo units) it sat 3–4× outside the docs/07 band for the life of the repo
+ * with a green suite the whole time, because nothing enumerated it. The campaign's units
+ * are enumerated from the DEF (one list, `party` + `cast`), so adding a unit to the
+ * campaign forces a classification here rather than slipping past.
+ */
+function loadCampaignUnits(): Record<string, UnitRecord> {
+  const path = fileURLToPath(new URL("../../data/campaign/camp-the-first-march.json", import.meta.url));
+  const def = parseCampaign(JSON.parse(readFileSync(path, "utf8")) as unknown);
+  const units: Record<string, UnitRecord> = {};
+  for (const rec of [...def.party, ...def.cast]) units[rec.id] = rec;
+  return units;
+}
+
 const registry = loadShippedPack();
 const records = loadShippedBuilds();
+const campaignUnits = loadCampaignUnits();
 
 /**
  * The TTK classes. `squishy` and `tank` are docs/07 §3 verbatim; `mid` is the declared
@@ -80,6 +100,22 @@ const BUILD_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
   "bld-warlord": "boss",
 };
 
+/**
+ * Every campaign unit's declared TTK class. A new party member or enemy MUST be added
+ * here (asserted below), for the same reason `BUILD_CLASS` is asserted complete.
+ */
+const CAMPAIGN_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
+  "pc-vance": "tank",
+  "pc-kest": "mid",
+  "pc-briar": "mid",
+  "pc-ottoline": "squishy",
+  "foe-brigand": "squishy",
+  "foe-cutthroat": "mid",
+  "foe-hexer": "squishy",
+  "foe-marauder": "tank",
+  "foe-warchief": "boss",
+};
+
 /** Derived reference: what one committed physical action actually deals in this engine. */
 function referenceActionDamage(): number {
   const attacker = buildBattleUnit(records["bld-filler-bruiser"]!, registry);
@@ -91,6 +127,22 @@ function referenceActionDamage(): number {
 function actionsToKill(record: UnitRecord, reference: number): number {
   return Math.ceil(buildBattleUnit(record, registry).maxHp / reference);
 }
+
+describe("AC-P6: the shipped CAMPAIGN roster sits inside the docs/07 TTK band", () => {
+  const reference = referenceActionDamage();
+
+  it("classifies every campaign unit — no party member or enemy escapes the band check", () => {
+    expect(Object.keys(CAMPAIGN_CLASS).sort()).toEqual(Object.keys(campaignUnits).sort());
+  });
+
+  for (const [unitId, cls] of Object.entries(CAMPAIGN_CLASS)) {
+    it(`${unitId} dies in ${BANDS[cls].min}-${BANDS[cls].max} committed actions (${cls})`, () => {
+      const actions = actionsToKill(campaignUnits[unitId]!, reference);
+      expect(actions, `${unitId} (${cls})`).toBeGreaterThanOrEqual(BANDS[cls].min);
+      expect(actions, `${unitId} (${cls})`).toBeLessThanOrEqual(BANDS[cls].max);
+    });
+  }
+});
 
 describe("AC-P6: the shipped build data sits inside the docs/07 TTK band", () => {
   const reference = referenceActionDamage();

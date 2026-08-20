@@ -326,3 +326,39 @@ export {
   type BuildGateStat,
   type DiversityReport,
 } from "./gauntlet.js";
+
+// ── Campaign container + persistence (docs/11 M0) ────────────────────────────
+export {
+  CAMPAIGN_SCHEMA_VERSION,
+  MIN_SUPPORTED_CAMPAIGN_SCHEMA_VERSION,
+  CAMPAIGN_MIGRATIONS,
+  CampaignSchemaVersionError,
+  CampaignDefSchema,
+  CampaignSaveSchema,
+  CampaignBattleSchema,
+  CampaignStatusSchema,
+  CampaignHistoryEntrySchema,
+  parseCampaign,
+  startCampaign,
+  currentBattle,
+  applyBattleResult,
+  retryBattle,
+  updatePartyMember,
+  serializeCampaign,
+  deserializeCampaign,
+  type CampaignDef,
+  type CampaignSave,
+  type CampaignBattle,
+  type CampaignStatus,
+  type CampaignHistoryEntry,
+  type CampaignMigration,
+  type BattleResult,
+} from "./campaign.js";
+export {
+  runCampaign,
+  runCampaignBattle,
+  type CampaignRunResult,
+  type CampaignRunOptions,
+  type CampaignBattleRun,
+  type EncounterMap,
+} from "./campaign-run.js";

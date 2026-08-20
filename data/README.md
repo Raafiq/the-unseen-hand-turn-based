@@ -107,6 +107,24 @@ elevation (`enc-the-high-ground`), anti-cheese (`enc-mixed-company`), attrition
 condition) and *escort/protect* + reliable heal-in-encounter (need a support-aware AI
 — the greedy 1-ply probe walks squishy support units to their death).
 
+## `campaign/` — the M0 playable campaign (ADR-0022)
+
+`camp-the-first-march.json` is one `CampaignDef` (`campaignSchemaVersion: 1`;
+`campaign.ts::parseCampaign`): a `party` of 4 starting `UnitRecord`s, a `cast` of 5
+non-party records, and an ordered list of 5 battles. `encounters/*.json` under it are
+ordinary `Encounter` defs whose **team-0 placements use `ref` sources** naming party
+records — that is the seam the save's party is injected through at deploy time.
+
+Deliberately **not** the benchmark suite above: as authored, all five `enc-*` encounters
+lose from team 0 (`docs/06` AC-E6), which is fine for a balance probe and useless as an
+MVP. This one is measured winnable under the probe on both seats across 8 consecutive
+seeds, with a turn ramp of 4 → 9 → 16 → 22 → 28 (both asserted, `campaign-run.test.ts`).
+
+Every party and cast record is band-checked by `ttk.test.ts` alongside `builds/*`. Adding
+a unit here without classifying it fails that test on purpose — the last hand-authored
+roster that shipped outside the check sat 3–4× outside the `docs/07` band for the life of
+the repo.
+
 ## Illustrative vs verified numbers
 
 - **Growth multipliers** (`job.growth`): the P1 four are **verified** vs secondary

@@ -75,7 +75,7 @@ export const content = {
 
   /** The one-line phase/status. Bump the phase here. */
   status: {
-    phase: "PHASE P2 · CUSTOMIZATION DEPTH",
+    phase: "MILESTONE M0 · THE PLAYABLE SLICE",
     prePill: "PRE-CONTENT",
   },
 
@@ -83,9 +83,11 @@ export const content = {
   leads: {
     whereItStands:
       "The <b>simulation core is real and green</b>: a full, deterministic combat engine with a " +
-      "headless balance harness. The <b>viewer is intentionally behind it</b> — it draws movement and " +
-      "turn order but not yet attacks. There is <b>no narrative or long-form content</b>; that's by " +
-      "design for this phase.",
+      "headless balance harness, a playable click-to-act viewer, and — new — a <b>campaign</b> that " +
+      "sequences {campaignBattles} battles and carries a party between them, with a save file that " +
+      "round-trips (<b>ADR-0022</b>). What is still missing is everything around it: no title screen, " +
+      "no between-battle prep loop, no story text, no equipment. There is <b>no narrative content</b>; " +
+      "that is by design.",
     architecture:
       "One rule governs the shape: <b>the sim is pure and headless</b> (ADR-0007). Determinism is a P0 " +
       "invariant — a single seeded PRNG drives every roll in a declared order, so a battle is " +
@@ -120,11 +122,14 @@ export const content = {
       "and AI capabilities land.",
     roadmap:
       "Foundational invariants shipped first, UI later. Two phases are behind us; we're mid-way through " +
-      "the third — the one that <em>is</em> the pillar.",
+      "the third — the one that <em>is</em> the pillar. <b>The work has moved off this list for now:</b> " +
+      "the current slice is <b>M0, the playable MVP</b> (the <em>game</em> roadmap, not the engine one), " +
+      "and P2's two open items — the variety score reaching 8, and MP enforcement — are carried into M1 " +
+      "by an explicit decision. They are not weakened; only their due date moved.",
     next:
-      "Several reference builds are still <em>unmeasured</em> because the greedy 1-ply probe can't " +
-      "exercise their identities yet — each is tagged in the manifest with the capability that unblocks " +
-      "it. The moves, by leverage:",
+      "The MVP comes first: a stranger should be able to start the game, play 30&ndash;45 minutes and " +
+      "reach a real ending. The campaign that sequences the battles now exists; what it needs is the " +
+      "shell around it. After that, the engine backlog resumes. The moves, by leverage:",
   },
 
   /** The four systems-board cards. `{modules}`, `{jobs}`, `{abilities}`, `{builds}`, `{maps}`, `{skillsets}` are live-injected. */
@@ -205,42 +210,42 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "Teach the AI to hold a line",
+      title: "The shell — title, New Game, Continue",
       badge: "recommended",
+      body:
+        "<b>The campaign container and the save file landed</b> (<b>ADR-0022</b>): five battles in order, " +
+        "a party that carries AP and learned abilities across them, a lost battle that becomes a retryable " +
+        "game-over, and a save that round-trips byte-for-byte. All of it is <em>headless</em> &mdash; there " +
+        "is no way for a person to reach any of it. The next slice is the screen that starts a game, the " +
+        "one that continues it, and the wiring that writes the save to disk.",
+      chip: "MVP",
+      recommended: true,
+    },
+    {
+      rank: "02",
+      title: "The between-battle loop and the story seam",
+      badge: null,
+      body:
+        "The prep screen already equips abilities and traits; it just is not reachable between battles. " +
+        "Routing it through the campaign is cheap now that <span class=\"mono\">updatePartyMember</span> " +
+        "exists. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo " +
+        "contract shape, so the seam is real before anyone writes a word of story.",
+      chip: "MVP",
+      recommended: false,
+    },
+    {
+      rank: "03",
+      title: "Teach the AI to hold a line",
+      badge: null,
       body:
         "<b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is " +
         "what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers " +
         "as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit " +
         "this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a " +
-        "risky square for a decisive one. Making that trade explicit is the next step. Watch for " +
-        "stalemates while you do: two cautious armies can decline to engage, and a battle that never " +
-        "ends reads in the results table exactly like a loss.",
+        "risky square for a decisive one. Deferred to M1 with the rest of the engine backlog; watch for " +
+        "stalemates when it lands, since a battle that never ends reads in the results table exactly " +
+        "like a loss.",
       chip: "AI depth",
-      recommended: true,
-    },
-    {
-      rank: "02",
-      title: "Provoke / threat",
-      badge: null,
-      body:
-        "An independent medium slice that retires a named manifest exclusion: a <b>threat</b> mechanic unlocks " +
-        "the aggro-tank, whose identity the greedy probe cannot express today because nothing makes it worth " +
-        "attacking. Hardens the gate's teeth; the N gain is build-dependent.",
-      chip: "+1 build",
-      recommended: false,
-    },
-    {
-      rank: "03",
-      title: "Beyond the job roster",
-      badge: null,
-      body:
-        "The job roster is being deprioritized. <b>All 7 signature prefixes the roster can express are now " +
-        "measured identities</b>, so there is zero slack: any regression fails the gate. " +
-        "The last one toward the <span class=\"mono\">8</span>-archetype release bar comes from a new " +
-        "signature prefix (new jobs — deferred) or the unblocks above; focus shifts to other game systems. Note " +
-        "<b>MP enforcement</b> is the one lever that <em>lowers</em> N — both <span class=\"mono\">white-magic.</span> " +
-        "and <span class=\"mono\">summon.</span> currently ride unenforced MP.",
-      chip: "pivot",
       recommended: false,
     },
   ] satisfies NextStep[],

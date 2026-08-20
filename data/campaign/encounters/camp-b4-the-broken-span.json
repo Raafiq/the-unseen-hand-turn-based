@@ -1,0 +1,127 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "camp-b4-the-broken-span",
+  "seed": 20260904,
+  "grid": {
+    "width": 11,
+    "height": 7
+  },
+  "teams": [
+    {
+      "teamId": 0,
+      "controller": "player"
+    },
+    {
+      "teamId": 1,
+      "controller": "ai",
+      "aiProfile": "balance-probe"
+    }
+  ],
+  "placements": [
+    {
+      "slotId": "blue-vance",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 3
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-vance"
+      }
+    },
+    {
+      "slotId": "blue-kest",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 2
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-kest"
+      }
+    },
+    {
+      "slotId": "blue-briar",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 4
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-briar"
+      }
+    },
+    {
+      "slotId": "blue-ottoline",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 5
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-ottoline"
+      }
+    },
+    {
+      "slotId": "red-marauder-1",
+      "teamId": 1,
+      "pos": {
+        "x": 10,
+        "y": 3
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-marauder"
+      }
+    },
+    {
+      "slotId": "red-brigand-1",
+      "teamId": 1,
+      "pos": {
+        "x": 10,
+        "y": 2
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
+    },
+    {
+      "slotId": "red-cutthroat-1",
+      "teamId": 1,
+      "pos": {
+        "x": 10,
+        "y": 4
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-cutthroat"
+      }
+    }
+  ],
+  "victory": {
+    "kind": "eliminateTeams",
+    "teams": [
+      1
+    ]
+  },
+  "defeat": {
+    "kind": "eliminateTeams",
+    "teams": [
+      0
+    ]
+  },
+  "maxTurns": 300,
+  "maxTicks": 3000
+}
