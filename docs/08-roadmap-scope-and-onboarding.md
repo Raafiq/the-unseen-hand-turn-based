@@ -46,8 +46,11 @@ job/ability/encounter schemas, AP purchase, Spec Kit initialized (`.specify/`, `
 - [x] Build-diversity gate exists, runs live in CI, and can FAIL (ADR-0014)
 - [x] **All five chassis slots are live** — support (ADR-0017), reaction (ADR-0019),
       movement (ADR-0020). The customization spine's first axis is complete.
-- [ ] **The gate reaches the release bar — N ≥ 8. Currently N = 7** (`DIVERSITY_TARGET_N`
-      in `src/sim/gauntlet.ts`). This is P2's open exit criterion. The MEASURABLE manifest
+- [ ] **The gate reaches the release bar — N ≥ 8. Currently N = 7.** ⚠ **NOT an MVP blocker
+      (user decision, 2026-08-19): carried into `docs/11`'s M1, after the M0 playable slice.**
+      The criterion is unchanged — `DIVERSITY_TARGET_N` stays 7, the gate still fails CI on a
+      drop, ≥ 8 is still the release bar; only its due date moved.
+      Detail: `DIVERSITY_TARGET_N` lives in `src/sim/gauntlet.ts`. The MEASURABLE manifest
       holds **9 builds** over **7 distinct signature prefixes** — `black-magic.` and
       `punch-art.` each have two carriers, so two builds add no identity.
       Remaining EXCLUDED entries: `aggro-tank` (provoke/threat — re-measured 2026-08-18: it

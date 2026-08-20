@@ -60,11 +60,12 @@ permadeath consequences, hybrid jobs, rewind UI, scan, speed toggle, shops, gil,
 map, recruitment, more than one save slot, audio, and any art beyond the current
 placeholder rendering.
 
-> **The build-diversity gate is NOT an MVP blocker.** `docs/08`'s P2 exit criterion
-> (variety score ≥ 8) is a **balance-quality** bar, not a playability one. At 7 the game is
-> perfectly playable. Finishing it before M0 delays a playable build in exchange for a
-> number no player sees. **Recommendation: carry it into M1.** This is a judgement call and
-> the reverse is defensible — it is called out here so it is decided, not drifted past.
+> **DECIDED (user, 2026-08-19): the build-diversity gate is carried into M1 and does NOT
+> block the MVP.** `docs/08`'s P2 exit criterion (variety score ≥ 8) is a **balance-quality**
+> bar, not a playability one. At 7 the game is perfectly playable, and finishing it before M0
+> would delay a playable build in exchange for a number no player sees. The criterion is not
+> weakened or withdrawn — `DIVERSITY_TARGET_N` stays at 7, the gate still fails CI if the
+> count drops, and ≥ 8 remains the release bar. What changed is only **when** it is due.
 
 ### M1 — Depth
 

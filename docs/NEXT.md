@@ -44,7 +44,36 @@ accident. It shipped together with `exposureOf` in `ai.ts` (AC-E3(d)), never bef
 
 ---
 
-## The next slice — NOT YET CHOSEN. Pick with the human.
+## The next slice — M0, the playable slice (`docs/11`)
+
+**CHOSEN 2026-08-19 (user).** The work moves off the engine backlog and onto making the
+game finishable. `docs/11` is the whole-game roadmap; M0 is its MVP: a stranger plays 30–45
+minutes and reaches a real ending.
+
+**The variety score (7, bar 8) is explicitly NOT an M0 blocker** — user decision, recorded in
+`docs/11` and `docs/08` §1a. `DIVERSITY_TARGET_N` stays 7 and the gate still fails CI on a
+drop; only its due date moved, to M1. Do not "just finish the gate first".
+
+M0's seven pieces, in dependency order — the first two are the real work, the rest lean on
+what exists:
+
+1. **Campaign container** — sequence 5–6 battles, carry the party across them. Nothing in
+   the repo does this today; battles are standalone.
+2. **Persistence** — a save file. The substrate is there (`(seed, commands)` replays a
+   battle byte-for-byte) but nothing writes, names, or reloads a campaign.
+3. **Shell** — title, New Game, Continue, quit. One slot.
+4. **Between-battle prep** — route the existing prep screen into the loop.
+5. **Story stubs** — battle text as DATA, per the `docs/08` §4 contract. Placeholder prose.
+6. **Equipment, minimal** — ADR-0021's horizontal gear, ~8 items, awarded not bought.
+   Read ADR-0021 first: a weapon-power ladder is measured to break the TTK band.
+7. **Losing + hour-one onboarding.**
+
+AC-M1..M4 are in `docs/11`. Start with 1 and 2 — everything else is cheap once a campaign
+can hold state.
+
+### The engine backlog it displaces (still live, now M1)
+
+
 
 1. **AI depth beyond "count the threats".** `exposureOf` is one number: how many living
    foes could strike a tile. That is enough to stop the probe suiciding and it improved
