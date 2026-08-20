@@ -1,4 +1,4 @@
-<!-- written-against: e2216f89aa25009f472e425304e774e158d9474a -->
+<!-- written-against: 8037b13fb86a40b59d180c48d071135b5b924401 -->
 
 # NEXT — the handoff a machine can't derive
 
