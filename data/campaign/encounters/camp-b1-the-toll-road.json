@@ -1,0 +1,75 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "camp-b1-the-toll-road",
+  "seed": 20260901,
+  "grid": {
+    "width": 7,
+    "height": 5
+  },
+  "teams": [
+    {
+      "teamId": 0,
+      "controller": "player"
+    },
+    {
+      "teamId": 1,
+      "controller": "ai",
+      "aiProfile": "balance-probe"
+    }
+  ],
+  "placements": [
+    {
+      "slotId": "blue-vance",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 1
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-vance"
+      }
+    },
+    {
+      "slotId": "blue-kest",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 3
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-kest"
+      }
+    },
+    {
+      "slotId": "red-brigand-1",
+      "teamId": 1,
+      "pos": {
+        "x": 6,
+        "y": 2
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
+    }
+  ],
+  "victory": {
+    "kind": "eliminateTeams",
+    "teams": [
+      1
+    ]
+  },
+  "defeat": {
+    "kind": "eliminateTeams",
+    "teams": [
+      0
+    ]
+  },
+  "maxTurns": 300,
+  "maxTicks": 3000
+}

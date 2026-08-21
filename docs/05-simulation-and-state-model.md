@@ -151,6 +151,18 @@ rate (`docs/01` §3), which is a different quantity and is why Short Charge exis
 - **Save = serialized campaign state** (roster, learned abilities, masteries, inventory, progress) + optionally in-battle `BattleState` for mid-battle save.
 - **Every save and every content data file carries a `schemaVersion`.** Deep, moddable job data (§6) *will* change; without versioning, saves break silently.
 - Provide **migration hooks** (version N→N+1) from day one. A save older than the oldest supported migration fails loudly with a clear message, never corrupts.
+- **FOUR INDEPENDENT VERSION LINES** (ADR-0011, extended by ADR-0022). Each owns its own constant, migration registry and loud-fail loader, so a shape change in one never forces a migration in the others:
+
+  | Line | Constant | Owns |
+  |---|---|---|
+  | Battle | `SCHEMA_VERSION` (`state.ts`) | `BattleState` — the in-battle snapshot |
+  | Content | `CONTENT_SCHEMA_VERSION` (`content.ts`) | the authored jobs/abilities/statuses pack |
+  | Roster | `ROSTER_SCHEMA_VERSION` (`roster.ts`) | `UnitRecord` — one unit's durable progress |
+  | Campaign | `CAMPAIGN_SCHEMA_VERSION` (`campaign.ts`) | `CampaignDef` + `CampaignSave` — the battle sequence and the party save |
+
+  (`ENCOUNTER_SCHEMA_VERSION` is a fifth on the same pattern, covering authored battle definitions rather than saves.)
+
+- **The campaign save carries NO current HP** (ADR-0022). `UnitRecord.raw.hp` is a maximum; current HP lives on `UnitState` and dies with the battle. That absence *is* `docs/11` M0's "HP restored between battles" and its no-permadeath cut — so it is asserted, not assumed.
 
 ---
 

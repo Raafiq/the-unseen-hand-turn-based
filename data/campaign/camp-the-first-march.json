@@ -1,0 +1,297 @@
+{
+  "campaignSchemaVersion": 1,
+  "id": "camp-the-first-march",
+  "title": "The First March",
+  "playerTeam": 0,
+  "party": [
+    {
+      "rosterSchemaVersion": 2,
+      "id": "pc-vance",
+      "name": "Vance",
+      "level": 1,
+      "currentJob": "knight",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 255,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [],
+      "mastered": [
+        "knight"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "pc-kest",
+      "name": "Kest",
+      "level": 1,
+      "currentJob": "monk",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 190,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "punch-art.wave-fist"
+      ],
+      "mastered": [
+        "monk"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "pc-briar",
+      "name": "Briar",
+      "level": 1,
+      "currentJob": "archer",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 216,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "aim.aimed-shot"
+      ],
+      "mastered": [
+        "archer"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "pc-ottoline",
+      "name": "Ottoline",
+      "level": 1,
+      "currentJob": "priest",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 202,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "white-magic.cure"
+      ],
+      "mastered": [
+        "priest"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    }
+  ],
+  "cast": [
+    {
+      "rosterSchemaVersion": 2,
+      "id": "foe-brigand",
+      "name": "Brigand",
+      "level": 1,
+      "currentJob": "knight",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 150,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [],
+      "mastered": [
+        "knight"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "foe-cutthroat",
+      "name": "Cutthroat",
+      "level": 1,
+      "currentJob": "thief",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 216,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "steal.gil"
+      ],
+      "mastered": [
+        "thief"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "foe-hexer",
+      "name": "Hexer",
+      "level": 1,
+      "currentJob": "wizard",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 192,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "black-magic.fire"
+      ],
+      "mastered": [
+        "wizard"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "foe-marauder",
+      "name": "Marauder",
+      "level": 1,
+      "currentJob": "knight",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 255,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [],
+      "mastered": [
+        "knight"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 2,
+      "id": "foe-warchief",
+      "name": "Warchief",
+      "level": 1,
+      "currentJob": "knight",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 469,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "punch-art.wave-fist"
+      ],
+      "mastered": [
+        "knight",
+        "monk"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    }
+  ],
+  "battles": [
+    {
+      "id": "b1",
+      "encounterId": "camp-b1-the-toll-road"
+    },
+    {
+      "id": "b2",
+      "encounterId": "camp-b2-ambush-at-the-ford"
+    },
+    {
+      "id": "b3",
+      "encounterId": "camp-b3-the-hollow-watch"
+    },
+    {
+      "id": "b4",
+      "encounterId": "camp-b4-the-broken-span"
+    },
+    {
+      "id": "b5",
+      "encounterId": "camp-b5-the-warchiefs-camp"
+    }
+  ]
+}

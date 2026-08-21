@@ -1,0 +1,101 @@
+{
+  "encounterSchemaVersion": 1,
+  "id": "camp-b2-ambush-at-the-ford",
+  "seed": 20260902,
+  "grid": {
+    "width": 9,
+    "height": 5
+  },
+  "teams": [
+    {
+      "teamId": 0,
+      "controller": "player"
+    },
+    {
+      "teamId": 1,
+      "controller": "ai",
+      "aiProfile": "balance-probe"
+    }
+  ],
+  "placements": [
+    {
+      "slotId": "blue-vance",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 2
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-vance"
+      }
+    },
+    {
+      "slotId": "blue-kest",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 1
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-kest"
+      }
+    },
+    {
+      "slotId": "blue-briar",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 3
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-briar"
+      }
+    },
+    {
+      "slotId": "red-brigand-1",
+      "teamId": 1,
+      "pos": {
+        "x": 8,
+        "y": 1
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
+    },
+    {
+      "slotId": "red-brigand-2",
+      "teamId": 1,
+      "pos": {
+        "x": 8,
+        "y": 3
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
+    }
+  ],
+  "victory": {
+    "kind": "eliminateTeams",
+    "teams": [
+      1
+    ]
+  },
+  "defeat": {
+    "kind": "eliminateTeams",
+    "teams": [
+      0
+    ]
+  },
+  "maxTurns": 300,
+  "maxTicks": 3000
+}

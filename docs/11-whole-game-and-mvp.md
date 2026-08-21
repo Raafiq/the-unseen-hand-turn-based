@@ -55,6 +55,25 @@ anything, and reaches a real ending — win or lose.**
 7. **Onboarding, hour one** — battle 1 teaches move, attack, turn order and nothing else.
    Battle 3 introduces the loadout. `docs/08` §3's ramp, minimally.
 
+> **STATUS 2026-08-20 — item 2, and the headless half of item 6, have landed (ADR-0022).**
+> `src/sim/campaign.ts` + `campaign-run.ts` sequence the battles and hold the party;
+> `data/campaign/camp-the-first-march.json` ships the 5-battle ramp. What is done and
+> what is not:
+>
+> | M0 item | State |
+> |---|---|
+> | 1. Shell | **not started** |
+> | 2. Campaign container | **done** (headless) |
+> | 3. Between-battle loop | seam only — `updatePartyMember` is where prep writes; no UI |
+> | 4. Story stubs | **not started** |
+> | 5. Equipment | **not started** |
+> | 6. Failure handling | **done headlessly** — a loss is `gameOver`, retry restores the party; no UI |
+> | 7. Onboarding | **not started** |
+>
+> Persistence (`docs/11` §3 item 2's save file) is the *codec* — `serializeCampaign` /
+> `deserializeCampaign`. Nothing writes it to disk or to `localStorage` yet; that lands
+> with the shell.
+
 **Explicitly NOT in the MVP** (`docs/08` AC-R5 — log every cut):
 permadeath consequences, hybrid jobs, rewind UI, scan, speed toggle, shops, gil, a world
 map, recruitment, more than one save slot, audio, and any art beyond the current
@@ -91,6 +110,11 @@ works, because the purpose of M0 is to find out what is actually wrong with the 
 no amount of engine depth answers that. Expect M0 to change M1's priorities.
 
 ## Acceptance Criteria (SDD-ready)
+
+> **AC status 2026-08-20.** AC-M1 and AC-M3 are met on their **headless** half only —
+> the sequence is driveable and asserted end to end, but there is no title screen and no
+> player-facing game-over, so neither is fully met. AC-M2 is met (`campaign.test.ts`,
+> `campaign-run.test.ts`). AC-M4 is not started.
 
 - **AC-M1 (the slice is finishable):** A single playthrough of the M0 campaign SHALL be
   driveable from title screen to ending, and that path SHALL be asserted headlessly the way

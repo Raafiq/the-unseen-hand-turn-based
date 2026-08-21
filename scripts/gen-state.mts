@@ -72,6 +72,9 @@ const skillsetBreakdown = [...skillsetCounts].map(([set, n]) => `${set} ${n}`).j
 const jsonIn = (dir: string): string[] => readdirSync(dir).filter((f) => f.endsWith(".json"));
 const buildFiles = jsonIn(`${ROOT}data/builds`);
 const encounterFiles = jsonIn(`${ROOT}data/encounters`);
+// The campaign's battles are encounters too. Counting only `data/encounters` would have
+// the page report 6 while 11 shipped — a subset reading as the set (CLAUDE.md).
+const campaignEncounterFiles = jsonIn(`${ROOT}data/campaign/encounters`);
 const adrFiles = readdirSync(`${ROOT}docs/adr`).filter((f) => f.endsWith(".md") && !/readme/i.test(f));
 const simFiles = readdirSync(`${ROOT}src/sim`).filter((f) => f.endsWith(".ts"));
 const specFiles = simFiles.filter((f) => f.endsWith(".test.ts"));
@@ -84,7 +87,10 @@ const counts = {
   statuses: pack.statuses.length,
   traits: pack.traits.length,
   builds: buildFiles.length,
-  encounters: encounterFiles.length,
+  encounters: encounterFiles.length + campaignEncounterFiles.length,
+  /** The gauntlet's map set — the benchmark encounters only, never the campaign's. */
+  benchmarkMaps: encounterFiles.length,
+  campaignBattles: campaignEncounterFiles.length,
   adrs: adrFiles.length,
   simModules: simModules.length,
   specFiles: specFiles.length,
@@ -150,7 +156,8 @@ const tokens: Readonly<Record<string, string>> = {
   traits: String(counts.traits),
   builds: String(counts.builds),
   encounters: String(counts.encounters),
-  maps: String(counts.encounters),
+  maps: String(counts.benchmarkMaps),
+  campaignBattles: String(counts.campaignBattles),
   adrs: String(counts.adrs),
   modules: String(counts.simModules),
   specFiles: String(counts.specFiles),
@@ -617,7 +624,7 @@ ${kpisHtml}
 
   <section>
     <div class="sec-head"><span class="idx">SYS</span><h2>Where it stands</h2></div>
-    <p class="lead">${content.leads.whereItStands}</p>
+    <p class="lead">${ip(content.leads.whereItStands)}</p>
     <div class="board" style="margin-top:20px">
 ${systemsHtml}
     </div>
@@ -688,6 +695,20 @@ ${footHtml}
 </body>
 </html>
 `;
+
+// An UNRESOLVED TOKEN is a silent authoring bug, not a cosmetic one: only some prose
+// slots are interpolated, so adding `{campaignBattles}` to a lead that is rendered raw
+// publishes the literal braces — and the page keeps reading as a live, derived number.
+// Caught here rather than by eye, because the page is regenerated far more often than it
+// is read. Ignores CSS/JS braces by requiring a bare identifier and nothing else.
+const unresolved = [...new Set(html.match(/\{[A-Za-z][A-Za-z0-9]*\}/g) ?? [])];
+if (unresolved.length > 0) {
+  throw new Error(
+    `gen-state: ${unresolved.length} unresolved prose token(s) reached the page: ` +
+      `${unresolved.join(", ")}. Either add the token to the substitution table, or wrap ` +
+      `the prose slot that renders it in ip().`,
+  );
+}
 
 const outDir = `${ROOT}state`;
 mkdirSync(outDir, { recursive: true });

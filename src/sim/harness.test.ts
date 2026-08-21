@@ -94,6 +94,39 @@ describe("runEncounter — AC-E4/AC-S1: determinism", () => {
   });
 });
 
+describe("contributionByUnit.landedActions — LANDED, not attempted", () => {
+  const victory: Condition = { kind: "eliminateTeams", teams: [1] };
+  const defeat: Condition = { kind: "eliminateTeams", teams: [0] };
+
+  /** Two adjacent units; the defender's physical evasion is the dial. */
+  function duel(defenderEv: number): BattleState {
+    const a = defaultUnit("a", 0, { pos: { x: 0, y: 0 }, hp: 400, maxHp: 400 });
+    const b = defaultUnit("b", 1, {
+      pos: { x: 1, y: 0 },
+      hp: 400,
+      maxHp: 400,
+      evasion: { classEv: defenderEv, weaponEv: defenderEv, shieldEv: defenderEv, accessoryEv: defenderEv, magicEv: defenderEv },
+    });
+    return createBattleState({ seed: 7, grid: { width: 2, height: 1 }, units: [a, b] });
+  }
+
+  // The campaign's AP grant reads this counter (campaign-run.ts), so "a unit that
+  // swung and whiffed all battle" must score ZERO — otherwise the grant is a
+  // participation trophy wearing the name of a contribution metric. A/B on the same
+  // fixture with the one dial moved, so nothing else can explain the difference.
+  it("a unit that swings and always misses scores 0; the same unit connecting scores > 0", () => {
+    const missing = runFromState(duel(100), { victory, defeat, maxTurns: 8, maxTicks: 100000 });
+    // Guard the guard: the attacker must actually have ATTACKED. A fixture where the AI
+    // declined to swing would score 0 for the wrong reason and prove nothing.
+    expect(missing.report.abilityUsage["basic.attack"]).toBeGreaterThan(0);
+    expect(missing.report.contributionByUnit["a"]!.landedActions).toBe(0);
+    expect(missing.report.contributionByUnit["a"]!.damageDealt).toBe(0);
+
+    const landing = runFromState(duel(0), { victory, defeat, maxTurns: 8, maxTicks: 100000 });
+    expect(landing.report.contributionByUnit["a"]!.landedActions).toBeGreaterThan(0);
+  });
+});
+
 describe("runFromState — halting guarantees", () => {
   const victory: Condition = { kind: "eliminateTeams", teams: [1] };
   const defeat: Condition = { kind: "eliminateTeams", teams: [0] };
