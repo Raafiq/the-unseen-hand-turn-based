@@ -50,6 +50,23 @@ without a code change.
 `[BASELINE]` Player-controlled units accept input. AI-controlled units resolve via
 `decide(state, unitId)` → `applyCommand`, with input inert.
 
+### 2a. Who decides a battle is over (ADR-0023)
+
+`[BASELINE]` **A battle is judged by its ENCOUNTER's objectives, not by counting
+corpses.** `SessionOptions.rules` carries the encounter's `victory` / `defeat` /
+`maxTurns` / `maxTicks`, and a session that has them runs `evalTerminal` inside the
+harness's own fold — advance, account, *then* judge. It also emits a real `RunReport`,
+assembled from the same `harness.ts` helpers `runFromState` uses, which is what the
+campaign banks (`docs/11` AC-M1).
+
+> **The demo battle on `/` is the exception, and it is stated rather than implied.** It
+> is built by `createBattleState` and carries no `Condition` at all, so it keeps the
+> team-wipe read. That read is not a rule the sim models — it is the most a
+> conditionless battle can honestly support, and it is retired the moment rules arrive.
+> The discriminating case is a `defeatUnit` victory with another foe still standing: the
+> two readings give **opposite** answers there, which is why the fixture asserting this
+> uses exactly that shape.
+
 ## 3. The turn state machine
 
 The viewer holds a **`TurnDraft`** — `{ actorId, move: {to} | null, act: {abilityId,
@@ -284,6 +301,25 @@ makes the compiler enforce §4's honesty rule.
 
 **`turn()` counts COMMANDS COMMITTED**, not Step clicks — a matured charge or a crystal
 tick is absorbed inside `advanceToDecision` and consumes no command.
+
+### 7a. Two pages, one set of panels (ADR-0023)
+
+`[BASELINE]` The site ships **two** entry points: `index.html`, the engine viewer (one
+demo battle, every internal number on show), and `game.html`, the campaign shell
+(`docs/11` M0 item 1). Both are declared in `vite.config.ts`'s `rollupOptions.input` — a
+page that only works under `npm run dev` is not shipped.
+
+They share **`src/render/panels.ts`**: the timeline, status line, resolution preview and
+turn log as pure `state → HTML` functions, injected with per-page presentation metadata
+(`LookUp`). This is not tidiness. §4's "not modeled yet, so not shown" list is an
+**assertion**, and it has to shrink as capabilities land; two copies would mean two lists
+to keep honest, and the stale one would go on hiding an effect from a player about to
+commit a shot.
+
+`[BASELINE]` The shell itself — `src/render/campaign-shell.ts` — is **DOM-free for the
+same reason `session.ts` is**, so `docs/11` AC-M1's "title screen to ending" is a unit
+test rather than only a browser one. All persistent IO lives in
+`src/render/storage.ts`; `src/sim/campaign.ts` never learns where a save is kept.
 
 ## 8. Determinism risks specific to this layer
 

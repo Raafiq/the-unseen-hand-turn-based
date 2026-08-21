@@ -292,12 +292,12 @@
     <div class="kpi fade"><div class="n">18</div><div class="k">Traits+Status</div></div>
     <div class="kpi fade"><div class="n">15</div><div class="k">Unit builds</div></div>
     <div class="kpi fade"><div class="n">11</div><div class="k">Encounters</div></div>
-    <div class="kpi fade"><div class="n">22</div><div class="k">ADRs</div></div>
+    <div class="kpi fade"><div class="n">23</div><div class="k">ADRs</div></div>
   </div>
 
   <section>
     <div class="sec-head"><span class="idx">SYS</span><h2>Where it stands</h2></div>
-    <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness, a playable click-to-act viewer, and — new — a <b>campaign</b> that sequences 5 battles and carries a party between them, with a save file that round-trips (<b>ADR-0022</b>). What is still missing is everything around it: no title screen, no between-battle prep loop, no story text, no equipment. There is <b>no narrative content</b>; that is by design.</p>
+    <p class="lead">The <b>simulation core is real and green</b>: a full, deterministic combat engine with a headless balance harness, a playable click-to-act viewer, and — new — a <b>playable campaign</b>: 5 battles in order, a party that keeps what it earns, and a title screen with a save slot in the browser (<b>ADR-0022</b>, <b>ADR-0023</b>). You can start it, play it and finish it. What is still missing is the depth around it: no between-battle prep loop, no story text, no equipment. There is <b>no narrative content</b>; that is by design.</p>
     <div class="board" style="margin-top:20px">
       <div class="card sys">
         <div class="top"><h3>Simulation core &nbsp;<span class="sig mono">src/sim · 30 modules</span></h3><span class="pill ok"><span class="dot"></span>LIVE</span></div>
@@ -305,9 +305,9 @@
         <div class="detail">scheduler · resolve · formulas · charge · aoe · status · ai · rng · state · codec</div>
       </div>
       <div class="card sys">
-        <div class="top"><h3>Viewer &nbsp;<span class="sig mono">src/render</span></h3><span class="pill warn"><span class="dot"></span>PARTIAL</span></div>
-        <p>A deliberately thin isometric renderer over the sim (imports it, never the reverse). Shows the grid with height, unit facing/HP, move-range highlight, and the turn-order timeline. Attack animation &amp; the loadout menus come later.</p>
-        <div class="detail">iso projection · step/reset · turn timeline · Playwright visual gallery</div>
+        <div class="top"><h3>Viewer &amp; shell &nbsp;<span class="sig mono">src/render</span></h3><span class="pill warn"><span class="dot"></span>PARTIAL</span></div>
+        <p>A deliberately thin isometric renderer over the sim (imports it, never the reverse). Two pages: the <b>engine viewer</b> (one demo battle, every internal number on show) and <b>the game</b> &mdash; title screen, New Game / Continue, one save slot in the browser, and the campaign's own battles in between (<b>ADR-0023</b>). Attack animation and the between-battle prep loop come later.</p>
+        <div class="detail">iso projection · turn timeline · save slot · title → battle → ending · Playwright gallery</div>
       </div>
       <div class="card sys">
         <div class="top"><h3>Content &amp; data &nbsp;<span class="sig mono">data/</span></h3><span class="pill accent"><span class="dot"></span>SEED SET</span></div>
@@ -315,8 +315,8 @@
         <div class="detail">battle-skill 8 · punch-art 8 · black-magic 7 · steal 8 · white-magic 8 · aim 8 · geomancy 8 · summon 8</div>
       </div>
       <div class="card sys">
-        <div class="top"><h3>Narrative &amp; campaign</h3><span class="pill plan"><span class="dot"></span>NOT STARTED</span></div>
-        <p>Story lives in a separate repo that hasn't begun. The engine already exposes the battle-definition data contract it will consume, so story battles can slot in with no engine change when that work starts.</p>
+        <div class="top"><h3>Narrative &amp; campaign</h3><span class="pill plan"><span class="dot"></span>TEXT NOT STARTED</span></div>
+        <p>A 5-battle campaign now runs end to end, but it carries <em>no prose</em>: it references battles by encounter id and nothing else. Story lives in a separate repo that hasn't begun. The engine already exposes the battle-definition data contract it will consume, so story battles can slot in with no engine change when that work starts.</p>
         <div class="detail">docs/08 §4 — map · spawns · victory/defeat · events · loot · seed</div>
       </div>
     </div>
@@ -512,26 +512,18 @@
 
   <section>
     <div class="sec-head"><span class="idx">NEXT</span><h2>What's next</h2></div>
-    <p class="lead">The MVP comes first: a stranger should be able to start the game, play 30&ndash;45 minutes and reach a real ending. The campaign that sequences the battles now exists; what it needs is the shell around it. After that, the engine backlog resumes. The moves, by leverage:</p>
+    <p class="lead">The MVP comes first: a stranger should be able to start the game, play 30&ndash;45 minutes and reach a real ending. That path now exists end to end &mdash; what it lacks is anything to decide <em>between</em> battles, and a word of story. After that, the engine backlog resumes. The moves, by leverage:</p>
     <div class="next" style="margin-top:20px">
       <div class="card opt rec">
         <div class="rank">01</div>
         <div>
-          <h3>The shell — title, New Game, Continue &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
-          <p><b>The campaign container and the save file landed</b> (<b>ADR-0022</b>): five battles in order, a party that carries AP and learned abilities across them, a lost battle that becomes a retryable game-over, and a save that round-trips byte-for-byte. All of it is <em>headless</em> &mdash; there is no way for a person to reach any of it. The next slice is the screen that starts a game, the one that continues it, and the wiring that writes the save to disk.</p>
+          <h3>The between-battle loop and the story seam &nbsp;<span class="pill accent" style="font-size:10px">recommended</span></h3>
+          <p><b>The shell landed</b> (<b>ADR-0023</b>): a title screen, New Game and Continue, one save slot in the browser, the real battle in between, and a lost fight that becomes a retryable game-over. A person can now start the campaign and finish it. What they cannot do is <em>make a decision</em> between battles &mdash; the prep screen already equips abilities and traits, it is just not reachable from the briefing. Routing it through <span class="mono">updatePartyMember</span> is cheap. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo contract shape, so the seam is real before anyone writes a word of story.</p>
         </div>
         <span class="pill" style="align-self:center">MVP</span>
       </div>
       <div class="card opt">
         <div class="rank">02</div>
-        <div>
-          <h3>The between-battle loop and the story seam</h3>
-          <p>The prep screen already equips abilities and traits; it just is not reachable between battles. Routing it through the campaign is cheap now that <span class="mono">updatePartyMember</span> exists. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo contract shape, so the seam is real before anyone writes a word of story.</p>
-        </div>
-        <span class="pill" style="align-self:center">MVP</span>
-      </div>
-      <div class="card opt">
-        <div class="rank">03</div>
         <div>
           <h3>Teach the AI to hold a line</h3>
           <p><b>The AI now avoids standing where enemies can reach it</b> (<b>ADR-0020</b>) &mdash; which is what finally made the fifth equip slot shippable, and it improved the anti-convergence numbers as a side effect. But it knows exactly one thing about danger: <em>how many enemies could hit this tile</em>. It has no notion of holding a chokepoint, screening a wounded ally, or trading a risky square for a decisive one. Deferred to M1 with the rest of the engine backlog; watch for stalemates when it lands, since a battle that never ends reads in the results table exactly like a loss.</p>
@@ -546,7 +538,7 @@
     <span>· TypeScript · Vitest · Zod · Vite</span>
     <span>· determinism = P0</span>
     <span>· docs/ is the source of truth</span>
-    <span>· 22 ADRs</span>
+    <span>· 23 ADRs</span>
     <span>· 29 spec files</span>
   </div>
 

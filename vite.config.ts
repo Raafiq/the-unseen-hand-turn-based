@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
 // App build config for the thin render layer (src/render). The sim core stays
@@ -11,5 +12,15 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // TWO PAGES, both shipped. `index.html` is the engine viewer (every internal
+    // number on show); `game.html` is the playable campaign shell (docs/11 M0).
+    // Adding an entry here is what makes it exist in the built site at all — a page
+    // that only works under `npm run dev` is not shipped.
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, "index.html"),
+        game: resolve(__dirname, "game.html"),
+      },
+    },
   },
 });

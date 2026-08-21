@@ -83,11 +83,11 @@ export const content = {
   leads: {
     whereItStands:
       "The <b>simulation core is real and green</b>: a full, deterministic combat engine with a " +
-      "headless balance harness, a playable click-to-act viewer, and — new — a <b>campaign</b> that " +
-      "sequences {campaignBattles} battles and carries a party between them, with a save file that " +
-      "round-trips (<b>ADR-0022</b>). What is still missing is everything around it: no title screen, " +
-      "no between-battle prep loop, no story text, no equipment. There is <b>no narrative content</b>; " +
-      "that is by design.",
+      "headless balance harness, a playable click-to-act viewer, and — new — a <b>playable campaign</b>: " +
+      "{campaignBattles} battles in order, a party that keeps what it earns, and a title screen with a " +
+      "save slot in the browser (<b>ADR-0022</b>, <b>ADR-0023</b>). You can start it, play it and finish " +
+      "it. What is still missing is the depth around it: no between-battle prep loop, no story text, no " +
+      "equipment. There is <b>no narrative content</b>; that is by design.",
     architecture:
       "One rule governs the shape: <b>the sim is pure and headless</b> (ADR-0007). Determinism is a P0 " +
       "invariant — a single seeded PRNG drives every roll in a declared order, so a battle is " +
@@ -128,8 +128,9 @@ export const content = {
       "by an explicit decision. They are not weakened; only their due date moved.",
     next:
       "The MVP comes first: a stranger should be able to start the game, play 30&ndash;45 minutes and " +
-      "reach a real ending. The campaign that sequences the battles now exists; what it needs is the " +
-      "shell around it. After that, the engine backlog resumes. The moves, by leverage:",
+      "reach a real ending. That path now exists end to end &mdash; what it lacks is anything to decide " +
+      "<em>between</em> battles, and a word of story. After that, the engine backlog resumes. The moves, " +
+      "by leverage:",
   },
 
   /** The four systems-board cards. `{modules}`, `{jobs}`, `{abilities}`, `{builds}`, `{maps}`, `{skillsets}` are live-injected. */
@@ -146,13 +147,14 @@ export const content = {
       pillLabel: "LIVE",
     },
     {
-      title: "Viewer",
+      title: "Viewer &amp; shell",
       signature: "src/render",
       body:
-        "A deliberately thin isometric renderer over the sim (imports it, never the reverse). Shows the " +
-        "grid with height, unit facing/HP, move-range highlight, and the turn-order timeline. Attack " +
-        "animation &amp; the loadout menus come later.",
-      detail: "iso projection · step/reset · turn timeline · Playwright visual gallery",
+        "A deliberately thin isometric renderer over the sim (imports it, never the reverse). Two pages: " +
+        "the <b>engine viewer</b> (one demo battle, every internal number on show) and <b>the game</b> " +
+        "&mdash; title screen, New Game / Continue, one save slot in the browser, and the campaign's own " +
+        "battles in between (<b>ADR-0023</b>). Attack animation and the between-battle prep loop come later.",
+      detail: "iso projection · turn timeline · save slot · title → battle → ending · Playwright gallery",
       pillClass: "warn",
       pillLabel: "PARTIAL",
     },
@@ -171,12 +173,13 @@ export const content = {
       title: "Narrative &amp; campaign",
       signature: null,
       body:
-        "Story lives in a separate repo that hasn't begun. The engine already exposes the " +
-        "battle-definition data contract it will consume, so story battles can slot in with no engine " +
-        "change when that work starts.",
+        "A {campaignBattles}-battle campaign now runs end to end, but it carries <em>no prose</em>: it " +
+        "references battles by encounter id and nothing else. Story lives in a separate repo that hasn't " +
+        "begun. The engine already exposes the battle-definition data contract it will consume, so story " +
+        "battles can slot in with no engine change when that work starts.",
       detail: "docs/08 §4 — map · spawns · victory/defeat · events · loot · seed",
       pillClass: "plan",
-      pillLabel: "NOT STARTED",
+      pillLabel: "TEXT NOT STARTED",
     },
   ] satisfies SystemCard[],
 
@@ -210,31 +213,21 @@ export const content = {
   nextSteps: [
     {
       rank: "01",
-      title: "The shell — title, New Game, Continue",
+      title: "The between-battle loop and the story seam",
       badge: "recommended",
       body:
-        "<b>The campaign container and the save file landed</b> (<b>ADR-0022</b>): five battles in order, " +
-        "a party that carries AP and learned abilities across them, a lost battle that becomes a retryable " +
-        "game-over, and a save that round-trips byte-for-byte. All of it is <em>headless</em> &mdash; there " +
-        "is no way for a person to reach any of it. The next slice is the screen that starts a game, the " +
-        "one that continues it, and the wiring that writes the save to disk.",
+        "<b>The shell landed</b> (<b>ADR-0023</b>): a title screen, New Game and Continue, one save slot in " +
+        "the browser, the real battle in between, and a lost fight that becomes a retryable game-over. A " +
+        "person can now start the campaign and finish it. What they cannot do is <em>make a decision</em> " +
+        "between battles &mdash; the prep screen already equips abilities and traits, it is just not " +
+        "reachable from the briefing. Routing it through <span class=\"mono\">updatePartyMember</span> is " +
+        "cheap. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo " +
+        "contract shape, so the seam is real before anyone writes a word of story.",
       chip: "MVP",
       recommended: true,
     },
     {
       rank: "02",
-      title: "The between-battle loop and the story seam",
-      badge: null,
-      body:
-        "The prep screen already equips abilities and traits; it just is not reachable between battles. " +
-        "Routing it through the campaign is cheap now that <span class=\"mono\">updatePartyMember</span> " +
-        "exists. Battle text lands beside it as <em>data</em> &mdash; placeholder prose in the narrative-repo " +
-        "contract shape, so the seam is real before anyone writes a word of story.",
-      chip: "MVP",
-      recommended: false,
-    },
-    {
-      rank: "03",
       title: "Teach the AI to hold a line",
       badge: null,
       body:

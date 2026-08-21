@@ -3,13 +3,18 @@
 [![CI](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml)
 [![Pages](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml)
 
-**Play it:** [viewer](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
+**Play it:** [▶ the campaign](https://raafiq.github.io/the-unseen-hand-turn-based/game.html) ·
+[engine viewer](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
 [visual gallery](https://raafiq.github.io/the-unseen-hand-turn-based/visual/) ·
 [state of the engine](https://raafiq.github.io/the-unseen-hand-turn-based/state/)
 
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
-> **Status: P2 — customization depth, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`) with click-to-act player control, backed by 457 tests, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007). **P2's open exit criterion is the build-diversity gate, at N=5 against a release bar of ≥8** (ADR-0016). The docs in `docs/` remain the source of truth and outrank the code where they disagree.
+> **Status: M0 — the playable slice, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`), backed by 647 tests, 15 browser specs, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007).
+>
+> **You can now play a campaign start to finish** — title screen, New Game / Continue, five battles in order, a party that keeps what it earns, one save slot in the browser (ADR-0022, ADR-0023). What M0 still lacks: the between-battle prep loop, story text, equipment and onboarding (`docs/11` §3).
+>
+> The **engine** roadmap sits at P2 with one open exit criterion — the build-diversity gate, at **N=7** against a release bar of ≥8 (`docs/06` AC-E2, ADR-0014) — **carried into M1 by an explicit decision** (`docs/11` §3): it is a balance-quality bar, not a playability one. The docs in `docs/` remain the source of truth and outrank the code where they disagree.
 
 ## Design pillars (in priority order)
 
