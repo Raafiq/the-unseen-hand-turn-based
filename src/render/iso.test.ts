@@ -11,9 +11,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createBattleState, makeFlatTiles, type BattleState, type Position } from "../sim/index.js";
+import { createBattleState, defaultUnit, makeFlatTiles, type BattleState, type Position } from "../sim/index.js";
 import { makeDemoBattle } from "./demo.js";
-import { originFor, paintOrder, pickTile, pointInDiamond, project } from "./iso.js";
+import { draw, originFor, paintOrder, pickTile, pointInDiamond, project } from "./iso.js";
 
 const CANVAS_W = 900;
 const CANVAS_H = 600;
@@ -171,5 +171,64 @@ describe("pickTile — height skirt (documented behaviour)", () => {
     expect(pick(state, onWall)).toBeNull();
     // The naive inverse would wrongly return (4,4) — this null is height-aware.
     expect(naivePick(state, onWall.x, onWall.y)).toEqual({ x: 4, y: 4 });
+  });
+});
+
+describe("the board colours units by TEAM, not by a demo-only id table (playtest, 2026-08-22)", () => {
+  /**
+   * A recording 2D context: every method is a no-op, every `fillStyle` written is
+   * kept. Enough for `draw`, and it makes the one thing no other test can see —
+   * what colour actually reached the canvas — assertable.
+   *
+   * This is the test that was missing. `drawUnit` read `UNIT_META`, a table keyed by
+   * the four DEMO unit ids, so every campaign unit (`blue-vance`, `red-brigand-1`)
+   * missed the lookup and was painted one fallback grey — friend and foe alike. The
+   * whole suite was green because nothing read pixels.
+   */
+  function recordingCtx(): { ctx: CanvasRenderingContext2D; fills: string[] } {
+    const fills: string[] = [];
+    const noop = (): void => {};
+    const target = {
+      set fillStyle(v: string) { fills.push(v); },
+      get fillStyle() { return ""; },
+      strokeStyle: "", lineWidth: 0, lineJoin: "", font: "", textAlign: "", globalAlpha: 1,
+      clearRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop,
+      fill: noop, stroke: noop, arc: noop, ellipse: noop, rect: noop, fillRect: noop,
+      save: noop, restore: noop, setLineDash: noop, fillText: noop, strokeText: noop,
+      translate: noop, scale: noop, measureText: () => ({ width: 0 }),
+    };
+    return { ctx: target as unknown as CanvasRenderingContext2D, fills };
+  }
+
+  function twoTeams(): BattleState {
+    return createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 3, tiles: makeFlatTiles(3, 3) },
+      units: [
+        defaultUnit("blue-vance", 0, { pos: { x: 0, y: 0 } }),
+        defaultUnit("red-brigand-1", 1, { pos: { x: 2, y: 2 } }),
+      ],
+    });
+  }
+
+  it("DISCRIMINATING: two teams get two different token colours", () => {
+    const { ctx, fills } = recordingCtx();
+    draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      unitColor: (u) => (u.teamId === 0 ? "#4f8cff" : "#e2603c"),
+    });
+    // Both must actually reach the canvas. Asserting only that `unitColor` was CALLED
+    // would pass on the broken version too, if it were called and then discarded.
+    expect(fills).toContain("#4f8cff");
+    expect(fills).toContain("#e2603c");
+  });
+
+  it("without a colour mapping, campaign-shaped ids fall back to ONE grey", () => {
+    // Pins the old behaviour as the fallback rather than the default. If this ever
+    // stops being true — say `UNIT_META` grows campaign ids — the test above is what
+    // still guarantees the board distinguishes teams.
+    const { ctx, fills } = recordingCtx();
+    draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {});
+    expect(fills).toContain("#9aa4bb");
+    expect(fills).not.toContain("#4f8cff");
   });
 });

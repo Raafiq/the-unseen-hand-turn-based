@@ -735,11 +735,26 @@ test.describe("playable — the static proof sheet", () => {
     expect(new Set(post.turnLog.map((e) => e.tick)).size).toBeGreaterThan(1);
     // …and the FRAME shows that tick on both rows, so the caption cannot drift
     // from the picture it describes.
+    // The panel resolves unit IDS inside the action text to display names (a playtest
+    // found the campaign log reading "hit red-brigand-1 −137" under a chip that said
+    // "Brigand"). Expected text is built from the DEMO'S OWN label table, which is an
+    // independent source rather than a second copy of `nameIdsIn`.
+    const DEMO_LABELS: Record<string, string> = {
+      knight: "Knight",
+      archer: "Archer",
+      brawler: "Brawler",
+      mage: "Mage",
+    };
+    const asRead = (action: string): string => {
+      let out = action;
+      for (const [id, label] of Object.entries(DEMO_LABELS)) out = out.split(id).join(label);
+      return out;
+    };
     await expect(page.locator(LOG_PANEL)).toContainText(
-      `t${foldTick} · Archer · ${foldEntries[0]!.action}`,
+      `t${foldTick} · Archer · ${asRead(foldEntries[0]!.action)}`,
     );
     await expect(page.locator(LOG_PANEL)).toContainText(
-      `t${foldTick} · Archer · ${foldEntries[1]!.action}`,
+      `t${foldTick} · Archer · ${asRead(foldEntries[1]!.action)}`,
     );
     await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL]);
 

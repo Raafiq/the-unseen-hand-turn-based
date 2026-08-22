@@ -195,6 +195,27 @@ function slotHonesty(turn: TurnCost): string {
     <i>is</i> exact.`;
 }
 
+/**
+ * Replace unit IDS inside a turn-log action string with their display names.
+ *
+ * The sim writes `"hit red-brigand-1 −137"` because a log line has to survive a
+ * replay with no registry attached, so ids are the only stable handle it has. The
+ * ACTOR was already resolved here; the TARGET, sitting inside the action text, was
+ * not — so the campaign's log read "hit red-brigand-1" while the timeline chip two
+ * inches above it said "Brigand". Found by reading a screenshot.
+ *
+ * Longest id first, so one id that is a prefix of another cannot half-replace it.
+ */
+function nameIdsIn(action: string, state: BattleState, look: LookUp): string {
+  let out = action;
+  const ids = state.units.map((u) => u.id).sort((a, b) => b.length - a.length);
+  for (const id of ids) {
+    const label = look(id)?.label;
+    if (label !== undefined && label !== id) out = out.split(id).join(label);
+  }
+  return out;
+}
+
 export function logHtml(state: BattleState, look: LookUp, empty: string): string {
   const rows = state.turnLog
     .slice(-6)
@@ -202,7 +223,7 @@ export function logHtml(state: BattleState, look: LookUp, empty: string): string
     .map((e) => {
       const meta = look(e.unitId);
       return `<li><span class="dot" style="background:${meta?.color ?? FALLBACK_COLOR}"></span>
-        t${e.tick} · ${meta?.label ?? e.unitId} · ${e.action}</li>`;
+        t${e.tick} · ${meta?.label ?? e.unitId} · ${nameIdsIn(e.action, state, look)}</li>`;
     })
     .join("");
   return rows || `<li class="muted">${empty}</li>`;

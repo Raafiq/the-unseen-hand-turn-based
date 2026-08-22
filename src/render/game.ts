@@ -221,6 +221,10 @@ function renderBattle(): void {
     staged: session.stagedTile(),
     cursor: canvasFocused ? session.cursor : null,
     popups: session.popups,
+    // Friend vs foe, on the BOARD — not only in the timeline chips. Without this the
+    // campaign's units all fall through to one grey and a player cannot tell their
+    // party from the enemy by looking at the grid.
+    unitColor: (u) => TEAM_COLOR[u.teamId] ?? "#9aa4bb",
   });
   el("timeline").innerHTML = timelineHtml(session.state, lk);
   el("status").innerHTML = statusHtml(session, lk);

@@ -182,6 +182,18 @@ export interface DrawOptions {
   cursor?: Position | null | undefined;
   popups?: readonly DamagePopup[];
   theme?: Theme;
+  /**
+   * Token colour per unit. Supplied by the page, because only the page knows what a
+   * colour should MEAN on its board — the demo colours by character, the campaign by
+   * team.
+   *
+   * WHY THIS IS A PARAMETER NOW. It used to read `UNIT_META` directly, a table keyed
+   * by the four DEMO unit ids (`knight`, `archer`, `brawler`, `mage`). The campaign's
+   * units are `blue-vance`, `red-brigand-1`, … so every lookup missed and every unit
+   * on the board — yours and theirs — was painted the same fallback grey. Found by
+   * looking at a screenshot; no test reads pixels, so the whole suite was green.
+   */
+  unitColor?: (u: UnitState) => string;
 }
 
 export function draw(
@@ -293,7 +305,7 @@ export function draw(
     const u = unitAt.get(k);
     if (u) {
       const control = u.id === opts.activeId ? (opts.activeControl ?? "player") : "none";
-      drawUnit(ctx, u, top, control, theme);
+      drawUnit(ctx, u, top, control, theme, opts.unitColor);
     }
 
     // The GHOST of the actor standing on its staged tile: same token, faded, no
@@ -301,7 +313,7 @@ export function draw(
     if (stagedKey === k && ghost) {
       ctx.save();
       ctx.globalAlpha = 0.45;
-      drawUnit(ctx, ghost, top, "none", theme);
+      drawUnit(ctx, ghost, top, "none", theme, opts.unitColor);
       ctx.restore();
     }
   }
@@ -349,9 +361,11 @@ function drawUnit(
   top: Position,
   active: "none" | "player" | "ai",
   theme: Theme,
+  unitColor?: (u: UnitState) => string,
 ): void {
-  const meta = UNIT_META[u.id];
-  const color = meta?.color ?? "#9aa4bb";
+  // The caller's mapping wins; `UNIT_META` remains the demo page's own answer, and the
+  // grey is the last resort for a unit neither one names.
+  const color = unitColor?.(u) ?? UNIT_META[u.id]?.color ?? "#9aa4bb";
   const cx = top.x;
   const cy = top.y - 20;
 
