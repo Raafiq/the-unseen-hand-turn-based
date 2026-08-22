@@ -8,7 +8,7 @@
  */
 
 import type { Screen } from "./campaign-shell.js";
-import type { CampaignSave } from "../sim/index.js";
+import type { CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
 
 export interface GameApi {
   screen: () => Screen;
@@ -30,6 +30,26 @@ export interface GameApi {
   quitToTitle: () => void;
   /** The raw string in the save slot, so a test can assert persistence, not just UI. */
   storedSave: () => string | null;
+  /**
+   * The between-battle prep panel (docs/11 M0 item 3), or `null` before it is mounted
+   * (it needs a party, so there is none on the title screen).
+   *
+   * These are the SAME `PrepHandle` methods the panel's own controls call, so a test
+   * driving them exercises the write-back path a player's click takes — including the
+   * `onChange` that pushes the edit into the save.
+   */
+  prep: () => PrepSeam | null;
+}
+
+/** The prep methods the page exposes; a subset of `PrepHandle`, by value where it can be. */
+export interface PrepSeam {
+  record: () => UnitRecord;
+  records: () => UnitRecord[];
+  select: (recordId: string) => void;
+  commands: () => string[];
+  setSlot: (slot: LoadoutSlot, value: string | null) => void;
+  setJob: (jobId: string) => void;
+  learn: (jobId: string, nodeId: string) => void;
 }
 
 declare global {

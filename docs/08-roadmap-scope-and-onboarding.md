@@ -33,7 +33,10 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > and P0–P4 is the *engine* one. Nothing below moved; the campaign container is tracked in
 > `docs/11` §3's own status table. Reconciled again on **2026-08-21** for the shell slice
 > (ADR-0023): again nothing below moved — the shell, the save slot and the played campaign
-> are all `docs/11` M0 items, and P2's `N ≥ 8` is still open at **N = 7**.
+> are all `docs/11` M0 items, and P2's `N ≥ 8` is still open at **N = 7**. Reconciled again
+> on **2026-08-22** for the prep-loop and story slice (ADR-0024): nothing below moved for
+> the third time — `docs/11` M0 items 3 and 4 are game-roadmap items, and P2's `N ≥ 8` is
+> still open at **N = 7**.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -124,7 +127,7 @@ Story and content come from a **separate, not-yet-started repo**. This engine st
 
 - `map` id + `deployZones` + enemy/guest `spawns` (with jobs, loadouts, levels)
 - `victory` / `defeat` conditions (defeatAll / defeatBoss / survive N / reach-tile / escort / protagonist-KO)
-- pre/mid/post-battle `events` hooks (dialogue triggers, reinforcements — dialogue itself lives in the story repo)
+- pre/mid/post-battle `events` hooks (dialogue triggers, reinforcements — dialogue itself lives in the story repo). **Partly built (ADR-0024):** `src/sim/story.ts` is the versioned schema and `data/campaign/story/*.story.json` the data, carrying **pre**, **victory** and **defeat** beats keyed by campaign battle id. `mid` is deliberately absent until an event system exists to fire it — a field nothing can deliver is a spec with no test.
 - `loot` / rewards and a `seed`
 - unique-character references (which resolve to `docs/02` B6 "premium chassis" units)
 

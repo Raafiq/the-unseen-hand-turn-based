@@ -89,7 +89,19 @@ export const UnitRecordSchema = z
      */
     loadout: LoadoutSchema,
   })
-  .strict();
+  .strict()
+  .refine((r) => r.loadout.secondary === null || r.loadout.secondary !== r.currentJob, {
+    // The Secondary is a job OTHER than the current one — the current job IS the
+    // Primary. `setLoadoutSlot` refuses to create this state, but `changeJob`
+    // deliberately validates nothing ("the caller/UI picks from unlocked jobs"), so it
+    // is reachable through the back door: equip Punch Art, then become a Monk. Nothing
+    // downstream throws on it — the secondary just silently duplicates the primary
+    // command list — so it reads as a content bug rather than an illegal record.
+    // Checked HERE because this is the one schema that can see both fields, and every
+    // codec boundary (serialize, deserialize, encounter, campaign save) runs through it.
+    message: "loadout.secondary must not be the current job (the current job is the Primary)",
+    path: ["loadout", "secondary"],
+  });
 export type UnitRecord = z.infer<typeof UnitRecordSchema>;
 
 /** Thrown when a serialized record's rosterSchemaVersion is missing or unsupported. */

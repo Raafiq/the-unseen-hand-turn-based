@@ -1,4 +1,4 @@
-<!-- written-against: 338f7492b9fd68b20cc56c4e88586c9ff373b677 -->
+<!-- written-against: 156d6cba4baef97d7e00770a956692929fa6c705 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -14,103 +14,122 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**M0 — the playable slice (`docs/11`), in progress.** 647 tests / 36 files, 15 Playwright
+**M0 — the playable slice (`docs/11`), in progress.** 688 tests / 36 files, 17 Playwright
 specs. Variety score still 7 (bar 8), carried into M1 by user decision — **not an MVP
 blocker, do not "just finish the gate first"**.
 
-**The shell landed 2026-08-21 (ADR-0023). The game is playable end to end by a person.**
-`/game.html`: title → New Game / Continue → briefing → the real battle → win or lose →
-next or retry → ending, with one save slot in `localStorage`. What exists now:
+**The prep loop and the story seam landed 2026-08-22 (ADR-0024).** A player now makes
+decisions between battles and reads text around them. `/game.html`: title → New Game /
+Continue → briefing (**scene text + prepare the party**) → the real battle → win or lose
+(**different text for each**) → next or retry → ending. What exists now:
 
-- `src/render/campaign-shell.ts` — the DOM-free shell state machine (screens, the save,
-  retry). Drives the same `Session` the engine viewer does.
-- `src/render/storage.ts` — **the only persistent IO in the project.** Reads return a
-  discriminated `LoadedSave` and never throw; writes throw and the shell displays it.
-- `src/render/panels.ts` — timeline / status / **resolution preview** / turn log as pure
-  `state → HTML`, shared by both pages.
-- `Session` now optionally takes the encounter's `rules` and judges with `evalTerminal`,
-  emitting a real `RunReport` from `harness.ts`'s exported fold.
-- `campaign-run.ts` split into `campaignBattleRecords` / `loadCampaignBattle` /
-  `deriveRewards` / `resolveCampaignBattle`; `runCampaignBattle` is composed from them.
+- `src/sim/story.ts` — the `docs/08` §4 story contract: a Zod schema, a parse, two
+  lookups, **its own version line**, and not one authored word. Prose lives in
+  `data/campaign/story/camp-the-first-march.story.json`.
+- `CampaignShell.sceneTitle()` / `preBeat()` / `outcomeBeat()` — three lookups into an
+  OPTIONAL pack. `CampaignShell.updateParty()` — the prep write-back, refused mid-battle.
+- `prep.ts` split into a **DOM-free `PrepModel`** (records, selection, every rule-bearing
+  edit) and `mountPrep`. `mountPrepDemo` keeps `/`'s fixed showcase unchanged.
+- The panel gained a party picker, a job selector and an **AP-priced learn list** whose
+  blocked rows carry `canLearn`'s own reason.
+- `UnitRecordSchema` now **rejects `secondary === currentJob`** at every codec boundary.
 
-M0 items 1, 2 and 6 are done. **3 (prep loop), 4 (story stubs), 5 (equipment) and
-7 (onboarding) are not.**
+**M0 items 1, 2, 3, 4 and 6 are done. 5 (equipment) and 7 (onboarding) are not.**
 
 ---
 
-## The next slice — the between-battle loop and the story seam (`docs/11` M0 items 3 + 4)
+## The next slice — onboarding, the first hour (`docs/11` M0 item 7)
 
-A player can now finish the campaign **without making a single decision between battles**.
-That is the biggest hole in the MVP, and it is cheap to close:
+The cheaper of the two remaining items, and the one that decides whether a stranger can
+play this at all. `docs/08` §3 designs the ramp; nothing implements it.
 
-1. **Mount the prep screen on the briefing screen.** `prep.ts` already equips abilities and
-   traits against a `UnitRecord`; it is currently hard-wired to its own demo Knight and
-   mounted on `index.html`. Generalise it to take a record + an onChange, and have the
-   briefing write back through `updatePartyMember` → persist. `campaign-shell.test.ts`
-   already writes through that seam and proves a deployed battle reads it, so the
-   discriminator exists before the UI does.
-2. **Story stubs as DATA (`docs/08` §4 contract, AC-M4).** Text before and after each
-   battle, in its own file, referenced by battle id. **AC-M4's discriminator is an A/B:
-   swap the story data and what the player reads changes, with no code change.** Do not put
-   prose in `CampaignDef` — ADR-0022 decision 6 and CLAUDE.md both forbid narrative in the
-   engine.
-3. **Then** onboarding (item 7): battle 1 teaches move/attack/turn order, battle 3
-   introduces the loadout. Mostly content + a hint line, once the prep loop exists.
+1. **Battle 1 teaches move, attack and turn order, and nothing else.** It is content plus
+   a hint line — there is now a briefing screen with a story block to put it on, and
+   `data/campaign/story/` is the obvious home for the copy. Check `camp-b1` actually
+   restricts what it teaches before writing the text against it.
+2. **Battle 3 introduces the loadout.** Convenient: the AP economy first affords a
+   purchase at exactly battle 3 (Vance and Kest hold 96 AP; a tier-one node costs 60).
+   That is measured, not assumed — see the probe numbers below.
+3. **Decide whether a hint is story data or a separate channel.** A hint is not narrative
+   and does not belong to the story repo. Leaning: a distinct `hints` field or file, so
+   swapping the story pack cannot silently delete the tutorial. Do not just tack prose
+   onto a `pre` beat.
 
 ### Deliberately NOT green-lit
 
-- **Making `game.html` the landing page** (and moving the viewer to `viewer.html`). It is
-  the right end state and it is written down in ADR-0023's rejected alternatives — but do
-  it once the prep loop and story stubs are in, not before. It rewrites the navigation of
-  twelve browser specs.
-- Equipment (M0 item 5). Unchanged from the last handoff: a `rosterSchemaVersion` bump +
-  migration + regenerated frozen golden + re-measured gate.
+- **Making `game.html` the landing page** (and moving the viewer to `viewer.html`). Still
+  the right end state, still written down in ADR-0023's rejected alternatives, still a
+  rewrite of twelve browser specs' navigation. After onboarding, not before.
+- Equipment (M0 item 5). Unchanged: a `rosterSchemaVersion` bump + migration + regenerated
+  frozen golden + re-measured gate. The more expensive item; do onboarding first.
 - Anything that raises the variety score. Carried to M1.
-- Persisting battle HP across the campaign. ADR-0022 rejected it for M0 with a reason.
+- Reworking the AP grant. See the observation below — it is an M1 question.
 
 ---
 
 ## Traps waiting for you
 
-1. **AN A/B BETWEEN TWO CALLERS OF THE SAME HELPER CANNOT SEE A BUG IN THE HELPER.**
-   Now codified in `CLAUDE.md`'s evidence-principle list; kept here because it is the trap
-   this slice's own code sets for the next one. `campaignBattleRecords` is the single party-carry mechanism, and
-   the shell is verified by byte-comparing its save + report against the headless runner's
-   — but both call it. Swap `save.party` for `def.party` and the two paths agree
-   *perfectly*, on the wrong answer; only the older single-path test in
-   `campaign-run.test.ts` went red. Each path also needs one assertion that reaches
-   THROUGH the helper to an observable end — here, `campaign-shell.test.ts`'s "DEPLOY
-   builds the battle from the SAVE's party" (write a change via `updatePartyMember`,
-   deploy, read it off the battle unit). **Mutation-verified both ways.**
-2. **The shell's `rules` CAPS are unasserted, and I know it.** `deploy()` hands the session
-   the encounter's `victory`/`defeat`/`maxTurns`/`maxTicks`. The objectives are covered
-   (`session.test.ts`'s `defeatUnit` fixture, mutation-verified); the **caps are not** —
-   replacing them with 999999 leaves every test green, because no shipped campaign battle
-   times out. If you author a battle that can time out, add the assertion first.
-3. **`Session` has TWO verdict readings, and only one is right for an encounter.** With
-   `rules` it is `evalTerminal` in the harness's fold (advance → account → judge, and the
-   pre-advance check is deliberately SKIPPED so a charge maturing mid-advance can still
-   turn a victory into a draw). Without them it is the team-wipe read, which is all the
-   conditionless demo battle on `/` can honestly support. A fixture whose victory is "wipe
-   team 1" cannot tell them apart.
-4. **Never grow a second accounting fold in `src/render`.** The campaign's AP grant reads
-   `contributionByUnit[…].landedActions`. `Session.report()` is assembled from
-   `harness.ts`'s exported helpers, and `session.test.ts` byte-compares a probe-driven
-   session's report to `runFromState`'s. Mutating either half turns it red.
-5. **`campaign-data.ts` imports the five encounter files BY NAME.** A glob would be
-   self-maintaining but is Vite-only. The guard is `campaign-shell.test.ts`'s two-direction
-   partition: every battle the campaign names resolves, and every bundled encounter is
-   named. A new battle needs the import *and* the file.
-6. **An anchor added to `index.html` changes the tab order.** `play.spec.ts` asserts the
-   order EXACTLY (deliberately — "reachable after ten tabs" must still fail), so the
-   campaign link is now named as the first stop rather than skipped.
-7. Everything the previous handoff listed still holds: **the AP grant reads
-   `landedActions` and the priest fixture is what discriminates it**; **the campaign is
-   winnable UNDER THE PROBE, which is reachability evidence, not difficulty evidence**;
-   **`ttk.test.ts` covers two rosters**; **`npm run state`'s counters enumerate NAMED
-   DIRECTORIES**; **`docs/11` §3 and `docs/08` §1a carry AUTHORED status tables nothing
-   derives**; **`gen-state.mts` fails on an unresolved `{token}`**; **the browser tests are
-   NOT in `npm run check` — run `npm run test:visual` separately, and alone.**
+1. **A SCREEN THE STATE MACHINE SKIPS HAS CONTENT NOBODY CAN REACH.** Winning the LAST
+   battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE` — so the
+   final victory beat would have been the one scene in the pack a player could never read.
+   The ending screen renders it for exactly that reason. **When you add anything to a
+   screen in this shell, enumerate the TRANSITIONS, not the states**: `concludeBattle`
+   branches on status, `continueGame` lands on three different screens, and a loss on the
+   last battle still goes to `AFTER_BATTLE`. Asserted in `campaign-shell.test.ts`'s
+   "the FINAL victory's text is reachable on the ending screen", mutation-verified.
+2. **A SIM DOCSTRING THAT DELEGATES A RULE TO "THE CALLER" IS AN OBLIGATION NOBODY IS
+   TOLD ABOUT.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates
+   nothing, which made `secondary === currentJob` reachable through the back door — an
+   illegal record that throws nowhere and reads as a content bug. Fixed at two levels (the
+   UI clears it, `UnitRecordSchema` now rejects it). **When you meet another such
+   docstring, the caller owes a test, and ask first whether a schema can see both fields.**
+3. **The prep panel is mounted ONCE and re-pointed.** `renderPrep()` calls
+   `setRecords(party)`, which **no-ops when nothing changed** — deliberately, because a
+   blind re-render destroys the focus of the control the player is using. If you add state
+   to the panel that must survive a repaint, it has to live in `PrepModel`, not in the DOM.
+4. **`onChange` → `updateParty` → `renderBriefingText()`, not `refresh()`.** The panel has
+   already redrawn itself by then; calling the full repaint would re-enter `renderPrep`.
+   It terminates (setRecords no-ops), but do not rely on that by accident.
+5. **The story pack's coverage is checked at BOOT, both directions.** A new battle needs a
+   story entry or `campaign-data.ts` throws on module load — which is deliberate, and
+   which means a half-authored pack breaks `npm run dev` rather than shipping a blank
+   screen. Add a stub entry as you add the battle.
+6. **`data/campaign/story/` is a content directory NO `npm run state` counter can see.**
+   Nothing on the dashboard currently claims a story count, so nothing reads wrong today —
+   but if you add one, wire the directory in. The real guard is the boot check in trap 5.
+7. **Story text is rendered with `textContent`, never `innerHTML`** (`renderStory` in
+   `game.ts`). The whole point of the seam is that a different repo supplies the strings.
+8. Everything the previous handoff listed still holds: **an A/B between two callers of the
+   same helper cannot see a bug in the helper** (now codified in `CLAUDE.md`); **the
+   shell's `rules` CAPS are unasserted**; **`Session` has TWO verdict readings and only
+   one is right for an encounter**; **never grow a second accounting fold in
+   `src/render`**; **`campaign-data.ts` imports the five encounter files BY NAME**; **an
+   anchor added to `index.html` changes the tab order** (`play.spec.ts` asserts it
+   exactly; `campaign.spec.ts` does not, which is why the briefing could gain a dozen
+   controls freely); **the AP grant reads `landedActions`**; **the campaign is winnable
+   UNDER THE PROBE, which is reachability evidence, not difficulty evidence**;
+   **`ttk.test.ts` covers two rosters**; **`docs/11` §3 and `docs/08` §1a carry AUTHORED
+   status tables nothing derives**; **`gen-state.mts` fails on an unresolved `{token}`**;
+   **the browser tests are NOT in `npm run check` — run `npm run test:visual` separately.**
+
+## What the prep loop exposed (measured, not guessed)
+
+Under the balance probe on both seats, banked AP after each battle:
+
+| after | Vance | Kest | Briar | Ottoline |
+|---|---|---|---|---|
+| b1 | 48 | 48 | **0** | **0** |
+| b2 | 96 | 96 | 56 | 0 |
+| b3 | 152 | 152 | 112 | 56 |
+| b5 | 280 | 272 | 256 | 184 |
+
+Two facts fall out. **The first affordable purchase is at battle 3** (a tier-one node
+costs 60), which is exactly where `docs/08` §3 wanted the loadout introduced — convenient,
+and now load-bearing for onboarding. And **a member who never lands an action banks
+nothing**: Ottoline is two battles behind by the end. That is ADR-0012's grant shape
+working as specified (`participated` + capped `meaningfulActions`), not a bug — but
+whether a healer who heals should count as participating is a real M1 question. It is
+*not* an M0 blocker and it is not green-lit here.
 
 ### Still-live engine facts (unchanged by this slice)
 
@@ -122,14 +141,21 @@ That is the biggest hole in the MVP, and it is cheap to close:
   has TWO carriers; `bld-cutpurse` sits EXACTLY at `VIABLE_MIN_MAPS` (4/6).
 - **Hamedo draws the hit roll it then discards** (ADR-0019 decision 5) — deliberate.
 - **The MP contingency is live:** `white-magic.holy` and `summon.*` ride unenforced MP.
-- **`battle-skill` is still excluded by user decision** (2026-08-16).
+- **`battle-skill` is still excluded by user decision** (2026-08-16) — and the prep loop
+  made that visible for the first time: Vance's whole Knight tree is eight buyable nodes
+  whose abilities all do nothing. The learn rows now carry the same "no effect yet" tag
+  the command list does (ADR-0024 decision 12), so the panel is honest — but a **starting
+  party member whose entire native tree is inert** is a content problem the label only
+  discloses. Either give the Knight a live skillset or start Vance somewhere else; do not
+  let the tag stand in for the fix.
 - **`compareCandidate` is the most load-bearing function in the repo.**
 - **The frozen golden is a tripwire, not a maintenance item.**
 
 ## Environment facts that cost real time to learn
 
-- **Scratch probes belong outside the tree.** `coverage/` is gitignored; a `vite-node`
-  script importing `src/sim/*` is the fastest way to measure.
+- **Scratch probes belong outside the tree — but INSIDE the repo.** `vite-node` resolves
+  imports against the Vite root, so a script in `/tmp` cannot import `src/`. Put it in
+  `coverage/` (gitignored) and delete it after.
 - **Never round-trip `data/base-pack.json` through a JSON parser to edit it** — it
   reformats the whole file. (Small authored files like `data/campaign/*` are fine.)
 - **Perturb the BASELINE as well as the fix.**
@@ -149,5 +175,5 @@ That is the biggest hole in the MVP, and it is cheap to close:
 `pages.yml` was always correct; runs #1–#22 failed on two sequential *settings*, both
 derived from the repository default branch. Two preflights now guard the `build` job, the
 second because the first is not sufficient. **An agent can confirm the deployment API
-reported success but cannot confirm the page renders** — `*.github.io` is blocked. That now
-covers `/game.html` too: nobody in this sandbox has seen the shipped shell render.
+reported success but cannot confirm the page renders** — `*.github.io` is blocked. Nobody
+in this sandbox has seen the shipped shell render.

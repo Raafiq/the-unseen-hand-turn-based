@@ -373,3 +373,24 @@ export {
   type CampaignBattleRun,
   type EncounterMap,
 } from "./campaign-run.js";
+
+// ── The story seam (docs/11 M0 item 4, docs/08 §4 contract) ──────────────────
+export {
+  STORY_SCHEMA_VERSION,
+  STORY_MIGRATIONS,
+  STORY_MOMENTS,
+  StorySchemaVersionError,
+  StoryPackSchema,
+  StoryEntrySchema,
+  StoryBeatSchema,
+  StoryMomentSchema,
+  parseStoryPack,
+  storyBeat,
+  storyEntry,
+  storyCoverage,
+  type StoryPack,
+  type StoryEntry,
+  type StoryBeat,
+  type StoryMoment,
+  type StoryMigration,
+} from "./story.js";

@@ -130,3 +130,38 @@ describe("roster codec — v1→v2 loadout migration (Slice 3)", () => {
     expect(deserializeRecord(serializeRecord(rec))).toEqual(rec);
   });
 });
+
+describe("the record schema forbids a Secondary equal to the current job", () => {
+  it("rejects it at EVERY codec boundary, not just in setLoadoutSlot", () => {
+    // `setLoadoutSlot` already refuses to create this state, but `changeJob` validates
+    // nothing by design, so it is reachable: equip Punch Art, then become a Monk. The
+    // record then LOOKS fine — nothing throws, the secondary just silently duplicates
+    // the primary command list — which reads as a content bug rather than an illegal
+    // record. The schema is the only place that can see both fields.
+    const rec = defaultUnitRecord("hero", "knight");
+    const illegal = {
+      ...rec,
+      currentJob: "monk",
+      loadout: { ...rec.loadout, secondary: "monk" },
+    };
+    expect(() => UnitRecordSchema.parse(illegal)).toThrow(/must not be the current job/);
+    expect(() => serializeRecord(illegal as UnitRecord)).toThrow(/must not be the current job/);
+    expect(() => deserializeRecord(JSON.stringify(illegal))).toThrow(/must not be the current job/);
+  });
+
+  it("DISCRIMINATING: a DIFFERENT secondary, and no secondary at all, both pass", () => {
+    // Without this half, a refinement that rejected every non-null secondary would look
+    // identical — and would make the whole Secondary slot unusable.
+    const rec = defaultUnitRecord("hero", "knight");
+    expect(() =>
+      UnitRecordSchema.parse({
+        ...rec,
+        currentJob: "knight",
+        loadout: { ...rec.loadout, secondary: "monk" },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      UnitRecordSchema.parse({ ...rec, loadout: { ...rec.loadout, secondary: null } }),
+    ).not.toThrow();
+  });
+});

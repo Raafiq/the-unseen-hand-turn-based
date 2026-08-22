@@ -14,18 +14,29 @@
 import { describe, expect, it } from "vitest";
 import {
   deserializeCampaign,
+  parseStoryPack,
   runCampaignBattle,
   serializeCampaign,
   startCampaign,
+  storyCoverage,
   updatePartyMember,
   type CampaignSave,
+  type StoryPack,
 } from "../sim/index.js";
-import { ENCOUNTERS, campaign, registry } from "./campaign-data.js";
+import { ENCOUNTERS, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell } from "./campaign-shell.js";
+import { PrepModel } from "./prep.js";
 import { memorySlot, readSave, writeSave, type SaveSlot } from "./storage.js";
 
-function shell(slot: SaveSlot = memorySlot()): CampaignShell {
-  return new CampaignShell({ def: campaign, encounters: ENCOUNTERS, registry, slot });
+/** `null` means "mount with NO story pack at all" — a default parameter cannot say that. */
+function shell(slot: SaveSlot = memorySlot(), storyPack: StoryPack | null = story): CampaignShell {
+  return new CampaignShell({
+    def: campaign,
+    encounters: ENCOUNTERS,
+    registry,
+    slot,
+    ...(storyPack === null ? {} : { story: storyPack }),
+  });
 }
 
 /** Play the live battle out with the balance probe on both seats. */
@@ -308,5 +319,180 @@ describe("a slot that cannot be read is a message, never a crash", () => {
       writeSave(slot, { ...startCampaign(campaign), battleIndex: -1 } as CampaignSave),
     ).toThrow();
     expect(slot.read()).toBe(good);
+  });
+});
+
+describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
+  it("the shipped pack covers exactly the battles the campaign plays, both directions", () => {
+    // The same partition the encounter imports get, for the same reason: a pack short one
+    // battle ships a blank screen where a scene should be, and a stale entry for a
+    // renamed battle resolves for nothing while reading as coverage.
+    expect(storyCoverage(campaign.battles.map((b) => b.id), story)).toEqual({
+      missing: [],
+      extra: [],
+    });
+  });
+
+  it("the shell reports the pending battle's PRE beat and its authored title", () => {
+    const s = shell();
+    s.newGame();
+    expect(s.sceneTitle()).toBe("The Toll Road");
+    expect(s.preBeat()?.lines[0]).toContain("Four of us, one road");
+  });
+
+  it("DISCRIMINATING (AC-M4's A/B): swapping the DATA changes what the player reads", () => {
+    // The whole contract in one assertion. Same campaign, same encounters, same code
+    // path, same method calls — only the pack differs, and the text follows the pack.
+    // A shell with the prose compiled in would return "The Toll Road" for both.
+    const swapped = parseStoryPack({
+      storySchemaVersion: 1,
+      campaignId: campaign.id,
+      entries: campaign.battles.map((b) => ({
+        battleId: b.id,
+        title: `Chapter ${b.id.toUpperCase()}`,
+        pre: { speaker: "Narrator", lines: [`A different opening for ${b.id}.`] },
+        victory: { lines: [`A different ending for ${b.id}.`] },
+        defeat: { lines: [`A different failure for ${b.id}.`] },
+      })),
+    });
+
+    const shipped = shell();
+    shipped.newGame();
+    const alternate = shell(memorySlot(), swapped);
+    alternate.newGame();
+
+    expect(shipped.sceneTitle()).toBe("The Toll Road");
+    expect(alternate.sceneTitle()).toBe("Chapter B1");
+    expect(alternate.preBeat()?.speaker).toBe("Narrator");
+    expect(alternate.preBeat()?.lines).toEqual(["A different opening for b1."]);
+    // And it is the same shell class, not a second implementation.
+    expect(alternate.constructor).toBe(shipped.constructor);
+  });
+
+  it("no pack at all is a campaign with no text — never a crash or an empty scene", () => {
+    const s = shell(memorySlot(), null);
+    s.newGame();
+    expect(s.sceneTitle()).toBeNull();
+    expect(s.preBeat()).toBeNull();
+    expect(s.outcomeBeat()).toBeNull();
+  });
+
+  it("DISCRIMINATING: a WIN and a LOSS on the same battle read different text", () => {
+    // A shell that showed one "after" line regardless would pass any single-outcome test.
+    // Play the same battle both ways and assert the two beats differ.
+    const won = shell();
+    won.newGame();
+    won.deploy();
+    autoplay(won);
+    won.concludeBattle();
+
+    const lost = shell();
+    lost.newGame();
+    lost.deploy();
+    forfeit(lost);
+    lost.concludeBattle();
+
+    expect(won.lastOutcome()).toBe("victory");
+    expect(lost.lastOutcome()).not.toBe("victory");
+    expect(won.outcomeBeat()?.lines[0]).toContain("They ran before the last of them fell");
+    expect(lost.outcomeBeat()?.lines[0]).toContain("Back to the treeline");
+    expect(won.outcomeBeat()).not.toEqual(lost.outcomeBeat());
+  });
+
+  it("DISCRIMINATING: the FINAL victory's text is reachable on the ending screen", () => {
+    // Winning the last battle skips `AFTER_BATTLE` entirely and lands on `COMPLETED`, so
+    // this one beat of the pack is the one a player could never read if the ending screen
+    // did not show it. Nothing else in the suite visits that transition with a beat.
+    const s = shell();
+    s.newGame();
+    for (let i = 0; i < campaign.battles.length; i++) {
+      s.deploy();
+      autoplay(s);
+      s.concludeBattle();
+      if (s.screen === "AFTER_BATTLE") s.nextBattle();
+    }
+    expect(s.screen).toBe("COMPLETED");
+    expect(s.outcomeBeat()?.lines[0]).toContain("It is over, and it is not finished");
+  });
+});
+
+describe("docs/11 M0 item 3: the between-battle prep loop writes into the save", () => {
+  /** The battle unit id deployed for a party record, via the shell's own name map. */
+  function deployedUnitId(s: CampaignShell, recordName: string): string {
+    const names = s.unitNames();
+    const id = Object.keys(names).find((k) => names[k] === recordName);
+    if (!id) throw new Error(`no deployed unit named "${recordName}"`);
+    return id;
+  }
+
+  it("an edit made through the panel lands in the SAVE and on disk", () => {
+    const slot = memorySlot();
+    const s = shell(slot);
+    s.newGame();
+
+    const model = new PrepModel({
+      registry,
+      records: s.save!.party,
+      selectedId: "pc-kest",
+      onChange: (r) => s.updateParty(r),
+    });
+    model.setJob("thief");
+
+    expect(s.save!.party.find((r) => r.id === "pc-kest")!.currentJob).toBe("thief");
+    expect(deserializeCampaign(slot.read()!).party.find((r) => r.id === "pc-kest")!.currentJob).toBe(
+      "thief",
+    );
+  });
+
+  it("DISCRIMINATING: AP spent in prep reaches the DEPLOYED unit's command list", () => {
+    // Reaching THROUGH the helper to an observable end, as CLAUDE.md requires: comparing
+    // this path against the headless runner would prove only that both call
+    // `campaignBattleRecords`, not what they call it with. So: bank AP, buy an ability in
+    // the panel, deploy, and read the ability off the unit standing on the field.
+    const s = shell();
+    s.newGame();
+    const kest = s.save!.party.find((r) => r.id === "pc-kest")!;
+    s.updateParty({ ...kest, ap: 200 });
+
+    const model = new PrepModel({
+      registry,
+      records: s.save!.party,
+      selectedId: "pc-kest",
+      onChange: (r) => s.updateParty(r),
+    });
+    model.learn("monk", "chakra");
+
+    s.deploy();
+    const unit = s.session!.state.units.find((u) => u.id === deployedUnitId(s, "Kest"))!;
+    expect(unit.abilities.map((a) => a.id)).toContain("punch-art.chakra");
+  });
+
+  it("and that is not vacuous — the SAME unit without the purchase does not have it", () => {
+    // The other half of the A/B. Without this, an ability the unit had all along would
+    // make the assertion above pass with the whole prep path disconnected.
+    const s = shell();
+    s.newGame();
+    s.deploy();
+    const unit = s.session!.state.units.find((u) => u.id === deployedUnitId(s, "Kest"))!;
+    expect(unit.abilities.map((a) => a.id)).not.toContain("punch-art.chakra");
+  });
+
+  it("the party CANNOT be edited during a battle — the edit would apply to the next one", () => {
+    const s = shell();
+    s.newGame();
+    s.deploy();
+    expect(() => s.updateParty({ ...s.save!.party[0]!, ap: 999 })).toThrow(/during a battle/);
+  });
+
+  it("an edited party survives a retry exactly (AC-M3 still holds through prep)", () => {
+    const s = shell();
+    s.newGame();
+    s.updateParty({ ...s.save!.party.find((r) => r.id === "pc-vance")!, ap: 500 });
+    s.deploy();
+    forfeit(s);
+    s.concludeBattle();
+    expect(s.save!.status).toBe("gameOver");
+    s.retry();
+    expect(s.save!.party.find((r) => r.id === "pc-vance")!.ap).toBe(500);
   });
 });

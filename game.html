@@ -65,6 +65,60 @@
       footer a { color: var(--accent); }
       #save-error { margin-bottom: 16px; border-color: #e05563; color: #ffb3b8; }
       #save-error[hidden] { display: none; }
+      /* ── prep panel (shared with the engine viewer; see index.html) ────────── */
+      .prep-grid { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: 4px; }
+      @media (min-width: 760px) { .prep-grid { grid-template-columns: 1.25fr 1fr; align-items: start; } }
+      .roster { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+      .ptab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--border); border-radius: 9px; padding: 7px 13px; font-weight: 500; }
+      .ptab .pname { font-size: .92rem; color: var(--ink); font-weight: 600; }
+      .ptab .pmeta { font-family: var(--mono); font-size: .68rem; color: var(--ink-faint); }
+      .ptab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .chassis { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+      @media (min-width: 520px) { .chassis { grid-template-columns: repeat(3, 1fr); } }
+      .slot { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+      .slot h3 { margin: 0 0 8px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; justify-content: space-between; gap: 6px; }
+      .slot h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .slot .val { font-size: .92rem; color: var(--ink); }
+      .slot .sub { margin-top: 3px; font-size: .76rem; color: var(--ink-soft); }
+      .slot select { width: 100%; font-family: var(--sans); font-size: .86rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; text-overflow: ellipsis; }
+      .slot select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .slot .chk { display: flex; align-items: center; gap: 6px; font-size: .86rem; color: var(--ink-soft); }
+      .slot .empty { margin: 0; font-size: .76rem; color: var(--ink-faint); }
+      .slot .hint { margin: 7px 0 0; font-size: .72rem; color: var(--ink-faint); }
+      .prog { grid-column: 1 / -1; display: grid; gap: 12px; grid-template-columns: 1fr; }
+      @media (min-width: 620px) { .prog { grid-template-columns: minmax(180px, .8fr) 1.2fr; align-items: start; } }
+      .learn h3 { margin: 0 0 10px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+      .learn h3 .count { background: var(--accent); color: #10151f; border-radius: 999px; padding: 1px 8px; font-size: .72rem; font-weight: 700; }
+      .learn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+      .learn-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .86rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
+      .learn-list li.known { color: var(--ink-faint); border-style: dashed; }
+      .learn-list li.known .s { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; }
+      .learn-list li.locked { color: var(--ink-faint); }
+      .learn-list li.deferred { border-style: dashed; }
+      .learn-list li.deferred .tag { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 5px; }
+      .learn-list .buy { font-family: var(--mono); font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+      .cmds h3 { margin: 0 0 12px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+      .cmds h3 .count { background: var(--accent); color: #10151f; border-radius: 999px; padding: 1px 8px; font-size: .72rem; font-weight: 700; }
+      .cmd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+      .cmd-list li { font-size: .84rem; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
+      .cmd-list li.deferred { opacity: .55; border-style: dashed; }
+      .cmd-list li.deferred .tag { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 4px; }
+      .cmds .hint { margin: 14px 0 0; font-size: .82rem; color: var(--ink-soft); }
+      .stats { grid-column: 1 / -1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+      .stats h3 { margin: 0 0 10px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+      .stats h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .stat-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 22px; }
+      .stat-row li { display: flex; flex-direction: column; gap: 3px; }
+      .stat-row .k { font-size: .58rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); }
+      .stat-row .v { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+      .stat-row li.up .v { color: var(--accent); }
+      .stat-row li.up .v::after { content: " \25B2"; font-size: .62em; vertical-align: middle; }
+      /* ── story beats (docs/11 M0 item 4) ───────────────────────────────────── */
+      .story { margin: 0 0 18px; border-left: 2px solid var(--accent); padding: 2px 0 2px 16px; }
+      .story[hidden] { display: none; }
+      .story .who { margin: 0 0 6px; font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+      .story p.line { margin: 0 0 8px; color: var(--ink); font-size: .98rem; max-width: 62ch; }
+      .story p.line:last-child { margin-bottom: 0; }
     </style>
   </head>
   <body>
@@ -92,12 +146,17 @@
         <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>
         <h1 id="brief-title" data-testid="brief-title"></h1>
         <div class="card">
+          <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
           <p id="brief-note" class="lede" data-testid="brief-note"></p>
           <ul class="party" id="brief-party" data-testid="brief-party"></ul>
           <div class="controls">
             <button id="btn-deploy" data-testid="deploy">Deploy ▸</button>
             <button id="btn-brief-quit" class="ghost" data-testid="brief-quit">Quit to title</button>
           </div>
+        </div>
+        <div class="panel" style="margin-top:16px">
+          <h3>Prepare the party</h3>
+          <div id="prep-body" class="prep-grid" data-testid="prep"></div>
         </div>
       </section>
 
@@ -133,6 +192,7 @@
       <section id="screen-after" data-testid="screen-after" hidden>
         <h1 id="after-title" data-testid="after-title"></h1>
         <div class="card">
+          <div id="after-story" class="story" data-testid="after-story" hidden></div>
           <p id="after-note" class="lede" data-testid="after-note"></p>
           <div class="controls">
             <button id="btn-next" data-testid="next">Next battle ▸</button>
@@ -147,6 +207,7 @@
         <p class="eyebrow">The First March</p>
         <h1>The march is over</h1>
         <div class="card">
+          <div id="done-story" class="story" data-testid="done-story" hidden></div>
           <p id="done-note" class="lede" data-testid="done-note"></p>
           <div class="controls">
             <button id="btn-done-title" data-testid="done-title">Back to title</button>
