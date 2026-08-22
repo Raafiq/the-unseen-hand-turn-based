@@ -175,6 +175,16 @@ export interface PrepModelOptions {
    * `updatePartyMember` and the demo throw it away.
    */
   onChange?: (record: UnitRecord) => void;
+  /**
+   * Equipment ids the party OWNS (the campaign save's inventory). Absent or empty ⇒
+   * the weapon row is not drawn at all.
+   *
+   * Owned, not "every item in the pack": gear arrives on an authored drip
+   * (ADR-0021), so listing the catalog would show a player eight weapons and let
+   * them equip the one the campaign has not handed out yet — which is precisely the
+   * farm-free schedule the ADR exists to protect.
+   */
+  inventory?: readonly string[];
 }
 
 /** One row of the learn list: what it is, what it costs, and why it is blocked. */
@@ -232,12 +242,14 @@ export class PrepModel {
    * state: it is never persisted and never reaches `onChange`.
    */
   private browse: string | null = null;
+  private inv: string[];
 
   constructor(opts: PrepModelOptions) {
     if (opts.records.length === 0) throw new Error("PrepModel: needs at least one record");
     this.registry = opts.registry;
     this.onChange = opts.onChange;
     this.recs = [...opts.records];
+    this.inv = [...(opts.inventory ?? [])];
     this.index = Math.max(
       0,
       this.recs.findIndex((r) => r.id === opts.selectedId),
@@ -350,6 +362,53 @@ export class PrepModel {
   /** Every job id the content pack defines, in pack order. */
   jobIds(): string[] {
     return [...this.registry.jobById.keys()];
+  }
+
+  /** The equipment ids the party owns, in grant order. */
+  inventory(): string[] {
+    return [...this.inv];
+  }
+
+  /**
+   * Replace the owned-equipment list. Returns whether it changed, mirroring
+   * {@link setRecords} — the page calls this on every repaint and a blind redraw
+   * would steal focus from the control the player is using.
+   */
+  setInventory(next: readonly string[]): boolean {
+    if (next.length === this.inv.length && next.every((id, i) => id === this.inv[i])) {
+      return false;
+    }
+    this.inv = [...next];
+    return true;
+  }
+
+  /** Owned items that fit the weapon slot, as `{id, name}` for the selector. */
+  weaponOptions(): { id: string; name: string }[] {
+    return this.inv
+      .map((id) => this.registry.equipment(id))
+      .filter((item) => item.slot === "weapon")
+      .map((item) => ({ id: item.id, name: item.name }));
+  }
+
+  /**
+   * Equip a weapon by id, or `null` to go unarmed. Free and reversible like the
+   * loadout slots (AC-J4): it never touches `ap`, `learned` or `mastered`.
+   *
+   * Refuses an item the party does not own, rather than trusting the view to only
+   * offer owned ones — the drip is a rule, and a rule enforced solely by which
+   * options a dropdown happens to render is not enforced.
+   */
+  setWeapon(itemId: string | null): void {
+    if (itemId !== null) {
+      if (!this.inv.includes(itemId)) {
+        throw new Error(`prep: the party does not own equipment "${itemId}"`);
+      }
+      const item = this.registry.equipment(itemId);
+      if (item.slot !== "weapon") {
+        throw new Error(`prep: equipment "${itemId}" is a ${item.slot}, not a weapon`);
+      }
+    }
+    this.commit({ ...this.record(), weapon: itemId });
   }
 
   /** Which job's tree {@link learnRows} is listing. */
@@ -484,6 +543,10 @@ export interface PrepHandle {
   setJob: (jobId: string) => void;
   /** Point the learn list at another job's tree (browsing only — no record change). */
   setBrowseJob: (jobId: string) => void;
+  /** Equip an owned weapon by id, or `null` for unarmed. */
+  setWeapon: (itemId: string | null) => void;
+  /** Re-point the panel at the party's owned equipment. */
+  setInventory: (ids: readonly string[]) => boolean;
   learn: (jobId: string, nodeId: string) => void;
 }
 
@@ -532,6 +595,29 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       )
       .join("");
     return `<div class="roster" data-testid="prep-roster">${tabs}</div>`;
+  }
+
+  /**
+   * The weapon row — drawn ONLY when the party owns a weapon.
+   *
+   * Hidden rather than empty-and-disabled, the absent-not-zero rule: before the
+   * campaign's first grant there is no such thing as a weapon choice, and an empty
+   * dropdown would present "you own nothing yet" as "your options are none", which
+   * reads like a bug. The engine viewer's demo panel has no inventory at all and so
+   * never draws it.
+   */
+  function weaponSlotHtml(): string {
+    const owned = model.weaponOptions();
+    if (owned.length === 0) return "";
+    const opts = optionList(
+      [{ value: "", label: "Unarmed" }, ...owned.map((w) => ({ value: w.id, label: w.name }))],
+      model.record().weapon ?? "",
+    );
+    return `
+      <div class="slot">
+        <h3>Weapon <span class="lock">swaps are free</span></h3>
+        <select data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
+      </div>`;
   }
 
   /** The job selector + the AP-priced learn list, straight off {@link PrepModel.learnRows}. */
@@ -685,6 +771,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         <div class="val">${esc(skillsetLabel(model.primarySkillset()))} (${esc(jobLabel(record.currentJob))})</div>
         <div class="sub">${model.primaryActionIds().map((id) => esc(abilityLabel(id))).join(", ") || "—"}</div>
       </div>
+      ${weaponSlotHtml()}
       <div class="slot">
         <h3>Secondary</h3>
         <select data-testid="prep-secondary" aria-label="Secondary command">${secondaryOptions}</select>
@@ -722,6 +809,13 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         act(() => model.setSlot(slot, valueOrNull((e.target as HTMLSelectElement).value)));
       });
     };
+    // Only bound when the row was drawn — an empty inventory renders no selector,
+    // and `sel()` throws on a missing element rather than silently doing nothing.
+    if (model.weaponOptions().length > 0) {
+      sel("prep-weapon").addEventListener("change", (e) => {
+        act(() => model.setWeapon(valueOrNull((e.target as HTMLSelectElement).value)));
+      });
+    }
     onSlot("secondary", "prep-secondary");
     onSlot("reaction", "prep-reaction");
     onSlot("support", "prep-support");
@@ -782,6 +876,12 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     setTraits: (traits) => act(() => model.setTraits(traits)),
     setJob: (jobId) => act(() => model.setJob(jobId)),
     setBrowseJob: (jobId) => act(() => model.setBrowseJob(jobId)),
+    setWeapon: (itemId) => act(() => model.setWeapon(itemId)),
+    setInventory: (ids) => {
+      const changed = model.setInventory(ids);
+      if (changed) render();
+      return changed;
+    },
     learn: (jobId, nodeId) => act(() => model.learn(jobId, nodeId)),
   };
 }

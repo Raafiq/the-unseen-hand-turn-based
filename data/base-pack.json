@@ -930,5 +930,69 @@
         { "node": "short-charge", "ability": "summon.short-charge", "apCost": 120, "requires": ["shiva"] }
       ]
     }
+  ],
+  "equipment": [
+    {
+      "id": "wpn-arming-sword",
+      "name": "Arming Sword",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "none", "accuracy": 100 },
+      "weaponEv": 5,
+      "tags": ["weapon", "baseline"]
+    },
+    {
+      "id": "wpn-flamebrand",
+      "name": "Flamebrand",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "fire", "accuracy": 100 },
+      "tags": ["weapon", "elemental"]
+    },
+    {
+      "id": "wpn-oathblade",
+      "name": "Oathblade",
+      "slot": "weapon",
+      "weapon": { "wp": 10, "formula": "braveWp", "element": "none", "accuracy": 100 },
+      "brave": 10,
+      "tags": ["weapon", "brave-scaling"]
+    },
+    {
+      "id": "wpn-heretics-edge",
+      "name": "Heretic's Edge",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "dark", "accuracy": 100 },
+      "faith": -20,
+      "tags": ["weapon", "faith-down"]
+    },
+    {
+      "id": "wpn-rapier",
+      "name": "Rapier",
+      "slot": "weapon",
+      "weapon": { "wp": 9, "formula": "speedWp", "element": "none", "accuracy": 100 },
+      "weaponEv": 10,
+      "tags": ["weapon", "evasive"]
+    },
+    {
+      "id": "wpn-warhammer",
+      "name": "Warhammer",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "wpWp", "element": "earth", "accuracy": 95 },
+      "tags": ["weapon", "stat-independent"]
+    },
+    {
+      "id": "wpn-cestus",
+      "name": "Cestus",
+      "slot": "weapon",
+      "weapon": { "wp": 0, "formula": "bareHands", "element": "none", "accuracy": 100 },
+      "brave": 5,
+      "tags": ["weapon", "martial"]
+    },
+    {
+      "id": "wpn-ritual-staff",
+      "name": "Ritual Staff",
+      "slot": "weapon",
+      "weapon": { "wp": 6, "formula": "paWp", "element": "holy", "accuracy": 100 },
+      "faith": 15,
+      "tags": ["weapon", "caster"]
+    }
   ]
 }

@@ -228,3 +228,23 @@ test("help: the ? panel opens from any screen and explains the mechanics", async
   await page.getByTestId("help-open").click();
   await expect(panel).toBeVisible();
 });
+
+test("equipment: a granted weapon can be equipped, and it survives a reload", async ({ page }) => {
+  // The headless tests prove the record changes and the built unit changes. What only a
+  // browser proves is the half outside those objects: the drip reaches the panel, the
+  // selector writes through `updateParty` to the save, and the save is really in
+  // localStorage. An in-memory slot passes every headless persistence test regardless.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  // Battle one's grant is in hand before battle one is fought, so the row exists now.
+  const weapon = page.getByTestId("prep-weapon");
+  await expect(weapon).toBeVisible();
+  await weapon.selectOption("wpn-cestus");
+
+  await page.reload();
+  await page.getByTestId("continue").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  await expect(page.getByTestId("prep-weapon")).toHaveValue("wpn-cestus");
+});

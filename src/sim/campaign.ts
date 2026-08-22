@@ -40,7 +40,7 @@ import { awardAp, type ApReward } from "./progression.js";
 import { UnitRecordSchema, type UnitRecord } from "./roster.js";
 
 /** Current on-disk campaign schema version. Bump when a shape below changes. */
-export const CAMPAIGN_SCHEMA_VERSION = 1;
+export const CAMPAIGN_SCHEMA_VERSION = 2;
 
 /** Oldest campaignSchemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_CAMPAIGN_SCHEMA_VERSION = 1;
@@ -56,6 +56,16 @@ export const CampaignBattleSchema = z
   .object({
     id: z.string().min(1),
     encounterId: z.string().min(1),
+    /**
+     * Equipment ids the party receives on REACHING this battle (ADR-0021's authored
+     * drip). Ids only — the caller resolves them, exactly as `encounterId` is.
+     *
+     * The grant is what makes gear power "authored, not farmed" (ADR-0021 decision
+     * 2): a player cannot repeat a battle to accumulate more of it, because the
+     * inventory is a SET keyed by id, so re-winning a battle grants nothing new.
+     * That property is the anti-grind invariant, and it is asserted — not a comment.
+     */
+    grants: z.array(z.string().min(1)).optional(),
   })
   .strict();
 export type CampaignBattle = z.infer<typeof CampaignBattleSchema>;
@@ -130,6 +140,13 @@ export const CampaignSaveSchema = z
     status: CampaignStatusSchema,
     party: z.array(UnitRecordSchema).min(1),
     history: z.array(CampaignHistoryEntrySchema),
+    /**
+     * Equipment ids the party owns (campaignSchemaVersion 2). A SET by construction:
+     * `grantEquipment` never appends a duplicate, so replaying a battle cannot farm
+     * a second copy. No counts, because M0 has no reason to own two of anything and
+     * a quantity nothing spends would be a currency with no sink.
+     */
+    inventory: z.array(z.string().min(1)),
   })
   .strict();
 export type CampaignSave = z.infer<typeof CampaignSaveSchema>;
@@ -150,7 +167,22 @@ export type CampaignMigration = (save: Record<string, unknown>) => Record<string
  * `v + 1`. Empty at v1 (no prior versions); every future bump registers here, the
  * migration-per-bump pattern the other three codecs use.
  */
-export const CAMPAIGN_MIGRATIONS: Readonly<Record<number, CampaignMigration>> = {};
+const migrateCampaign1to2: CampaignMigration = (save) => ({
+  ...save,
+  campaignSchemaVersion: 2,
+  // Empty, not "everything the campaign would have granted by now": a v1 save was
+  // played without gear, and back-filling it would hand the player items they never
+  // earned. An empty inventory is exactly the state they were in.
+  inventory: [],
+});
+
+/**
+ * Migration registry: `CAMPAIGN_MIGRATIONS[v]` upgrades a save from version `v` to
+ * `v + 1`. `1→2` adds the equipment inventory (ADR-0021).
+ */
+export const CAMPAIGN_MIGRATIONS: Readonly<Record<number, CampaignMigration>> = {
+  1: migrateCampaign1to2,
+};
 
 /** Parse + validate an authored campaign def (loud fail on an unsupported version). */
 export function parseCampaign(def: unknown): CampaignDef {
@@ -185,7 +217,26 @@ export function startCampaign(def: CampaignDef): CampaignSave {
     status: "in-progress",
     party: def.party.map((r) => UnitRecordSchema.parse(r)),
     history: [],
+    // Battle one's own grant is applied here, not on arriving at battle two: a drip
+    // that only paid out on ADVANCING would leave the first battle — the one a new
+    // player meets — as the single fight with no gear in it.
+    inventory: [...(def.battles[0]?.grants ?? [])],
   });
+}
+
+/**
+ * Add a battle's `grants` to the save's inventory, ignoring anything already owned.
+ *
+ * SET SEMANTICS ARE THE ANTI-GRIND INVARIANT (ADR-0021 decision 2), not a tidiness
+ * choice: without them, losing and retrying a battle — or any future replay — would
+ * pay its grant again, and gear on a farmable drip is exactly as ruinous as farmable
+ * levels. Idempotent by construction, and asserted that way.
+ */
+export function grantEquipment(save: CampaignSave, grants: readonly string[]): CampaignSave {
+  const owned = new Set(save.inventory);
+  const fresh = grants.filter((id) => !owned.has(id));
+  if (fresh.length === 0) return save;
+  return { ...save, inventory: [...save.inventory, ...fresh] };
 }
 
 /**
@@ -254,13 +305,18 @@ export function applyBattleResult(
     awardAp(rec, result.rewards[rec.id] ?? { participated: false, meaningfulActions: 0 }),
   );
   const battleIndex = save.battleIndex + 1;
-  return {
+  const advanced: CampaignSave = {
     ...save,
     battleIndex,
     status: battleIndex >= def.battles.length ? "completed" : "in-progress",
     party,
     history,
   };
+  // The NEXT battle's grant, paid on arrival — so a player reads its briefing already
+  // holding what it hands out and can equip before deploying, rather than finding the
+  // reward only after the fight it was meant for. `grantEquipment` is idempotent, so a
+  // retried-then-won battle cannot pay twice.
+  return grantEquipment(advanced, def.battles[battleIndex]?.grants ?? []);
 }
 
 /**

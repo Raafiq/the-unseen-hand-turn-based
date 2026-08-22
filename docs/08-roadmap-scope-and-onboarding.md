@@ -40,7 +40,11 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > (ADR-0025): M0 item 7 is a game-roadmap item and P2's `N ≥ 8` is **still open at N = 7** —
 > the gate did not move, and that is expected rather than reassuring, since repricing skill
 > trees changes no built unit (shipped builds author `learned` explicitly), so the gate is
-> structurally blind to that change. §3 of this doc is now marked DEFERRED.
+> structurally blind to that change. §3 of this doc is now marked DEFERRED. Reconciled a
+> final time on **2026-08-22** for the equipment slice (ADR-0026), which completes M0 item
+> 5 and therefore ALL of M0: still a game-roadmap item, still nothing below moved, and
+> P2's `N ≥ 8` is **still open at N = 7** — the reference builds keep the placeholder
+> weapon, so gear is a diversity axis the gate does not yet use.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists

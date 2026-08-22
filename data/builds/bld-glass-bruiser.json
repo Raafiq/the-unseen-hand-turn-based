@@ -1,5 +1,6 @@
 {
-  "rosterSchemaVersion": 2,
+  "rosterSchemaVersion": 3,
+  "weapon": null,
   "id": "bld-glass-bruiser",
   "name": "Glass Bruiser",
   "level": 10,

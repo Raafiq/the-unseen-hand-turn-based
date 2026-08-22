@@ -162,6 +162,7 @@ function renderPrep(): void {
     prep = mountPrep(el("prep-body"), {
       registry,
       records: party,
+      inventory: shell.save?.inventory ?? [],
       progression: true,
       onChange: (record) => {
         shell.updateParty(record);
@@ -172,7 +173,10 @@ function renderPrep(): void {
     });
     return;
   }
-  // A no-op when the party is unchanged, so this cannot steal focus mid-edit.
+  // Both no-op when nothing changed, so this cannot steal focus mid-edit. The
+  // inventory is re-pointed too: a battle's grant lands between briefings, so a panel
+  // that only re-read the party would show the new weapon nowhere until a reload.
+  prep.setInventory(shell.save?.inventory ?? []);
   prep.setRecords(party);
 }
 

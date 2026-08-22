@@ -1,5 +1,6 @@
 {
-  "rosterSchemaVersion": 2,
+  "rosterSchemaVersion": 3,
+  "weapon": null,
   "id": "bld-terrain-geo",
   "name": "Terrain Geomancer",
   "level": 10,

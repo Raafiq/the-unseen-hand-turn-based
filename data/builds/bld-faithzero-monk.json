@@ -1,5 +1,6 @@
 {
-  "rosterSchemaVersion": 2,
+  "rosterSchemaVersion": 3,
+  "weapon": null,
   "id": "bld-faithzero-monk",
   "name": "Faith-Zero Monk",
   "level": 10,
