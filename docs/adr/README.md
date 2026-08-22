@@ -26,3 +26,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0020](0020-probe-prices-the-tile.md) | The probe prices the tile, not just the act; the movement slot ships with it | Accepted | 2026-08-20 |
 | [0021](0021-progression-is-authored-not-farmed.md) | Progression is authored, not farmed: Level grants no stats, equipment is horizontal | Accepted | 2026-08-18 |
 | [0022](0022-campaign-container-and-save.md) | The campaign is a fourth codec: an authored battle sequence plus a party save | Accepted | 2026-08-20 |
+| [0023](0023-the-game-shell.md) | The shell is a second page, and a battle is judged by its encounter | Accepted | 2026-08-21 |

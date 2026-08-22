@@ -26,6 +26,15 @@ const CAPTIONS = {
   "12-preview-b.png": "Same actor, same target, same ability, ONE tile different — and the strike lands in a different facing arc. That is why move-then-act is a real tactical choice and not a formality. (The two frames are generated from whichever pair of tiles the board actually offers, so they cannot drift from the state they depict.)",
   "13-illegal.png": "An illegal click is refused, not punished: a reason chip ('Out of Move range') and nothing else. Compare with 10 — the board, the clock and the command log are byte-identical.",
   "14-committed.png": "Committed — the Archer moved and struck from the destination tile in ONE command, at a turn price of −100 CT. The turn log shows both halves, the move and the blow, at the SAME tick: that is what makes it one turn and not two.",
+  // The GAME SHELL (docs/11 M0 item 1, ADR-0023). Captured by e2e/campaign.spec.ts.
+  // Each caption below states only what that spec asserts at the moment of the shot —
+  // the enabled/disabled Continue button, the battle number, the banner text, the count
+  // in the ending line. Nothing here describes something the test does not check.
+  "20-title.png": "The title screen, on a browser with no saved run: Continue is DISABLED, and the slot really is empty (the test reads `localStorage` directly, not just the button). One save slot — that is an explicit MVP cut.",
+  "21-briefing.png": "The briefing before battle 1 of 5, listing the party you will deploy with and the AP each member has banked. New Game has already written the slot, so closing the tab here still leaves a run to continue.",
+  "22-battle.png": "A CAMPAIGN battle in the real viewer — the same click-to-act session the engine viewer uses, with the same turn-order strip and the same resolution preview. The difference is invisible here and decisive: this battle is judged by its encounter's own victory and defeat conditions, not by counting corpses.",
+  "23-after-battle.png": "Won. AP is banked, the party redeploys at full HP, and the save on disk has already advanced to battle 2 — the test asserts that string, so this is persistence, not a screen that says so.",
+  "24-completed.png": "The ending, reached by playing all five battles in the browser. The saved run reads `\"status\":\"completed\"`. This is the whole of docs/11 AC-M1: a campaign that can start but cannot reach an ending would pass every per-battle test.",
   "15-ai-turn.png": "An AI turn: the active unit wears a DASHED ring, End Turn is disabled, and player input is inert ('Not your turn'). The board still carries the damage the fold dealt, so this is a turn mid-fight rather than the opening deploy.",
 };
 

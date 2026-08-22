@@ -24,9 +24,9 @@ Real and tested, not aspirational:
 
 | Missing | Notes |
 |---|---|
-| **A shell** | No title screen, no start/continue/quit. The viewer is a debug page. |
-| **A campaign container** | Battles exist; nothing sequences them or carries a party between them. |
-| **Persistence** | The substrate exists; there is no save file, no slot, no load. |
+| ~~**A shell**~~ | **Built** (ADR-0023): `game.html` — title, New Game, Continue, quit, one save slot. |
+| ~~**A campaign container**~~ | **Built** (ADR-0022): `src/sim/campaign.ts` sequences the battles and carries the party. |
+| ~~**Persistence**~~ | **Built** (ADR-0023): `src/render/storage.ts` writes one `localStorage` slot. |
 | **Story delivery** | No text before/after a battle. The story repo does not exist. |
 | **Equipment** | ADR-0021 scoped it (horizontal gear). `build.ts` still uses one placeholder weapon. |
 | **Economy** | No gil, no shops, no rewards loop. |
@@ -55,24 +55,26 @@ anything, and reaches a real ending — win or lose.**
 7. **Onboarding, hour one** — battle 1 teaches move, attack, turn order and nothing else.
    Battle 3 introduces the loadout. `docs/08` §3's ramp, minimally.
 
-> **STATUS 2026-08-20 — item 2, and the headless half of item 6, have landed (ADR-0022).**
-> `src/sim/campaign.ts` + `campaign-run.ts` sequence the battles and hold the party;
-> `data/campaign/camp-the-first-march.json` ships the 5-battle ramp. What is done and
-> what is not:
+> **STATUS 2026-08-21 — the shell has landed (ADR-0023).** The campaign is now playable
+> by a person, end to end, at **`/game.html`**: title screen → New Game / Continue →
+> briefing → the real battle → win or lose → next or retry → ending. One save slot in
+> `localStorage`. `/` stays the engine viewer and links to it. What is done and what is
+> not:
 >
 > | M0 item | State |
 > |---|---|
-> | 1. Shell | **not started** |
-> | 2. Campaign container | **done** (headless) |
-> | 3. Between-battle loop | seam only — `updatePartyMember` is where prep writes; no UI |
+> | 1. Shell | **done** — `game.html` + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
+> | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
+> | 3. Between-battle loop | seam only — `updatePartyMember` is where prep writes; the briefing screen is where it mounts; no UI |
 > | 4. Story stubs | **not started** |
 > | 5. Equipment | **not started** |
-> | 6. Failure handling | **done headlessly** — a loss is `gameOver`, retry restores the party; no UI |
+> | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
 > | 7. Onboarding | **not started** |
 >
-> Persistence (`docs/11` §3 item 2's save file) is the *codec* — `serializeCampaign` /
-> `deserializeCampaign`. Nothing writes it to disk or to `localStorage` yet; that lands
-> with the shell.
+> Persistence is now real: `src/render/storage.ts` is the only IO in the project, and
+> `src/sim/campaign.ts` stays pure by contract. An unreadable slot (corrupt, another
+> campaign, a version this build cannot migrate) is a message on the title screen with
+> New Game still working — never a crash.
 
 **Explicitly NOT in the MVP** (`docs/08` AC-R5 — log every cut):
 permadeath consequences, hybrid jobs, rewind UI, scan, speed toggle, shops, gil, a world
@@ -111,10 +113,16 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 
 ## Acceptance Criteria (SDD-ready)
 
-> **AC status 2026-08-20.** AC-M1 and AC-M3 are met on their **headless** half only —
-> the sequence is driveable and asserted end to end, but there is no title screen and no
-> player-facing game-over, so neither is fully met. AC-M2 is met (`campaign.test.ts`,
-> `campaign-run.test.ts`). AC-M4 is not started.
+> **AC status 2026-08-21.** **AC-M1, AC-M2 and AC-M3 are met on both halves** — headless
+> (`campaign.test.ts`, `campaign-run.test.ts`) and played, through the shell the browser
+> drives (`campaign-shell.test.ts`, `e2e/campaign.spec.ts`). AC-M4 is not started.
+>
+> Two things those tests deliberately do NOT claim. First, the player seat in every
+> automated run is the balance probe (watch mode) or a deliberate forfeit — so
+> "completable" is evidence of **reachability**, not of difficulty. Second, the shell's
+> `Session` is judged by `evalTerminal` against each encounter's own objectives; the
+> conditionless demo battle on `/` still uses the team-wipe read, because that is all a
+> battle with no `Condition` can honestly support (ADR-0023 decision 2).
 
 - **AC-M1 (the slice is finishable):** A single playthrough of the M0 campaign SHALL be
   driveable from title screen to ending, and that path SHALL be asserted headlessly the way

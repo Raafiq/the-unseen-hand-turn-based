@@ -148,8 +148,103 @@ export interface RunOptions {
   signaturePrefixes?: Record<string, string>;
 }
 
-/** Per-team survivors + HP fraction over the final state (teams sorted by id asc). */
-function teamReports(state: BattleState): TeamReport[] {
+/**
+ * A zeroed {@link UnitContribution}. One definition, so a unit that never acts and a
+ * unit accounted from the resolvers start from the same shape — adding a counter to
+ * {@link UnitContribution} can never leave one construction site behind.
+ */
+export function emptyContribution(): UnitContribution {
+  return {
+    damageDealt: 0,
+    healingDone: 0,
+    kos: 0,
+    statusesInflicted: 0,
+    landedActions: 0,
+    signatureActionsLanded: 0,
+  };
+}
+
+/**
+ * Seed a contribution map with a zeroed entry for EVERY unit present at load, so a
+ * reader can index it without a presence check and a unit that did nothing reports
+ * zeros rather than being absent (absent and zero are different claims).
+ */
+export function seedContributions(
+  units: readonly { id: string }[],
+): Record<string, UnitContribution> {
+  const map: Record<string, UnitContribution> = {};
+  for (const u of units) map[u.id] = emptyContribution();
+  return map;
+}
+
+/**
+ * Fold LANDED {@link ResolutionEvent}s into a contribution map, in place.
+ *
+ * THE SINGLE ACCOUNTING IMPLEMENTATION. It is exported because the interactive
+ * viewer (`src/render/session.ts`) must account a human's turns exactly the way this
+ * harness accounts the probe's — the campaign's AP grant reads `landedActions`, so a
+ * second, drifting fold in the render layer would pay a player differently from the
+ * headless runner for the same battle while both looked correct. `campaign-run` and
+ * the viewer are A/B'd against each other on precisely this.
+ */
+export function accountEvents(
+  into: Record<string, UnitContribution>,
+  events: readonly ResolutionEvent[],
+  signaturePrefixes: Readonly<Record<string, string>> = {},
+): void {
+  for (const e of events) {
+    const c = (into[e.sourceUnitId] ??= emptyContribution());
+    c.damageDealt += e.damageDealt;
+    c.healingDone += e.healingDone;
+    c.kos += e.kos;
+    c.statusesInflicted += e.statusesInflicted;
+    if (e.landed) c.landedActions += 1;
+    const prefix = signaturePrefixes[e.sourceUnitId];
+    if (e.landed && prefix !== undefined && prefix !== "" && e.abilityId.startsWith(prefix)) {
+      c.signatureActionsLanded += 1;
+    }
+  }
+}
+
+/** The run-scoped tallies a {@link RunReport} carries that the final state cannot supply. */
+export interface ReportTallies {
+  outcome: Outcome;
+  winningTeam: number | null;
+  turns: number;
+  abilityUsage: Record<string, number>;
+  contributionByUnit: Record<string, UnitContribution>;
+}
+
+/**
+ * Assemble a {@link RunReport} from a final state plus the run's tallies. Shared by the
+ * headless loop and the viewer so the two produce the SAME artifact shape from the same
+ * inputs — a report is what the campaign folds into the save, and two assemblers would
+ * be two answers to "what happened".
+ */
+export function assembleReport(state: BattleState, tallies: ReportTallies): RunReport {
+  return {
+    outcome: tallies.outcome,
+    winningTeam: tallies.winningTeam,
+    turns: tallies.turns,
+    ticks: state.tick,
+    teams: teamReports(state),
+    abilityUsage: tallies.abilityUsage,
+    contributionByUnit: tallies.contributionByUnit,
+    finalSeed: state.seed,
+    finalRngCounter: state.rngCounter,
+    finalTick: state.tick,
+  };
+}
+
+/**
+ * Per-team survivors + HP fraction over the final state (teams sorted by id asc).
+ *
+ * EXPORTED because a PLAYER-driven battle needs the same summary a probe-driven one
+ * gets. `src/render/session.ts` assembles its {@link RunReport} from these same
+ * helpers rather than re-deriving them, so "what the campaign is told happened" cannot
+ * depend on who was holding the controller.
+ */
+export function teamReports(state: BattleState): TeamReport[] {
   const teamIds = [...new Set(state.units.map((u) => u.teamId))].sort((a, b) => a - b);
   return teamIds.map((teamId) => {
     let survivors = 0;
@@ -182,35 +277,13 @@ export function runFromState(
   const abilityUsage: Record<string, number> = {};
   // Per-unit LANDED accounting. Seed an entry for every unit present at load so the
   // report always has a complete, presence-check-free contribution map.
-  const contributionByUnit: Record<string, UnitContribution> = {};
-  for (const u of initial.units) {
-    contributionByUnit[u.id] = { damageDealt: 0, healingDone: 0, kos: 0, statusesInflicted: 0, landedActions: 0, signatureActionsLanded: 0 };
-  }
+  const contributionByUnit = seedContributions(initial.units);
   // chargeId → the abilityId that declared it, so a matured charge is credited to
   // its original ability for signature counting. Filled as charges are declared.
   const chargeLabels = new Map<string, string>();
 
-  const account = (events: readonly ResolutionEvent[]): void => {
-    for (const e of events) {
-      const c = (contributionByUnit[e.sourceUnitId] ??= {
-        damageDealt: 0,
-        healingDone: 0,
-        kos: 0,
-        statusesInflicted: 0,
-        landedActions: 0,
-        signatureActionsLanded: 0,
-      });
-      c.damageDealt += e.damageDealt;
-      c.healingDone += e.healingDone;
-      c.kos += e.kos;
-      c.statusesInflicted += e.statusesInflicted;
-      if (e.landed) c.landedActions += 1;
-      const prefix = signaturePrefixes[e.sourceUnitId];
-      if (e.landed && prefix !== undefined && prefix !== "" && e.abilityId.startsWith(prefix)) {
-        c.signatureActionsLanded += 1;
-      }
-    }
-  };
+  const account = (events: readonly ResolutionEvent[]): void =>
+    accountEvents(contributionByUnit, events, signaturePrefixes);
 
   let turns = 0;
   let outcome: Outcome = "ongoing";
@@ -263,18 +336,13 @@ export function runFromState(
     turns += 1;
   }
 
-  const report: RunReport = {
+  const report = assembleReport(state, {
     outcome,
     winningTeam,
     turns,
-    ticks: state.tick,
-    teams: teamReports(state),
     abilityUsage,
     contributionByUnit,
-    finalSeed: state.seed,
-    finalRngCounter: state.rngCounter,
-    finalTick: state.tick,
-  };
+  });
   return { report, state, commands };
 }
 

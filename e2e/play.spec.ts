@@ -490,7 +490,12 @@ test("accessibility: End Turn is keyboard-reachable and Escape cancels a staged 
 
   // ── TAB REACHES THE CONTROL, WITH A VISIBLE RING (docs/04 §7, docs/10 §3).
   // Tab order is asserted explicitly rather than looped-until-found, so a control
-  // that becomes reachable only after ten tabs still fails.
+  // that becomes reachable only after ten tabs still fails. The FIRST stop is the
+  // "Play the campaign" link in the header (the game shell, docs/11 M0 item 1) —
+  // named here rather than skipped, because a silent `Tab` that lands nowhere in
+  // particular is how a tab-order regression hides.
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: /Play the campaign/ })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("grid")).toBeFocused(); // the board itself is focusable
   await page.keyboard.press("Tab");

@@ -63,6 +63,20 @@ enter `BattleState`.
   deferred effect owes a pass over the banned-key list**, and the new row needs a test
   tying what the panel promises to what the sim actually does (not just that the key
   exists).
+- **A battle with RULES is judged by `evalTerminal`; only a conditionless one may count
+  corpses.** `Session` ships both reads (ADR-0023). The team-wipe read is not a rule the
+  sim models — it is the most a battle with no `Condition` can honestly support, and it
+  is *wrong* for any authored encounter, where victory may be one named foe or a survival
+  clock. When you touch that branch, the discriminating fixture is a `defeatUnit` victory
+  with a second foe still alive: a wipe-counting viewer and `evalTerminal` give opposite
+  answers there. A fixture whose victory is "wipe team 1" passes under either and
+  certifies nothing.
+- **The viewer must never grow its own accounting.** `Session.report()` is assembled from
+  `harness.ts`'s exported fold (`seedContributions` / `accountEvents` / `assembleReport`),
+  because the campaign's AP grant reads `contributionByUnit[…].landedActions`. A second
+  fold here would pay a human differently from the probe for an identical battle, and both
+  would look correct alone. The check is the A/B in `session.test.ts`: a probe-driven
+  session's report is byte-compared to `runFromState`'s. Keep it that way.
 - **`pickTile` is not an algebraic inverse.** Per-tile height shifts a tile's screen position
   and taller tiles occlude those behind, so it walks reverse painter's order. A naive inverse
   picks the wrong tile on any raised terrain.
@@ -88,6 +102,13 @@ arcs with the same ability**. Then assert the discovery succeeded and that the t
 genuinely differ: a discovered fixture can degenerate too, and the first version of that
 helper returned two tiles that selected *different* abilities, which would have blamed the
 arc for an ability difference.
+
+**The shell has its own headless suite, and the browser spec must not duplicate it.**
+`campaign-shell.test.ts` drives the whole run — title, deploy, fight, bank, retry — over a
+memory slot. `e2e/campaign.spec.ts` exists for the half only a browser can prove: that the
+page mounts, that the screens swap, and that the save survives a real **reload**. Every
+persistence assertion in the headless file passes against an in-memory slot whether or not
+the `localStorage` wiring works, so the reload is the load-bearing one.
 
 `npm run test:visual` (build + Playwright). In the **Linux sandbox** Chromium is
 pre-installed at `/opt/pw-browsers` — never run `playwright install` there. On a **Windows

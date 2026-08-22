@@ -27,13 +27,23 @@
  */
 
 import {
-  advanceToDecision,
-  applyCommand,
+  accountEvents,
+  advanceToDecisionDetailed,
+  applyCommandDetailed,
+  assembleReport,
   decideBalanceProbe,
+  evalTerminal,
   moveRange,
+  seedContributions,
+  winningTeamOf,
   type BattleState,
+  type AppliedCommand,
   type Command,
+  type Outcome,
   type Position,
+  type RunConfig,
+  type RunReport,
+  type UnitContribution,
   type UnitState,
 } from "../sim/index.js";
 import { PLAYER_TEAM, makeDemoBattle } from "./demo.js";
@@ -88,7 +98,37 @@ export interface SessionOptions {
   makeState?: () => BattleState;
   /** Which team accepts input (docs/10 §2). Defaults to {@link PLAYER_TEAM}. */
   playerTeam?: number;
+  /**
+   * The encounter's OBJECTIVES and halting caps. Supply them and the session stops
+   * judging by team-wipe and judges by `evalTerminal` instead — the same call, with the
+   * same fold around it, that `harness.ts` uses. Omit them (the demo battle carries no
+   * conditions) and the wipe heuristic stands.
+   *
+   * This is not a cosmetic upgrade. A campaign encounter may be won by killing ONE
+   * named foe or by surviving N ticks, and a viewer still counting corpses would leave
+   * a player standing on a won battlefield with the banner unpainted — and hand the
+   * campaign the wrong outcome to bank. `session.test.ts` discriminates on exactly
+   * that: its fixture's victory is `defeatUnit`, where a team-wipe read gives the
+   * opposite answer.
+   */
+  rules?: RunConfig;
 }
+
+/**
+ * Banner prose for a RULED battle, one line per `Outcome`. It says "objective", never
+ * "team is down", because an authored victory may be a single named foe or a survival
+ * clock — wording it as a wipe would describe a rule the encounter does not use.
+ * `"ongoing"` never reaches here (the caller returns first) but is present so the map
+ * is total and a new outcome cannot silently render `undefined`.
+ */
+const OBJECTIVE_BANNER: Record<Outcome, string> = {
+  victory: "Victory — the objective is complete",
+  defeat: "Defeat — the battle is lost",
+  draw: "Draw — both objectives fired on the same beat",
+  timeout: "Timeout — the battle ran past its clock",
+  stalemate: "Stalemate — no actor can reach a turn",
+  ongoing: "The battle is still ongoing",
+};
 
 /** Why an interaction was refused — a transient chip, never a thrown error. */
 type Reason = string | null;
@@ -117,10 +157,26 @@ export class Session {
   cursor: Position | null = null;
   /** Terminal banner text once the battle is decided. */
   outcome: string | null = null;
+  /**
+   * The sim's verdict once the battle is decided (`null` while it is ongoing). Kept
+   * beside {@link outcome} because the banner is PROSE and the campaign needs the
+   * machine-readable answer — a UI string is not an `Outcome`.
+   */
+  verdict: { outcome: Outcome; winningTeam: number | null } | null = null;
+
+  /** The encounter's objectives + caps, or `null` for a conditionless battle. */
+  private readonly rules: RunConfig | null;
+  /** Per-unit LANDED accounting, folded through the harness's own `accountEvents`. */
+  private contributions: Record<string, UnitContribution> = {};
+  /** Issued-command histogram, exactly as the harness records it. */
+  private abilityUsage: Record<string, number> = {};
+  /** chargeId → the abilityId that declared it, so a matured charge is credited. */
+  private chargeLabels = new Map<string, string>();
 
   constructor(opts: SessionOptions = {}) {
     this.makeState = opts.makeState ?? makeDemoBattle;
     this.playerTeam = opts.playerTeam ?? PLAYER_TEAM;
+    this.rules = opts.rules ?? null;
     this.state = this.makeState();
     this.reset();
   }
@@ -140,7 +196,35 @@ export class Session {
     this.hover = null;
     this.cursor = null;
     this.outcome = null;
+    this.verdict = null;
+    this.contributions = seedContributions(this.state.units);
+    this.abilityUsage = {};
+    this.chargeLabels = new Map();
     this.settle();
+  }
+
+  /**
+   * What the campaign is told happened — the SAME artifact the headless harness
+   * produces, assembled from the same `harness.ts` helpers over the same tallies.
+   * `null` when the session has no rules (a conditionless demo battle has no outcome
+   * to report). While the battle is ongoing the report carries `outcome: "ongoing"`,
+   * which `applyBattleResult` refuses loudly — banking an unfinished battle is a
+   * caller bug and must not be silently accepted.
+   *
+   * WHY THIS IS NOT A SECOND ENGINE: `session.test.ts` A/Bs a probe-driven session
+   * against `runFromState` over the same encounter and asserts the two reports are
+   * byte-identical. A viewer that accounted its own way would pay a player differently
+   * from the headless runner for the same battle, and both would look correct alone.
+   */
+  report(): RunReport | null {
+    if (this.rules === null) return null;
+    return assembleReport(this.state, {
+      outcome: this.verdict?.outcome ?? "ongoing",
+      winningTeam: this.verdict?.winningTeam ?? null,
+      turns: this.turnCount,
+      abilityUsage: { ...this.abilityUsage },
+      contributionByUnit: structuredClone(this.contributions),
+    });
   }
 
   /**
@@ -155,46 +239,92 @@ export class Session {
   private settle(): void {
     this.draft = null;
 
-    // A battle handed to us already decided: never advance a decided clock.
-    if (this.finishIfDecided()) return;
+    // WITHOUT rules only: a battle handed to us already decided must never have its
+    // clock advanced. WITH rules the fold is the harness's, verbatim — advance,
+    // account, THEN judge — and the pre-check is deliberately skipped, because a
+    // charge maturing during the advance can turn a victory into a draw and the
+    // campaign has to be told what the headless runner would have been told.
+    if (this.rules === null && this.finishIfDecided()) return;
 
-    const decision = advanceToDecision(this.state);
+    const decision = advanceToDecisionDetailed(this.state, this.chargeLabels);
     this.state = decision.state;
-    if (decision.terminal !== null || decision.unitId === null) {
-      this.phase = "ENDED";
-      this.activeUnitId = null;
-      this.outcome = "Stalemate — no actor can reach a turn";
-      return;
+    // Charges that matured during the advance, credited to their source — the same
+    // call `runFromState` makes at the same point in its loop.
+    accountEvents(this.contributions, decision.events);
+
+    const stalled = decision.terminal !== null || decision.unitId === null;
+    if (this.rules !== null) {
+      // Harness order: objectives (and the halting caps) first, a genuine
+      // no-progress end second. An objective that fires on a stalled field
+      // outranks the stalemate, exactly as `runFromState` has it.
+      if (this.finishIfDecided()) return;
+      if (stalled) return void this.finishStalled();
+    } else {
+      if (stalled) return void this.finishStalled();
+      // A KO can land DURING the advance — a charge maturing on the last survivor
+      // is exactly that case — so re-check HERE. Checking only before the advance
+      // would show the banner a full turn late and ask for a command in a battle
+      // that is already over.
+      if (this.finishIfDecided()) return;
     }
-    // A KO can land DURING the advance — a charge maturing on the last survivor
-    // is exactly that case — so re-check HERE. Checking only before the advance
-    // would show the banner a full turn late and ask for a command in a battle
-    // that is already over.
-    if (this.finishIfDecided()) return;
 
     this.activeUnitId = decision.unitId;
     this.cursor = this.actor() ? { ...this.actor()!.pos } : null;
-    this.phase = this.isPlayerControlled(decision.unitId) ? "PLAYER_IDLE" : "AI_TURN";
+    this.phase = this.isPlayerControlled(decision.unitId!) ? "PLAYER_IDLE" : "AI_TURN";
   }
 
-  /** Enter `ENDED` with a banner if a team has been wiped. */
-  private finishIfDecided(): boolean {
-    const wiped = this.wipedTeam();
-    if (wiped === null) return false;
+  /** A fully-stalled field: nobody can reach a turn and no objective has fired. */
+  private finishStalled(): void {
     this.phase = "ENDED";
     this.activeUnitId = null;
-    this.outcome =
-      wiped === this.playerTeam ? "Defeat — your team is down" : "Victory — enemy team is down";
+    this.verdict = { outcome: "stalemate", winningTeam: winningTeamOf(this.state) };
+    this.outcome = "Stalemate — no actor can reach a turn";
+  }
+
+  /**
+   * Enter `ENDED` with a banner if the battle is decided.
+   *
+   * WITH rules this is `evalTerminal` — the sim's own verdict against the encounter's
+   * authored objectives and caps. WITHOUT them it is the team-wipe read below, which is
+   * all a conditionless demo battle can honestly support.
+   */
+  private finishIfDecided(): boolean {
+    const verdict = this.rules
+      ? evalTerminal(this.state, this.rules.victory, this.rules.defeat, {
+          turns: this.turnCount,
+          ticks: this.state.tick,
+          maxTurns: this.rules.maxTurns,
+          maxTicks: this.rules.maxTicks,
+        })
+      : this.wipeVerdict();
+    if (verdict === null || verdict.outcome === "ongoing") return false;
+    this.phase = "ENDED";
+    this.activeUnitId = null;
+    this.verdict = { outcome: verdict.outcome, winningTeam: verdict.winningTeam };
+    this.outcome = this.rules
+      ? OBJECTIVE_BANNER[verdict.outcome]
+      : // The conditionless read can only ever say who is still standing, so its
+        // wording names exactly that and nothing more.
+        verdict.outcome === "victory"
+        ? "Victory — enemy team is down"
+        : "Defeat — your team is down";
     return true;
   }
 
   /**
-   * A team with no living units, if any. A render-level read of `BattleState`
-   * (nobody left to act), NOT a sim verdict: the demo battle carries no victory
-   * `Condition`, and inventing one here would be the viewer asserting a rule the
-   * sim does not model. `evalTerminal` takes over when the viewer loads a real
-   * encounter.
+   * The team-wipe read, as a verdict. A render-level read of `BattleState` (nobody
+   * left to act), NOT a sim verdict: a demo battle carries no victory `Condition`, and
+   * inventing one here would be the viewer asserting a rule the sim does not model.
+   * `evalTerminal` takes over the moment {@link SessionOptions.rules} are supplied.
    */
+  private wipeVerdict(): { outcome: Outcome; winningTeam: number | null } | null {
+    const wiped = this.wipedTeam();
+    if (wiped === null) return null;
+    return wiped === this.playerTeam
+      ? { outcome: "defeat", winningTeam: null }
+      : { outcome: "victory", winningTeam: this.playerTeam };
+  }
+
   private wipedTeam(): number | null {
     const teams = [...new Set(this.state.units.map((u) => u.teamId))].sort((a, b) => a - b);
     if (teams.length < 2) return null;
@@ -457,9 +587,17 @@ export class Session {
     const actorId = this.activeUnitId;
     const chargesBefore = new Map(before.chargeQueue.map((c) => [c.id, { ...c.targetTile }]));
 
-    let after: BattleState;
+    // The ISSUED-command histogram, recorded BEFORE the command is applied and
+    // regardless of whether it lands — same position, same semantics, as the
+    // harness's loop. (`contributionByUnit` is the landed-outcome counter; these
+    // two deliberately disagree on a miss.)
+    if (command.kind === "act") {
+      this.abilityUsage[command.abilityId] = (this.abilityUsage[command.abilityId] ?? 0) + 1;
+    }
+
+    let applied: AppliedCommand;
     try {
-      after = applyCommand(before, command);
+      applied = applyCommandDetailed(before, command);
     } catch (err) {
       // docs/10 §1: a click that passed our check but that the sim rejects is
       // the viewer/sim fork this design exists to prevent. Surface it loudly.
@@ -467,8 +605,19 @@ export class Session {
       throw err;
     }
 
+    // Account the command's own landed outcome, then any reaction it WOKE — each
+    // credited to the reactor, never to the actor (ADR-0019). Order matches the
+    // order the blows landed, and matches `runFromState` line for line.
+    if (applied.event) accountEvents(this.contributions, [applied.event]);
+    if (applied.reactionEvents.length > 0) {
+      accountEvents(this.contributions, applied.reactionEvents);
+    }
+    if (applied.declaredChargeId !== null && command.kind === "act") {
+      this.chargeLabels.set(applied.declaredChargeId, command.abilityId);
+    }
+
     this.log.push(structuredClone(command));
-    this.state = after;
+    this.state = applied.state;
     this.turnCount += 1;
     this.draft = null;
     this.reason = null;

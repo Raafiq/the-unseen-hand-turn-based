@@ -20,14 +20,16 @@
  * content registry, the resulting save and reports are byte-identical.
  */
 
-import { parseEncounter, type EncounterResolver } from "./encounter.js";
-import { runEncounterDetailed, type RunOptions, type RunReport, type UnitContribution } from "./harness.js";
+import { loadEncounter, parseEncounter, type Encounter, type EncounterResolver } from "./encounter.js";
+import { runFromState, type RunOptions, type RunReport, type UnitContribution } from "./harness.js";
 import type { ApReward } from "./progression.js";
 import type { UnitRecord } from "./roster.js";
+import type { BattleState } from "./state.js";
 import {
   applyBattleResult,
   currentBattle,
   startCampaign,
+  type CampaignBattle,
   type CampaignDef,
   type CampaignSave,
   CampaignSchemaVersionError,
@@ -77,12 +79,131 @@ function rewardOf(contribution: UnitContribution | undefined): ApReward {
 }
 
 /**
- * Fight ONE battle of the campaign and fold it into the save. Exposed separately from
- * {@link runCampaign} because the viewer drives battles one at a time — the shell hands
- * the player a battle, and calls this (or its player-driven equivalent) when it ends.
+ * The record map an encounter of this campaign is resolved against.
  *
- * Throws if the save is not `in-progress`, or if the def names an encounter the caller
- * did not supply — an unresolvable battle must fail loud, not silently end the campaign.
+ * THE ENTIRE PARTY-CARRY MECHANISM IS THIS FUNCTION, and it is one function on purpose.
+ * Every path that starts a campaign battle — the headless runner AND the viewer — goes
+ * through it, so "does progress carry?" has exactly one answer and exactly one place to
+ * get wrong. Cast first, save's party second: the SAVE wins any id collision, which is
+ * the one ordering that keeps progress flowing forward. (The def's uniqueness refine
+ * means there is normally no collision to resolve.) Feed it `def.party` instead and
+ * every battle silently restarts from scratch while every per-battle test stays green —
+ * `campaign-run.test.ts`'s "fought with the SAVE's party" A/B is the only thing that
+ * catches it, on both paths.
+ */
+export function campaignBattleRecords(
+  def: CampaignDef,
+  save: CampaignSave,
+): Record<string, UnitRecord> {
+  const records: Record<string, UnitRecord> = {};
+  for (const rec of def.cast) records[rec.id] = rec;
+  for (const rec of save.party) records[rec.id] = rec;
+  return records;
+}
+
+/** The battle this save is sitting on, compiled and ready to fight. */
+export interface LoadedCampaignBattle {
+  battle: CampaignBattle;
+  /** The parsed encounter — its objectives and caps judge the battle. */
+  encounter: Encounter;
+  /** A fresh {@link BattleState} with the SAVE's party deployed. */
+  state: BattleState;
+}
+
+/**
+ * Compile the campaign's current battle into a playable {@link BattleState}.
+ *
+ * Exposed separately from {@link runCampaignBattle} because the VIEWER does not want the
+ * battle fought for it — it wants the board, hands it to a human, and folds the result
+ * back with {@link resolveCampaignBattle}. Both halves are shared with the headless
+ * runner, so a played battle and a probed battle start from the same state and are
+ * judged by the same objectives.
+ *
+ * Throws if the save is not sitting on a battle, or if the def names an encounter the
+ * caller did not supply — an unresolvable battle must fail loud, not silently end the
+ * campaign.
+ */
+export function loadCampaignBattle(
+  def: CampaignDef,
+  save: CampaignSave,
+  encounters: EncounterMap,
+  resolver: EncounterResolver,
+): LoadedCampaignBattle {
+  const battle = currentBattle(def, save);
+  if (!battle) {
+    throw new CampaignSchemaVersionError(
+      `loadCampaignBattle: campaign "${save.campaignId}" has no battle at index ${save.battleIndex}`,
+    );
+  }
+  const encDef = encounters[battle.encounterId];
+  if (encDef === undefined) {
+    throw new CampaignSchemaVersionError(
+      `loadCampaignBattle: no encounter data supplied for "${battle.encounterId}"`,
+    );
+  }
+  const records = campaignBattleRecords(def, save);
+  const encounter = parseEncounter(encDef);
+  const state = loadEncounter(encounter, { ...resolver, records });
+  return { battle, encounter, state };
+}
+
+/**
+ * party record id → the AP that battle earned it, derived from a finished battle's
+ * per-unit contributions.
+ *
+ * `contributionByUnit` is keyed by BATTLE unit id, which `loadEncounter` assigns from
+ * the placement's `slotId` — NOT the record id. Mapping back through the placements is
+ * what credits a party member deployed under any slot name, and is the reason this is a
+ * function rather than two lines copied into each caller: the viewer needs exactly this
+ * mapping, and a second copy would drift the moment slot naming changed.
+ */
+export function deriveRewards(
+  def: CampaignDef,
+  save: CampaignSave,
+  encounter: Encounter,
+  contributionByUnit: Readonly<Record<string, UnitContribution>>,
+): Record<string, ApReward> {
+  const rewards: Record<string, ApReward> = {};
+  for (const p of encounter.placements) {
+    if (p.teamId !== def.playerTeam) continue;
+    const src = p.unit;
+    if (src.kind !== "ref") continue;
+    if (!save.party.some((r) => r.id === src.recordId)) continue;
+    rewards[src.recordId] = rewardOf(contributionByUnit[p.slotId]);
+  }
+  return rewards;
+}
+
+/**
+ * Fold an ALREADY-FINISHED battle into the save — the seam a player-driven battle comes
+ * back through (docs/11 M0 item 1). The report may come from the headless harness or
+ * from the interactive viewer; both assemble it from the same `harness.ts` helpers, so
+ * the campaign cannot tell (and must not care) who was holding the controller.
+ */
+export function resolveCampaignBattle(
+  def: CampaignDef,
+  save: CampaignSave,
+  encounter: Encounter,
+  report: RunReport,
+): { save: CampaignSave; battle: CampaignBattleRun } {
+  const battle = currentBattle(def, save);
+  if (!battle) {
+    throw new CampaignSchemaVersionError(
+      `resolveCampaignBattle: campaign "${save.campaignId}" has no battle at index ${save.battleIndex}`,
+    );
+  }
+  const rewards = deriveRewards(def, save, encounter, report.contributionByUnit);
+  const next = applyBattleResult(def, save, { outcome: report.outcome, rewards });
+  return {
+    save: next,
+    battle: { battleId: battle.id, encounterId: battle.encounterId, report, rewards },
+  };
+}
+
+/**
+ * Fight ONE battle of the campaign with the balance probe on both seats and fold it in.
+ * Composed from {@link loadCampaignBattle} + {@link resolveCampaignBattle} so the
+ * headless path and the viewer path share every step except who chooses the commands.
  */
 export function runCampaignBattle(
   def: CampaignDef,
@@ -91,46 +212,19 @@ export function runCampaignBattle(
   resolver: EncounterResolver,
   opts: CampaignRunOptions = {},
 ): { save: CampaignSave; battle: CampaignBattleRun } {
-  const battle = currentBattle(def, save);
-  if (!battle) {
-    throw new CampaignSchemaVersionError(
-      `runCampaignBattle: campaign "${save.campaignId}" has no battle at index ${save.battleIndex}`,
-    );
-  }
-  const encDef = encounters[battle.encounterId];
-  if (encDef === undefined) {
-    throw new CampaignSchemaVersionError(
-      `runCampaignBattle: no encounter data supplied for "${battle.encounterId}"`,
-    );
-  }
-
-  // Cast first, party second: the SAVE's party wins any id collision, which is the one
-  // ordering that keeps progress flowing forward. (The def's own uniqueness refine means
-  // there is normally no collision to resolve.)
-  const records: Record<string, UnitRecord> = {};
-  for (const rec of def.cast) records[rec.id] = rec;
-  for (const rec of save.party) records[rec.id] = rec;
-
-  const enc = parseEncounter(encDef);
-  const run = runEncounterDetailed(encDef, { ...resolver, records }, undefined, opts);
-
-  // contributionByUnit is keyed by battle unit id, which loadEncounter assigns from the
-  // placement's slotId — NOT the record id. Map back through the placements so a party
-  // member deployed under any slot name is credited.
-  const rewards: Record<string, ApReward> = {};
-  for (const p of enc.placements) {
-    if (p.teamId !== def.playerTeam) continue;
-    const src = p.unit;
-    if (src.kind !== "ref") continue;
-    if (!save.party.some((r) => r.id === src.recordId)) continue;
-    rewards[src.recordId] = rewardOf(run.report.contributionByUnit[p.slotId]);
-  }
-
-  const next = applyBattleResult(def, save, { outcome: run.report.outcome, rewards });
-  return {
-    save: next,
-    battle: { battleId: battle.id, encounterId: battle.encounterId, report: run.report, rewards },
-  };
+  const loaded = loadCampaignBattle(def, save, encounters, resolver);
+  const enc = loaded.encounter;
+  const run = runFromState(
+    loaded.state,
+    {
+      victory: enc.victory,
+      defeat: enc.defeat,
+      maxTurns: opts.maxTurns ?? enc.maxTurns,
+      maxTicks: opts.maxTicks ?? enc.maxTicks,
+    },
+    opts,
+  );
+  return resolveCampaignBattle(def, save, enc, run.report);
 }
 
 /**

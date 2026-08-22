@@ -24,11 +24,14 @@ import {
   defaultUnit,
   makeFlatTiles,
   replay,
+  runFromState,
   serialize,
   tileAt,
   type BattleState,
   type Command,
   type Position,
+  type RunConfig,
+  type RunReport,
   type Tile,
   type UnitState,
 } from "../sim/index.js";
@@ -1077,5 +1080,182 @@ describe("Session — watch mode and reset", () => {
     expect(s.turnCount).toBe(0);
     expect(s.phase).toBe("PLAYER_IDLE");
     expect(unit(s.state, "hero").pos).toEqual(HERO_START);
+  });
+});
+
+// ─── ruled battles: the encounter's objectives, not a corpse count ───────────
+
+/**
+ * AC-M1/AC-M3 fixture — 5×3 flat, ONE hero (team 0) and TWO foes (team 1), of which
+ * only `mark` is the objective. `spare` stands two tiles away, out of everyone's
+ * opening reach, with 400 HP, so it neither dies nor decides anything.
+ *
+ * THE DISCRIMINATION IS THE WHOLE POINT. Killing `mark` satisfies a
+ * `defeatUnit` victory while team 1 is still standing — so the team-wipe read the
+ * viewer shipped with and `evalTerminal` give OPPOSITE answers on the same board.
+ * A fixture whose victory was "wipe team 1" would pass under either, certify
+ * nothing, and read as if it had.
+ */
+const R_HERO: Position = { x: 1, y: 1 };
+const R_MARK: Position = { x: 2, y: 1 };
+const R_SPARE: Position = { x: 4, y: 0 };
+
+function ruledFixture(): BattleState {
+  const width = 5;
+  const height = 3;
+  const hero = defaultUnit("hero", 0, {
+    pos: { ...R_HERO },
+    facing: "E",
+    speed: 12,
+    move: 1,
+    jump: 1,
+    hp: 400,
+    maxHp: 400,
+    pa: 10,
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+  });
+  const mark = defaultUnit("mark", 1, {
+    pos: { ...R_MARK },
+    facing: "W",
+    speed: 8,
+    move: 1,
+    jump: 1,
+    hp: 1,
+    maxHp: 400,
+    pa: 6,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+  });
+  const spare = defaultUnit("spare", 1, {
+    pos: { ...R_SPARE },
+    facing: "W",
+    speed: 6,
+    move: 1,
+    jump: 1,
+    hp: 400,
+    maxHp: 400,
+    pa: 6,
+    evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+  });
+  return createBattleState({
+    seed: 4242,
+    grid: { width, height, tiles: makeFlatTiles(width, height, 0) },
+    units: [hero, mark, spare],
+  });
+}
+
+/** Kill the mark, keep playing otherwise: victory ⇔ `mark` is down. */
+const MARK_RULES: RunConfig = {
+  victory: { kind: "defeatUnit", unitId: "mark" },
+  defeat: { kind: "eliminateTeams", teams: [0] },
+  maxTurns: 200,
+  maxTicks: 2000,
+};
+
+describe("a ruled battle is judged by the encounter's objectives (docs/11 AC-M1)", () => {
+  it("DISCRIMINATING: the objective ends it while the enemy team still stands", () => {
+    const s = new Session({ makeState: ruledFixture, playerTeam: 0, rules: MARK_RULES });
+    expect(s.phase).toBe("PLAYER_IDLE");
+
+    s.onPick(R_MARK); // one certain-kill swing on the objective
+
+    expect(unit(s.state, "mark").hp).toBeLessThanOrEqual(0);
+    expect(unit(s.state, "spare").hp).toBeGreaterThan(0); // team 1 is NOT wiped
+    expect(s.phase).toBe("ENDED");
+    // `winningTeam` is null because a `defeatUnit` objective names no beneficiary —
+    // the sim's own honest answer (condition.ts), reported rather than invented here.
+    expect(s.verdict).toEqual({ outcome: "victory", winningTeam: null });
+    expect(s.outcome).toBe("Victory — the objective is complete");
+  });
+
+  it("A/B: the SAME board with the rules stripped does NOT end — the option is live", () => {
+    // The dead-capability check (CLAUDE.md): validated-then-discarded options look
+    // identical to wired ones. Construct the same fixture with and without `rules`
+    // and assert the OUTPUTS differ. Without them the wipe read is still waiting on
+    // `spare`, so the battle runs on.
+    const ruled = new Session({ makeState: ruledFixture, playerTeam: 0, rules: MARK_RULES });
+    const unruled = new Session({ makeState: ruledFixture, playerTeam: 0 });
+    ruled.onPick(R_MARK);
+    unruled.onPick(R_MARK);
+
+    expect(serialize(ruled.state)).toBe(serialize(unruled.state)); // same events…
+    expect(ruled.phase).toBe("ENDED"); // …opposite verdicts
+    expect(unruled.phase).not.toBe("ENDED");
+    expect(unruled.verdict).toBeNull();
+    expect(unruled.report()).toBeNull(); // no rules ⇒ nothing to report, not a fake one
+  });
+
+  it("the DEFEAT clause is read too, from the sim, not from who is standing", () => {
+    // Same board, but the encounter says team 0 losing its last unit is the defeat.
+    // Driven from the other seat so the hero is the one that dies.
+    const s = new Session({
+      makeState: ruledFixture,
+      playerTeam: 1,
+      rules: {
+        victory: { kind: "eliminateTeams", teams: [1] },
+        defeat: { kind: "defeatUnit", unitId: "mark" },
+        maxTurns: 200,
+        maxTicks: 2000,
+      },
+    });
+    s.step(); // the hero (fastest) kills the mark
+    expect(s.phase).toBe("ENDED");
+    expect(s.verdict?.outcome).toBe("defeat");
+    expect(s.outcome).toBe("Defeat — the battle is lost");
+  });
+
+  it("the halting caps end it as `timeout`, exactly as the harness does", () => {
+    const s = new Session({
+      makeState: ruledFixture,
+      playerTeam: 0,
+      rules: { ...MARK_RULES, maxTurns: 1 },
+    });
+    // Turn 0 is allowed; the check runs at the top of the NEXT settle with turns = 1.
+    expect(s.phase).toBe("PLAYER_IDLE");
+    s.endTurn();
+    expect(s.phase).toBe("ENDED");
+    expect(s.verdict?.outcome).toBe("timeout");
+  });
+});
+
+describe("a played battle reports what a probed one reports (docs/11 AC-M1)", () => {
+  /**
+   * THE A/B THAT KEEPS THE VIEWER FROM BECOMING A SECOND ENGINE. `Session.step()` is
+   * watch mode: it resolves whoever is active through `decideBalanceProbe`, which is
+   * exactly `runFromState`'s default decider. So driving a session to the end and
+   * running the same state headlessly must produce the SAME RunReport — outcome,
+   * turns, ticks, ability usage and every per-unit contribution.
+   *
+   * This is the check that can come out the other way. The campaign's AP grant reads
+   * `contributionByUnit[…].landedActions`; a viewer with its own accounting fold would
+   * pay a human differently from the probe for an identical battle, and BOTH would
+   * look correct in isolation. Byte-comparing the reports is what makes that visible.
+   */
+  function drivenReport(): RunReport {
+    const s = new Session({ makeState: ruledFixture, playerTeam: 0, rules: MARK_RULES });
+    let guard = 0;
+    while (s.phase !== "ENDED") {
+      s.step();
+      if (++guard > 200) throw new Error("the driven session never reached an ending");
+    }
+    const report = s.report();
+    if (!report) throw new Error("a ruled session must produce a report");
+    return report;
+  }
+
+  it("the viewer's report is byte-identical to the headless harness's", () => {
+    const headless = runFromState(ruledFixture(), MARK_RULES).report;
+    expect(JSON.stringify(drivenReport())).toBe(JSON.stringify(headless));
+  });
+
+  it("and the report is NOT vacuous — the battle actually did something", () => {
+    // A report of all zeros would compare equal to another report of all zeros. Assert
+    // the fixture produces real accounting, so the equality above has content.
+    const report = drivenReport();
+    expect(report.outcome).toBe("victory");
+    expect(report.turns).toBeGreaterThan(0);
+    expect(report.contributionByUnit["hero"]?.landedActions).toBeGreaterThan(0);
+    expect(report.contributionByUnit["hero"]?.kos).toBe(1);
+    expect(Object.keys(report.abilityUsage).length).toBeGreaterThan(0);
   });
 });

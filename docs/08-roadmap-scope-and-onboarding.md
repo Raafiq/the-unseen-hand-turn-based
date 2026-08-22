@@ -31,7 +31,9 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > `N = 6` two slices after the gate reached 7. Reconciled again on **2026-08-20** for the
 > first `docs/11` M0 slice — which lands OUTSIDE this list, since M0 is the *game* roadmap
 > and P0–P4 is the *engine* one. Nothing below moved; the campaign container is tracked in
-> `docs/11` §3's own status table.
+> `docs/11` §3's own status table. Reconciled again on **2026-08-21** for the shell slice
+> (ADR-0023): again nothing below moved — the shell, the save slot and the played campaign
+> are all `docs/11` M0 items, and P2's `N ≥ 8` is still open at **N = 7**.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -76,10 +78,13 @@ toggle.
 
 **P4 — Content, balance, polish · NOT STARTED.**
 
-> **Where the work actually is right now (2026-08-20):** `docs/11`'s **M0 playable slice**,
+> **Where the work actually is right now (2026-08-21):** `docs/11`'s **M0 playable slice**,
 > not P2's remaining boxes. The two P2 items still open (N ≥ 8, MP enforcement) are carried
-> into `docs/11` M1 by the user decision recorded above. M0's first slice — the campaign
-> container and the party save (ADR-0022) — has landed headlessly.
+> into `docs/11` M1 by the user decision recorded above. M0's first two slices have landed:
+> the campaign container and party save (ADR-0022), then the **shell** — title screen, one
+> `localStorage` save slot, and the campaign's battles played in the real viewer (ADR-0023).
+> A person can now start the game and finish it. What M0 still lacks: the between-battle
+> prep loop, story stubs, equipment and onboarding (`docs/11` §3's own status table).
 
 ## 2. Scope & cut-lines (for a small/solo team)
 

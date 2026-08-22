@@ -61,6 +61,33 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
   both sides).
 - `prep.ts` — the prep/loadout viewer (customization pillar): the 5-slot chassis
   and the live battle-command projection, independent of the battle above.
+- `panels.ts` — the timeline, status line, **resolution preview** and turn log as
+  pure `state → HTML`, shared by both pages. Presentation metadata is injected
+  (`LookUp`), so the demo's hand-authored roster and a campaign's records use the
+  same renderer. The preview's "not modeled yet, so not shown" list is an
+  assertion; one renderer means one list to keep honest.
+- `campaign-shell.ts` — **the game shell** (`docs/11` M0 item 1, ADR-0023):
+  title → briefing → battle → after-battle → completed, the save slot, retry.
+  DOM-free for the same reason `session.ts` is, so "title screen to ending" is a
+  unit test (`campaign-shell.test.ts`), not only a Playwright run. It starts
+  battles with `loadCampaignBattle` and ends them with `resolveCampaignBattle` —
+  the same two calls the headless `runCampaignBattle` is built from.
+- `storage.ts` — **the only persistent IO in the project**. A three-method
+  `SaveSlot` over `localStorage` (or memory). Reads return a discriminated
+  `LoadedSave` and never throw, so a corrupt slot is a message on the title
+  screen; writes DO throw, because a save that silently fails to write looks
+  exactly like one that worked.
+- `campaign-data.ts` — the shipped campaign + encounters + content pack, bundled
+  for the browser. The sim never reads a file; this is the caller that does.
+- `game.ts` / `game-api.ts` — DOM wiring for `game.html`, and the
+  `window.tuhGame` seam's type (shared with `e2e/campaign.spec.ts`).
+
+## Two pages
+
+`index.html` (`main.ts`) is the **engine viewer**: one demo battle, every internal
+number on show, and the prep panel. `game.html` (`game.ts`) is **the game**: the
+campaign shell. Both are entries in `vite.config.ts` — a page missing from
+`rollupOptions.input` builds under `npm run dev` and does not exist in `dist`.
 
 ## What changed with ADR-0015 (and why)
 
