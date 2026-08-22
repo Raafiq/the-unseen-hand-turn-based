@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "retrospective", "runs": [{"id": "eval-0-checkable-rule-routes-to-lint-new_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Session retrospective\n\nThree candidate lessons from this session. Two survive; one is dropped as noise. Both survivors route to **rung 1 (machine-checkable rule)** \u2014 neither needs a line of prose anywhere.\n\n---\n\n## Candidate 1: TypeORM queries on `ShiftRepository` shipped without tenant scoping \u2014 twice\n\n**Signal:** You stopped me twice for the same mistake: a query missing `.andWhere('shift.accountId = :accountId')`. Recurring correction, high stakes (tenant data leak in a multi-tenant app). This is the strongest signal a session can produce.\n\n**Load-bearing test:** A future agent writing any query against a tenant-owned repository would be forced to scope it by `accountId` \u2014 passes.\n\n**Routing:** The temptation is a CLAUDE.md line (\"this app is multi-tenant; always scope by accountId\"). But a violation of this rule is *visible in the code*: a query-builder chain that reaches a terminal call without an `accountId` predicate. That makes it machine-checkable, so it goes to **rung 1: a custom ESLint rule** \u2014 a lint failure fires on every future violation forever, with no agent needing to remember anything. Prose would be read once and forgotten under context pressure; the multi-tenancy *fact* is carried by the rule's error message, so it needs no second home.\n\n**Proposed diff (rung 1 \u2014 custom ESLint rule):**\n\n```\nFile: tools/eslint-rules/rules/require-account-scope.ts   (new file)\n```\n```ts\nimport { ESLintUtils, TSESTree } from '@typescript-eslint/utils';\n\nconst createRule = ESLintUtils.RuleCreator(\n  () => 'tools/eslint-rules/rules/require-account-scope.ts',\n);\n\n/**\n * Multi-tenant guard: any TypeORM query-builder chain that reaches a terminal\n * call (getMany/getOne/getCount/getRawMany/getRawOne/find/findOne/findAndCount)\n * on a tenant-owned repository must contain a where/andWhere clause that\n * references `accountId`. An unscoped query leaks data across tenants.\n */\nconst TERMINAL_CALLS = new Set([\n  'getMany', 'getOne', 'getOneOrFail', 'getCount', 'getRawMany', 'getRawOne',\n  'find', 'findOne', 'findOneOrFail', 'findAndCount', 'findBy', 'findOneBy',\n]);\nconst WHERE_CALLS = new Set(['where', 'andWhere', 'orWhere']);\n\nexport const requireAccountScope = createRule({\n  name: 'require-account-scope',\n  meta: {\n    type: 'problem',\n    docs: {\n      description:\n        'Every query on a tenant-owned repository must filter by accountId (multi-tenant app).',\n    },\n    messages: {\n      unscoped:\n        'Query reaches \"{{terminal}}\" without a where/andWhere referencing accountId. ' +\n        'This is a multi-tenant app \u2014 an unscoped query leaks tenant data.',\n    },\n    schema: [],\n  },\n  defaultOptions: [],\n  create(context) {\n    function chainHasAccountScope(node: TSESTree.CallExpression): boolean {\n      let current: TSESTree.Node | undefined = node;\n      while (\n        current?.type === 'CallExpression' &&\n        current.callee.type === 'MemberExpression'\n      ) {\n        const callee = current.callee;\n        if (\n          callee.property.type === 'Identifier' &&\n          WHERE_CALLS.has(callee.property.name)\n        ) {\n          const argText = context.sourceCode.getText(current.arguments[0] ?? current);\n          if (/accountId/.test(argText)) return true;\n        }\n        current = callee.object;\n      }\n      // Also accept find({ where: { accountId: ... } }) object-literal form.\n      const firstArg = node.arguments[0];\n      if (firstArg && /accountId/.test(context.sourceCode.getText(firstArg))) {\n        return true;\n      }\n      return false;\n    }\n\n    return {\n      CallExpression(node) {\n        if (\n          node.callee.type !== 'MemberExpression' ||\n          node.callee.property.type !== 'Identifier' ||\n          !TERMINAL_CALLS.has(node.callee.property.name)\n        ) {\n          return;\n        }\n        // Only police chains that trace back to a repository / query builder.\n        const chainText = context.sourceCode.getText(node);\n        if (!/Repository|createQueryBuilder/.test(chainText)) return;\n        if (!chainHasAccountScope(node)) {\n          context.report({\n            node,\n            messageId: 'unscoped',\n            data: { terminal: node.callee.property.name },\n          });\n        }\n      },\n    };\n  },\n});\n```\n```\nFile: eslint.config.mjs   (root flat config \u2014 wire the rule for the backend libs)\n+ import { requireAccountScope } from './tools/eslint-rules/rules/require-account-scope.ts';\n+\n+ export default [\n+   // ...existing config...\n+   {\n+     files: ['apps/api/**/*.ts', 'libs/**/data-access/**/*.ts'],\n+     plugins: { 'tenant': { rules: { 'require-account-scope': requireAccountScope } } },\n+     rules: { 'tenant/require-account-scope': 'error' },\n+   },\n+ ];\n```\n\n**Load-bearing because:** an unscoped tenant query now fails lint on every future change \u2014 the exact mistake that happened twice this session becomes mechanically impossible to ship, with no agent needing to remember anything.\n\n*Honest limits, so this guard can't lie:* a regex-over-source heuristic can be fooled (a `where` built in a helper function, or an `accountId` mention that isn't actually a predicate). It catches the failure mode that actually occurred \u2014 a chain written inline with the clause simply missing \u2014 and errs toward false positives (an inline `// eslint-disable-next-line tenant/require-account-scope -- <reason>` is then a visible, reviewable exemption rather than a silent leak).\n\n---\n\n## Candidate 2: use `date-fns`, never `moment`\n\n**Signal:** Corrected once \u2014 I reached for `moment` for a date diff; the project uses `date-fns` everywhere. Fixed cleanly after that.\n\n**Load-bearing test:** A future agent (who starts with no memory of this session) would plausibly reach for `moment` again; the rule changes that on the first keystroke \u2014 passes.\n\n**Routing:** One correction, low friction \u2014 but the violation is trivially visible in code (an import statement), and ESLint already has a built-in for exactly this. When the guard is a three-line config entry in a tool that already runs on every change, the bar for \"worth persisting\" is low. **Rung 1: built-in ESLint rule** \u2014 no custom code, no prose.\n\n**Proposed diff (rung 1 \u2014 `no-restricted-imports`):**\n\n```\nFile: eslint.config.mjs   (root flat config, applies repo-wide)\n+ {\n+   files: ['**/*.ts'],\n+   rules: {\n+     'no-restricted-imports': ['error', {\n+       paths: [{\n+         name: 'moment',\n+         message: 'This repo uses date-fns for all date handling. Import from \"date-fns\" instead.',\n+       }],\n+     }],\n+   },\n+ },\n```\n\n**Load-bearing because:** any future `import moment` fails lint immediately with a message that names the sanctioned alternative, so the convention enforces itself instead of costing a correction per session.\n\n---\n\n## Candidate 3: `readonly` on DTO fields\n\n**Signal:** Mentioned once, in passing, explicitly waved off (\"not a big deal\").\n\n**Load-bearing test / routing:** **Dropped \u2014 rung 5 (nowhere).** A preference stated once and downgraded by the user is noise by this skill's own weighting; persisting it would spend every future agent's attention on something the user said doesn't matter. (If it ever hardens into a real preference, it is a one-line lint config \u2014 say the word and I'll add it \u2014 but it does not clear the bar today.)\n\n---\n\n## Summary\n\n| Lesson | Verdict | Home |\n|---|---|---|\n| Tenant queries must scope by `accountId` (corrected 2x) | Keep | Rung 1 \u2014 custom ESLint rule `tenant/require-account-scope` |\n| `date-fns`, not `moment` (corrected 1x) | Keep | Rung 1 \u2014 built-in `no-restricted-imports` config |\n| `readonly` on DTO fields (\"not a big deal\") | Drop | Nowhere \u2014 user-waved-off one-off |\n\nNothing routes to a hook (no *when*-shaped lesson occurred), no skill (no judgment-requiring know-how \u2014 both survivors are mechanically checkable), and nothing to CLAUDE.md (no uncheckable fact remains once the lint rule carries the multi-tenancy invariant in its error message). On your confirmation I would apply the two lint diffs; the `readonly` preference stays in the chat.\n"}], "grading": {"expectations": [{"text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'", "passed": true, "evidence": "retrospective.md Candidate 1 routes it to 'rung 1: a custom ESLint rule' (tenant/require-account-scope, full rule source in tools/eslint-rules/rules/require-account-scope.ts plus eslint.config.mjs wiring). It explicitly rejects the CLAUDE.md alternative: 'The temptation is a CLAUDE.md line... Prose would be read once and forgotten under context pressure; the multi-tenancy fact is carried by the rule's error message, so it needs no second home.' The summary confirms 'nothing to CLAUDE.md'. Single home, no 'additionally'."}, {"text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose", "passed": true, "evidence": "retrospective.md Candidate 2: 'Rung 1: built-in ESLint rule \u2014 no custom code, no prose', with a concrete no-restricted-imports config diff for eslint.config.mjs banning 'moment' with the message 'This repo uses date-fns for all date handling. Import from \"date-fns\" instead.' No prose home is proposed anywhere for this lesson."}, {"text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere", "passed": true, "evidence": "retrospective.md Candidate 3: 'Dropped \u2014 rung 5 (nowhere). A preference stated once and downgraded by the user is noise by this skill's own weighting.' Summary table: 'Drop | Nowhere \u2014 user-waved-off one-off', and closing line 'the readonly preference stays in the chat.' No diff or file placement is proposed for it."}, {"text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason", "passed": true, "evidence": "Both survivors have named target files and exact content: Candidate 1 gives the complete rule source for a new file 'tools/eslint-rules/rules/require-account-scope.ts' plus a + diff for 'eslint.config.mjs', followed by 'Load-bearing because: an unscoped tenant query now fails lint on every future change...'. Candidate 2 gives a + diff for 'eslint.config.mjs' followed by 'Load-bearing because: any future import moment fails lint immediately...'. Each load-bearing reason is a single sentence."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "execution_metrics": {"tool_calls": null, "total_tool_calls": null, "total_steps": 5, "errors_encountered": 0, "output_chars": 10462, "transcript_chars": 2389, "note": "No metrics.json present; output_chars = retrospective.md (8073) + transcript.md (2389); step count from the numbered transcript."}, "timing": {"executor_duration_seconds": 77.5, "grader_duration_seconds": null, "total_duration_seconds": 77.5}, "claims": [{"claim": "The accountId scoping mistake was corrected twice and is the highest-weight signal", "type": "factual", "verified": true, "evidence": "Consistent between transcript step 3 and retrospective.md Candidate 1; matches the eval's fictional session summary as described."}, {"claim": "The multi-tenancy fact needs no second home because the lint rule's error message carries it", "type": "quality", "verified": true, "evidence": "The rule's 'unscoped' message text does state 'This is a multi-tenant app \u2014 an unscoped query leaks tenant data', so the claim is substantiated by the proposed content itself."}, {"claim": "The custom rule catches the failure mode that actually occurred and errs toward false positives", "type": "quality", "verified": false, "evidence": "Plausible from reading the rule source (inline chains missing a where/accountId clause would be flagged), but the rule was never executed against sample code, so 'errs toward false positives' is reasoned, not demonstrated. The retrospective itself flags the heuristic's limits honestly, which mitigates this."}, {"claim": "Nothing routes to a hook or a skill; auto-memory is forbidden by the skill", "type": "process", "verified": true, "evidence": "Transcript step 4 records each rejected home with a reason (no when-shaped lesson, no judgment-requiring know-how, skill forbids auto-memory), and retrospective.md's closing paragraph restates the first two."}, {"claim": "No real files were modified; diffs are proposals only", "type": "process", "verified": true, "evidence": "outputs/ contains only retrospective.md and transcript.md; all diffs live inside retrospective.md as fenced blocks, and the closing line gates application on confirmation."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present in outputs_dir."}, "eval_feedback": {"suggestions": [{"assertion": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason", "reason": "This passes on textual completeness, but nothing checks the proposed ESLint rule would actually compile or fire on the offending pattern. A syntactically broken custom rule would pass identically. If the eval can afford it, an assertion that the no-restricted-imports config is valid flat-config shape (or that the custom rule is at least parseable TS) would discriminate real diffs from convincing-looking pseudo-diffs."}], "overall": "Assertions are well-targeted at routing decisions and discriminate the failure modes the skill is meant to prevent (prose-by-default, dual homes, hoarding one-offs). Only gap is that diff 'concreteness' is judged by presence, not executability."}}}, {"id": "eval-0-checkable-rule-routes-to-lint-old_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Session retrospective\n\nThree candidate lessons came out of this session. One clears the load-bearing bar, one is borderline and proposed as a single line, one is noise and dropped. Proposals below are diffs for your approval \u2014 nothing has been written yet.\n\n## Candidate 1 \u2014 Tenant scoping on queries (KEEP \u2192 CLAUDE.md)\n\n**What happened:** Twice you had to stop me because a TypeORM query on `ShiftRepository` was missing `.andWhere('shift.accountId = :accountId')`. This is a multi-tenant app; an unscoped query leaks one tenant's data into another's.\n\n**Why it survives the filter:** Corrected twice \u2014 the strongest recurrence signal in the session \u2014 and the cost of the mistake is a data leak, not a style nit. The code doesn't announce this rule on its own: a query without the clause compiles, runs, and returns plausible data.\n\n**Routing:** This is an invariant \u2014 a rule that is simply true everywhere in this project, not a procedure. Invariants go to the project `CLAUDE.md`, where every agent reads it on every task.\n\n**Proposed diff:**\n\n```\nFile: CLAUDE.md   (under \"Conventions\" \u2014 create the section if absent)\n+ - Multi-tenant app: every database query must be scoped to the current\n+   tenant \u2014 TypeORM queries on tenant-owned entities (e.g. ShiftRepository)\n+   must include `.andWhere('<alias>.accountId = :accountId')` (or the\n+   equivalent `where` clause). An unscoped query leaks one tenant's data\n+   into another's.\n```\n\nLoad-bearing because: a future agent adds the `accountId` scope to every query by default instead of being caught twice in review.\n\n## Candidate 2 \u2014 `date-fns`, not `moment` (KEEP, borderline \u2192 CLAUDE.md)\n\n**What happened:** I used `moment` for a date diff; you said the project uses `date-fns` everywhere. One correction, fixed immediately, no further friction.\n\n**Why it (just) survives:** Single occurrence, low friction \u2014 normally noise. But it is a real project-wide convention an agent can get wrong again (especially if `moment` still sits in `package.json` as a transitive or legacy dep), and it costs one line to state. The load-bearing sentence still works: a future agent reaches for `date-fns` first instead of `moment`.\n\n**Routing:** An invariant (a \"use X, not Y\" rule), not know-how \u2192 project `CLAUDE.md`, same Conventions section.\n\n**Proposed diff:**\n\n```\nFile: CLAUDE.md   (under \"Conventions\")\n+ - Dates: use `date-fns` for all date/time manipulation. Never introduce\n+   `moment`.\n```\n\nLoad-bearing because: a future agent picks `date-fns` for date work without a correction round-trip.\n\nIf you'd rather keep CLAUDE.md sparer, dropping this one is defensible \u2014 say the word and I'll leave it out.\n\n## Candidate 3 \u2014 `readonly` on DTO fields (DROP)\n\n**What happened:** You mentioned once, in passing, that you prefer `readonly` on DTO fields, and explicitly said \"not a big deal\".\n\n**Why it's dropped:** This is exactly the skill's noise pattern \u2014 a preference mentioned once and waved off. It failed no review, caused no rework, and you marked it as low-stakes yourself. Persisting it would spend every future agent's attention on a nit you told me not to worry about. It stays in the chat.\n\n## Not a lesson\n\nSwitching from `moment` to `date-fns` \"was fine after that\" \u2014 the fix itself needed no new know-how, so there's no procedure to capture, only the convention above.\n\n## Next step\n\nApprove any or all of the two diffs above and I'll apply them to the project's `CLAUDE.md`. Nothing else from this session is worth persisting.\n"}], "grading": {"expectations": [{"text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'", "passed": false, "evidence": "retrospective.md Candidate 1 routes it to prose: 'Routing: This is an invariant ... Invariants go to the project CLAUDE.md' with a proposed diff 'File: CLAUDE.md (under \"Conventions\" ...)'. No ESLint rule, CI check, or any mechanical guard is mentioned anywhere. The transcript confirms the skill snapshot 'has no lint/hook/CI routing option', so the substantive routing chosen was CLAUDE.md prose only."}, {"text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose", "passed": false, "evidence": "retrospective.md Candidate 2: 'Routing: An invariant (a \"use X, not Y\" rule) ... \u2192 project CLAUDE.md, same Conventions section' with a prose diff '- Dates: use date-fns ... Never introduce moment.' No ESLint no-restricted-imports or other enforceable guard proposed. Routing chosen was CLAUDE.md prose."}, {"text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere", "passed": true, "evidence": "retrospective.md Candidate 3 is headed 'readonly on DTO fields (DROP)': 'This is exactly the skill's noise pattern \u2014 a preference mentioned once and waved off ... It stays in the chat.' No diff or persistence target is proposed for it anywhere in the output."}, {"text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason", "passed": true, "evidence": "Both surviving lessons have a fenced diff naming 'File: CLAUDE.md (under \"Conventions\")' with exact added lines, each followed by a one-sentence reason: 'Load-bearing because: a future agent adds the accountId scope to every query by default instead of being caught twice in review' and 'Load-bearing because: a future agent picks date-fns for date work without a correction round-trip.' The diffs target the fictional project's CLAUDE.md, not this repo's, consistent with the task framing."}], "summary": {"passed": 2, "failed": 2, "total": 4, "pass_rate": 0.5}, "execution_metrics": {"output_chars": 5578, "transcript_chars": 2052}, "timing": {"executor_duration_seconds": 52.3, "total_duration_seconds": 52.3}, "claims": [{"claim": "The skill snapshot routes only to skills or CLAUDE.md and has no lint/hook/CI routing option", "type": "process", "verified": false, "evidence": "Stated in transcript.md step 1. Consistent with the output's behavior (everything routed to CLAUDE.md), but the snapshot SKILL.md itself was not available in outputs_dir to confirm directly."}, {"claim": "No real files in this repo were modified; diffs are proposals only", "type": "process", "verified": true, "evidence": "retrospective.md says 'nothing has been written yet' and 'Approve any or all of the two diffs above and I'll apply them'; only retrospective.md and transcript.md exist in outputs."}, {"claim": "The accountId scoping issue was corrected twice and is the strongest recurrence signal", "type": "factual", "verified": true, "evidence": "Matches the eval's fictional session premise ('repeated missing accountId query scoping') as described in the grading context and transcript step 3."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": []}, "eval_feedback": {"suggestions": [{"reason": "Expectations 1 and 2 fail purely because the old skill snapshot lacks any guard-routing concept (transcript states it 'has no lint/hook/CI routing option'), so for the old-skill arm these two assertions measure the skill delta rather than executor quality \u2014 which is presumably the intent of the A/B, but worth noting when comparing pass rates: the old-skill runs can never pass them."}, {"reason": "No assertion checks that a guard proposal, when present, is itself concrete (e.g. the actual no-restricted-imports config snippet or ESLint rule sketch). Expectation 4's 'concrete diff' requirement applies to whatever home was chosen, so a new-skill run could route to 'add an ESLint rule' with no content and still be judged only under expectation 4 \u2014 consider requiring the guard's exact config in the guard-routing assertions."}], "overall": "Assertions are discriminating for the routing behavior under test; the old-skill run behaved exactly as its snapshot allows, and the failures reflect the missing guard-routing capability."}}}, {"id": "eval-1-workflow-gate-routes-to-hook-new_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective \u2014 Nx monorepo session (2026-08-21)\n\nSession record: two features implemented. Twice I said \"done\" without running the affected\nVitest suites and you found a broken test afterward (the second time with real frustration).\nAfter a Prisma schema edit I forgot to regenerate the client, costing 20 minutes of type-error\nconfusion. And it took four failed CI runs to learn the custom `nx run-many` wrapper OOMs on\nCI-sized runners without `--parallel=3`.\n\nNothing below is applied. Every change is a written proposal awaiting your approval.\n\n## Candidate lessons considered\n\n| # | Candidate | Signal | Verdict |\n|---|-----------|--------|---------|\n| 1 | \"Done\" declared twice without running affected Vitest suites | Correction, **recurred**, visible frustration | **Keep** \u2014 route to hook |\n| 2 | Prisma schema edited, client not regenerated \u2192 type errors, 20 min lost | Rework, high friction | **Keep** \u2014 route to hook |\n| 3 | Wrapper `nx run-many` script OOMs on CI runners unless `--parallel=3` | Hard-won pattern, four failed attempts | **Keep** \u2014 route to a mechanical fix in the tool itself |\n| 4 | \"Be more careful / verify before claiming completion\" as a general rule | Same events as #1 | **Drop** \u2014 fully carried by lesson 1's hook; a prose restatement would be read once and forgotten, which is exactly what the hook exists to replace |\n| 5 | \"The user gets annoyed at repeat mistakes\" | Meta-observation | **Drop** \u2014 session-local; it's weighting evidence for #1, not a lesson with its own behavior change |\n| 6 | \"Debugging CI OOMs takes many attempts; batch hypotheses\" | The four failed runs | **Drop** \u2014 the specific fix (#3) removes the need to ever re-debug this; the general debugging heuristic didn't produce a distinct behavior change here |\n\nLoad-bearing test applied to each survivor (one sentence: how would a future agent behave\ndifferently?) \u2014 stated with each proposal below.\n\n## Lesson 1 \u2014 Affected tests must run before \"done\"\n\n**Routing.** This is a *when*, not a *what*: no lint rule can see that a completion claim was\nmade without tests running. It is exactly the skill's rung-2 case (\"run affected tests before\ndeclaring done\") \u2192 **Claude Code `Stop` hook**. Not CLAUDE.md: a prose \"always run tests\"\nline is read once and forgotten under context pressure; the hook fires mechanically at the\nexact moment the mistake happens, every time.\n\n**Proposed diff** \u2014 `.claude/settings.json` (fictional Nx repo), add to `hooks`:\n\n```json\n{\n  \"hooks\": {\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"timeout\": 600,\n            \"command\": \"cd \\\"$CLAUDE_PROJECT_DIR\\\" && if [ -n \\\"$(git status --porcelain)\\\" ] || ! git diff --quiet origin/main...HEAD 2>/dev/null; then npx nx affected -t test --base=origin/main --parallel=3 > /tmp/claude-affected-test.log 2>&1 || { tail -40 /tmp/claude-affected-test.log >&2; echo 'BLOCK: affected Vitest suites are failing \u2014 fix them before finishing. Full log: /tmp/claude-affected-test.log' >&2; exit 2; }; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n\nNotes: exit code 2 on a `Stop` hook blocks the agent from stopping and feeds stderr back to\nit, so a broken suite is fixed *before* \"done\" is ever uttered. `nx affected` keeps it fast\n(only touched projects); the no-changes guard keeps question-only turns cheap; `--parallel=3`\nmatches lesson 3 so the hook itself can't OOM a CI-sized runner.\n\n**Load-bearing because:** a future agent is mechanically interrupted at the moment of\nclaiming completion with failing affected tests, instead of being trusted to remember a\nguideline \u2014 the exact failure that happened twice today.\n\n## Lesson 2 \u2014 `prisma generate` must follow any schema edit\n\n**Routing.** Also a workflow gate \u2014 \"regenerate a client after touching a schema\" is a\n*when*-rule, named verbatim at rung 2 \u2192 **Claude Code `PostToolUse` hook**. Not a skill:\nno judgment is involved; the step is unconditional and a hook performs it rather than asking\nan agent to recall it.\n\n**Proposed diff** \u2014 `.claude/settings.json` (fictional Nx repo), add to `hooks`:\n\n```json\n{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"timeout\": 120,\n            \"command\": \"f=$(jq -r '.tool_input.file_path // empty'); case \\\"$f\\\" in *schema.prisma) cd \\\"$CLAUDE_PROJECT_DIR\\\" && npx prisma generate >/tmp/claude-prisma-generate.log 2>&1 || { tail -20 /tmp/claude-prisma-generate.log >&2; echo 'prisma generate FAILED after schema edit \u2014 client is now stale; fix before further edits.' >&2; exit 2; } ;; esac\"\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n\nNotes: fires only when the edited file is `schema.prisma`, regenerates the client\nimmediately, and on failure (exit 2) pushes the error back to the agent so the stale-client\nstate can never silently persist into the next edit.\n\n**Load-bearing because:** the client is regenerated automatically the moment the schema\nchanges, so the 20-minute stale-client type-error hunt cannot recur regardless of what any\nagent remembers.\n\n## Lesson 3 \u2014 The `nx run-many` wrapper OOMs without `--parallel=3`\n\n**Routing.** The temptation is a CLAUDE.md line (\"always pass `--parallel=3`\"), but the\nconstraint is visible in \u2014 and enforceable by \u2014 the code itself: encode the safe value as\nthe wrapper's default so the lesson stops needing to be known at all. That is the top of the\nladder (fix the tool that already runs on every invocation), above prose. CLAUDE.md would\nonly be right if the wrapper couldn't be changed.\n\n**Proposed diff** \u2014 the wrapper script (adjust the path to wherever the fictional repo keeps\nit, e.g. `tools/run-many.sh`):\n\n```diff\n+ # CI-sized runners OOM above 3 parallel Nx processes (found empirically,\n+ # 2026-08-21, after four failed CI runs). Default to the safe value;\n+ # override with NX_PARALLEL for beefier machines.\n+ PARALLEL=\"${NX_PARALLEL:-3}\"\n- exec npx nx run-many \"$@\"\n+ exec npx nx run-many --parallel=\"$PARALLEL\" \"$@\"\n```\n\n(A caller-supplied `--parallel` in `\"$@\"` comes later on the command line and wins, so\nexplicit overrides still work.)\n\n**Load-bearing because:** every future invocation \u2014 by any agent or human, on any runner \u2014\ngets the OOM-safe parallelism by default, eliminating the four-failed-attempts discovery\ninstead of documenting it.\n\n## Not persisted\n\nCandidates 4\u20136 (table above) are dropped: #4 is subsumed by the Stop hook, #5 and #6 are\nsession-local with no distinct future behavior change. Nothing here belongs in CLAUDE.md \u2014\nall three survivors landed at a mechanical rung, which is the outcome the routing ladder\nprefers: nothing to remember, everything enforced.\n\n**On approval** I would apply the two hook blocks to the fictional repo's\n`.claude/settings.json` and the default-parallelism change to the wrapper script, and\nnothing else.\n"}], "grading": {"expectations": [{"text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill", "passed": true, "evidence": "retrospective.md Lesson 1 routes it explicitly to a Claude Code Stop hook: \"It is exactly the skill's rung-2 case ('run affected tests before declaring done') -> Claude Code `Stop` hook. Not CLAUDE.md: a prose 'always run tests' line is read once and forgotten under context pressure; the hook fires mechanically at the exact moment the mistake happens.\" A concrete Stop hook block for .claude/settings.json follows, with exit-2 blocking semantics explained."}, {"text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)", "passed": true, "evidence": "retrospective.md Lesson 2: \"a *when*-rule, named verbatim at rung 2 -> Claude Code `PostToolUse` hook\", with a PostToolUse block using matcher \"Edit|Write\" and a command that reads tool_input.file_path via jq and runs `npx prisma generate` only when the edited file matches *schema.prisma, exiting 2 on failure."}, {"text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning", "passed": true, "evidence": "retrospective.md Lesson 3 rejects CLAUDE.md and changes the wrapper script's default: \"encode the safe value as the wrapper's default so the lesson stops needing to be known at all. That is the top of the ladder (fix the tool that already runs on every invocation), above prose. CLAUDE.md would only be right if the wrapper couldn't be changed.\" It includes an actual diff (PARALLEL=\"${NX_PARALLEL:-3}\"; exec npx nx run-many --parallel=\"$PARALLEL\" \"$@\") and notes that a caller-supplied --parallel still wins."}, {"text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook", "passed": true, "evidence": "Both hook proposals are full JSON blocks for .claude/settings.json. Lesson 1's Stop hook carries a complete runnable command (git-change guard, `npx nx affected -t test --base=origin/main --parallel=3`, log tail, exit 2 with a BLOCK message). Lesson 2's PostToolUse hook has matcher \"Edit|Write\" and a complete command (jq file-path extraction, case match on *schema.prisma, `npx prisma generate`, exit 2 on failure). Lesson 3's wrapper change is a concrete unified diff, not a promise."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "execution_metrics": {"note": "No metrics.json was produced by the executor", "output_chars": 8867, "transcript_chars": 1943}, "timing": {"total_tokens": 55398, "duration_ms": 92496, "total_duration_seconds": 92.5, "executor_duration_seconds": 92.5}, "claims": [{"claim": "Exit code 2 on a Stop hook blocks the agent from stopping and feeds stderr back to it", "type": "factual", "verified": true, "evidence": "Matches Claude Code hook semantics: Stop-hook exit 2 blocks stoppage and returns stderr to the agent."}, {"claim": "The Stop hook's --parallel=3 flag means the hook itself cannot OOM a CI-sized runner (cross-consistency with lesson 3)", "type": "quality", "verified": true, "evidence": "The Stop hook command includes --parallel=3, consistent with the OOM constraint from the session summary."}, {"claim": "A caller-supplied --parallel in \"$@\" comes later on the command line and wins, so explicit overrides still work", "type": "factual", "verified": false, "evidence": "Plausible for nx (later flags typically override earlier ones) but not verified against nx's actual flag-precedence behavior; the repo is fictional so it cannot be tested here. Flagged as unverifiable, not wrong."}, {"claim": "No real files were modified; both hooks and the wrapper change exist only as written proposals gated on user approval", "type": "process", "verified": true, "evidence": "outputs/ contains only retrospective.md and transcript.md; retrospective.md states \"Nothing below is applied. Every change is a written proposal awaiting your approval.\""}, {"claim": "Six candidate lessons were considered and three dropped with reasons", "type": "process", "verified": true, "evidence": "The 'Candidate lessons considered' table lists 6 rows with Keep/Drop verdicts; candidates 4-6 are dropped with per-item reasoning (subsumed by hook / session-local / carried by the specific fix)."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md file was present in outputs_dir."}, "eval_feedback": {"suggestions": [{"reason": "No assertion checks the quality of the hook commands themselves (e.g. the PostToolUse command reads hook input via `jq -r '.tool_input.file_path'` from stdin \u2014 correct for Claude Code hooks, but a broken command with a matcher would still pass expectation 4 as written). An assertion like 'the PostToolUse hook only fires for the Prisma schema file, not every edit' would be more discriminating."}, {"reason": "No assertion covers the skill's approval gate (proposals must be diffs awaiting approval, not applied changes). This run honored it \u2014 nothing was applied \u2014 but an executor that silently wrote .claude/settings.json would pass all four current expectations."}], "overall": "Expectations 1-3 are well-targeted routing checks and discriminated correctly here. Expectation 4 checks presence of config content but not its plausibility; consider a correctness-oriented variant, and add an assertion for the approval-gated (no files modified) behavior."}}}, {"id": "eval-1-workflow-gate-routes-to-hook-old_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective \u2014 Nx monorepo session (2026-08-21)\n\nThree lessons survive the load-bearing test; two candidates are dropped. All proposals are diffs for your approval \u2014 nothing has been applied.\n\n## Candidate lessons considered\n\n### 1. Claimed \"done\" twice without running the affected Vitest suites \u2014 both times a test was broken (SURVIVES)\n\n- **Signal:** Correction, repeated. The user caught a broken test after each of the two features, and pushed back with visible frustration the second time. Recurrence + friction make this the strongest candidate in the session.\n- **Load-bearing test:** A future agent runs the affected test suites before reporting a feature as done, instead of reporting done on the strength of the edit alone. Passes.\n- **Routing:** This is a rule the agent must not violate, not a method \u2014 an invariant. It goes to the project **CLAUDE.md**. (Considered a global skill, since \"verify before claiming done\" transcends this repo \u2014 but the actionable form here is repo-specific: Nx's `affected` target is *how* you know which suites your change touched. The repo-specific rule is what changes behavior most reliably, so it gets the one home.)\n\n### 2. Edited a Prisma schema without regenerating the client \u2014 next edit failed with type errors, 20 minutes lost (SURVIVES)\n\n- **Signal:** Rework. The generated client is a hidden dependency of the type-checker; nothing in the schema file announces that editing it stales the client. The cost (20 minutes of misdirected debugging) came from the failure surfacing far from its cause.\n- **Load-bearing test:** A future agent runs `prisma generate` immediately after any `schema.prisma` edit, and reads sudden Prisma-typed errors as \"stale client\" before anything else. Passes.\n- **Routing:** A rule that is simply true here and not derivable from the code \u2192 project **CLAUDE.md**.\n\n### 3. The custom `nx run-many` wrapper OOMs on CI-sized runners without `--parallel=3` \u2014 took four failed attempts to discover (SURVIVES)\n\n- **Signal:** Hard-won pattern. Four failed runs to find a flag no document records. Any future agent (or the same agent next session) would pay the same four attempts again.\n- **Load-bearing test:** A future agent passes `--parallel=3` on the first invocation of the wrapper in CI-sized environments instead of rediscovering the OOM by trial and error. Passes.\n- **Routing:** A project-specific fact an agent must check against, not a procedure \u2192 project **CLAUDE.md**.\n\n### 4. The user was annoyed the second time (DROPPED)\n\nThe annoyance is the *weighting* on lesson 1, not a lesson itself \u2014 it tells us that lesson is load-bearing, but \"the user dislikes broken tests\" would not change any future agent's behavior beyond what lesson 1 already does. Session-local; leave it in the chat.\n\n### 5. The specific debugging path (20 minutes, four failed attempts) (DROPPED)\n\nThe audit trail of how the lessons were earned changes nothing about future behavior once the rules themselves are captured. Dropped as noise; the costs are cited above only as evidence of load-bearing weight.\n\n## Proposed diffs\n\nAll three survivors are invariants in the same project, so they land as one small block in the project's `CLAUDE.md`. Keeping them together (and terse) respects the \"keep CLAUDE.md spare\" rule \u2014 three lines of rule, each preventing a failure this session actually paid for.\n\n```\nFile: CLAUDE.md   (in the target Nx repo; under \"Conventions\" \u2014 create the section if absent)\n+ ## Conventions\n+\n+ - A change is not \"done\" until the affected Vitest suites pass. Run\n+   `nx affected -t test` (or the touched projects' test targets) and report\n+   the result before declaring a feature complete \u2014 never report done on the\n+   edit alone.\n+ - After any edit to a `schema.prisma`, run `prisma generate` before doing\n+   anything else. The generated client is what the type-checker sees; skipping\n+   this makes the *next* edit fail with misleading type errors.\n+ - The custom `nx run-many` wrapper script must be invoked with `--parallel=3`\n+   on CI-sized runners \u2014 higher parallelism OOMs the runner.\n```\n\n**Load-bearing reasons, one per line:**\n\n1. *Done-means-tested:* a future agent verifies with the affected suites before claiming done, so broken tests are caught by the agent instead of the user \u2014 the correction that recurred twice this session.\n2. *Prisma regenerate:* a future agent regenerates the client immediately after a schema edit, so the stale-client type errors (and the 20-minute misdiagnosis they caused) never occur.\n3. *`--parallel=3`:* a future agent passes the flag on the first try instead of re-paying four OOM'd CI runs to rediscover it.\n\n## Not routed anywhere else\n\nNo candidate was know-how that transcends this repo in an actionable form, so no global skill is proposed; no project skill is proposed because none of the lessons is a multi-step procedure \u2014 each is a one-line rule, which is exactly what CLAUDE.md is for. Nothing is written to auto-memory.\n\n**Next step:** approve any or all of the three lines and they get written to the target repo's CLAUDE.md; anything unapproved is left in the chat.\n"}], "grading": {"expectations": [{"text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill", "passed": false, "evidence": "retrospective.md lesson 1 routes it to CLAUDE.md: 'This is a rule the agent must not violate, not a method \u2014 an invariant. It goes to the project CLAUDE.md.' No hook (Stop or otherwise) is mentioned anywhere in the output. The transcript confirms the skill snapshot 'has no hook/lint/CI routing' in its home list, but the expectation is graded as written: routing chosen was CLAUDE.md."}, {"text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)", "passed": false, "evidence": "retrospective.md lesson 2: 'A rule that is simply true here and not derivable from the code \u2192 project CLAUDE.md.' The proposed diff is a prose bullet in the Nx repo's CLAUDE.md ('After any edit to a schema.prisma, run prisma generate'). No PostToolUse or any hook triggered by schema edits is proposed."}, {"text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning", "passed": false, "evidence": "retrospective.md lesson 3: 'A project-specific fact an agent must check against, not a procedure \u2192 project CLAUDE.md.' The diff is a CLAUDE.md bullet stating the flag requirement. No change to the wrapper script's default, no project skill, and no consideration of any home above CLAUDE.md for this lesson (the 'Not routed anywhere else' section explicitly rejects skills for all three lessons)."}, {"text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook", "passed": false, "evidence": "No hook is proposed anywhere in retrospective.md, so there is no config content, no command, and no matcher. Per the grading instructions, this conditional expectation fails when no hook is proposed at all \u2014 the lessons needed one and its absence is not a hook proposal. The only concrete diff given is a three-bullet CLAUDE.md block."}], "summary": {"passed": 0, "failed": 4, "total": 4, "pass_rate": 0.0}, "execution_metrics": {"tool_calls": null, "total_tool_calls": null, "total_steps": 7, "errors_encountered": 0, "output_chars": 7031, "transcript_chars": 1875, "note": "No metrics.json in outputs_dir; steps counted from transcript.md, chars measured from retrospective.md (5156) + transcript.md (1875)."}, "timing": {"total_tokens": 51583, "duration_ms": 61111, "total_duration_seconds": 61.1}, "claims": [{"claim": "The skill snapshot's routing homes are limited to global skill, project skill, project CLAUDE.md, or nowhere (no hook/lint/CI routing exists in this snapshot)", "type": "process", "verified": false, "evidence": "Consistent with the eval context (the old skill version predates hooks/guards), but the snapshot file itself was not available to the grader to confirm. The routing behavior in the output is consistent with this claim."}, {"claim": "All three surviving lessons are invariants, not procedures, so CLAUDE.md is the correct one home", "type": "quality", "verified": false, "evidence": "The reasoning is internally coherent under the old skill's ladder, but under the intended routing ladder these are automatable workflow gates: 'run tests before done' is enforceable by a Stop hook, 'regenerate after schema edit' by a PostToolUse hook, and '--parallel=3' by changing the wrapper's default \u2014 prose rules rely on future agents reading and obeying, which is exactly the failure mode the session exhibited."}, {"claim": "Nothing has been applied; proposals await approval", "type": "process", "verified": true, "evidence": "The diffs target a fictional Nx repo's CLAUDE.md and no real files outside outputs_dir were modified per the transcript; only retrospective.md and transcript.md exist in outputs."}, {"claim": "Two candidates (user annoyance, debugging audit trail) were correctly dropped", "type": "quality", "verified": true, "evidence": "retrospective.md sections 4 and 5 drop them with sound reasoning: annoyance is weighting on lesson 1, and the audit trail changes no future behavior once the rules are captured."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present in outputs_dir."}, "eval_feedback": {"suggestions": [{"assertion": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning", "reason": "The two example routings (wrapper-default change vs project skill) are quite different in kind \u2014 a skill is arguably not 'above' CLAUDE.md in the same way a code-level default is. Consider tightening the expectation to name the preferred home (fix the wrapper's default) so a graded pass is unambiguous."}, {"reason": "No assertion checks the harvest/drop quality (the two dropped candidates, the load-bearing test). This run did that part well; a skill revision that regressed there would go uncaught by these four expectations."}], "overall": "Expectations discriminate well for the routing behavior under test: the old skill routed everything to CLAUDE.md with concrete diffs but zero hook/guard/code-level proposals, and all four expectations correctly fail. The lesson-harvesting quality itself was good and is uncovered by any assertion."}}}, {"id": "eval-2-uncheckable-fact-claudemd-new_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\nThree incidents in this session carried friction. Each produced one candidate lesson; all three pass the load-bearing test, and each gets exactly one home on the routing ladder. No lesson goes to auto-memory.\n\n---\n\n## Candidate lessons considered\n\n| # | Signal | Candidate lesson | Verdict |\n|---|--------|------------------|---------|\n| 1 | **Urgent user correction** \u2014 you had to stop me before I ran a data backfill against staging | Staging shares its Postgres instance with production analytics; backfills there corrupt real dashboards | **Keep** \u2014 highest-friction correction of the session |\n| 2 | **Rework** \u2014 two blind patches from the stack trace failed; a local repro cracked the bug | Reproduce a bug locally before patching from the stack trace | **Keep** \u2014 hard-won pattern, recurred (two failures before the fix) |\n| 3 | **Rework \u00d73** \u2014 the API error-response mapper was regenerated three times on guessed shapes | The error-response shape is defined in `libs/shared/contracts`; code must be written against it, not guessed | **Keep** \u2014 three regenerations of one artifact |\n| 4 | \"Don't run destructive scripts on shared environments without confirmation\" (generalization of #1) | \u2014 | **Drop as a separate item** \u2014 subsumed by lesson 1; a second prose rule saying the same thing is noise |\n| 5 | The specific bug's fix details | \u2014 | **Drop** \u2014 session-local; a future agent gains nothing from the particulars of one fixed bug |\n\nLoad-bearing statements for the survivors:\n\n1. A future agent, asked to run any data-writing script \"against staging,\" will treat it as a production-impacting operation and stop for confirmation instead of proceeding.\n2. A future agent facing a bug will build a local reproduction before writing a patch, instead of patching twice from the stack trace.\n3. A future agent writing or regenerating anything that mirrors an API response shape will be forced (by the typechecker/linter) to use the contract types from `libs/shared/contracts` instead of guessing.\n\n---\n\n## Lesson 1 \u2014 Staging Postgres is shared with production analytics\n\n**Routing walk:**\n- *Rung 1 (lint/CI)?* No. The summary is explicit: nothing in the code indicates this. There is no diff a rule could inspect \u2014 the danger lives in infrastructure topology, not in any file.\n- *Rung 2 (hook)?* No. A `PreToolUse` hook could only pattern-match command text (\"backfill\" + \"staging\"), but the dangerous surface is unbounded \u2014 `psql`, ad-hoc node scripts, ORM CLIs, a renamed script \u2014 so a keyword hook fails open on every variant while teaching false confidence. The lesson must inform judgment, not match a string.\n- *Rung 3 (skill)?* No. This is not a procedure or heuristic; it is a fact about this project's infrastructure.\n- **Rung 4 (CLAUDE.md): yes.** Why no guard or hook can carry it, in one line: the hazard is invisible in the repo \u2014 no tool that reads code or commands can know that two environments share a database.\n\n**Proposed diff** \u2014 target: project `CLAUDE.md` (fictional monorepo), under an `## Environments` section (create it if absent):\n\n```diff\n+ ## Environments\n+\n+ - Staging shares its Postgres instance with production analytics. Any write-heavy\n+   script run \"against staging\" (backfills, migrations run out-of-band, bulk updates)\n+   corrupts real production dashboards. Never run one without explicit user\n+   confirmation naming the target database. Nothing in the code indicates this \u2014\n+   the connection strings look like an ordinary isolated staging environment.\n```\n\n**Load-bearing because:** a future agent asks before writing to staging, which no guard can enforce since the danger is infrastructure the repo cannot see.\n\n---\n\n## Lesson 2 \u2014 Reproduce locally before patching\n\n**Routing walk:**\n- *Rung 1 / Rung 2?* No tool can decide \"did you actually reproduce it?\" \u2014 reproduction is a judgment-laden procedure, not a detectable code property or a fixed workflow moment.\n- **Rung 3 (skill): yes \u2014 global.** \"Reproduce a bug before patching it\" transcends this repo entirely; it applies to any codebase. Per the ladder, it goes to `~/.claude/skills/`, not the project.\n\n**Proposed diff** \u2014 target: `~/.claude/skills/debugging/SKILL.md` (new file, or this section added if the skill exists):\n\n```diff\n+ ---\n+ name: debugging\n+ description: Debugging method \u2014 use whenever fixing a reported bug, especially\n+   one known only from a stack trace, log line, or user report.\n+ ---\n+\n+ # Debugging\n+\n+ ## Reproduce before you patch\n+\n+ Build a local reproduction of the bug before writing any fix. A stack trace\n+ shows where execution died, not why \u2014 patching from it alone is guessing, and\n+ each failed guess costs a full edit-deploy-observe cycle. A repro turns the\n+ same loop into seconds, and proves the fix by turning red to green. If you\n+ cannot reproduce it, say so and treat any patch as a hypothesis, not a fix.\n```\n\n**Load-bearing because:** a future agent spends its first effort on a reproduction instead of burning two rounds of blind patches, as happened this session.\n\n---\n\n## Lesson 3 \u2014 Error-response shapes come from `libs/shared/contracts`\n\n**Routing walk:**\n- This reads like prose (\"read the contract first\"), but the skill's own test applies: *what tool could catch a violation?* A guessed shape is visible in code \u2014 the mapper declares or returns a locally-invented type instead of the one exported by `libs/shared/contracts`. That is machine-checkable.\n- **Rung 1 (type constraint + lint rule): yes.** Stop at the highest rung; no skill or CLAUDE.md line needed once the typechecker refuses a guessed shape.\n\n**Proposed diff, part A** \u2014 target: the mapper module (e.g. `libs/api/src/error-mapper.ts`): type it against the contract so any guessed shape fails `tsc`:\n\n```diff\n- interface ApiErrorResponse {   // locally guessed shape \u2014 remove\n-   ...\n- }\n+ import type { ApiErrorResponse } from '@<org>/shared/contracts';\n\n- export function mapError(err: unknown) {\n+ export function mapError(err: unknown): ApiErrorResponse {\n```\n\n**Proposed diff, part B** \u2014 target: ESLint flat config for the API layer: forbid re-declaring contract shapes locally, so the constraint survives future rewrites of the mapper:\n\n```diff\n+ // libs/api/**: response/error shapes must come from shared contracts,\n+ // never be re-declared locally.\n+ {\n+   files: ['libs/api/**/*.ts'],\n+   rules: {\n+     'no-restricted-syntax': ['error', {\n+       selector: \"TSInterfaceDeclaration[id.name=/^(Api)?Error(Response)?/], TSTypeAliasDeclaration[id.name=/^(Api)?Error(Response)?/]\",\n+       message: 'Error-response shapes are defined in libs/shared/contracts \u2014 import the type, do not redeclare it.',\n+     }],\n+   },\n+ },\n```\n\n**Load-bearing because:** the next regeneration of the mapper fails typecheck/lint the moment it guesses, instead of shipping wrong three times \u2014 no agent has to remember to go read the contract.\n\n*(Note: the general habit \"find the source-of-truth contract before generating code against it\" is real, but for this project the mechanical guard covers the incident; adding a prose rule on top would be a second home for the same lesson, which the ladder forbids.)*\n\n---\n\n## Summary of proposals\n\n| Lesson | Rung | Target |\n|---|---|---|\n| Staging Postgres shared with prod analytics | 4 \u2014 uncheckable fact | project `CLAUDE.md`, \"Environments\" |\n| Reproduce before patching | 3 \u2014 global skill | `~/.claude/skills/debugging/SKILL.md` |\n| Contract shapes must be imported, not guessed | 1 \u2014 type constraint + lint rule | mapper module + API-layer ESLint config |\n\nAll three are proposals awaiting confirmation; nothing has been applied.\n"}], "grading": {"expectations": [{"text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it", "passed": true, "evidence": "Routing destination correct: Lesson 1's routing walk ends '**Rung 4 (CLAUDE.md): yes.**' and the proposed diff targets 'project CLAUDE.md (fictional monorepo), under an ## Environments section'. Justification present and explicit, per-rung: rung 1 rejected ('There is no diff a rule could inspect \u2014 the danger lives in infrastructure topology, not in any file'), rung 2 rejected ('A PreToolUse hook could only pattern-match command text... the dangerous surface is unbounded... so a keyword hook fails open on every variant'), and a one-line summary reason: 'the hazard is invisible in the repo \u2014 no tool that reads code or commands can know that two environments share a database.' Both the substantive routing AND the required justification are present, so the two failure modes the eval author asked to distinguish both come out clean."}, {"text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)", "passed": true, "evidence": "Lesson 2's routing walk: '**Rung 3 (skill): yes \u2014 global.** \"Reproduce a bug before patching it\" transcends this repo entirely; it applies to any codebase. Per the ladder, it goes to ~/.claude/skills/, not the project.' Proposed diff targets ~/.claude/skills/debugging/SKILL.md with a full frontmatter + content draft."}, {"text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md", "passed": true, "evidence": "Lesson 3 is routed to rung 1 \u2014 'type constraint + lint rule' \u2014 a home above CLAUDE.md on the ladder: the mapper is retyped against 'import type { ApiErrorResponse } from @<org>/shared/contracts' and an ESLint no-restricted-syntax rule bans local redeclaration in libs/api/**. It is explicitly NOT put in CLAUDE.md: 'no skill or CLAUDE.md line needed once the typechecker refuses a guessed shape' and 'adding a prose rule on top would be a second home for the same lesson, which the ladder forbids.' Note: the eval anticipated a project skill; the output went a rung higher (mechanical guard), which satisfies 'other home above CLAUDE.md' as written."}, {"text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition", "passed": true, "evidence": "retrospective.md opens with 'No lesson goes to auto-memory' and closes with 'All three are proposals awaiting confirmation; nothing has been applied.' The outputs directory contains only retrospective.md and transcript.md; the transcript confirms 'no real files were modified \u2014 all diffs are proposals inside retrospective.md only.' Exactly one CLAUDE.md addition is proposed (Lesson 1's Environments block); lessons 2 and 3 target a global skill and code/lint config respectively."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "execution_metrics": {"tool_calls": null, "total_tool_calls": null, "total_steps": 6, "errors_encountered": 0, "output_chars": 9685, "transcript_chars": 2002, "note": "No metrics.json present; total_steps taken from the 6 numbered transcript steps; output_chars = retrospective.md (7683) + transcript.md (2002)."}, "timing": {"executor_duration_seconds": 96.8, "total_duration_seconds": 96.8, "total_tokens": 55139}, "claims": [{"claim": "All three lessons pass the load-bearing test (each has a one-sentence future-behavior change)", "type": "quality", "verified": true, "evidence": "Three load-bearing statements are written out in the 'Candidate lessons considered' section, and each lesson section repeats its own 'Load-bearing because' line."}, {"claim": "A keyword-matching PreToolUse hook would fail open on the staging-backfill hazard", "type": "factual", "verified": true, "evidence": "Reasoning is sound and internally consistent with the fictional summary: the summary stipulates nothing in the code indicates the shared database, and the command surface (psql, ad-hoc scripts, ORM CLIs) is genuinely unbounded, so string matching cannot be exhaustive."}, {"claim": "The ESLint no-restricted-syntax selector catches locally re-declared error shapes", "type": "factual", "verified": false, "evidence": "Unverifiable and only partially sound: the regex /^(Api)?Error(Response)?/ only catches type names matching that pattern \u2014 a mapper that re-guesses the shape under a differently-named local type (or an inline object literal type) passes the lint. The typechecker half (annotating mapError's return type) is the real guard; the lint rule is a heuristic backstop. Against a fictional codebase this cannot be run, so it stands as a plausible but untested proposal."}, {"claim": "The executor read only the retrospective SKILL.md and used it as the sole methodology", "type": "process", "verified": false, "evidence": "Stated in transcript step 1, but the transcript is executor-authored prose with no tool log, so it cannot be independently confirmed. The output's structure (routing ladder rungs 1-4, load-bearing test, one-home rule) is consistent with following a skill of that shape."}, {"claim": "Nothing was applied; all diffs are proposals only", "type": "factual", "verified": true, "evidence": "outputs_dir contains only retrospective.md and transcript.md; no CLAUDE.md, skill file, or config file exists in the run's outputs."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present."}, "eval_feedback": {"suggestions": [{"assertion": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md", "reason": "The eval expects a project skill, but the stronger answer \u2014 chosen here \u2014 is a mechanical guard (type constraint + lint), a rung above skills. The disjunction 'or other home above CLAUDE.md' absorbs this, but if the skill under test is supposed to teach 'stop at the HIGHEST fitting rung', consider a positive assertion that the routing walk explains why the lesson is machine-checkable, so a lazy 'project skill' answer doesn't score identically to the best answer."}, {"reason": "No assertion checks that each lesson gets exactly ONE home (the no-double-homing rule). This run honored it explicitly ('adding a prose rule on top would be a second home... which the ladder forbids'), but an output that routed lesson 3 to a lint rule AND also added a CLAUDE.md line would pass all four assertions as written."}, {"reason": "Expectation 4's 'does not write anything to the auto-memory system' is only falsifiable if the harness captures filesystem writes outside outputs_dir. Here it was verifiable by absence (only two files in outputs, transcript attests no real files modified), but a run that silently wrote to ~/.claude/ memory would be invisible to a grader reading outputs_dir alone. Consider having the harness diff the memory directory."}], "overall": "Assertions are well-targeted and discriminating for this eval's core question (routing an uncheckable fact vs. a heuristic vs. a checkable convention). The gaps are edge cases: double-homing and out-of-band writes."}}}, {"id": "eval-2-uncheckable-fact-claudemd-old_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\nThree candidate lessons from this session. All three pass the load-bearing test; each gets exactly one home. Proposed diffs below \u2014 nothing is applied until you approve.\n\n## Candidate lessons\n\n### 1. Staging shares Postgres with production analytics (near-miss, urgent user stop)\n\n**What happened:** I was about to run a data backfill script against staging. You had to stop me urgently: staging's Postgres instance is shared with production analytics, so backfills there corrupt real dashboards. Nothing in the code indicates this \u2014 it is pure infrastructure knowledge.\n\n**Load-bearing test:** A future agent would refuse to run backfills (or any bulk write) against staging instead of assuming staging is a safe sandbox. Without a written rule, every future agent will make the same safe-looking, wrong assumption \u2014 the code cannot tell them otherwise.\n\n**Routing:** This is an **invariant** \u2014 a fact that is simply true here, that an agent must not violate and could not derive from the code alone. That is the definition of a project `CLAUDE.md` entry. Not a skill: there is no procedure to follow, just a rule to check against, and a rule an agent must never violate has to be read on every task, not only when a skill triggers.\n\n**Proposed diff:**\n\n```\nFile: CLAUDE.md   (project root of the monorepo; under a \"Environments\" or \"Invariants\" section \u2014 create one if absent)\n+ - **Staging is NOT isolated.** The staging environment shares its Postgres\n+   instance with production analytics. Never run backfills, migrations-with-data,\n+   or any bulk-write script against staging \u2014 it corrupts real production\n+   dashboards. This is infrastructure knowledge; nothing in the code signals it.\n```\n\nLoad-bearing because: a future agent treats staging as production-adjacent and stops before any bulk write, instead of assuming \"staging\" means \"safe\".\n\n### 2. Reproduce the bug locally before patching (two failed blind patches)\n\n**What happened:** I patched twice straight from the stack trace and both patches failed. What actually cracked the bug was reproducing it locally first.\n\n**Load-bearing test:** A future agent facing a bug report reproduces it before writing a fix, instead of burning two rounds on plausible-looking blind patches.\n\n**Routing:** This is **know-how that transcends this repo** \u2014 a method, not a fact about this codebase. Per the routing rule, that goes to a **global skill**: `~/.claude/skills/debugging/SKILL.md` (create it if it doesn't exist; otherwise add the section).\n\n**Proposed diff:**\n\n```\nFile: ~/.claude/skills/debugging/SKILL.md   (under \"Before writing a fix\"; create the skill if absent)\n+ Reproduce the bug before patching it. A stack trace narrows *where*, not\n+ *why* \u2014 patches written straight from the trace are guesses, and failed\n+ guesses cost a full round-trip each. Get a local repro first; the fix is\n+ then verified against it instead of hoped-for. (Earned: two blind patches\n+ failed on the same bug that a local repro cracked immediately.)\n```\n\nIf the skill file doesn't exist yet, create it with frontmatter:\n\n```\n---\nname: debugging\ndescription: Method for diagnosing and fixing bugs \u2014 reproduce before patching, verify the fix against the repro. Use when investigating any bug report, failing test, or stack trace.\n---\n```\n\nLoad-bearing because: a future agent's first debugging step becomes \"get a repro\", eliminating the blind-patch loop.\n\n### 3. Error-response shapes live in `libs/shared/contracts` \u2014 read, don't guess (3\u00d7 rework)\n\n**What happened:** I regenerated the API error-response mapper three times because I kept guessing the shape. The shape is defined in `libs/shared/contracts`; reading it first would have made the first attempt correct.\n\n**Load-bearing test:** A future agent writing anything against an API shape opens `libs/shared/contracts` first instead of inferring the shape from call sites or memory.\n\n**Routing:** The general habit (\"read the contract definition before generating code against it\") is already what a competent agent should do; the load-bearing part is the **project-specific fact of where the contracts live** plus the rule to consult them. Between a procedure (project skill) and a rule checked against (CLAUDE.md), the rule wins here: it is one line, it applies to any task touching API shapes, and a dedicated project skill for a single pointer would be overhead the next agent may never trigger. \u2192 project **`CLAUDE.md`**.\n\n**Proposed diff:**\n\n```\nFile: CLAUDE.md   (project root of the monorepo; under \"Conventions\")\n+ - API request/response shapes \u2014 including error responses \u2014 are defined in\n+   `libs/shared/contracts`. Read the definition there before writing any\n+   mapper, client, or handler against them; never reconstruct a shape from\n+   call sites or memory. (A mapper was regenerated three times from guessed\n+   shapes that one read would have prevented.)\n```\n\nLoad-bearing because: a future agent's first move on any API-shape task is to open `libs/shared/contracts`, killing the guess-regenerate loop.\n\n## Dropped\n\nNothing else in the session record clears the bar. The specific bug being debugged and the specific mapper content are session-local \u2014 they change no future behavior beyond the two lessons already captured above.\n\n## Summary\n\n| # | Lesson | Home | Why that home |\n|---|--------|------|---------------|\n| 1 | Staging shares prod-analytics Postgres; no bulk writes there | project `CLAUDE.md` | Invariant not derivable from code; must be read on every task |\n| 2 | Reproduce a bug before patching | global skill `~/.claude/skills/debugging/` | Cross-project method (know-how) |\n| 3 | API shapes are defined in `libs/shared/contracts`; read before writing | project `CLAUDE.md` | One-line project rule; a rule checked against beats a skill that may not trigger |\n\nOn your confirmation I would apply the approved diffs and leave the rest.\n"}], "grading": {"expectations": [{"text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it", "passed": false, "evidence": "Routing destination is substantively CORRECT: retrospective.md Lesson 1 routes to project CLAUDE.md ('That is the definition of a project CLAUDE.md entry') with a proposed diff under an 'Environments' or 'Invariants' section. However, the required guard-impossibility justification is ABSENT: the stated rationale only argues why it is not a *skill* ('Not a skill: there is no procedure to follow, just a rule to check against'). Neither 'guard' nor 'hook' (nor lint/CI check) appears anywhere in retrospective.md or transcript.md, and no reason is given why an automated guard or hook cannot carry this fact. Verdict is 'right home, missing justification' \u2014 graded strictly as written, this fails. (Eval-author note confirms the skill version under test never asks for this reasoning, so this failure reflects a skill gap, not executor sloppiness.)"}, {"text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)", "passed": true, "evidence": "retrospective.md Lesson 2: 'This is know-how that transcends this repo \u2014 a method, not a fact about this codebase. Per the routing rule, that goes to a global skill: ~/.claude/skills/debugging/SKILL.md'. The proposed diff targets that global-skill path and includes frontmatter for creating it if absent. The summary table also lists 'global skill ~/.claude/skills/debugging/' with rationale 'Cross-project method (know-how)'."}, {"text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md", "passed": false, "evidence": "retrospective.md Lesson 3 routes it INTO project CLAUDE.md: 'Between a procedure (project skill) and a rule checked against (CLAUDE.md), the rule wins here... a dedicated project skill for a single pointer would be overhead the next agent may never trigger. -> project CLAUDE.md.' The proposed diff adds a bullet to CLAUDE.md under 'Conventions'. The executor considered a project skill and explicitly rejected it \u2014 the reasoning is articulate, but the destination contradicts the expectation."}, {"text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition", "passed": false, "evidence": "First half holds: no auto-memory writes anywhere; the transcript notes the skill's 'never write to auto-memory' rule was followed and 'no real files were modified anywhere' \u2014 all diffs are proposals. Second half fails: TWO CLAUDE.md additions are proposed (Lesson 1, staging/Postgres invariant, and Lesson 3, libs/shared/contracts rule), exceeding the 'at most one' limit. The summary table confirms two rows with home 'project CLAUDE.md'."}], "summary": {"passed": 1, "failed": 3, "total": 4, "pass_rate": 0.25}, "execution_metrics": {"tool_calls": {}, "total_tool_calls": null, "total_steps": 7, "errors_encountered": 0, "output_chars": 7975, "transcript_chars": 2055, "note": "No metrics.json present; total_steps taken from the 7 numbered transcript entries; output_chars = retrospective.md (5920) + transcript.md (2055)."}, "timing": {"executor_duration_seconds": 63.9, "total_duration_seconds": 63.9, "total_tokens": 52153, "duration_ms": 63913}, "claims": [{"claim": "All three candidate lessons pass the load-bearing test and nothing else in the summary cleared the bar", "type": "quality", "verified": true, "evidence": "retrospective.md states a concrete behavior-change per lesson (refuse staging bulk writes; repro before patching; open libs/shared/contracts first) and a 'Dropped' section explaining why session-local details were excluded. Consistent with the fictional session summary described in the transcript."}, {"claim": "Diffs are proposals only \u2014 no real files were modified anywhere", "type": "process", "verified": true, "evidence": "outputs dir contains only retrospective.md and transcript.md; retrospective.md ends 'On your confirmation I would apply the approved diffs and leave the rest.' Cannot fully verify from the narrative transcript that no filesystem writes occurred elsewhere, but no evidence contradicts it."}, {"claim": "The retrospective used only the skill snapshot as method, ignoring the installed retrospective skill and this repo's CLAUDE.md", "type": "process", "verified": false, "evidence": "Stated in transcript step 1 but unverifiable from a narrative transcript with no tool-call log. The output's structure (harvest -> load-bearing test -> single home -> proposed diffs) is consistent with the claim."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present."}, "eval_feedback": {"suggestions": [{"assertion": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition", "reason": "This conjoins two independent checks; a FAIL cannot distinguish 'wrote to auto-memory' (serious) from 'proposed two CLAUDE.md bullets' (routing-stinginess). Here only the second half failed. Splitting them would make results more diagnostic."}, {"assertion": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it", "reason": "Also conjoined: the output got the home right and failed only the justification clause. If the improved skill is meant to add the guard-first routing ladder, consider two assertions (correct home; guard-impossibility stated) so the delta between skill versions is visible per-clause. The evidence field here records both halves separately as instructed."}, {"reason": "The transcript is a self-authored narrative, not a tool-call log, so process claims (e.g. 'ignored the installed retrospective skill', 'no real files modified') are unverifiable. If feasible, capture the real execution transcript."}], "overall": "Expectations are discriminating for the routing behavior under test; the two conjunction assertions blur which clause failed. The run shows 'right home, missing guard/hook justification' on exp 1 and a genuine wrong-home on exp 3."}}}, {"id": "eval-3-ambiguous-rung-new_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\n**Session:** Three times, a new file was added to `libs/ui` without exporting it from the lib's barrel (`libs/ui/src/index.ts`). Each time, downstream imports failed and the user had to point it out.\n\nOne mistake, three recurrences, user-caught every time. That is a load-bearing signal twice over: the export was *missed* (a code defect), and the breakage was *never self-detected* (a workflow gap). Everything below traces to those two facts.\n\n---\n\n## Candidate lessons considered\n\n| # | Candidate | Verdict |\n|---|-----------|---------|\n| 1 | Every source file added to a lib must be re-exported from that lib's barrel `index.ts` | **Kept** \u2192 rung 1 (lint rule) |\n| 2 | Don't declare work done while downstream consumers fail to compile \u2014 the user caught all three breaks, the agent caught none | **Kept** \u2192 rung 2 (Stop hook) |\n| 3 | Add a CLAUDE.md line: \"when you add a file to `libs/ui`, export it from `index.ts`\" | **Dropped** \u2014 the violation is visible in code, so a guard (rung 1) enforces it without spending any agent's attention; a prose rule is read once and forgotten under context pressure, which is exactly how this failed three times |\n| 4 | Write a project skill \"adding a file to an Nx lib\" | **Dropped** \u2014 no judgment involved; the step is purely mechanical, so a machine check beats a procedure document |\n| 5 | Auto-generate barrels (e.g. barrelsby) so the export step disappears entirely | **Dropped** \u2014 a build-tooling design change, not a retrospective lesson; noted here so the user can choose it *instead of* lesson 1 if they prefer generation over checking |\n| 6 | Global skill (`~/.claude/skills/`) about barrel hygiene | **Dropped** \u2014 the lesson is checkable (rung 1) and repo-shaped (this monorepo's `libs/*/src/index.ts` layout); it does not need to travel as know-how |\n\n**Load-bearing test, applied:**\n- Lesson 1: a future agent that forgets the export gets a red lint error naming the file and the fix, instead of shipping a broken import. Passes.\n- Lesson 2: a future agent is interrupted at the moment it claims completion with downstream projects broken, instead of the user finding out. Passes.\n- Candidates 3, 4, 6: a future agent would behave no differently than under lesson 1's guard, and less reliably. Fail.\n\n---\n\n## Lesson 1 \u2014 barrel completeness is machine-checkable \u2192 custom ESLint rule (rung 1)\n\nA file that exists under a lib's `src/` but is unreachable from `src/index.ts` is a static property of the code. Encode it in the tool that already runs on every change.\n\n**Proposed diff 1a \u2014 new file `tools/eslint-rules/require-barrel-export.mjs`:**\n\n```js\n// Every source file in a lib must be re-exported (directly or via a nested\n// barrel) from the lib's src/index.ts. Opt a file out by putting\n// `// barrel-ignore` on its first line.\nimport fs from 'node:fs';\nimport path from 'node:path';\n\nconst SKIP = /\\.(spec|test|stories)\\.(ts|tsx)$|\\.d\\.ts$/;\n\nfunction sourceFiles(dir, out = []) {\n  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {\n    const full = path.join(dir, entry.name);\n    if (entry.isDirectory()) sourceFiles(full, out);\n    else if (/\\.(ts|tsx)$/.test(entry.name) && !SKIP.test(entry.name)) out.push(full);\n  }\n  return out;\n}\n\nfunction resolveSpecifier(fromDir, spec) {\n  for (const candidate of [\n    path.join(fromDir, `${spec}.ts`),\n    path.join(fromDir, `${spec}.tsx`),\n    path.join(fromDir, spec, 'index.ts'),\n  ]) {\n    if (fs.existsSync(candidate)) return candidate;\n  }\n  return null;\n}\n\n// Walk export-from statements, following nested local barrels.\nfunction exportedFiles(barrelPath, seen = new Set()) {\n  if (seen.has(barrelPath)) return seen;\n  seen.add(barrelPath);\n  const text = fs.readFileSync(barrelPath, 'utf8');\n  const re = /export\\s+(?:\\*|type\\s+\\*|\\{[^}]*\\})\\s+from\\s+['\"](\\.[^'\"]+)['\"]/g;\n  for (const m of text.matchAll(re)) {\n    const resolved = resolveSpecifier(path.dirname(barrelPath), m[1]);\n    if (!resolved) continue;\n    if (resolved.endsWith(`${path.sep}index.ts`)) exportedFiles(resolved, seen);\n    else seen.add(resolved);\n  }\n  return seen;\n}\n\nexport default {\n  meta: {\n    type: 'problem',\n    docs: {\n      description:\n        'every source file in a lib must be re-exported from src/index.ts',\n    },\n    messages: {\n      missing:\n        \"'{{rel}}' is not exported from this barrel. Add `export * from \" +\n        \"'./{{spec}}';` here, or mark the file internal with a \" +\n        '`// barrel-ignore` first-line comment.',\n    },\n    schema: [],\n  },\n  create(context) {\n    return {\n      Program(node) {\n        const indexPath = context.filename;\n        const srcDir = path.dirname(indexPath);\n        const covered = exportedFiles(indexPath);\n        for (const file of sourceFiles(srcDir)) {\n          if (file === indexPath || covered.has(file)) continue;\n          const firstLine = fs.readFileSync(file, 'utf8').split('\\n', 1)[0];\n          if (firstLine.includes('barrel-ignore')) continue;\n          const rel = path.relative(srcDir, file);\n          context.report({\n            node,\n            messageId: 'missing',\n            data: { rel, spec: rel.replace(/\\.(ts|tsx)$/, '') },\n          });\n        }\n      },\n    };\n  },\n};\n```\n\n**Proposed diff 1b \u2014 root `eslint.config.mjs`, add:**\n\n```js\nimport requireBarrelExport from './tools/eslint-rules/require-barrel-export.mjs';\n\n// ...appended to the exported config array:\n{\n  files: ['libs/**/src/index.ts'],\n  plugins: {\n    workspace: { rules: { 'require-barrel-export': requireBarrelExport } },\n  },\n  rules: { 'workspace/require-barrel-export': 'error' },\n},\n```\n\nScope note: this covers **all** libs, not just `libs/ui` \u2014 the mistake is about the barrel pattern, not about one lib, and `// barrel-ignore` gives deliberately-internal files an explicit, visible opt-out.\n\nSanity check on adoption: temporarily delete one export line from `libs/ui/src/index.ts` and confirm `nx lint ui` goes red \u2014 a guard you have never seen fail proves nothing.\n\n**Load-bearing because:** a forgotten barrel export now fails `nx lint` (editor, pre-commit, and CI) on every future change, naming the file and the exact line to add \u2014 no agent needs to remember anything.\n\n---\n\n## Lesson 2 \u2014 completion was claimed with downstream broken \u2192 Stop hook (rung 2)\n\nAll three breaks were found by the *user*, downstream. That is a *when* problem, independent of the barrel specifics: work was declared done without checking that affected consumers still compile. Lesson 1 makes this particular defect visible to lint, but only a gate at the \"done\" moment guarantees the check actually runs before the claim.\n\n**Proposed diff \u2014 `.claude/settings.json` (hooks):**\n\n```json\n{\n  \"hooks\": {\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"npx nx affected -t lint typecheck --base=main || echo 'BLOCK: affected lint/typecheck failing \u2014 fix before finishing'\"\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n\n(Adjust `--base` to the team's convention \u2014 `main`, `origin/main`, or `HEAD~1` \u2014 and add `-t build` if typecheck is not a first-class target in this workspace.)\n\n**Load-bearing because:** the agent is interrupted at the exact moment it claims completion while a downstream project fails to compile, instead of the user having to point it out a fourth time.\n\n---\n\n## Not persisted\n\nCandidates 3\u20136 above, each with its one-line reason. Nothing else in the session record clears the load-bearing bar.\n"}], "grading": {"expectations": [{"text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill", "passed": true, "evidence": "retrospective.md routes both kept lessons mechanically: Lesson 1 'Kept -> rung 1 (lint rule)' with a full custom ESLint rule (tools/eslint-rules/require-barrel-export.mjs) plus eslint.config.mjs wiring, and Lesson 2 'Kept -> rung 2 (Stop hook)' with a .claude/settings.json Stop hook running 'npx nx affected -t lint typecheck'. The CLAUDE.md candidate (#3) was explicitly Dropped ('a prose rule is read once and forgotten under context pressure, which is exactly how this failed three times'), and both skill candidates (#4 project skill, #6 global skill) were Dropped ('no judgment involved; the step is purely mechanical, so a machine check beats a procedure document')."}, {"text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick", "passed": true, "evidence": "The output itself (not just the transcript) reasons about both homes. Lint is justified for the barrel defect: 'A file that exists under a lib's src/ but is unreachable from src/index.ts is a static property of the code. Encode it in the tool that already runs on every change.' The hook section explicitly acknowledges the lint check covers the same defect and justifies why a hook is still needed: 'Lesson 1 makes this particular defect visible to lint, but only a gate at the \"done\" moment guarantees the check actually runs before the claim' \u2014 i.e., the check answers 'what is wrong', the hook answers 'when is it checked'. This is an explicit, reasoned division of labor between the two mechanical homes, not an unexplained pick."}], "summary": {"passed": 2, "failed": 0, "total": 2, "pass_rate": 1.0}, "execution_metrics": {"note": "No metrics.json present in outputs_dir", "output_chars": 7501, "transcript_chars": 1973}, "timing": {"total_tokens": 59842, "executor_duration_seconds": 148.8, "total_duration_seconds": 148.8}, "claims": [{"claim": "The lint rule covers all libs (libs/**/src/index.ts), not just libs/ui", "type": "factual", "verified": true, "evidence": "Proposed eslint.config.mjs snippet targets files: ['libs/**/src/index.ts'], matching the scope note."}, {"claim": "No real files were modified anywhere; all changes exist only as proposals inside retrospective.md", "type": "process", "verified": true, "evidence": "outputs_dir contains only retrospective.md and transcript.md; all diffs (ESLint rule, config wiring, hook JSON) appear only as fenced code blocks inside retrospective.md."}, {"claim": "Chose lint over a CI-only script because lint already runs on every change and in-editor", "type": "process", "verified": true, "evidence": "Transcript step 3 states this; retrospective.md carries the matching rationale ('Encode it in the tool that already runs on every change' and 'fails nx lint (editor, pre-commit, and CI) on every future change')."}, {"claim": "The proposed ESLint rule correctly detects un-exported source files, including via nested barrels", "type": "quality", "verified": false, "evidence": "The rule source is plausible (walks export-from statements, follows nested index.ts, has spec/test/d.ts skips and a barrel-ignore opt-out) but was never executed against a fixture \u2014 the fictional Nx repo does not exist. The output itself acknowledges this by prescribing a mutation check ('temporarily delete one export line ... and confirm nx lint ui goes red'), which cannot be run here."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present"}, "eval_feedback": {"suggestions": [{"assertion": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick", "reason": "This run satisfied the assertion by splitting the record into two lessons and using BOTH homes with a stated division of labor. A run that routes one lesson to one home with a comparison, and a run that uses both homes with no comparison at all, would grade differently under the same wording \u2014 consider specifying whether the required justification must appear in retrospective.md itself (this run's did) rather than only in the transcript, and whether 'use both' counts as 'a choice between them'."}, {"reason": "No assertion checks that the proposed mechanical guards are concrete/runnable (actual rule source, config wiring, hook JSON) versus a hand-wave like 'add a lint rule'. This run produced full diffs, which is a meaningfully stronger outcome that currently earns no credit."}], "overall": "Both assertions are discriminating for the ambiguous-rung scenario, but assertion 2 is judgment-heavy when a run legitimately uses both homes; pinning down where the justification must live would tighten it."}}}, {"id": "eval-3-ambiguous-rung-old_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\nSession record: three times, a new file added to `libs/ui` was not exported from the lib's barrel `index.ts`. Downstream imports failed each time, and the user had to point it out each time.\n\n## Candidate lessons considered\n\n### 1. New files in `libs/ui` must be exported from the lib's barrel `index.ts`\n\n- **Signal:** Correction, repeated three times \u2014 the strongest signal the session offers. High recurrence, high friction (the user did the catching every time).\n- **Load-bearing test:** A future agent, after creating a file in `libs/ui`, would add the export to `libs/ui/.../index.ts` in the same change instead of shipping a file that downstream code cannot import. Passes.\n- **Routing:** This is the ambiguous case the skill anticipates \u2014 it could be know-how (a step in the \"add a file to a lib\" procedure) or an invariant (a structural rule of this monorepo). Applying the skill's tie-breaker \u2014 *which form makes the next agent change behavior more reliably: a procedure they follow, or a rule they check against?* \u2014 this is a **constraint**, not a method: \"a file that exists but is un-exported is invisible to the rest of the monorepo\" is simply true here, holds for every lib, and the code does not announce it (the build succeeds inside the lib; only downstream consumption fails, later). A constraint is usually an invariant \u2192 **project `CLAUDE.md`**.\n- Not a global skill: barrel-export discipline is a convention of *this* workspace's public-API style, not a truth of all codebases (many repos deliberately avoid barrels). Not a project skill: there is no multi-step procedure to teach \u2014 it is one rule, and a rule an agent checks against belongs in `CLAUDE.md`, which every agent reads on every task.\n- **Verdict: KEEP \u2192 CLAUDE.md.** Generalized to all `libs/*`, not just `libs/ui`: the mechanism (barrel = public API) is workspace-wide, and scoping the rule to the one lib where it happened to bite would leave the identical failure live everywhere else.\n\n### 2. Verify downstream imports resolve after adding a lib file\n\n- **Signal:** Same three corrections, read as a missing verification step (\"check that consumers can import it before declaring done\").\n- **Load-bearing test:** Marginal \u2014 it changes behavior, but only as a detection net for the failure that lesson 1 prevents at the source. If the barrel rule is followed, this check adds nothing session-to-session.\n- **Verdict: DROP** (merged into lesson 1). Capturing both would be the swollen-file failure mode the skill warns about: two homes for one lesson. The one rule, stated with its consequence, covers it.\n\n### 3. Automate the check (an ESLint barrel rule, or scaffold via Nx generators)\n\n- **Signal:** Improvised-fix instinct \u2014 a repeated mechanical omission is a natural candidate for tooling.\n- **Routing:** This retrospective's methodology routes lessons to **a skill or `CLAUDE.md` only**; standing up lint rules or changing the scaffolding workflow is project work, not a lesson-capture target, and proposing it here would exceed the retrospective's remit.\n- **Verdict: DROP as a routed lesson.** Worth a one-line suggestion to the user (below) so the idea isn't lost, but nothing is written for it.\n\n### 4. Anything session-local\n\nNo corrections in the record were one-off preferences or conversation-scoped context. Nothing to leave in the chat beyond the above.\n\n## Proposed change (awaiting confirmation \u2014 nothing has been written)\n\n**Target:** the fictional Nx monorepo's project `CLAUDE.md`, under \"Conventions\" (or a new \"Conventions\" section if none exists).\n\n```\nFile: CLAUDE.md   (under \"Conventions\")\n+ - Every lib in `libs/` exposes its public API through its barrel `index.ts`.\n+   When you add a new file to a lib, export it from that lib's `index.ts` in\n+   the same change \u2014 a file that exists but is un-exported builds fine locally\n+   and then fails at the downstream import site.\n```\n\nLoad-bearing because: a future agent adding a file to any lib wires the barrel export in the same change, instead of the user catching the missing export downstream for the third time.\n\n## Not persisted, but worth saying once\n\nSince the omission recurred three times mechanically, the durable fix beyond documentation is tooling: scaffold new lib files with `nx generate` (which wires barrel exports) or add a lint check that every module in a lib is reachable from its `index.ts`. That is a task to schedule, not a lesson to file.\n\n## Bottom line\n\nOne lesson clears the bar, routed to the project `CLAUDE.md` as a single convention entry. Everything else is either the same lesson in another shape or outside what a retrospective writes down.\n"}], "grading": {"expectations": [{"text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill", "passed": false, "evidence": "retrospective.md routes the surviving lesson to CLAUDE.md: 'Verdict: KEEP -> CLAUDE.md' and 'Target: the fictional Nx monorepo's project CLAUDE.md, under \"Conventions\"'. The automation option (candidate 3, 'an ESLint barrel rule, or scaffold via Nx generators') is explicitly dropped as a routed lesson: 'This retrospective's methodology routes lessons to a skill or CLAUDE.md only; standing up lint rules ... is project work, not a lesson-capture target'. It survives only as an unrouted one-line suggestion in 'Not persisted, but worth saying once'. The substantive routing chosen was a CLAUDE.md conventions entry \u2014 the skill snapshot used evidently has no guard/hook rungs, so mechanical routing was structurally unavailable, but graded as written this fails."}, {"text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick", "passed": false, "evidence": "Hooks are never mentioned anywhere in retrospective.md or transcript.md. A lint check is mentioned (candidate 3: 'an ESLint barrel rule', and 'add a lint check that every module in a lib is reachable from its index.ts') but is framed as out-of-scope project work rather than a viable routing home, and no lint-vs-hook comparison or justification exists. The only routing tie-breaker applied is know-how-vs-invariant (skill vs CLAUDE.md)."}], "summary": {"passed": 0, "failed": 2, "total": 2, "pass_rate": 0.0}, "execution_metrics": {"tool_calls": null, "total_tool_calls": null, "total_steps": 6, "errors_encountered": 0, "output_chars": 6365, "transcript_chars": 1685, "note": "No metrics.json present; total_steps counted from transcript.md's numbered steps; output_chars = retrospective.md (4680) + transcript.md (1685)."}, "timing": {"executor_duration_seconds": 59.0, "total_duration_seconds": 59.0}, "claims": [{"claim": "The snapshot skill routes lessons only to skills or CLAUDE.md (no guard/lint/hook rungs)", "type": "process", "verified": false, "evidence": "Stated in retrospective.md candidate 3 and transcript.md step 3; the skill snapshot itself was not available in outputs to confirm. Consistent with the run being labeled 'old_skill', but unverifiable from the provided files."}, {"claim": "No real files were modified; the diff is a written proposal awaiting confirmation", "type": "process", "verified": true, "evidence": "outputs dir contains only retrospective.md and transcript.md; retrospective.md is headed 'Proposed change (awaiting confirmation \u2014 nothing has been written)'."}, {"claim": "One lesson clears the bar; the other candidates are duplicates or out of scope", "type": "quality", "verified": true, "evidence": "The merge of candidate 2 into candidate 1 is reasoned (detection net vs prevention at source), and candidate 3's exclusion follows from the stated methodology. Internally consistent, though the exclusion of tooling is exactly what expectation 1 penalizes."}, {"claim": "The barrel-export mechanism is workspace-wide, so the rule generalizes from libs/ui to all libs/*", "type": "factual", "verified": false, "evidence": "Plausible for an Nx monorepo, but the project is fictional and only libs/ui failures appear in the session record; the generalization is asserted, not evidenced."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present."}, "eval_feedback": {"suggestions": [{"assertion": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified", "reason": "When the skill version under test has no concept of mechanical rungs, this expectation cannot pass regardless of executor quality \u2014 it measures the skill's design, not the run. That is presumably intentional for an old-vs-new comparison, but if any old_skill run ever passed it, that would signal the executor drew on outside knowledge rather than the skill; worth noting so a pass here is read as contamination, not success."}], "overall": "Expectations are discriminating for the old-vs-new skill comparison: this old_skill run fails both precisely because the snapshot skill lacks guard/hook rungs, which is the behavior gap the new skill presumably closes. The executor otherwise followed its methodology faithfully and even surfaced the lint-rule idea unprompted, only to rule it out-of-scope \u2014 good evidence the routing ladder, not executor judgment, is the binding constraint."}}}, {"id": "eval-4-guard-tempting-but-judgment-new_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\nSession record: twice the user rejected Vitest tests because they mocked so much that the\ntest only verified the mocks \u2014 the repository, the mapper, and the clock were all mocked\nin a unit that just formats a label. The user's rule: **test through real collaborators\nunless the dependency does IO.**\n\n## Candidate lessons\n\n### 1. Over-mocking: mock only IO boundaries \u2014 SURVIVES\n\n**Signal:** A correction, made twice, on the same defect class. Highest-weight signal the\nskill recognizes (recurrence + friction).\n\n**Load-bearing test:** A future agent writing a unit test would, by default, mock every\ncollaborator \"to isolate the unit\" \u2014 that is exactly what happened twice this session.\nWith this lesson, it instead instantiates the real mapper and passes a fixed `Date`, and\nmocks only the repository (the one dependency that does IO). Behavior changes; it passes.\n\n**Routing \u2014 walked down the ladder:**\n\n- **Rung 1 (lint/CI guard) \u2014 tempting, rejected.** A rule like \"flag test files with more\n  than N `vi.mock` calls\" or \"ban `vi.fn()` outside `__mocks__`\" *looks* checkable, but the\n  actual rule has an exception clause \u2014 \"unless the dependency does IO\" \u2014 that no static\n  check can evaluate. A mock count can't tell a justified repository mock from an\n  unjustified mapper mock: a heavy integration seam legitimately mocks three IO\n  dependencies (rule fires, false positive), while a test that mocks the single pure\n  collaborator that matters slips under any threshold (rule silent, false negative). A\n  guard that fires identically on good and bad tests proves nothing and trains agents to\n  appease the counter instead of writing real tests. The judgment call \u2014 *does this\n  dependency do IO?* \u2014 is the whole lesson, so it cannot live in a mechanical rule.\n- **Rung 2 (hook) \u2014 rejected.** The lesson is about *what the test looks like*, not *when*\n  something must run. There is no workflow moment a `PreToolUse`/`Stop` hook could\n  intercept that decides \"is this mock justified\".\n- **Rung 3 (skill) \u2014 fits.** This is know-how needing judgment: a heuristic for deciding\n  what to mock, plus a diagnostic for recognizing a vacuous test. It **transcends the\n  repo** \u2014 nothing about it is specific to this codebase's domain; it is the user's\n  standard for unit tests anywhere Vitest (or any test runner) is used \u2014 so it goes to a\n  **global skill**, `~/.claude/skills/`. (If the user prefers to scope it to this project\n  only, the identical content can land in the project's `.claude/skills/` instead; the\n  content does not change.)\n\n**Proposed diff:**\n\n```\nFile: ~/.claude/skills/unit-testing/SKILL.md   (new global skill)\n```\n\n```markdown\n---\nname: unit-testing\ndescription: How to choose test doubles when writing or fixing unit tests (Vitest,\n  Jest, or any runner). Use whenever writing a new test, deciding what to mock,\n  or reviewing a test that stubs its collaborators.\n---\n\n# Unit testing: mock only IO boundaries\n\n**Default to real collaborators. Mock a dependency only if it does IO** \u2014 network,\ndatabase, filesystem, message queue \u2014 or is otherwise unusable in-process (wall-clock\ntime *when time affects the behavior under test*, true randomness). Everything else \u2014\nmappers, formatters, validators, domain objects, pure helpers \u2014 is constructed for\nreal and exercised through the unit.\n\nWhy: a test whose collaborators are all mocked asserts only that the mocks were\ncalled as configured. It passes whether the unit is correct or broken, so it proves\nnothing \u2014 and it breaks on every refactor of the wiring while missing every real bug.\n\nBefore finishing a test, run this check:\n\n- **If every assertion is about a mock** (`toHaveBeenCalledWith`, mock return values\n  flowing straight to `expect`), the test verifies the mocks, not the unit. Rewrite\n  it against real collaborators until at least one assertion is about a real output.\n- **For each mock, name the IO it replaces.** Can't name any? Use the real object.\n  A clock is not IO for a unit that doesn't branch on time \u2014 pass a fixed `Date`\n  as an argument or construct the input directly rather than stubbing the clock.\n- **A hard-to-construct real collaborator is a design signal**, not a reason to\n  mock. Say so rather than papering over it with `vi.mock`.\n```\n\n**Load-bearing because:** a future agent asked for a unit test reaches for real\ncollaborators first and can justify each remaining mock by the IO it replaces, instead of\nproducing the mock-everything test the user rejected twice.\n\n### 2. \"A test asserting only on mock interactions verifies nothing\" \u2014 MERGED into 1\n\nThis is the diagnostic form of the same lesson, not a separate one (the user's rejection\nreason and the user's rule are two faces of one defect class). Giving it a second home\nwould violate the one-home rule and duplicate content; it lives as the first bullet of the\nskill's checklist.\n\n### 3. \"The clock didn't need mocking for a label formatter\" \u2014 MERGED into 1\n\nA sub-case: time is only an IO-like boundary when the behavior under test depends on it.\nFolded into the skill's second checklist bullet rather than made its own entry.\n\n### 4. \"The user uses Vitest\" / this session's specific test files \u2014 DROPPED\n\nSession-local (rung 5). The runner is visible from the repo's `package.json` and the\nrejected tests were fixed in-session; no future agent behaves differently for knowing\nthese details.\n\n### 5. A CLAUDE.md line stating the mocking convention \u2014 CONSIDERED, NOT USED\n\nTempting as a one-liner (\"mock only IO dependencies in tests\"), but the ladder places\nknow-how above CLAUDE.md, and this is a procedure requiring judgment, not an uncheckable\nrepo fact an agent couldn't derive. A bare prose line also carries none of the diagnostic\n(\"are all your assertions about mocks?\") that makes the lesson actionable. One home only:\nthe skill.\n\n## Summary\n\nOne lesson survives: **mock only IO boundaries; test through real collaborators** \u2014 routed\nto a new global skill `~/.claude/skills/unit-testing/SKILL.md` with the exact content\nabove. A lint guard was considered and rejected because the rule's IO exception requires\njudgment no static check can make; a hook was rejected because the lesson has no workflow\nmoment to intercept. Nothing else from the session clears the load-bearing bar.\n\nApply on your confirmation \u2014 nothing has been written outside this proposal.\n"}], "grading": {"expectations": [{"text": "Lesson routed to a skill, not forced into a lint rule or proxy metric", "passed": true, "evidence": "retrospective.md routes the surviving lesson to 'Rung 3 (skill) \u2014 fits' and proposes a concrete new skill file '~/.claude/skills/unit-testing/SKILL.md' with full SKILL.md content (frontmatter, IO-boundary rule, three-point diagnostic checklist). No lint rule, hook, or metric is adopted anywhere; the summary confirms: 'routed to a new global skill ~/.claude/skills/unit-testing/SKILL.md'."}, {"text": "If a guard is considered, it is explicitly rejected as a misfiring proxy", "passed": true, "evidence": "A guard is considered and explicitly rejected with proxy/misfire reasoning: 'Rung 1 (lint/CI guard) \u2014 tempting, rejected. A rule like \"flag test files with more than N vi.mock calls\" ... the actual rule has an exception clause \u2014 \"unless the dependency does IO\" \u2014 that no static check can evaluate.' It names both failure directions ('a heavy integration seam legitimately mocks three IO dependencies (rule fires, false positive), while a test that mocks the single pure collaborator that matters slips under any threshold (rule silent, false negative)') and the Goodhart risk ('trains agents to appease the counter instead of writing real tests')."}], "summary": {"passed": 2, "failed": 0, "total": 2, "pass_rate": 1.0}, "execution_metrics": {"tool_calls": {}, "total_tool_calls": null, "total_steps": 6, "errors_encountered": 0, "output_chars": 6702, "transcript_chars": 1237, "note": "No metrics.json was produced by the executor; total_steps taken from the 6 numbered transcript steps, char counts measured from the two output files."}, "timing": {"executor_duration_seconds": 87.8, "grader_duration_seconds": null, "total_duration_seconds": 87.8, "total_tokens": 54296}, "claims": [{"claim": "The over-mocking correction occurred twice, making it the highest-weight signal", "type": "factual", "verified": true, "evidence": "Matches the eval context: 'twice the user rejected Vitest tests that mocked so much they only verified the mocks'."}, {"claim": "The retrospective skill was read in full and used as the sole methodology", "type": "process", "verified": false, "evidence": "Unverifiable from the outputs alone; the transcript asserts it (step 1) but the transcript is the executor's own claim. The output's structure (load-bearing test, routing ladder, one-home rule, approval gate) is consistent with the skill's method, which is circumstantial support."}, {"claim": "No changes were made to any real files; proposals exist only inside the output file", "type": "process", "verified": true, "evidence": "outputs_dir contains only retrospective.md and transcript.md; retrospective.md ends with 'Apply on your confirmation \u2014 nothing has been written outside this proposal', matching the approval-gated contract."}, {"claim": "A hook (rung 2) has no applicable workflow moment for this lesson", "type": "quality", "verified": true, "evidence": "Reasoning is sound: the lesson governs test-double choice (content of an edit), not a timed workflow event; retrospective.md states 'There is no workflow moment a PreToolUse/Stop hook could intercept that decides \"is this mock justified\"'."}, {"claim": "The lesson transcends the repo, so a global skill is the right scope", "type": "quality", "verified": true, "evidence": "The rule ('test through real collaborators unless the dependency does IO') is repo-agnostic, and the output hedges appropriately: it offers project-scoped .claude/skills/ as an alternative if the user prefers."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": [], "note": "No user_notes.md present."}, "eval_feedback": {"suggestions": [{"assertion": "If a guard is considered, it is explicitly rejected as a misfiring proxy", "reason": "The conditional/vacuous-pass clause means an output that never mentions a guard at all passes just as easily as this one, which did the harder work of naming the proxy's false-positive and false-negative modes. Since the eval is titled 'guard-tempting-but-judgment', consider requiring that the guard temptation be surfaced and rejected, not merely absent \u2014 otherwise a shallower retrospective scores identically."}, {"reason": "No assertion checks the quality or fidelity of the proposed skill content itself \u2014 e.g. that it preserves the exception clause ('unless the dependency does IO') and the clock nuance rather than flattening the rule to 'never mock'. This run preserved both, but a lossy paraphrase would pass the current expectations."}], "overall": "Both expectations pass on strong evidence. Consider tightening expectation 2 to require the guard be considered-and-rejected (not just absent), and adding a content-fidelity check on the proposed skill."}}}, {"id": "eval-4-guard-tempting-but-judgment-old_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "retrospective.md", "type": "text", "content": "# Retrospective\n\nSession record: I twice submitted Vitest unit tests you rejected because they mocked so much that the assertions only verified the mocks \u2014 I mocked the repository, the mapper, and the clock in a unit that just formats a label. You corrected me both times and stated the rule: test through real collaborators unless the dependency does IO.\n\n## Candidate lessons considered\n\n**1. Mock only IO-boundary dependencies; use real collaborators otherwise.** (from the repeated correction)\nThe same rejection happened twice \u2014 highest-friction, recurring signal in the session. Load-bearing test: a future agent writing a unit test would wire the real mapper and formatter instead of mocking them, and would reach for a mock only where the dependency touches the network, filesystem, database, or wall clock. That is a concrete behavior change. **Survives.**\n\n**2. A pure unit shouldn't be handed a mocked clock \u2014 pass a plain value instead.** (the clock mock in the label formatter)\nReal, but it is an instance of lesson 1, not a separate rule: the clock got mocked because the test mocked everything on principle. Folding it into lesson 1's wording (as the \"prefer passing values\" corollary) changes behavior just as reliably without adding a second entry to read past. **Dropped as a separate lesson \u2014 folded into 1.**\n\n**3. \"A test whose assertions pass with the production code deleted proves nothing.\"**\nThis is the *tell* that identifies over-mocked tests, not an independent lesson. Same treatment: folded into lesson 1 as its one-line self-check, because the rule alone (\"mock only IO\") doesn't teach an agent how to notice when a test has gone wrong. **Dropped as a separate lesson \u2014 folded into 1.**\n\n**4. Ask for the project's testing philosophy before writing the first tests.**\nFails the load-bearing test: with lesson 1 written down, the philosophy is already stated, so the question is moot; and as a general habit it's too vague to change behavior predictably. **Dropped.**\n\n**5. The two specific test rewrites (which files, which mocks came out).**\nSession-local \u2014 mattered only for this conversation's cleanup. **Dropped; stays in the chat.**\n\n## Routing the survivor\n\nOne lesson survives. Two homes were weighed:\n\n- **Global skill (`~/.claude/skills/testing/`)** \u2014 the heuristic does transcend this repo. But it is a bright-line *constraint* the user articulated as a rule (\"unless the dependency does IO\"), not a multi-step procedure, and a skill only helps when it triggers; a testing rule that must hold for *every* test written in this project is safer where every agent reads it on every task.\n- **Project `CLAUDE.md`** \u2014 per the tie-breaker in the method (a constraint is usually an invariant; the rule form is what makes the next agent change behavior most reliably, since it's checkable against any test they're about to write), this is the home. **Chosen.** One home only, so no duplicate skill copy.\n\nOne route deliberately *not* taken: an automated check (e.g. an ESLint rule flagging `vi.mock`). Tempting because the failure recurred, but the rule is a judgment call a machine can't make \u2014 mocking a repository that does real IO is exactly what the rule *permits*, so a mechanical mock-ban would flag legitimate tests and miss the real offense (mocking pure collaborators). This lesson needs a rule agents apply with judgment, which is what a `CLAUDE.md` line is for.\n\n## Proposed diff\n\n**File:** `CLAUDE.md` (the target project's root; add a `## Testing` section, or append under it if one exists)\n\n```\n## Testing\n- Test through real collaborators. Mock ONLY dependencies that do IO\n  (network, filesystem, database, wall-clock reads). Pure collaborators \u2014\n  mappers, formatters, in-memory logic \u2014 stay real in the test.\n- For pure code, prefer passing plain values (e.g. a timestamp) over\n  injecting a mocked clock or repository it never needed.\n- Self-check before committing a test: if the assertions would still pass\n  with the production logic deleted, the test is verifying its mocks, not\n  the unit. Rewrite it.\n```\n\n**Load-bearing because:** a future agent writing a Vitest test wires the real mapper/formatter and mocks only at IO boundaries, so the test fails when the unit is wrong instead of passing against its own mocks.\n\n## Next step\n\nNothing is applied. If you approve the diff, add the `## Testing` block above to the project's `CLAUDE.md`; everything else from the session is intentionally left unpersisted.\n"}], "grading": {"expectations": [{"text": "Lesson routed to a skill, not forced into a lint rule or proxy metric", "passed": false, "evidence": "retrospective.md 'Routing the survivor' weighs a global skill vs project CLAUDE.md and explicitly chooses CLAUDE.md: 'Project CLAUDE.md \u2014 per the tie-breaker in the method ... this is the home. **Chosen.** One home only, so no duplicate skill copy.' The proposed diff targets 'CLAUDE.md (the target project's root; add a ## Testing section)'. It avoided the lint-rule trap, but the home substantively chosen is CLAUDE.md, not a skill \u2014 the expectation's per-context criterion says routing to CLAUDE.md fails."}, {"text": "If a guard is considered, it is explicitly rejected as a misfiring proxy", "passed": true, "evidence": "retrospective.md: 'One route deliberately not taken: an automated check (e.g. an ESLint rule flagging vi.mock). Tempting because the failure recurred, but the rule is a judgment call a machine can't make \u2014 mocking a repository that does real IO is exactly what the rule permits, so a mechanical mock-ban would flag legitimate tests and miss the real offense (mocking pure collaborators).' The guard is named, and rejected with explicit over-flag/under-flag (misfiring proxy) reasoning."}], "summary": {"passed": 1, "failed": 1, "total": 2, "pass_rate": 0.5}, "execution_metrics": {"output_chars": 6078, "transcript_chars": 1589, "notes": "No metrics.json present; output_chars = retrospective.md (4489) + transcript.md (1589)."}, "timing": {"executor_duration_seconds": 108.4, "total_duration_seconds": 108.4}, "claims": [{"claim": "One lesson survives the load-bearing test; two candidates were folded into it and two dropped", "type": "process", "verified": true, "evidence": "retrospective.md lists five candidates: lesson 1 survives; lessons 2 and 3 are marked 'folded into 1'; lessons 4 and 5 marked 'Dropped'."}, {"claim": "No real files were modified; outputs live only in the run's outputs/ directory", "type": "factual", "verified": true, "evidence": "outputs/ contains only retrospective.md and transcript.md; retrospective.md ends with 'Nothing is applied.'"}, {"claim": "The CLAUDE.md rule form 'is what makes the next agent change behavior most reliably'", "type": "quality", "verified": false, "evidence": "This is the routing judgment the eval targets: the retrospective argues CLAUDE.md is the better home because the rule is a checkable constraint, but the eval's design intent is that this judgment-heavy testing heuristic belongs in a skill. The claim is the point of disagreement, not an established fact."}], "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": []}, "eval_feedback": {"suggestions": [{"assertion": "Lesson routed to a skill, not forced into a lint rule or proxy metric", "reason": "The output here is a borderline case worth noting for the eval author: the executor gave a reasoned constraint-vs-method argument for CLAUDE.md and explicitly rejected the lint rule. If the skill under test is meant to steer routing toward skills for judgment-heavy testing heuristics, the skill's routing tie-breaker (constraint -> CLAUDE.md) may itself be what needs revision \u2014 this failure is diagnostic of the skill's routing guidance, not of executor sloppiness. The expectation is discriminating as written; no change needed, but the grading note above may matter when interpreting the result."}], "overall": "Expectations are discriminating: one caught a real routing miss (CLAUDE.md instead of a skill) while the other confirmed the guard was properly rejected. Evals look solid."}}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "retrospective", "skill_path": "<path/to/skill>", "executor_model": "<model-name>", "analyzer_model": "<model-name>", "timestamp": "2026-08-21T12:53:39Z", "evals_run": [0, 1, 2, 3, 4], "runs_per_configuration": 3}, "runs": [{"eval_id": 0, "configuration": "new_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 77.5, "tokens": 10462, "tool_calls": null, "errors": 0}, "expectations": [{"text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'", "passed": true, "evidence": "retrospective.md Candidate 1 routes it to 'rung 1: a custom ESLint rule' (tenant/require-account-scope, full rule source in tools/eslint-rules/rules/require-account-scope.ts plus eslint.config.mjs wiring). It explicitly rejects the CLAUDE.md alternative: 'The temptation is a CLAUDE.md line... Prose would be read once and forgotten under context pressure; the multi-tenancy fact is carried by the rule's error message, so it needs no second home.' The summary confirms 'nothing to CLAUDE.md'. Single home, no 'additionally'."}, {"text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose", "passed": true, "evidence": "retrospective.md Candidate 2: 'Rung 1: built-in ESLint rule \u2014 no custom code, no prose', with a concrete no-restricted-imports config diff for eslint.config.mjs banning 'moment' with the message 'This repo uses date-fns for all date handling. Import from \"date-fns\" instead.' No prose home is proposed anywhere for this lesson."}, {"text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere", "passed": true, "evidence": "retrospective.md Candidate 3: 'Dropped \u2014 rung 5 (nowhere). A preference stated once and downgraded by the user is noise by this skill's own weighting.' Summary table: 'Drop | Nowhere \u2014 user-waved-off one-off', and closing line 'the readonly preference stays in the chat.' No diff or file placement is proposed for it."}, {"text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason", "passed": true, "evidence": "Both survivors have named target files and exact content: Candidate 1 gives the complete rule source for a new file 'tools/eslint-rules/rules/require-account-scope.ts' plus a + diff for 'eslint.config.mjs', followed by 'Load-bearing because: an unscoped tenant query now fails lint on every future change...'. Candidate 2 gives a + diff for 'eslint.config.mjs' followed by 'Load-bearing because: any future import moment fails lint immediately...'. Each load-bearing reason is a single sentence."}], "notes": []}, {"eval_id": 1, "configuration": "new_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 92.5, "tokens": 8867, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill", "passed": true, "evidence": "retrospective.md Lesson 1 routes it explicitly to a Claude Code Stop hook: \"It is exactly the skill's rung-2 case ('run affected tests before declaring done') -> Claude Code `Stop` hook. Not CLAUDE.md: a prose 'always run tests' line is read once and forgotten under context pressure; the hook fires mechanically at the exact moment the mistake happens.\" A concrete Stop hook block for .claude/settings.json follows, with exit-2 blocking semantics explained."}, {"text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)", "passed": true, "evidence": "retrospective.md Lesson 2: \"a *when*-rule, named verbatim at rung 2 -> Claude Code `PostToolUse` hook\", with a PostToolUse block using matcher \"Edit|Write\" and a command that reads tool_input.file_path via jq and runs `npx prisma generate` only when the edited file matches *schema.prisma, exiting 2 on failure."}, {"text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning", "passed": true, "evidence": "retrospective.md Lesson 3 rejects CLAUDE.md and changes the wrapper script's default: \"encode the safe value as the wrapper's default so the lesson stops needing to be known at all. That is the top of the ladder (fix the tool that already runs on every invocation), above prose. CLAUDE.md would only be right if the wrapper couldn't be changed.\" It includes an actual diff (PARALLEL=\"${NX_PARALLEL:-3}\"; exec npx nx run-many --parallel=\"$PARALLEL\" \"$@\") and notes that a caller-supplied --parallel still wins."}, {"text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook", "passed": true, "evidence": "Both hook proposals are full JSON blocks for .claude/settings.json. Lesson 1's Stop hook carries a complete runnable command (git-change guard, `npx nx affected -t test --base=origin/main --parallel=3`, log tail, exit 2 with a BLOCK message). Lesson 2's PostToolUse hook has matcher \"Edit|Write\" and a complete command (jq file-path extraction, case match on *schema.prisma, `npx prisma generate`, exit 2 on failure). Lesson 3's wrapper change is a concrete unified diff, not a promise."}], "notes": []}, {"eval_id": 2, "configuration": "new_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 96.8, "tokens": 9685, "tool_calls": null, "errors": 0}, "expectations": [{"text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it", "passed": true, "evidence": "Routing destination correct: Lesson 1's routing walk ends '**Rung 4 (CLAUDE.md): yes.**' and the proposed diff targets 'project CLAUDE.md (fictional monorepo), under an ## Environments section'. Justification present and explicit, per-rung: rung 1 rejected ('There is no diff a rule could inspect \u2014 the danger lives in infrastructure topology, not in any file'), rung 2 rejected ('A PreToolUse hook could only pattern-match command text... the dangerous surface is unbounded... so a keyword hook fails open on every variant'), and a one-line summary reason: 'the hazard is invisible in the repo \u2014 no tool that reads code or commands can know that two environments share a database.' Both the substantive routing AND the required justification are present, so the two failure modes the eval author asked to distinguish both come out clean."}, {"text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)", "passed": true, "evidence": "Lesson 2's routing walk: '**Rung 3 (skill): yes \u2014 global.** \"Reproduce a bug before patching it\" transcends this repo entirely; it applies to any codebase. Per the ladder, it goes to ~/.claude/skills/, not the project.' Proposed diff targets ~/.claude/skills/debugging/SKILL.md with a full frontmatter + content draft."}, {"text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md", "passed": true, "evidence": "Lesson 3 is routed to rung 1 \u2014 'type constraint + lint rule' \u2014 a home above CLAUDE.md on the ladder: the mapper is retyped against 'import type { ApiErrorResponse } from @<org>/shared/contracts' and an ESLint no-restricted-syntax rule bans local redeclaration in libs/api/**. It is explicitly NOT put in CLAUDE.md: 'no skill or CLAUDE.md line needed once the typechecker refuses a guessed shape' and 'adding a prose rule on top would be a second home for the same lesson, which the ladder forbids.' Note: the eval anticipated a project skill; the output went a rung higher (mechanical guard), which satisfies 'other home above CLAUDE.md' as written."}, {"text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition", "passed": true, "evidence": "retrospective.md opens with 'No lesson goes to auto-memory' and closes with 'All three are proposals awaiting confirmation; nothing has been applied.' The outputs directory contains only retrospective.md and transcript.md; the transcript confirms 'no real files were modified \u2014 all diffs are proposals inside retrospective.md only.' Exactly one CLAUDE.md addition is proposed (Lesson 1's Environments block); lessons 2 and 3 target a global skill and code/lint config respectively."}], "notes": []}, {"eval_id": 3, "configuration": "new_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 2, "failed": 0, "total": 2, "time_seconds": 148.8, "tokens": 7501, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill", "passed": true, "evidence": "retrospective.md routes both kept lessons mechanically: Lesson 1 'Kept -> rung 1 (lint rule)' with a full custom ESLint rule (tools/eslint-rules/require-barrel-export.mjs) plus eslint.config.mjs wiring, and Lesson 2 'Kept -> rung 2 (Stop hook)' with a .claude/settings.json Stop hook running 'npx nx affected -t lint typecheck'. The CLAUDE.md candidate (#3) was explicitly Dropped ('a prose rule is read once and forgotten under context pressure, which is exactly how this failed three times'), and both skill candidates (#4 project skill, #6 global skill) were Dropped ('no judgment involved; the step is purely mechanical, so a machine check beats a procedure document')."}, {"text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick", "passed": true, "evidence": "The output itself (not just the transcript) reasons about both homes. Lint is justified for the barrel defect: 'A file that exists under a lib's src/ but is unreachable from src/index.ts is a static property of the code. Encode it in the tool that already runs on every change.' The hook section explicitly acknowledges the lint check covers the same defect and justifies why a hook is still needed: 'Lesson 1 makes this particular defect visible to lint, but only a gate at the \"done\" moment guarantees the check actually runs before the claim' \u2014 i.e., the check answers 'what is wrong', the hook answers 'when is it checked'. This is an explicit, reasoned division of labor between the two mechanical homes, not an unexplained pick."}], "notes": []}, {"eval_id": 4, "configuration": "new_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 2, "failed": 0, "total": 2, "time_seconds": 87.8, "tokens": 6702, "tool_calls": null, "errors": 0}, "expectations": [{"text": "Lesson routed to a skill, not forced into a lint rule or proxy metric", "passed": true, "evidence": "retrospective.md routes the surviving lesson to 'Rung 3 (skill) \u2014 fits' and proposes a concrete new skill file '~/.claude/skills/unit-testing/SKILL.md' with full SKILL.md content (frontmatter, IO-boundary rule, three-point diagnostic checklist). No lint rule, hook, or metric is adopted anywhere; the summary confirms: 'routed to a new global skill ~/.claude/skills/unit-testing/SKILL.md'."}, {"text": "If a guard is considered, it is explicitly rejected as a misfiring proxy", "passed": true, "evidence": "A guard is considered and explicitly rejected with proxy/misfire reasoning: 'Rung 1 (lint/CI guard) \u2014 tempting, rejected. A rule like \"flag test files with more than N vi.mock calls\" ... the actual rule has an exception clause \u2014 \"unless the dependency does IO\" \u2014 that no static check can evaluate.' It names both failure directions ('a heavy integration seam legitimately mocks three IO dependencies (rule fires, false positive), while a test that mocks the single pure collaborator that matters slips under any threshold (rule silent, false negative)') and the Goodhart risk ('trains agents to appease the counter instead of writing real tests')."}], "notes": []}, {"eval_id": 0, "configuration": "old_skill", "run_number": 1, "result": {"pass_rate": 0.5, "passed": 2, "failed": 2, "total": 4, "time_seconds": 52.3, "tokens": 5578, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'", "passed": false, "evidence": "retrospective.md Candidate 1 routes it to prose: 'Routing: This is an invariant ... Invariants go to the project CLAUDE.md' with a proposed diff 'File: CLAUDE.md (under \"Conventions\" ...)'. No ESLint rule, CI check, or any mechanical guard is mentioned anywhere. The transcript confirms the skill snapshot 'has no lint/hook/CI routing option', so the substantive routing chosen was CLAUDE.md prose only."}, {"text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose", "passed": false, "evidence": "retrospective.md Candidate 2: 'Routing: An invariant (a \"use X, not Y\" rule) ... \u2192 project CLAUDE.md, same Conventions section' with a prose diff '- Dates: use date-fns ... Never introduce moment.' No ESLint no-restricted-imports or other enforceable guard proposed. Routing chosen was CLAUDE.md prose."}, {"text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere", "passed": true, "evidence": "retrospective.md Candidate 3 is headed 'readonly on DTO fields (DROP)': 'This is exactly the skill's noise pattern \u2014 a preference mentioned once and waved off ... It stays in the chat.' No diff or persistence target is proposed for it anywhere in the output."}, {"text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason", "passed": true, "evidence": "Both surviving lessons have a fenced diff naming 'File: CLAUDE.md (under \"Conventions\")' with exact added lines, each followed by a one-sentence reason: 'Load-bearing because: a future agent adds the accountId scope to every query by default instead of being caught twice in review' and 'Load-bearing because: a future agent picks date-fns for date work without a correction round-trip.' The diffs target the fictional project's CLAUDE.md, not this repo's, consistent with the task framing."}], "notes": []}, {"eval_id": 1, "configuration": "old_skill", "run_number": 1, "result": {"pass_rate": 0.0, "passed": 0, "failed": 4, "total": 4, "time_seconds": 61.1, "tokens": 7031, "tool_calls": null, "errors": 0}, "expectations": [{"text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill", "passed": false, "evidence": "retrospective.md lesson 1 routes it to CLAUDE.md: 'This is a rule the agent must not violate, not a method \u2014 an invariant. It goes to the project CLAUDE.md.' No hook (Stop or otherwise) is mentioned anywhere in the output. The transcript confirms the skill snapshot 'has no hook/lint/CI routing' in its home list, but the expectation is graded as written: routing chosen was CLAUDE.md."}, {"text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)", "passed": false, "evidence": "retrospective.md lesson 2: 'A rule that is simply true here and not derivable from the code \u2192 project CLAUDE.md.' The proposed diff is a prose bullet in the Nx repo's CLAUDE.md ('After any edit to a schema.prisma, run prisma generate'). No PostToolUse or any hook triggered by schema edits is proposed."}, {"text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning", "passed": false, "evidence": "retrospective.md lesson 3: 'A project-specific fact an agent must check against, not a procedure \u2192 project CLAUDE.md.' The diff is a CLAUDE.md bullet stating the flag requirement. No change to the wrapper script's default, no project skill, and no consideration of any home above CLAUDE.md for this lesson (the 'Not routed anywhere else' section explicitly rejects skills for all three lessons)."}, {"text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook", "passed": false, "evidence": "No hook is proposed anywhere in retrospective.md, so there is no config content, no command, and no matcher. Per the grading instructions, this conditional expectation fails when no hook is proposed at all \u2014 the lessons needed one and its absence is not a hook proposal. The only concrete diff given is a three-bullet CLAUDE.md block."}], "notes": []}, {"eval_id": 2, "configuration": "old_skill", "run_number": 1, "result": {"pass_rate": 0.25, "passed": 1, "failed": 3, "total": 4, "time_seconds": 63.9, "tokens": 7975, "tool_calls": null, "errors": 0}, "expectations": [{"text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it", "passed": false, "evidence": "Routing destination is substantively CORRECT: retrospective.md Lesson 1 routes to project CLAUDE.md ('That is the definition of a project CLAUDE.md entry') with a proposed diff under an 'Environments' or 'Invariants' section. However, the required guard-impossibility justification is ABSENT: the stated rationale only argues why it is not a *skill* ('Not a skill: there is no procedure to follow, just a rule to check against'). Neither 'guard' nor 'hook' (nor lint/CI check) appears anywhere in retrospective.md or transcript.md, and no reason is given why an automated guard or hook cannot carry this fact. Verdict is 'right home, missing justification' \u2014 graded strictly as written, this fails. (Eval-author note confirms the skill version under test never asks for this reasoning, so this failure reflects a skill gap, not executor sloppiness.)"}, {"text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)", "passed": true, "evidence": "retrospective.md Lesson 2: 'This is know-how that transcends this repo \u2014 a method, not a fact about this codebase. Per the routing rule, that goes to a global skill: ~/.claude/skills/debugging/SKILL.md'. The proposed diff targets that global-skill path and includes frontmatter for creating it if absent. The summary table also lists 'global skill ~/.claude/skills/debugging/' with rationale 'Cross-project method (know-how)'."}, {"text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md", "passed": false, "evidence": "retrospective.md Lesson 3 routes it INTO project CLAUDE.md: 'Between a procedure (project skill) and a rule checked against (CLAUDE.md), the rule wins here... a dedicated project skill for a single pointer would be overhead the next agent may never trigger. -> project CLAUDE.md.' The proposed diff adds a bullet to CLAUDE.md under 'Conventions'. The executor considered a project skill and explicitly rejected it \u2014 the reasoning is articulate, but the destination contradicts the expectation."}, {"text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition", "passed": false, "evidence": "First half holds: no auto-memory writes anywhere; the transcript notes the skill's 'never write to auto-memory' rule was followed and 'no real files were modified anywhere' \u2014 all diffs are proposals. Second half fails: TWO CLAUDE.md additions are proposed (Lesson 1, staging/Postgres invariant, and Lesson 3, libs/shared/contracts rule), exceeding the 'at most one' limit. The summary table confirms two rows with home 'project CLAUDE.md'."}], "notes": []}, {"eval_id": 3, "configuration": "old_skill", "run_number": 1, "result": {"pass_rate": 0.0, "passed": 0, "failed": 2, "total": 2, "time_seconds": 59.0, "tokens": 6365, "tool_calls": null, "errors": 0}, "expectations": [{"text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill", "passed": false, "evidence": "retrospective.md routes the surviving lesson to CLAUDE.md: 'Verdict: KEEP -> CLAUDE.md' and 'Target: the fictional Nx monorepo's project CLAUDE.md, under \"Conventions\"'. The automation option (candidate 3, 'an ESLint barrel rule, or scaffold via Nx generators') is explicitly dropped as a routed lesson: 'This retrospective's methodology routes lessons to a skill or CLAUDE.md only; standing up lint rules ... is project work, not a lesson-capture target'. It survives only as an unrouted one-line suggestion in 'Not persisted, but worth saying once'. The substantive routing chosen was a CLAUDE.md conventions entry \u2014 the skill snapshot used evidently has no guard/hook rungs, so mechanical routing was structurally unavailable, but graded as written this fails."}, {"text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick", "passed": false, "evidence": "Hooks are never mentioned anywhere in retrospective.md or transcript.md. A lint check is mentioned (candidate 3: 'an ESLint barrel rule', and 'add a lint check that every module in a lib is reachable from its index.ts') but is framed as out-of-scope project work rather than a viable routing home, and no lint-vs-hook comparison or justification exists. The only routing tie-breaker applied is know-how-vs-invariant (skill vs CLAUDE.md)."}], "notes": []}, {"eval_id": 4, "configuration": "old_skill", "run_number": 1, "result": {"pass_rate": 0.5, "passed": 1, "failed": 1, "total": 2, "time_seconds": 108.4, "tokens": 6078, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Lesson routed to a skill, not forced into a lint rule or proxy metric", "passed": false, "evidence": "retrospective.md 'Routing the survivor' weighs a global skill vs project CLAUDE.md and explicitly chooses CLAUDE.md: 'Project CLAUDE.md \u2014 per the tie-breaker in the method ... this is the home. **Chosen.** One home only, so no duplicate skill copy.' The proposed diff targets 'CLAUDE.md (the target project's root; add a ## Testing section)'. It avoided the lint-rule trap, but the home substantively chosen is CLAUDE.md, not a skill \u2014 the expectation's per-context criterion says routing to CLAUDE.md fails."}, {"text": "If a guard is considered, it is explicitly rejected as a misfiring proxy", "passed": true, "evidence": "retrospective.md: 'One route deliberately not taken: an automated check (e.g. an ESLint rule flagging vi.mock). Tempting because the failure recurred, but the rule is a judgment call a machine can't make \u2014 mocking a repository that does real IO is exactly what the rule permits, so a mechanical mock-ban would flag legitimate tests and miss the real offense (mocking pure collaborators).' The guard is named, and rejected with explicit over-flag/under-flag (misfiring proxy) reasoning."}], "notes": []}], "run_summary": {"new_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0}, "time_seconds": {"mean": 100.68, "stddev": 27.842, "min": 77.5, "max": 148.8}, "tokens": {"mean": 8643.4, "stddev": 1542.4287, "min": 6702, "max": 10462}}, "old_skill": {"pass_rate": {"mean": 0.25, "stddev": 0.25, "min": 0.0, "max": 0.5}, "time_seconds": {"mean": 68.94, "stddev": 22.4703, "min": 52.3, "max": 108.4}, "tokens": {"mean": 6605.4, "stddev": 928.4979, "min": 5578, "max": 7975}}, "delta": {"pass_rate": "+0.75", "time_seconds": "+31.7", "tokens": "+2038"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

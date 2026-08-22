@@ -1,0 +1,114 @@
+{
+  "skill_name": "retrospective",
+  "evals": [
+    {
+      "id": 0,
+      "eval_name": "checkable-rule-routes-to-lint-not-claudemd",
+      "prompt": "Run a retrospective on this session. Session summary: In our Nx monorepo (NestJS backend), you wrote three service methods over the session. Twice I had to stop you because a TypeORM query on ShiftRepository was missing the `.andWhere('shift.accountId = :accountId')` clause \u2014 this is a multi-tenant app and an unscoped query leaks tenant data. Both times you apologized and fixed it. Separately, I mentioned once in passing that I prefer `readonly` on DTO fields but said 'not a big deal'. Also, you initially used `moment` for a date diff and I told you we use `date-fns` everywhere; you switched and it was fine after that.",
+      "expected_output": "The accountId lesson routes to a lint rule / mechanical guard (rung 1), NOT to CLAUDE.md. The readonly preference is dropped as noise. The moment/date-fns lesson routes to a guard (ESLint no-restricted-imports) rather than prose.",
+      "assertions": [
+        {
+          "text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'",
+          "id": "a0"
+        },
+        {
+          "text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose",
+          "id": "a1"
+        },
+        {
+          "text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere",
+          "id": "a2"
+        },
+        {
+          "text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason",
+          "id": "a3"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 1,
+      "eval_name": "workflow-gate-routes-to-hook",
+      "prompt": "Do a post-mortem on what we learned today. Session summary: You implemented two features in our Nx repo. Both times you said 'done' without running the affected Vitest suites, and both times I found a broken test afterward and made you fix it \u2014 the second time I was pretty annoyed. Also, after you edited a Prisma schema file, you forgot to regenerate the client, so the next edit failed with type errors and we lost 20 minutes figuring it out. Finally, you discovered through trial and error that our custom `nx run-many` wrapper script needs `--parallel=3` or it OOMs on CI-sized runners; that took four failed attempts to figure out.",
+      "expected_output": "The 'run affected tests before declaring done' lesson becomes a Stop hook. The 'regenerate Prisma client after schema edit' lesson becomes a PostToolUse hook. The --parallel=3 OOM discovery is either a project skill or a checkable default (e.g. baked into the wrapper script) \u2014 but not CLAUDE.md prose if a better home exists.",
+      "assertions": [
+        {
+          "text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill",
+          "id": "a0"
+        },
+        {
+          "text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)",
+          "id": "a1"
+        },
+        {
+          "text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning",
+          "id": "a2"
+        },
+        {
+          "text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook",
+          "id": "a3"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "eval_name": "uncheckable-fact-still-allowed-in-claudemd",
+      "prompt": "Retrospective please, so the next agent doesn't repeat this. Session summary: You almost ran a data backfill script against staging, and I had to stop you urgently because our staging environment shares its Postgres instance with production analytics \u2014 running backfills there corrupts real dashboards. There is nothing in the code that indicates this; it's pure infrastructure knowledge. Second thing: while debugging, you found that reproducing the bug locally first (instead of patching from the stack trace) is what actually cracked it, after two failed blind patches. Third: you re-generated the API error-response mapper three times because you kept guessing the shape; the shape is defined in libs/shared/contracts and you should have read it first.",
+      "expected_output": "The staging/prod shared-database fact goes to CLAUDE.md (rung 4) with an explicit note that no guard can enforce it. The reproduce-before-patching heuristic goes to a global skill. The read-contracts-first lesson goes to a project skill or is judged against the ladder; nothing is over-routed to CLAUDE.md.",
+      "assertions": [
+        {
+          "text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it",
+          "id": "a0"
+        },
+        {
+          "text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)",
+          "id": "a1"
+        },
+        {
+          "text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md",
+          "id": "a2"
+        },
+        {
+          "text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition",
+          "id": "a3"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "eval_name": "ambiguous-rung",
+      "prompt": "Retrospective. Session summary: three times when you added a new file to libs/ui, you forgot to export it from the lib's barrel index.ts, so imports failed downstream and I had to point it out each time.",
+      "expected_output": "Routed to a mechanical home (CI/lint check or PostToolUse hook) with explicit reasoning for the choice between them; not CLAUDE.md or a skill.",
+      "assertions": [
+        {
+          "text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill",
+          "id": "a0"
+        },
+        {
+          "text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick",
+          "id": "a1"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "eval_name": "guard-tempting-but-judgment",
+      "prompt": "Retrospective. Session summary: twice I rejected your Vitest tests because they mocked so much that the test only verified the mocks \u2014 you mocked the repository, the mapper, and the clock in a unit that just formats a label. I told you to test through real collaborators unless the dependency does IO.",
+      "expected_output": "Routed to a skill (judgment). Any lint-rule idea like max-mock-count is rejected as a proxy metric that would misfire.",
+      "assertions": [
+        {
+          "text": "Lesson routed to a skill, not forced into a lint rule or proxy metric",
+          "id": "a0"
+        },
+        {
+          "text": "If a guard is considered, it is explicitly rejected as a misfiring proxy",
+          "id": "a1"
+        }
+      ],
+      "files": []
+    }
+  ]
+}

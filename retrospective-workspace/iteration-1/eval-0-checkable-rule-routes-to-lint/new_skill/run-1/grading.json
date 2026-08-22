@@ -1,0 +1,91 @@
+{
+  "expectations": [
+    {
+      "text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home — not to CLAUDE.md, and not to CLAUDE.md 'additionally'",
+      "passed": true,
+      "evidence": "retrospective.md Candidate 1 routes it to 'rung 1: a custom ESLint rule' (tenant/require-account-scope, full rule source in tools/eslint-rules/rules/require-account-scope.ts plus eslint.config.mjs wiring). It explicitly rejects the CLAUDE.md alternative: 'The temptation is a CLAUDE.md line... Prose would be read once and forgotten under context pressure; the multi-tenancy fact is carried by the rule's error message, so it needs no second home.' The summary confirms 'nothing to CLAUDE.md'. Single home, no 'additionally'."
+    },
+    {
+      "text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose",
+      "passed": true,
+      "evidence": "retrospective.md Candidate 2: 'Rung 1: built-in ESLint rule — no custom code, no prose', with a concrete no-restricted-imports config diff for eslint.config.mjs banning 'moment' with the message 'This repo uses date-fns for all date handling. Import from \"date-fns\" instead.' No prose home is proposed anywhere for this lesson."
+    },
+    {
+      "text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere",
+      "passed": true,
+      "evidence": "retrospective.md Candidate 3: 'Dropped — rung 5 (nowhere). A preference stated once and downgraded by the user is noise by this skill's own weighting.' Summary table: 'Drop | Nowhere — user-waved-off one-off', and closing line 'the readonly preference stays in the chat.' No diff or file placement is proposed for it."
+    },
+    {
+      "text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason",
+      "passed": true,
+      "evidence": "Both survivors have named target files and exact content: Candidate 1 gives the complete rule source for a new file 'tools/eslint-rules/rules/require-account-scope.ts' plus a + diff for 'eslint.config.mjs', followed by 'Load-bearing because: an unscoped tenant query now fails lint on every future change...'. Candidate 2 gives a + diff for 'eslint.config.mjs' followed by 'Load-bearing because: any future import moment fails lint immediately...'. Each load-bearing reason is a single sentence."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": null,
+    "total_tool_calls": null,
+    "total_steps": 5,
+    "errors_encountered": 0,
+    "output_chars": 10462,
+    "transcript_chars": 2389,
+    "note": "No metrics.json present; output_chars = retrospective.md (8073) + transcript.md (2389); step count from the numbered transcript."
+  },
+  "timing": {
+    "executor_duration_seconds": 77.5,
+    "grader_duration_seconds": null,
+    "total_duration_seconds": 77.5
+  },
+  "claims": [
+    {
+      "claim": "The accountId scoping mistake was corrected twice and is the highest-weight signal",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Consistent between transcript step 3 and retrospective.md Candidate 1; matches the eval's fictional session summary as described."
+    },
+    {
+      "claim": "The multi-tenancy fact needs no second home because the lint rule's error message carries it",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The rule's 'unscoped' message text does state 'This is a multi-tenant app — an unscoped query leaks tenant data', so the claim is substantiated by the proposed content itself."
+    },
+    {
+      "claim": "The custom rule catches the failure mode that actually occurred and errs toward false positives",
+      "type": "quality",
+      "verified": false,
+      "evidence": "Plausible from reading the rule source (inline chains missing a where/accountId clause would be flagged), but the rule was never executed against sample code, so 'errs toward false positives' is reasoned, not demonstrated. The retrospective itself flags the heuristic's limits honestly, which mitigates this."
+    },
+    {
+      "claim": "Nothing routes to a hook or a skill; auto-memory is forbidden by the skill",
+      "type": "process",
+      "verified": true,
+      "evidence": "Transcript step 4 records each rejected home with a reason (no when-shaped lesson, no judgment-requiring know-how, skill forbids auto-memory), and retrospective.md's closing paragraph restates the first two."
+    },
+    {
+      "claim": "No real files were modified; diffs are proposals only",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs/ contains only retrospective.md and transcript.md; all diffs live inside retrospective.md as fenced blocks, and the closing line gates application on confirmation."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present in outputs_dir."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason",
+        "reason": "This passes on textual completeness, but nothing checks the proposed ESLint rule would actually compile or fire on the offending pattern. A syntactically broken custom rule would pass identically. If the eval can afford it, an assertion that the no-restricted-imports config is valid flat-config shape (or that the custom rule is at least parseable TS) would discriminate real diffs from convincing-looking pseudo-diffs."
+      }
+    ],
+    "overall": "Assertions are well-targeted at routing decisions and discriminate the failure modes the skill is meant to prevent (prose-by-default, dual homes, hoarding one-offs). Only gap is that diff 'concreteness' is judged by presence, not executability."
+  }
+}

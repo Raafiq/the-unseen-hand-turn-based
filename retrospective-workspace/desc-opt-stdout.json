@@ -1,0 +1,1430 @@
+{
+  "exit_reason": "all_passed (iteration 5)",
+  "original_description": "Run a retrospective on the session \u2014 harvest the load-bearing lessons from corrections, rework, and hard-won patterns, then route each to an automated guard (lint rule, hook, CI check), a skill, or CLAUDE.md as a concrete diff. Use when the user asks for a retrospective, post-mortem, or \"what did we learn\"; says \"so this doesn't happen again\" or \"so the next agent doesn't repeat this\"; or after a multi-step session with repeated corrections or rework.",
+  "best_description": "Use whenever the user asks for any retro, retrospective, post-mortem, or lessons-learned pass on the working session with Claude itself \u2014 a quick \"retro on this session\", \"retrospective before we open the PR\", \"what went wrong / what did we learn\", or \"capture this so the next agent doesn't repeat it\". An explicit request for a session retro ALWAYS qualifies, even a quick or informal one, and even if the user doesn't mention saving anything. Also use when the user complains the session went badly \u2014 repeated corrections, redone work, \"that took way longer than it should have\" \u2014 and wants next time to go better. The skill mines the session for load-bearing lessons and persists them as lint rules, CI checks, hooks, skills, or CLAUDE.md edits. Do NOT use for retrospectives about anything other than this Claude session: team or sprint retros, production incident post-mortems, standup or status summaries, review decks, or drafting retro templates and process docs.",
+  "best_score": "6/7",
+  "best_train_score": "11/13",
+  "best_test_score": "6/7",
+  "final_description": "Any \"retro\", \"retrospective\", \"post-mortem\", or \"what went wrong / what did we learn\" aimed at this Claude session means this skill \u2014 invoke it every time, never handle a session retro inline without it. This holds however casual or quick the ask (\"quick retro on what went wrong\", \"retrospective before we open the PR\", mid-task or at the end) and even when nothing is said about saving lessons. It examines the session's process \u2014 not the code diff; that's code review \u2014 and persists what it teaches as lint rules, CI checks, hooks, skills, or CLAUDE.md edits. Also invoke without the keyword when the user wants today's lessons captured (\"so this doesn't happen again\", \"so the next agent doesn't repeat this\") or vents that the session wasted time on corrections and rework and wants next time to go better. Do NOT use for retrospectives about anything other than this session: team or sprint retros, production incident post-mortems, standup or status summaries, or drafting retro templates and process docs.",
+  "iterations_run": 5,
+  "holdout": 0.4,
+  "train_size": 13,
+  "test_size": 7,
+  "history": [
+    {
+      "iteration": 1,
+      "description": "Run a retrospective on the session \u2014 harvest the load-bearing lessons from corrections, rework, and hard-won patterns, then route each to an automated guard (lint rule, hook, CI check), a skill, or CLAUDE.md as a concrete diff. Use when the user asks for a retrospective, post-mortem, or \"what did we learn\"; says \"so this doesn't happen again\" or \"so the next agent doesn't repeat this\"; or after a multi-step session with repeated corrections or rework.",
+      "train_passed": 9,
+      "train_failed": 4,
+      "train_total": 13,
+      "train_results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "test_passed": 5,
+      "test_failed": 2,
+      "test_total": 7,
+      "test_results": [
+        {
+          "query": "before you wrap up \u2014 I corrected you like five times on the same import-ordering thing this session. make sure that sticks somewhere permanent",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "do a retro of this pairing session and propose updates to claude.md or a skill or whatever fits",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "we just finished the tenant-isolation migration, lots of surprises along the way. mine this session for lessons worth keeping before I close the terminal",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "lol ok that was an easy one-line fix. what did we learn haha",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add an eslint rule so unscoped queries don't happen again",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add a Stop hook to .claude/settings.json that runs the affected tests before the agent can claim it's done",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "audit our CLAUDE.md and trim the rules that are no longer pulling their weight",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "passed": 9,
+      "failed": 4,
+      "total": 13,
+      "results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "description": "Turn what just happened in this session with Claude into durable improvements \u2014 lint rules, CI checks, hooks, skills, or CLAUDE.md edits \u2014 so future agents don't repeat today's mistakes. Use whenever the user reflects on the working session itself and wants its lessons captured somewhere persistent, in any phrasing: \"retro\", \"retrospective\", \"post-mortem on this session\", \"what did we learn\", \"write down the takeaways\", \"capture this so it doesn't happen again\", \"so the next agent doesn't do this\" \u2014 and also when they vent about how the session went (repeated corrections, redone work, \"that took way longer than it should have\") and want it to go better next time. The trigger is the intent: extract lessons from this Claude session and persist them. Do NOT use for retrospectives or post-mortems about things other than the session itself \u2014 team/sprint retros, production incident write-ups, standup or status summaries, review decks, or drafting retro templates and process docs.",
+      "train_passed": 11,
+      "train_failed": 2,
+      "train_total": 13,
+      "train_results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "test_passed": 5,
+      "test_failed": 2,
+      "test_total": 7,
+      "test_results": [
+        {
+          "query": "do a retro of this pairing session and propose updates to claude.md or a skill or whatever fits",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "before you wrap up \u2014 I corrected you like five times on the same import-ordering thing this session. make sure that sticks somewhere permanent",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "we just finished the tenant-isolation migration, lots of surprises along the way. mine this session for lessons worth keeping before I close the terminal",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "lol ok that was an easy one-line fix. what did we learn haha",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add an eslint rule so unscoped queries don't happen again",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add a Stop hook to .claude/settings.json that runs the affected tests before the agent can claim it's done",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "audit our CLAUDE.md and trim the rules that are no longer pulling their weight",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "passed": 11,
+      "failed": 2,
+      "total": 13,
+      "results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.3333333333333333,
+          "triggers": 1,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "description": "Use whenever the user asks for any retro, retrospective, post-mortem, or lessons-learned pass on the working session with Claude itself \u2014 a quick \"retro on this session\", \"retrospective before we open the PR\", \"what went wrong / what did we learn\", or \"capture this so the next agent doesn't repeat it\". An explicit request for a session retro ALWAYS qualifies, even a quick or informal one, and even if the user doesn't mention saving anything. Also use when the user complains the session went badly \u2014 repeated corrections, redone work, \"that took way longer than it should have\" \u2014 and wants next time to go better. The skill mines the session for load-bearing lessons and persists them as lint rules, CI checks, hooks, skills, or CLAUDE.md edits. Do NOT use for retrospectives about anything other than this Claude session: team or sprint retros, production incident post-mortems, standup or status summaries, review decks, or drafting retro templates and process docs.",
+      "train_passed": 11,
+      "train_failed": 2,
+      "train_total": 13,
+      "train_results": [
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "test_passed": 6,
+      "test_failed": 1,
+      "test_total": 7,
+      "test_results": [
+        {
+          "query": "before you wrap up \u2014 I corrected you like five times on the same import-ordering thing this session. make sure that sticks somewhere permanent",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "do a retro of this pairing session and propose updates to claude.md or a skill or whatever fits",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "we just finished the tenant-isolation migration, lots of surprises along the way. mine this session for lessons worth keeping before I close the terminal",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "lol ok that was an easy one-line fix. what did we learn haha",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add an eslint rule so unscoped queries don't happen again",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "audit our CLAUDE.md and trim the rules that are no longer pulling their weight",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "add a Stop hook to .claude/settings.json that runs the affected tests before the agent can claim it's done",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "passed": 11,
+      "failed": 2,
+      "total": 13,
+      "results": [
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "iteration": 4,
+      "description": "Run a retrospective (retro, post-mortem, lessons-learned) on this working session with Claude itself, then persist what it teaches \u2014 as lint rules, CI checks, hooks, skills, or CLAUDE.md edits \u2014 so future sessions go better. Trigger on any explicit ask to retro or review how the session went, however quick or informal, at any point (mid-task, before opening a PR, at the end), even with no mention of saving anything. Also trigger on the implicit ask: the user wants today's lessons captured (\"what did we learn\", \"so this doesn't happen again\", \"so the next agent doesn't repeat this\"), or vents that the session went badly \u2014 repeated corrections, redone work, wasted time \u2014 and wants next time to be different. This is a retro of the session's process, not a code review of the diff. Do NOT use for retrospectives about anything other than this session: team or sprint retros, production incident post-mortems, standup or status summaries, or drafting retro templates and process docs.",
+      "train_passed": 11,
+      "train_failed": 2,
+      "train_total": 13,
+      "train_results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "test_passed": 5,
+      "test_failed": 2,
+      "test_total": 7,
+      "test_results": [
+        {
+          "query": "before you wrap up \u2014 I corrected you like five times on the same import-ordering thing this session. make sure that sticks somewhere permanent",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "do a retro of this pairing session and propose updates to claude.md or a skill or whatever fits",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "we just finished the tenant-isolation migration, lots of surprises along the way. mine this session for lessons worth keeping before I close the terminal",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "lol ok that was an easy one-line fix. what did we learn haha",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add a Stop hook to .claude/settings.json that runs the affected tests before the agent can claim it's done",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "add an eslint rule so unscoped queries don't happen again",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "audit our CLAUDE.md and trim the rules that are no longer pulling their weight",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "passed": 11,
+      "failed": 2,
+      "total": 13,
+      "results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 0.6666666666666666,
+          "triggers": 2,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "iteration": 5,
+      "description": "Any \"retro\", \"retrospective\", \"post-mortem\", or \"what went wrong / what did we learn\" aimed at this Claude session means this skill \u2014 invoke it every time, never handle a session retro inline without it. This holds however casual or quick the ask (\"quick retro on what went wrong\", \"retrospective before we open the PR\", mid-task or at the end) and even when nothing is said about saving lessons. It examines the session's process \u2014 not the code diff; that's code review \u2014 and persists what it teaches as lint rules, CI checks, hooks, skills, or CLAUDE.md edits. Also invoke without the keyword when the user wants today's lessons captured (\"so this doesn't happen again\", \"so the next agent doesn't repeat this\") or vents that the session wasted time on corrections and rework and wants next time to go better. Do NOT use for retrospectives about anything other than this session: team or sprint retros, production incident post-mortems, standup or status summaries, or drafting retro templates and process docs.",
+      "train_passed": 13,
+      "train_failed": 0,
+      "train_total": 13,
+      "train_results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "test_passed": 5,
+      "test_failed": 2,
+      "test_total": 7,
+      "test_results": [
+        {
+          "query": "before you wrap up \u2014 I corrected you like five times on the same import-ordering thing this session. make sure that sticks somewhere permanent",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "do a retro of this pairing session and propose updates to claude.md or a skill or whatever fits",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "we just finished the tenant-isolation migration, lots of surprises along the way. mine this session for lessons worth keeping before I close the terminal",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "lol ok that was an easy one-line fix. what did we learn haha",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add an eslint rule so unscoped queries don't happen again",
+          "should_trigger": false,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": false
+        },
+        {
+          "query": "add a Stop hook to .claude/settings.json that runs the affected tests before the agent can claim it's done",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "audit our CLAUDE.md and trim the rules that are no longer pulling their weight",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ],
+      "passed": 13,
+      "failed": 0,
+      "total": 13,
+      "results": [
+        {
+          "query": "what did we learn today? capture it somewhere so the next agent doesn't make the same mistakes \u2014 you had to redo the migration twice and I corrected the query scoping three times",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "so this doesn't happen again \u2014 you pushed three times with failing tests today. harvest the lessons from this session",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "post-mortem time: we lost 2 hours because you kept forgetting to run prisma generate after schema changes. figure out what we should take away from this and where to put it",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "that whole debugging saga we just went through with the flaky vitest suite \u2014 I want the takeaways written down where a future agent will actually see them",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "run a retrospective on this session before we open the PR",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "ok that took way longer than it should have. can you do a quick retro on what went wrong this session so next time isn't like this",
+          "should_trigger": true,
+          "trigger_rate": 1.0,
+          "triggers": 3,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "summarize what we did this session for my standup notes tomorrow morning",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "update CLAUDE.md to mention that staging shares the prod database, took us forever to figure that out",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "let's do a retro of our sprint in Jira",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "my team wants to start doing blameless retrospectives \u2014 draft a template doc we can use in Notion",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "the last agent session left a bunch of half-finished changes in this repo \u2014 figure out what it was doing and continue where it stopped",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a lessons-learned section for the Q3 platform review deck, pull from the incident tickets in linear",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        },
+        {
+          "query": "write a post-mortem doc for yesterday's prod incident",
+          "should_trigger": false,
+          "trigger_rate": 0.0,
+          "triggers": 0,
+          "runs": 3,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

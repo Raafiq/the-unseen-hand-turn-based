@@ -1,0 +1,90 @@
+{
+  "expectations": [
+    {
+      "text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill",
+      "passed": true,
+      "evidence": "retrospective.md Lesson 1 routes it explicitly to a Claude Code Stop hook: \"It is exactly the skill's rung-2 case ('run affected tests before declaring done') -> Claude Code `Stop` hook. Not CLAUDE.md: a prose 'always run tests' line is read once and forgotten under context pressure; the hook fires mechanically at the exact moment the mistake happens.\" A concrete Stop hook block for .claude/settings.json follows, with exit-2 blocking semantics explained."
+    },
+    {
+      "text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)",
+      "passed": true,
+      "evidence": "retrospective.md Lesson 2: \"a *when*-rule, named verbatim at rung 2 -> Claude Code `PostToolUse` hook\", with a PostToolUse block using matcher \"Edit|Write\" and a command that reads tool_input.file_path via jq and runs `npx prisma generate` only when the edited file matches *schema.prisma, exiting 2 on failure."
+    },
+    {
+      "text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning",
+      "passed": true,
+      "evidence": "retrospective.md Lesson 3 rejects CLAUDE.md and changes the wrapper script's default: \"encode the safe value as the wrapper's default so the lesson stops needing to be known at all. That is the top of the ladder (fix the tool that already runs on every invocation), above prose. CLAUDE.md would only be right if the wrapper couldn't be changed.\" It includes an actual diff (PARALLEL=\"${NX_PARALLEL:-3}\"; exec npx nx run-many --parallel=\"$PARALLEL\" \"$@\") and notes that a caller-supplied --parallel still wins."
+    },
+    {
+      "text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook",
+      "passed": true,
+      "evidence": "Both hook proposals are full JSON blocks for .claude/settings.json. Lesson 1's Stop hook carries a complete runnable command (git-change guard, `npx nx affected -t test --base=origin/main --parallel=3`, log tail, exit 2 with a BLOCK message). Lesson 2's PostToolUse hook has matcher \"Edit|Write\" and a complete command (jq file-path extraction, case match on *schema.prisma, `npx prisma generate`, exit 2 on failure). Lesson 3's wrapper change is a concrete unified diff, not a promise."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "note": "No metrics.json was produced by the executor",
+    "output_chars": 8867,
+    "transcript_chars": 1943
+  },
+  "timing": {
+    "total_tokens": 55398,
+    "duration_ms": 92496,
+    "total_duration_seconds": 92.5,
+    "executor_duration_seconds": 92.5
+  },
+  "claims": [
+    {
+      "claim": "Exit code 2 on a Stop hook blocks the agent from stopping and feeds stderr back to it",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches Claude Code hook semantics: Stop-hook exit 2 blocks stoppage and returns stderr to the agent."
+    },
+    {
+      "claim": "The Stop hook's --parallel=3 flag means the hook itself cannot OOM a CI-sized runner (cross-consistency with lesson 3)",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The Stop hook command includes --parallel=3, consistent with the OOM constraint from the session summary."
+    },
+    {
+      "claim": "A caller-supplied --parallel in \"$@\" comes later on the command line and wins, so explicit overrides still work",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Plausible for nx (later flags typically override earlier ones) but not verified against nx's actual flag-precedence behavior; the repo is fictional so it cannot be tested here. Flagged as unverifiable, not wrong."
+    },
+    {
+      "claim": "No real files were modified; both hooks and the wrapper change exist only as written proposals gated on user approval",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs/ contains only retrospective.md and transcript.md; retrospective.md states \"Nothing below is applied. Every change is a written proposal awaiting your approval.\""
+    },
+    {
+      "claim": "Six candidate lessons were considered and three dropped with reasons",
+      "type": "process",
+      "verified": true,
+      "evidence": "The 'Candidate lessons considered' table lists 6 rows with Keep/Drop verdicts; candidates 4-6 are dropped with per-item reasoning (subsumed by hook / session-local / carried by the specific fix)."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md file was present in outputs_dir."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks the quality of the hook commands themselves (e.g. the PostToolUse command reads hook input via `jq -r '.tool_input.file_path'` from stdin — correct for Claude Code hooks, but a broken command with a matcher would still pass expectation 4 as written). An assertion like 'the PostToolUse hook only fires for the Prisma schema file, not every edit' would be more discriminating."
+      },
+      {
+        "reason": "No assertion covers the skill's approval gate (proposals must be diffs awaiting approval, not applied changes). This run honored it — nothing was applied — but an executor that silently wrote .claude/settings.json would pass all four current expectations."
+      }
+    ],
+    "overall": "Expectations 1-3 are well-targeted routing checks and discriminated correctly here. Expectation 4 checks presence of config content but not its plausibility; consider a correctness-oriented variant, and add an assertion for the approval-gated (no files modified) behavior."
+  }
+}

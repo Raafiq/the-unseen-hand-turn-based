@@ -1,0 +1,23 @@
+{
+  "eval_id": 2,
+  "eval_name": "uncheckable-fact-still-allowed-in-claudemd",
+  "prompt": "Retrospective please, so the next agent doesn't repeat this. Session summary: You almost ran a data backfill script against staging, and I had to stop you urgently because our staging environment shares its Postgres instance with production analytics \u2014 running backfills there corrupts real dashboards. There is nothing in the code that indicates this; it's pure infrastructure knowledge. Second thing: while debugging, you found that reproducing the bug locally first (instead of patching from the stack trace) is what actually cracked it, after two failed blind patches. Third: you re-generated the API error-response mapper three times because you kept guessing the shape; the shape is defined in libs/shared/contracts and you should have read it first.",
+  "assertions": [
+    {
+      "text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it",
+      "id": "a0"
+    },
+    {
+      "text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)",
+      "id": "a1"
+    },
+    {
+      "text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md",
+      "id": "a2"
+    },
+    {
+      "text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition",
+      "id": "a3"
+    }
+  ]
+}

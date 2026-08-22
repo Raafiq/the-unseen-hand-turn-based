@@ -1,0 +1,15 @@
+{
+  "eval_id": 3,
+  "eval_name": "ambiguous-rung",
+  "prompt": "Retrospective. Session summary: three times when you added a new file to libs/ui, you forgot to export it from the lib's barrel index.ts, so imports failed downstream and I had to point it out each time.",
+  "assertions": [
+    {
+      "text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill",
+      "id": "a0"
+    },
+    {
+      "text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick",
+      "id": "a1"
+    }
+  ]
+}
