@@ -1,6 +1,17 @@
 # Slice — M0 item 7, onboarding (the first hour)
 
-**Status: SCOPED, not started. One decision is open (§6).**
+> **SUPERSEDED 2026-08-22 by ADR-0025 — kept as the scoping record, not as a plan.**
+> The user chose **no tutorial**: a `?` help panel instead of the ramp in §3, and "fix the
+> unreachable slots first". So §3's steps 1–4 (the tutorial channel, progressive
+> disclosure, the per-battle ramp, the battle-1 content change) were **not built**, and
+> §4's AC-M5/6/7 drafts were replaced by the AC-M5/AC-M6 actually in `docs/11`.
+> §6's open decision was answered: **option B**, fix the slots.
+>
+> What survives and is still worth reading: **§2, the measurements** — they are what found
+> the real problem. Note the slot costs there are the BEFORE figures (support 300,
+> reaction 540); after ADR-0025 they read 120 and 180.
+
+**Status: superseded. See `docs/adr/0025-onboarding-is-a-question-mark-and-every-slot-is-reachable.md`.**
 
 The last M0 item. `docs/08` §3 designs the ramp; nothing implements it.
 
