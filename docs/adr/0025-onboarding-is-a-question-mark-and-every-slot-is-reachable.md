@@ -1,6 +1,6 @@
 # ADR-0025 — Onboarding is a `?`, not a tutorial; and every chassis slot is reachable inside one campaign
 
-- **Status:** Accepted
+- **Status:** Accepted — **the BALANCE NUMBERS in decision 4 are MVP-PROVISIONAL** (user, 2026-08-22). The node costs and prerequisite chains below exist to make the chassis reachable inside a 5-battle M0, and are expected to be re-tuned once the campaign is longer or the AP grant is revisited (M1). What is NOT provisional: the *rule* that a slot the game shows must have a live option a player can afford (`docs/11` AC-M5), and the reasons in decision 4 for how it was achieved.
 - **Date:** 2026-08-22
 - **Supersedes / amends:** amends `docs/08` §3's "guided first build" (see decision 1). Builds on **ADR-0012** (AP grant shape), **ADR-0017** (the support slot), **ADR-0019** (the reaction slot), **ADR-0020** (the movement slot) and **ADR-0024** (the prep model).
 - **Owner docs:** `docs/11` §3 M0 item 7 + AC-M5/AC-M6, `docs/08` §3 (onboarding ramp), `docs/02` B5 + AC-J2

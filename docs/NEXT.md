@@ -120,6 +120,12 @@ Read ADR-0021 before scoping it, and re-derive its numbers rather than trusting 
 
 ## Measured facts (re-derive rather than trust, but these were probed)
 
+> **These costs are MVP-PROVISIONAL** (user, 2026-08-22). They were set to make the
+> chassis reachable inside a 5-battle campaign, not because 120/180 is the right price.
+> Expect to re-tune them when the campaign gets longer or the AP grant is revisited.
+> **Do not treat them as settled balance** — but do keep `docs/11` AC-M5 satisfied, which
+> is the rule underneath them and is NOT provisional.
+
 Cheapest LIVE option per chassis slot, walking prerequisites, after ADR-0025:
 
 | Slot | Ability | Total AP |
