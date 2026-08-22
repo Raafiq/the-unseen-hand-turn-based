@@ -31,7 +31,7 @@ Real and tested, not aspirational:
 | **Equipment** | ADR-0021 scoped it (horizontal gear). `build.ts` still uses one placeholder weapon. |
 | **Economy** | No gil, no shops, no rewards loop. |
 | **Failure handling** | No game-over, no retry, no consequence for losing. |
-| **Onboarding** | `docs/08` §3 designs it; nothing implements it. |
+| ~~**Onboarding**~~ | **Built** (ADR-0025), but NOT as `docs/08` §3 designs it: a `?` panel on demand, no tutorial, no staged unlocks. |
 | **World map** | Unscoped. May never be needed — chapter select may be enough. |
 | **Audio / art / UI polish** | Unscoped. |
 
@@ -68,9 +68,9 @@ anything, and reaches a real ending — win or lose.**
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
 > | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
 > | 4. Story stubs | **done** (ADR-0024) — `src/sim/story.ts` (schema, no prose) + `data/campaign/story/camp-the-first-march.story.json` (pre / victory / defeat per battle). `mid` hooks are deliberately out — see the ADR |
-> | 5. Equipment | **not started** |
+> | 5. Equipment | **not started** — the last M0 item |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
-> | 7. Onboarding | **not started** — the last M0 item |
+> | 7. Onboarding | **done** (ADR-0025) — a `?` panel on `game.html`, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |
 >
 > Persistence is now real: `src/render/storage.ts` is the only IO in the project, and
 > `src/sim/campaign.ts` stays pure by contract. An unreadable slot (corrupt, another
@@ -148,3 +148,26 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   *Discriminator:* an A/B — swapping the story data changes what the player reads, with no
   code change. **Met** (ADR-0024). The contract's `mid`-battle hook is explicitly deferred
   until an event system exists to fire it; `pre`, `victory` and `defeat` ship.
+- **AC-M5 (the chassis is reachable, not just present):** Every chassis slot the game shows
+  a player SHALL have at least one **live** option affordable within a single playthrough's
+  AP. *Discriminator:* walk each job tree's prerequisites and compare the cheapest live
+  option per slot against the campaign's measured AP budget — a slot is only "reachable" if
+  a number says so. Asserting the slot *exists*, or that an ability of that type is
+  authored, passes identically when the cheapest one costs twice what the campaign pays
+  out — which is what support (300 AP) and reaction (540 AP) did for the life of the repo
+  against a ~280 AP budget. **Met** (ADR-0025). Capstones are deliberately excluded: the
+  same test pins that the deepest passive stays beyond one campaign, so the bar is one a
+  content pack could fail.
+- **AC-M6 (help on demand, and only about what works):** The game SHALL offer an
+  always-reachable explanation of its mechanics, and that text SHALL NOT describe a
+  capability the shipped content cannot deliver. *Discriminator:* the help topics are data,
+  and each topic claiming a chassis slot is asserted against AC-M5's reachability check —
+  so the prose fails with the content rather than outliving it. A hand-written panel would
+  read identically whether or not its claims were true. **Met** (ADR-0025).
+
+> **NOT an M0 criterion: `docs/08` §3's teaching ramp.** Staged unlocks and the scripted
+> "guided first build" are deliberately unbuilt (ADR-0025 decision 1, user decision
+> 2026-08-22). The bet is that the mechanics read on their own with a `?` to fall back on.
+> That bet is falsifiable and untested: **no newcomer has played this**. A playtest where a
+> player cannot form a build without opening `?` is evidence against it, and §3's ramp is
+> still on the shelf.

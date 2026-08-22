@@ -15,6 +15,7 @@ import type { Position, StoryBeat } from "../sim/index.js";
 import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
+import { HELP_TOPICS } from "./help.js";
 import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
@@ -369,6 +370,43 @@ canvas.addEventListener("keydown", (ev) => {
     ev.preventDefault();
     withSession((s) => s.cancel());
   }
+});
+
+/**
+ * The help panel (docs/11 M0 item 7). Built once from {@link HELP_TOPICS} — the content
+ * never changes at runtime, and rebuilding it on every open would throw away the
+ * viewer's scroll position for no reason.
+ *
+ * `textContent`, never `innerHTML`, for the same reason `renderStory` uses it: this is
+ * authored content rendered into a page, and the habit is worth more than the one case.
+ */
+function buildHelp(): void {
+  const body = el("help-body");
+  for (const topic of HELP_TOPICS) {
+    const section = document.createElement("section");
+    const h = document.createElement("h3");
+    h.textContent = topic.title;
+    section.append(h);
+    for (const line of topic.lines) {
+      const p = document.createElement("p");
+      p.textContent = line;
+      section.append(p);
+    }
+    body.append(section);
+  }
+}
+buildHelp();
+
+const helpDialog = el<HTMLDialogElement>("help");
+// `showModal` gives focus trapping and Escape-to-close for free; the fallback keeps the
+// panel usable where <dialog> is unsupported rather than silently doing nothing.
+el("btn-help").addEventListener("click", () => {
+  if (typeof helpDialog.showModal === "function") helpDialog.showModal();
+  else helpDialog.setAttribute("open", "");
+});
+el("btn-help-close").addEventListener("click", () => {
+  if (typeof helpDialog.close === "function") helpDialog.close();
+  else helpDialog.removeAttribute("open");
 });
 
 const on = (id: string, fn: () => void): void =>

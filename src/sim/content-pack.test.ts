@@ -27,14 +27,17 @@ const AP_TIERS = new Set([60, 120, 240]);
 const EXPECTED_TREE_SIZES: Readonly<Record<string, number>> = {
   // Knight/Monk/Thief run the full 8-node fork; Wizard is a deliberate 7 —
   // faithful Black Magic caps at 6 spells + Magic Attack UP (content-author note).
-  knight: 8,
+  // +1 on Knight/Priest/Archer/Geomancer: the tier-one live passive each of those
+  // trees gained, because every live passive they already had was either inert or
+  // priced past what a whole campaign pays out (M0 item 7 slice).
+  knight: 9,
   monk: 8,
   wizard: 7,
   thief: 8,
   // P2 Slice 3: the four live-formula jobs, each a full 8-node ADR-0012 fork.
-  priest: 8,
-  archer: 8,
-  geomancer: 8,
+  priest: 9,
+  archer: 9,
+  geomancer: 9,
   summoner: 8,
 };
 

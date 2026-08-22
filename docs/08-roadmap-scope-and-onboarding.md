@@ -36,7 +36,11 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > are all `docs/11` M0 items, and P2's `N ≥ 8` is still open at **N = 7**. Reconciled again
 > on **2026-08-22** for the prep-loop and story slice (ADR-0024): nothing below moved for
 > the third time — `docs/11` M0 items 3 and 4 are game-roadmap items, and P2's `N ≥ 8` is
-> still open at **N = 7**.
+> still open at **N = 7**. Reconciled again on **2026-08-22** for the onboarding slice
+> (ADR-0025): M0 item 7 is a game-roadmap item and P2's `N ≥ 8` is **still open at N = 7** —
+> the gate did not move, and that is expected rather than reassuring, since repricing skill
+> trees changes no built unit (shipped builds author `learned` explicitly), so the gate is
+> structurally blind to that change. §3 of this doc is now marked DEFERRED.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -111,6 +115,15 @@ The single most important discipline. **Minimum viable job system that still del
 > **Log every cut.** Silent truncation reads as "we covered everything." When a system is cut or capped (e.g. "shipping 12 hybrids, not 190"), say so in the changelog so scope stays honest.
 
 ## 3. Onboarding & complexity ramp
+
+> **STATUS 2026-08-22 (ADR-0025): this section is DEFERRED, not implemented.** M0 shipped a
+> different answer by user decision — a `?` help panel available at all times, and no
+> teaching on rails: no staged unlocks, no gated prep controls, no scripted first build.
+> The bet is that the mechanics read on their own. It is **untested against a real
+> newcomer**, and the ramp below is the fallback if the bet loses. What M0 *did* take from
+> this section is the precondition it assumed: every chassis slot now has a live option a
+> player can afford within one playthrough (`docs/11` AC-M5) — before that, the "guided
+> first build" below had nothing to equip.
 
 Deep job systems' #1 failure is the **2-hour bounce**. The counter is **progressive disclosure**, mirrored by the economy ramp (`docs/07` §4):
 

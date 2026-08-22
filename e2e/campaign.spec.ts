@@ -200,3 +200,31 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
     "no effect yet",
   );
 });
+
+test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {
+  // The `?` is the whole of M0 item 7 (user decision, 2026-08-22): nothing is TAUGHT on
+  // rails, so this control is the only route to an explanation. A panel that exists in
+  // the markup but cannot be opened is the same as no panel at all, and no headless test
+  // can see the difference — `<dialog>.showModal()` only means anything in a browser.
+  await page.goto("/game.html");
+
+  const panel = page.getByTestId("help");
+  await expect(panel).toBeHidden();
+
+  await page.getByTestId("help-open").click();
+  await expect(panel).toBeVisible();
+  // Content, not just an open box: the slot topics are the ones this slice made real.
+  await expect(page.getByTestId("help-body")).toContainText("Secondary command");
+  await expect(page.getByTestId("help-body")).toContainText("Reaction");
+
+  await page.getByTestId("help-close").click();
+  await expect(panel).toBeHidden();
+
+  // Reachable mid-battle too, not only from the title — a player asks "what is CT?"
+  // while looking at the clock, not before they have seen one.
+  await page.getByTestId("new-game").click();
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  await page.getByTestId("help-open").click();
+  await expect(panel).toBeVisible();
+});

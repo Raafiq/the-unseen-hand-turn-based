@@ -31,6 +31,18 @@
       button[disabled] { opacity: .42; cursor: not-allowed; }
       button[hidden] { display: none; }
       button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .help-btn { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.2rem; line-height: 1; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+      dialog#help { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); }
+      dialog#help::backdrop { background: rgba(6,9,16,.72); }
+      .help-head { display: flex; align-items: baseline; gap: 12px; padding: 20px 22px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+      .help-head h2 { margin: 0; }
+      .help-head .close { margin-left: auto; }
+      .help-body { padding: 6px 22px 22px; overflow-y: auto; max-height: calc(min(80vh, 720px) - 66px); }
+      .help-body section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+      .help-body section:last-child { border-bottom: none; }
+      .help-body h3 { margin: 0 0 6px; font-size: 1rem; }
+      .help-body p { margin: 0 0 8px; color: var(--ink-soft); font-size: .92rem; max-width: 62ch; }
+      .help-body p:last-child { margin-bottom: 0; }
       canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border-radius: 10px; cursor: crosshair; }
       canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       .reason { margin-top: 12px; font-family: var(--mono); font-size: .82rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
@@ -159,6 +171,17 @@
           <div id="prep-body" class="prep-grid" data-testid="prep"></div>
         </div>
       </section>
+
+      <!-- HELP (M0 item 7) — always reachable, never in the way. -->
+      <button id="btn-help" class="help-btn ghost" data-testid="help-open"
+              aria-haspopup="dialog" title="How to play" aria-label="How to play">?</button>
+      <dialog id="help" data-testid="help" aria-labelledby="help-title">
+        <div class="help-head">
+          <h2 id="help-title">How to play</h2>
+          <button class="ghost close" id="btn-help-close" data-testid="help-close">Close</button>
+        </div>
+        <div class="help-body" id="help-body" data-testid="help-body"></div>
+      </dialog>
 
       <!-- BATTLE -->
       <section id="screen-battle" data-testid="screen-battle" hidden>

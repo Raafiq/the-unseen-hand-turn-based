@@ -268,3 +268,119 @@ describe("a node whose ability does NOTHING says so before you pay for it", () =
     expect(rowsFor("archer")["aimed-shot"]!.deferred).toBeNull();
   });
 });
+
+describe("the learn list browses ANY job's tree (M0 item 7)", () => {
+  it("DISCRIMINATING: browsing another job lists THAT tree, not the current job's", () => {
+    // The panel used to hard-code `record().currentJob`, so this is the A/B that tells
+    // "browsing is wired" from "the selector is decorative": the two row sets must
+    // DISAGREE. Asserting only that rows exist would pass under the old behaviour.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    const own = m.learnRows().map((r) => r.ability);
+    m.setBrowseJob("monk");
+    const other = m.learnRows().map((r) => r.ability);
+
+    expect(own.every((id) => id.startsWith("battle-skill."))).toBe(true);
+    expect(other.every((id) => id.startsWith("punch-art."))).toBe(true);
+    expect(other).not.toEqual(own);
+  });
+
+  it("buying across jobs unlocks the Secondary command — the whole point", () => {
+    // Reaches THROUGH the browse state to an observable end (docs/02's cross-job
+    // recombination), rather than stopping at "the model accepted the job id".
+    //
+    // The purchase goes through `learnRows()` — the same list the panel renders and the
+    // same node id its buy button carries — precisely so this cannot pass while the
+    // listing is broken. Passing "wave-fist" as a literal instead would keep this green
+    // with `learnRows` still hard-coded to `currentJob`: mutation-verified, that was the
+    // first draft's actual behaviour.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    expect(m.equippableSecondaryJobs()).not.toContain("monk");
+
+    m.setBrowseJob("monk");
+    const buyable = m.learnRows().filter((row) => row.buyable);
+    expect(buyable.map((row) => row.ability)).toEqual(["punch-art.wave-fist"]);
+    m.learn(m.browseJob(), buyable[0]!.node); // 60 AP — exactly what the button passes
+
+    expect(m.record().learned).toContain("punch-art.wave-fist");
+    expect(m.record().currentJob).toBe("knight"); // browsing is NOT a job change
+    expect(m.record().ap).toBe(0);
+    expect(m.equippableSecondaryJobs()).toContain("monk");
+  });
+
+  it("browsing resets when the tree underneath it could change", () => {
+    // Stale browse state is the failure this prevents: a Knight left looking at the
+    // Thief tree while the panel is re-pointed at a different unit entirely.
+    const m = new PrepModel({ registry, records: [knightish("u1"), monkish("u2", 60)] });
+    m.setBrowseJob("thief");
+    m.select("u2");
+    expect(m.browseJob()).toBe("monk");
+
+    m.setBrowseJob("thief");
+    m.setJob("archer");
+    expect(m.browseJob()).toBe("archer");
+  });
+});
+
+describe("every chassis slot is reachable inside one campaign (M0 item 7)", () => {
+  /** Cheapest total AP to reach a LIVE ability of `type`, walking prerequisites. */
+  function cheapestLive(type: "support" | "reaction" | "movement"): number {
+    let best = Infinity;
+    for (const jobId of registry.jobById.keys()) {
+      const tree = registry.job(jobId).tree;
+      const byNode = new Map(tree.map((n) => [n.node, n]));
+      const cost = (node: string, seen = new Set<string>()): number => {
+        if (seen.has(node)) return 0;
+        seen.add(node);
+        const n = byNode.get(node);
+        if (!n) return 0;
+        return n.apCost + n.requires.reduce((s, r) => s + cost(r, seen), 0);
+      };
+      for (const n of tree) {
+        const ab = registry.ability(n.ability);
+        if (ab.type !== type) continue;
+        // "Live" = the effect field the equip actually reads is authored. An inert
+        // ability is exactly what this slice existed to stop counting as reachable.
+        const live =
+          type === "support"
+            ? ab.supportEffect !== undefined
+            : type === "reaction"
+              ? ab.reactionEffect !== undefined
+              : ab.movementEffect !== undefined;
+        if (live) best = Math.min(best, cost(n.node));
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The campaign's AP budget, measured (`campaign-run.test.ts` walks the real thing):
+   * the best-earning member banks ~280 AP across all five battles, the worst ~184. A
+   * slot whose cheapest LIVE option costs more than that is one a player is told about
+   * and can never use — which is what every non-trait slot was before this slice
+   * (support 300, reaction 540).
+   */
+  const CAMPAIGN_AP_BUDGET = 280;
+
+  it.each(["support", "reaction", "movement"] as const)(
+    "a live %s is affordable within one campaign",
+    (type) => {
+      expect(cheapestLive(type)).toBeLessThanOrEqual(CAMPAIGN_AP_BUDGET);
+    },
+  );
+
+  it("DISCRIMINATING: the budget is a real bar, not one nothing could fail", () => {
+    // Guards the check above from reading as proof when it cannot come out the other
+    // way. The deepest live option in the pack must still sit BEYOND the budget —
+    // capstones stay capstones, so "reachable" means the shallow tier, not everything.
+    let deepest = 0;
+    for (const jobId of registry.jobById.keys()) {
+      for (const n of registry.job(jobId).tree) {
+        const ab = registry.ability(n.ability);
+        if (ab.type === "action") continue;
+        deepest = Math.max(deepest, n.apCost);
+      }
+    }
+    expect(deepest).toBeGreaterThan(0);
+    expect(cheapestLive("reaction")).toBeGreaterThan(60); // never a first-purchase freebie
+  });
+});

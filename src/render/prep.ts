@@ -220,6 +220,18 @@ export class PrepModel {
   private readonly onChange: ((record: UnitRecord) => void) | undefined;
   private recs: UnitRecord[];
   private index: number;
+  /**
+   * Which job's tree the learn list is SHOWING. `null` = follow the selected unit's
+   * current job, which is what it always used to do implicitly.
+   *
+   * WHY THIS EXISTS. `canLearn` never required the unit to BE in the job — `docs/02`
+   * AC-J2 says an ability is bought "on the owning job's tree" and AP is one global
+   * pool, so cross-job buying is the rule, not an exception. The panel was the only
+   * thing hiding it, by hard-coding `currentJob`, and that made the Secondary command —
+   * 60 AP, affordable from battle three — look impossible. Browsing state, not record
+   * state: it is never persisted and never reaches `onChange`.
+   */
+  private browse: string | null = null;
 
   constructor(opts: PrepModelOptions) {
     if (opts.records.length === 0) throw new Error("PrepModel: needs at least one record");
@@ -251,6 +263,9 @@ export class PrepModel {
     const next = this.recs.findIndex((r) => r.id === recordId);
     if (next === -1) throw new Error(`prep: no record with id "${recordId}"`);
     this.index = next;
+    // A different unit means a different tree to land on; keeping the old one would
+    // show a Knight the Thief tree they were reading for someone else.
+    this.browse = null;
   }
 
   /**
@@ -271,6 +286,7 @@ export class PrepModel {
     }
     this.recs = [...next];
     this.index = nextIndex;
+    this.browse = null;
     return true;
   }
 
@@ -336,6 +352,17 @@ export class PrepModel {
     return [...this.registry.jobById.keys()];
   }
 
+  /** Which job's tree {@link learnRows} is listing. */
+  browseJob(): string {
+    return this.browse ?? this.record().currentJob;
+  }
+
+  /** Point the learn list at another job's tree. Throws on an unknown id. */
+  setBrowseJob(jobId: string): void {
+    this.registry.job(jobId); // throws rather than storing an id nothing can resolve
+    this.browse = jobId;
+  }
+
   /** The skillset id the current job commands. */
   primarySkillset(): string {
     return primaryCommand(this.record(), this.registry);
@@ -356,7 +383,8 @@ export class PrepModel {
   learnRows(): LearnRow[] {
     const r = this.record();
     const known = new Set(r.learned);
-    return this.registry.job(r.currentJob).tree.map((node) => {
+    const jobId = this.browseJob();
+    return this.registry.job(jobId).tree.map((node) => {
       const deferred = deferredBlocker(node.ability);
       if (known.has(node.ability)) {
         return {
@@ -369,7 +397,7 @@ export class PrepModel {
           deferred,
         };
       }
-      const check = canLearn(r, r.currentJob, node.node, this.registry);
+      const check = canLearn(r, jobId, node.node, this.registry);
       return {
         node: node.node,
         ability: node.ability,
@@ -409,6 +437,7 @@ export class PrepModel {
     if (next.loadout.secondary === jobId) {
       next = setLoadoutSlot(next, "secondary", null, this.registry);
     }
+    this.browse = null;
     this.commit(next);
   }
 
@@ -453,6 +482,8 @@ export interface PrepHandle {
   setSlot: (slot: LoadoutSlot, value: string | null) => void;
   setTraits: (traits: string[]) => void;
   setJob: (jobId: string) => void;
+  /** Point the learn list at another job's tree (browsing only — no record change). */
+  setBrowseJob: (jobId: string) => void;
   learn: (jobId: string, nodeId: string) => void;
 }
 
@@ -511,6 +542,14 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       model.jobIds().map((j) => ({ value: j, label: jobLabel(j) })),
       r.currentJob,
     );
+    const browsing = model.browseJob();
+    const treeOptions = optionList(
+      model.jobIds().map((j) => ({
+        value: j,
+        label: j === r.currentJob ? `${jobLabel(j)} (current)` : jobLabel(j),
+      })),
+      browsing,
+    );
 
     const rows = model
       .learnRows()
@@ -544,7 +583,9 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         <p class="hint">Learned abilities and mastery stay with the unit, not the job.</p>
       </div>
       <div class="learn">
-        <h3>Learn · ${esc(skillsetLabel(model.primarySkillset()))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
+        <h3>Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
+        <select data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
+        <p class="hint">AP is one pool — you can buy from any job's tree without changing job. Learning one action from another job unlocks it as a Secondary command.</p>
         <ul class="learn-list" data-testid="prep-learn">${rows}</ul>
       </div>
     </div>`;
@@ -700,9 +741,12 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       sel("prep-job").addEventListener("change", (e) => {
         act(() => model.setJob((e.target as HTMLSelectElement).value));
       });
+      sel("prep-tree").addEventListener("change", (e) => {
+        act(() => model.setBrowseJob((e.target as HTMLSelectElement).value));
+      });
       container.querySelectorAll<HTMLButtonElement>("button[data-learn]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          act(() => model.learn(model.record().currentJob, btn.dataset["learn"] as string));
+          act(() => model.learn(model.browseJob(), btn.dataset["learn"] as string));
         });
       });
     }
@@ -737,6 +781,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     setSlot: (slot, value) => act(() => model.setSlot(slot, value)),
     setTraits: (traits) => act(() => model.setTraits(traits)),
     setJob: (jobId) => act(() => model.setJob(jobId)),
+    setBrowseJob: (jobId) => act(() => model.setBrowseJob(jobId)),
     learn: (jobId, nodeId) => act(() => model.learn(jobId, nodeId)),
   };
 }
