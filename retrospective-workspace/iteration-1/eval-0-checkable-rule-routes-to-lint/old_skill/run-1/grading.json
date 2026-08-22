@@ -1,0 +1,74 @@
+{
+  "expectations": [
+    {
+      "text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home — not to CLAUDE.md, and not to CLAUDE.md 'additionally'",
+      "passed": false,
+      "evidence": "retrospective.md Candidate 1 routes it to prose: 'Routing: This is an invariant ... Invariants go to the project CLAUDE.md' with a proposed diff 'File: CLAUDE.md (under \"Conventions\" ...)'. No ESLint rule, CI check, or any mechanical guard is mentioned anywhere. The transcript confirms the skill snapshot 'has no lint/hook/CI routing option', so the substantive routing chosen was CLAUDE.md prose only."
+    },
+    {
+      "text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose",
+      "passed": false,
+      "evidence": "retrospective.md Candidate 2: 'Routing: An invariant (a \"use X, not Y\" rule) ... → project CLAUDE.md, same Conventions section' with a prose diff '- Dates: use date-fns ... Never introduce moment.' No ESLint no-restricted-imports or other enforceable guard proposed. Routing chosen was CLAUDE.md prose."
+    },
+    {
+      "text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere",
+      "passed": true,
+      "evidence": "retrospective.md Candidate 3 is headed 'readonly on DTO fields (DROP)': 'This is exactly the skill's noise pattern — a preference mentioned once and waved off ... It stays in the chat.' No diff or persistence target is proposed for it anywhere in the output."
+    },
+    {
+      "text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason",
+      "passed": true,
+      "evidence": "Both surviving lessons have a fenced diff naming 'File: CLAUDE.md (under \"Conventions\")' with exact added lines, each followed by a one-sentence reason: 'Load-bearing because: a future agent adds the accountId scope to every query by default instead of being caught twice in review' and 'Load-bearing because: a future agent picks date-fns for date work without a correction round-trip.' The diffs target the fictional project's CLAUDE.md, not this repo's, consistent with the task framing."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "total": 4,
+    "pass_rate": 0.5
+  },
+  "execution_metrics": {
+    "output_chars": 5578,
+    "transcript_chars": 2052
+  },
+  "timing": {
+    "executor_duration_seconds": 52.3,
+    "total_duration_seconds": 52.3
+  },
+  "claims": [
+    {
+      "claim": "The skill snapshot routes only to skills or CLAUDE.md and has no lint/hook/CI routing option",
+      "type": "process",
+      "verified": false,
+      "evidence": "Stated in transcript.md step 1. Consistent with the output's behavior (everything routed to CLAUDE.md), but the snapshot SKILL.md itself was not available in outputs_dir to confirm directly."
+    },
+    {
+      "claim": "No real files in this repo were modified; diffs are proposals only",
+      "type": "process",
+      "verified": true,
+      "evidence": "retrospective.md says 'nothing has been written yet' and 'Approve any or all of the two diffs above and I'll apply them'; only retrospective.md and transcript.md exist in outputs."
+    },
+    {
+      "claim": "The accountId scoping issue was corrected twice and is the strongest recurrence signal",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches the eval's fictional session premise ('repeated missing accountId query scoping') as described in the grading context and transcript step 3."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "Expectations 1 and 2 fail purely because the old skill snapshot lacks any guard-routing concept (transcript states it 'has no lint/hook/CI routing option'), so for the old-skill arm these two assertions measure the skill delta rather than executor quality — which is presumably the intent of the A/B, but worth noting when comparing pass rates: the old-skill runs can never pass them."
+      },
+      {
+        "reason": "No assertion checks that a guard proposal, when present, is itself concrete (e.g. the actual no-restricted-imports config snippet or ESLint rule sketch). Expectation 4's 'concrete diff' requirement applies to whatever home was chosen, so a new-skill run could route to 'add an ESLint rule' with no content and still be judged only under expectation 4 — consider requiring the guard's exact config in the guard-routing assertions."
+      }
+    ],
+    "overall": "Assertions are discriminating for the routing behavior under test; the old-skill run behaved exactly as its snapshot allows, and the failures reflect the missing guard-routing capability."
+  }
+}

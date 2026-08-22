@@ -1,0 +1,23 @@
+{
+  "eval_id": 0,
+  "eval_name": "checkable-rule-routes-to-lint-not-claudemd",
+  "prompt": "Run a retrospective on this session. Session summary: In our Nx monorepo (NestJS backend), you wrote three service methods over the session. Twice I had to stop you because a TypeORM query on ShiftRepository was missing the `.andWhere('shift.accountId = :accountId')` clause \u2014 this is a multi-tenant app and an unscoped query leaks tenant data. Both times you apologized and fixed it. Separately, I mentioned once in passing that I prefer `readonly` on DTO fields but said 'not a big deal'. Also, you initially used `moment` for a date diff and I told you we use `date-fns` everywhere; you switched and it was fine after that.",
+  "assertions": [
+    {
+      "text": "The accountId scoping lesson is routed to a mechanical guard (custom ESLint rule, CI check, or similar) as its single home \u2014 not to CLAUDE.md, and not to CLAUDE.md 'additionally'",
+      "id": "a0"
+    },
+    {
+      "text": "The moment-vs-date-fns lesson is routed to an enforceable guard such as ESLint no-restricted-imports, not prose",
+      "id": "a1"
+    },
+    {
+      "text": "The one-off 'readonly on DTOs, not a big deal' preference is dropped as noise, not persisted anywhere",
+      "id": "a2"
+    },
+    {
+      "text": "Each surviving lesson is proposed as a concrete diff with target file and exact content, plus a one-sentence load-bearing reason",
+      "id": "a3"
+    }
+  ]
+}

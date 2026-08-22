@@ -1,0 +1,74 @@
+{
+  "expectations": [
+    {
+      "text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill",
+      "passed": false,
+      "evidence": "retrospective.md routes the surviving lesson to CLAUDE.md: 'Verdict: KEEP -> CLAUDE.md' and 'Target: the fictional Nx monorepo's project CLAUDE.md, under \"Conventions\"'. The automation option (candidate 3, 'an ESLint barrel rule, or scaffold via Nx generators') is explicitly dropped as a routed lesson: 'This retrospective's methodology routes lessons to a skill or CLAUDE.md only; standing up lint rules ... is project work, not a lesson-capture target'. It survives only as an unrouted one-line suggestion in 'Not persisted, but worth saying once'. The substantive routing chosen was a CLAUDE.md conventions entry — the skill snapshot used evidently has no guard/hook rungs, so mechanical routing was structurally unavailable, but graded as written this fails."
+    },
+    {
+      "text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick",
+      "passed": false,
+      "evidence": "Hooks are never mentioned anywhere in retrospective.md or transcript.md. A lint check is mentioned (candidate 3: 'an ESLint barrel rule', and 'add a lint check that every module in a lib is reachable from its index.ts') but is framed as out-of-scope project work rather than a viable routing home, and no lint-vs-hook comparison or justification exists. The only routing tie-breaker applied is know-how-vs-invariant (skill vs CLAUDE.md)."
+    }
+  ],
+  "summary": {
+    "passed": 0,
+    "failed": 2,
+    "total": 2,
+    "pass_rate": 0.0
+  },
+  "execution_metrics": {
+    "tool_calls": null,
+    "total_tool_calls": null,
+    "total_steps": 6,
+    "errors_encountered": 0,
+    "output_chars": 6365,
+    "transcript_chars": 1685,
+    "note": "No metrics.json present; total_steps counted from transcript.md's numbered steps; output_chars = retrospective.md (4680) + transcript.md (1685)."
+  },
+  "timing": {
+    "executor_duration_seconds": 59.0,
+    "total_duration_seconds": 59.0
+  },
+  "claims": [
+    {
+      "claim": "The snapshot skill routes lessons only to skills or CLAUDE.md (no guard/lint/hook rungs)",
+      "type": "process",
+      "verified": false,
+      "evidence": "Stated in retrospective.md candidate 3 and transcript.md step 3; the skill snapshot itself was not available in outputs to confirm. Consistent with the run being labeled 'old_skill', but unverifiable from the provided files."
+    },
+    {
+      "claim": "No real files were modified; the diff is a written proposal awaiting confirmation",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs dir contains only retrospective.md and transcript.md; retrospective.md is headed 'Proposed change (awaiting confirmation — nothing has been written)'."
+    },
+    {
+      "claim": "One lesson clears the bar; the other candidates are duplicates or out of scope",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The merge of candidate 2 into candidate 1 is reasoned (detection net vs prevention at source), and candidate 3's exclusion follows from the stated methodology. Internally consistent, though the exclusion of tooling is exactly what expectation 1 penalizes."
+    },
+    {
+      "claim": "The barrel-export mechanism is workspace-wide, so the rule generalizes from libs/ui to all libs/*",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Plausible for an Nx monorepo, but the project is fictional and only libs/ui failures appear in the session record; the generalization is asserted, not evidenced."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified",
+        "reason": "When the skill version under test has no concept of mechanical rungs, this expectation cannot pass regardless of executor quality — it measures the skill's design, not the run. That is presumably intentional for an old-vs-new comparison, but if any old_skill run ever passed it, that would signal the executor drew on outside knowledge rather than the skill; worth noting so a pass here is read as contamination, not success."
+      }
+    ],
+    "overall": "Expectations are discriminating for the old-vs-new skill comparison: this old_skill run fails both precisely because the snapshot skill lacks guard/hook rungs, which is the behavior gap the new skill presumably closes. The executor otherwise followed its methodology faithfully and even surfaced the lint-rule idea unprompted, only to rule it out-of-scope — good evidence the routing ladder, not executor judgment, is the binding constraint."
+  }
+}

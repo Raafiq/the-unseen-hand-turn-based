@@ -1,0 +1,88 @@
+{
+  "expectations": [
+    {
+      "text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill",
+      "passed": false,
+      "evidence": "retrospective.md lesson 1 routes it to CLAUDE.md: 'This is a rule the agent must not violate, not a method — an invariant. It goes to the project CLAUDE.md.' No hook (Stop or otherwise) is mentioned anywhere in the output. The transcript confirms the skill snapshot 'has no hook/lint/CI routing' in its home list, but the expectation is graded as written: routing chosen was CLAUDE.md."
+    },
+    {
+      "text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)",
+      "passed": false,
+      "evidence": "retrospective.md lesson 2: 'A rule that is simply true here and not derivable from the code → project CLAUDE.md.' The proposed diff is a prose bullet in the Nx repo's CLAUDE.md ('After any edit to a schema.prisma, run prisma generate'). No PostToolUse or any hook triggered by schema edits is proposed."
+    },
+    {
+      "text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning",
+      "passed": false,
+      "evidence": "retrospective.md lesson 3: 'A project-specific fact an agent must check against, not a procedure → project CLAUDE.md.' The diff is a CLAUDE.md bullet stating the flag requirement. No change to the wrapper script's default, no project skill, and no consideration of any home above CLAUDE.md for this lesson (the 'Not routed anywhere else' section explicitly rejects skills for all three lessons)."
+    },
+    {
+      "text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook",
+      "passed": false,
+      "evidence": "No hook is proposed anywhere in retrospective.md, so there is no config content, no command, and no matcher. Per the grading instructions, this conditional expectation fails when no hook is proposed at all — the lessons needed one and its absence is not a hook proposal. The only concrete diff given is a three-bullet CLAUDE.md block."
+    }
+  ],
+  "summary": {
+    "passed": 0,
+    "failed": 4,
+    "total": 4,
+    "pass_rate": 0.0
+  },
+  "execution_metrics": {
+    "tool_calls": null,
+    "total_tool_calls": null,
+    "total_steps": 7,
+    "errors_encountered": 0,
+    "output_chars": 7031,
+    "transcript_chars": 1875,
+    "note": "No metrics.json in outputs_dir; steps counted from transcript.md, chars measured from retrospective.md (5156) + transcript.md (1875)."
+  },
+  "timing": {
+    "total_tokens": 51583,
+    "duration_ms": 61111,
+    "total_duration_seconds": 61.1
+  },
+  "claims": [
+    {
+      "claim": "The skill snapshot's routing homes are limited to global skill, project skill, project CLAUDE.md, or nowhere (no hook/lint/CI routing exists in this snapshot)",
+      "type": "process",
+      "verified": false,
+      "evidence": "Consistent with the eval context (the old skill version predates hooks/guards), but the snapshot file itself was not available to the grader to confirm. The routing behavior in the output is consistent with this claim."
+    },
+    {
+      "claim": "All three surviving lessons are invariants, not procedures, so CLAUDE.md is the correct one home",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The reasoning is internally coherent under the old skill's ladder, but under the intended routing ladder these are automatable workflow gates: 'run tests before done' is enforceable by a Stop hook, 'regenerate after schema edit' by a PostToolUse hook, and '--parallel=3' by changing the wrapper's default — prose rules rely on future agents reading and obeying, which is exactly the failure mode the session exhibited."
+    },
+    {
+      "claim": "Nothing has been applied; proposals await approval",
+      "type": "process",
+      "verified": true,
+      "evidence": "The diffs target a fictional Nx repo's CLAUDE.md and no real files outside outputs_dir were modified per the transcript; only retrospective.md and transcript.md exist in outputs."
+    },
+    {
+      "claim": "Two candidates (user annoyance, debugging audit trail) were correctly dropped",
+      "type": "quality",
+      "verified": true,
+      "evidence": "retrospective.md sections 4 and 5 drop them with sound reasoning: annoyance is weighting on lesson 1, and the audit trail changes no future behavior once the rules are captured."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present in outputs_dir."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning",
+        "reason": "The two example routings (wrapper-default change vs project skill) are quite different in kind — a skill is arguably not 'above' CLAUDE.md in the same way a code-level default is. Consider tightening the expectation to name the preferred home (fix the wrapper's default) so a graded pass is unambiguous."
+      },
+      {
+        "reason": "No assertion checks the harvest/drop quality (the two dropped candidates, the load-bearing test). This run did that part well; a skill revision that regressed there would go uncaught by these four expectations."
+      }
+    ],
+    "overall": "Expectations discriminate well for the routing behavior under test: the old skill routed everything to CLAUDE.md with concrete diffs but zero hook/guard/code-level proposals, and all four expectations correctly fail. The lesson-harvesting quality itself was good and is uncovered by any assertion."
+  }
+}
