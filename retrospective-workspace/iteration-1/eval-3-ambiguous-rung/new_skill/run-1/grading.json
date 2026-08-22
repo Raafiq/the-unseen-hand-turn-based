@@ -1,0 +1,74 @@
+{
+  "expectations": [
+    {
+      "text": "Lesson routed to rung 1 or 2 (CI/lint check or hook), not CLAUDE.md or a skill",
+      "passed": true,
+      "evidence": "retrospective.md routes both kept lessons mechanically: Lesson 1 'Kept -> rung 1 (lint rule)' with a full custom ESLint rule (tools/eslint-rules/require-barrel-export.mjs) plus eslint.config.mjs wiring, and Lesson 2 'Kept -> rung 2 (Stop hook)' with a .claude/settings.json Stop hook running 'npx nx affected -t lint typecheck'. The CLAUDE.md candidate (#3) was explicitly Dropped ('a prose rule is read once and forgotten under context pressure, which is exactly how this failed three times'), and both skill candidates (#4 project skill, #6 global skill) were Dropped ('no judgment involved; the step is purely mechanical, so a machine check beats a procedure document')."
+    },
+    {
+      "text": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick",
+      "passed": true,
+      "evidence": "The output itself (not just the transcript) reasons about both homes. Lint is justified for the barrel defect: 'A file that exists under a lib's src/ but is unreachable from src/index.ts is a static property of the code. Encode it in the tool that already runs on every change.' The hook section explicitly acknowledges the lint check covers the same defect and justifies why a hook is still needed: 'Lesson 1 makes this particular defect visible to lint, but only a gate at the \"done\" moment guarantees the check actually runs before the claim' — i.e., the check answers 'what is wrong', the hook answers 'when is it checked'. This is an explicit, reasoned division of labor between the two mechanical homes, not an unexplained pick."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 0,
+    "total": 2,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "note": "No metrics.json present in outputs_dir",
+    "output_chars": 7501,
+    "transcript_chars": 1973
+  },
+  "timing": {
+    "total_tokens": 59842,
+    "executor_duration_seconds": 148.8,
+    "total_duration_seconds": 148.8
+  },
+  "claims": [
+    {
+      "claim": "The lint rule covers all libs (libs/**/src/index.ts), not just libs/ui",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Proposed eslint.config.mjs snippet targets files: ['libs/**/src/index.ts'], matching the scope note."
+    },
+    {
+      "claim": "No real files were modified anywhere; all changes exist only as proposals inside retrospective.md",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs_dir contains only retrospective.md and transcript.md; all diffs (ESLint rule, config wiring, hook JSON) appear only as fenced code blocks inside retrospective.md."
+    },
+    {
+      "claim": "Chose lint over a CI-only script because lint already runs on every change and in-editor",
+      "type": "process",
+      "verified": true,
+      "evidence": "Transcript step 3 states this; retrospective.md carries the matching rationale ('Encode it in the tool that already runs on every change' and 'fails nx lint (editor, pre-commit, and CI) on every future change')."
+    },
+    {
+      "claim": "The proposed ESLint rule correctly detects un-exported source files, including via nested barrels",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The rule source is plausible (walks export-from statements, follows nested index.ts, has spec/test/d.ts skips and a barrel-ignore opt-out) but was never executed against a fixture — the fictional Nx repo does not exist. The output itself acknowledges this by prescribing a mutation check ('temporarily delete one export line ... and confirm nx lint ui goes red'), which cannot be run here."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present"
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Both mechanical homes (lint/CI check and hook) are acknowledged as viable and the choice between them is explicitly justified with brief reasoning, not an unexplained pick",
+        "reason": "This run satisfied the assertion by splitting the record into two lessons and using BOTH homes with a stated division of labor. A run that routes one lesson to one home with a comparison, and a run that uses both homes with no comparison at all, would grade differently under the same wording — consider specifying whether the required justification must appear in retrospective.md itself (this run's did) rather than only in the transcript, and whether 'use both' counts as 'a choice between them'."
+      },
+      {
+        "reason": "No assertion checks that the proposed mechanical guards are concrete/runnable (actual rule source, config wiring, hook JSON) versus a hand-wave like 'add a lint rule'. This run produced full diffs, which is a meaningfully stronger outcome that currently earns no credit."
+      }
+    ],
+    "overall": "Both assertions are discriminating for the ambiguous-rung scenario, but assertion 2 is judgment-heavy when a run legitimately uses both homes; pinning down where the justification must live would tighten it."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "eval_id": 1,
+  "eval_name": "workflow-gate-routes-to-hook",
+  "prompt": "Do a post-mortem on what we learned today. Session summary: You implemented two features in our Nx repo. Both times you said 'done' without running the affected Vitest suites, and both times I found a broken test afterward and made you fix it \u2014 the second time I was pretty annoyed. Also, after you edited a Prisma schema file, you forgot to regenerate the client, so the next edit failed with type errors and we lost 20 minutes figuring it out. Finally, you discovered through trial and error that our custom `nx run-many` wrapper script needs `--parallel=3` or it OOMs on CI-sized runners; that took four failed attempts to figure out.",
+  "assertions": [
+    {
+      "text": "The run-tests-before-done lesson is routed to a Claude Code hook (Stop or similar), not to CLAUDE.md or a skill",
+      "id": "a0"
+    },
+    {
+      "text": "The regenerate-Prisma-client lesson is routed to a hook triggered by edits to the schema (PostToolUse or similar)",
+      "id": "a1"
+    },
+    {
+      "text": "The --parallel=3 lesson is routed above CLAUDE.md on the ladder, e.g. changing the wrapper script's default or a project skill, with reasoning",
+      "id": "a2"
+    },
+    {
+      "text": "Hook proposals include actual config content (the command / matcher), not just a promise to add a hook",
+      "id": "a3"
+    }
+  ]
+}

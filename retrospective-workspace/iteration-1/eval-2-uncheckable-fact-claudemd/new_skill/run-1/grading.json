@@ -1,0 +1,97 @@
+{
+  "expectations": [
+    {
+      "text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it",
+      "passed": true,
+      "evidence": "Routing destination correct: Lesson 1's routing walk ends '**Rung 4 (CLAUDE.md): yes.**' and the proposed diff targets 'project CLAUDE.md (fictional monorepo), under an ## Environments section'. Justification present and explicit, per-rung: rung 1 rejected ('There is no diff a rule could inspect — the danger lives in infrastructure topology, not in any file'), rung 2 rejected ('A PreToolUse hook could only pattern-match command text... the dangerous surface is unbounded... so a keyword hook fails open on every variant'), and a one-line summary reason: 'the hazard is invisible in the repo — no tool that reads code or commands can know that two environments share a database.' Both the substantive routing AND the required justification are present, so the two failure modes the eval author asked to distinguish both come out clean."
+    },
+    {
+      "text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)",
+      "passed": true,
+      "evidence": "Lesson 2's routing walk: '**Rung 3 (skill): yes — global.** \"Reproduce a bug before patching it\" transcends this repo entirely; it applies to any codebase. Per the ladder, it goes to ~/.claude/skills/, not the project.' Proposed diff targets ~/.claude/skills/debugging/SKILL.md with a full frontmatter + content draft."
+    },
+    {
+      "text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md",
+      "passed": true,
+      "evidence": "Lesson 3 is routed to rung 1 — 'type constraint + lint rule' — a home above CLAUDE.md on the ladder: the mapper is retyped against 'import type { ApiErrorResponse } from @<org>/shared/contracts' and an ESLint no-restricted-syntax rule bans local redeclaration in libs/api/**. It is explicitly NOT put in CLAUDE.md: 'no skill or CLAUDE.md line needed once the typechecker refuses a guessed shape' and 'adding a prose rule on top would be a second home for the same lesson, which the ladder forbids.' Note: the eval anticipated a project skill; the output went a rung higher (mechanical guard), which satisfies 'other home above CLAUDE.md' as written."
+    },
+    {
+      "text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition",
+      "passed": true,
+      "evidence": "retrospective.md opens with 'No lesson goes to auto-memory' and closes with 'All three are proposals awaiting confirmation; nothing has been applied.' The outputs directory contains only retrospective.md and transcript.md; the transcript confirms 'no real files were modified — all diffs are proposals inside retrospective.md only.' Exactly one CLAUDE.md addition is proposed (Lesson 1's Environments block); lessons 2 and 3 target a global skill and code/lint config respectively."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": null,
+    "total_tool_calls": null,
+    "total_steps": 6,
+    "errors_encountered": 0,
+    "output_chars": 9685,
+    "transcript_chars": 2002,
+    "note": "No metrics.json present; total_steps taken from the 6 numbered transcript steps; output_chars = retrospective.md (7683) + transcript.md (2002)."
+  },
+  "timing": {
+    "executor_duration_seconds": 96.8,
+    "total_duration_seconds": 96.8,
+    "total_tokens": 55139
+  },
+  "claims": [
+    {
+      "claim": "All three lessons pass the load-bearing test (each has a one-sentence future-behavior change)",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Three load-bearing statements are written out in the 'Candidate lessons considered' section, and each lesson section repeats its own 'Load-bearing because' line."
+    },
+    {
+      "claim": "A keyword-matching PreToolUse hook would fail open on the staging-backfill hazard",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Reasoning is sound and internally consistent with the fictional summary: the summary stipulates nothing in the code indicates the shared database, and the command surface (psql, ad-hoc scripts, ORM CLIs) is genuinely unbounded, so string matching cannot be exhaustive."
+    },
+    {
+      "claim": "The ESLint no-restricted-syntax selector catches locally re-declared error shapes",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Unverifiable and only partially sound: the regex /^(Api)?Error(Response)?/ only catches type names matching that pattern — a mapper that re-guesses the shape under a differently-named local type (or an inline object literal type) passes the lint. The typechecker half (annotating mapError's return type) is the real guard; the lint rule is a heuristic backstop. Against a fictional codebase this cannot be run, so it stands as a plausible but untested proposal."
+    },
+    {
+      "claim": "The executor read only the retrospective SKILL.md and used it as the sole methodology",
+      "type": "process",
+      "verified": false,
+      "evidence": "Stated in transcript step 1, but the transcript is executor-authored prose with no tool log, so it cannot be independently confirmed. The output's structure (routing ladder rungs 1-4, load-bearing test, one-home rule) is consistent with following a skill of that shape."
+    },
+    {
+      "claim": "Nothing was applied; all diffs are proposals only",
+      "type": "factual",
+      "verified": true,
+      "evidence": "outputs_dir contains only retrospective.md and transcript.md; no CLAUDE.md, skill file, or config file exists in the run's outputs."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md",
+        "reason": "The eval expects a project skill, but the stronger answer — chosen here — is a mechanical guard (type constraint + lint), a rung above skills. The disjunction 'or other home above CLAUDE.md' absorbs this, but if the skill under test is supposed to teach 'stop at the HIGHEST fitting rung', consider a positive assertion that the routing walk explains why the lesson is machine-checkable, so a lazy 'project skill' answer doesn't score identically to the best answer."
+      },
+      {
+        "reason": "No assertion checks that each lesson gets exactly ONE home (the no-double-homing rule). This run honored it explicitly ('adding a prose rule on top would be a second home... which the ladder forbids'), but an output that routed lesson 3 to a lint rule AND also added a CLAUDE.md line would pass all four assertions as written."
+      },
+      {
+        "reason": "Expectation 4's 'does not write anything to the auto-memory system' is only falsifiable if the harness captures filesystem writes outside outputs_dir. Here it was verifiable by absence (only two files in outputs, transcript attests no real files modified), but a run that silently wrote to ~/.claude/ memory would be invisible to a grader reading outputs_dir alone. Consider having the harness diff the memory directory."
+      }
+    ],
+    "overall": "Assertions are well-targeted and discriminating for this eval's core question (routing an uncheckable fact vs. a heuristic vs. a checkable convention). The gaps are edge cases: double-homing and out-of-band writes."
+  }
+}

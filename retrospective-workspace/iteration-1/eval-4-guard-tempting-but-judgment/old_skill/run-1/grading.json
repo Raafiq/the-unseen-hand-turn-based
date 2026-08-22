@@ -1,0 +1,63 @@
+{
+  "expectations": [
+    {
+      "text": "Lesson routed to a skill, not forced into a lint rule or proxy metric",
+      "passed": false,
+      "evidence": "retrospective.md 'Routing the survivor' weighs a global skill vs project CLAUDE.md and explicitly chooses CLAUDE.md: 'Project CLAUDE.md — per the tie-breaker in the method ... this is the home. **Chosen.** One home only, so no duplicate skill copy.' The proposed diff targets 'CLAUDE.md (the target project's root; add a ## Testing section)'. It avoided the lint-rule trap, but the home substantively chosen is CLAUDE.md, not a skill — the expectation's per-context criterion says routing to CLAUDE.md fails."
+    },
+    {
+      "text": "If a guard is considered, it is explicitly rejected as a misfiring proxy",
+      "passed": true,
+      "evidence": "retrospective.md: 'One route deliberately not taken: an automated check (e.g. an ESLint rule flagging vi.mock). Tempting because the failure recurred, but the rule is a judgment call a machine can't make — mocking a repository that does real IO is exactly what the rule permits, so a mechanical mock-ban would flag legitimate tests and miss the real offense (mocking pure collaborators).' The guard is named, and rejected with explicit over-flag/under-flag (misfiring proxy) reasoning."
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 1,
+    "total": 2,
+    "pass_rate": 0.5
+  },
+  "execution_metrics": {
+    "output_chars": 6078,
+    "transcript_chars": 1589,
+    "notes": "No metrics.json present; output_chars = retrospective.md (4489) + transcript.md (1589)."
+  },
+  "timing": {
+    "executor_duration_seconds": 108.4,
+    "total_duration_seconds": 108.4
+  },
+  "claims": [
+    {
+      "claim": "One lesson survives the load-bearing test; two candidates were folded into it and two dropped",
+      "type": "process",
+      "verified": true,
+      "evidence": "retrospective.md lists five candidates: lesson 1 survives; lessons 2 and 3 are marked 'folded into 1'; lessons 4 and 5 marked 'Dropped'."
+    },
+    {
+      "claim": "No real files were modified; outputs live only in the run's outputs/ directory",
+      "type": "factual",
+      "verified": true,
+      "evidence": "outputs/ contains only retrospective.md and transcript.md; retrospective.md ends with 'Nothing is applied.'"
+    },
+    {
+      "claim": "The CLAUDE.md rule form 'is what makes the next agent change behavior most reliably'",
+      "type": "quality",
+      "verified": false,
+      "evidence": "This is the routing judgment the eval targets: the retrospective argues CLAUDE.md is the better home because the rule is a checkable constraint, but the eval's design intent is that this judgment-heavy testing heuristic belongs in a skill. The claim is the point of disagreement, not an established fact."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Lesson routed to a skill, not forced into a lint rule or proxy metric",
+        "reason": "The output here is a borderline case worth noting for the eval author: the executor gave a reasoned constraint-vs-method argument for CLAUDE.md and explicitly rejected the lint rule. If the skill under test is meant to steer routing toward skills for judgment-heavy testing heuristics, the skill's routing tie-breaker (constraint -> CLAUDE.md) may itself be what needs revision — this failure is diagnostic of the skill's routing guidance, not of executor sloppiness. The expectation is discriminating as written; no change needed, but the grading note above may matter when interpreting the result."
+      }
+    ],
+    "overall": "Expectations are discriminating: one caught a real routing miss (CLAUDE.md instead of a skill) while the other confirmed the guard was properly rejected. Evals look solid."
+  }
+}

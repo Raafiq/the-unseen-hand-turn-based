@@ -1,0 +1,15 @@
+{
+  "eval_id": 4,
+  "eval_name": "guard-tempting-but-judgment",
+  "prompt": "Retrospective. Session summary: twice I rejected your Vitest tests because they mocked so much that the test only verified the mocks \u2014 you mocked the repository, the mapper, and the clock in a unit that just formats a label. I told you to test through real collaborators unless the dependency does IO.",
+  "assertions": [
+    {
+      "text": "Lesson routed to a skill, not forced into a lint rule or proxy metric",
+      "id": "a0"
+    },
+    {
+      "text": "If a guard is considered, it is explicitly rejected as a misfiring proxy",
+      "id": "a1"
+    }
+  ]
+}

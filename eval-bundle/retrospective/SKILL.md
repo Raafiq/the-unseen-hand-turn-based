@@ -1,7 +1,6 @@
 ---
 name: retrospective
-description: >-
-  Use whenever the user asks for any retro, retrospective, post-mortem, or lessons-learned pass on the working session with Claude itself — a quick "retro on this session", "retrospective before we open the PR", "what went wrong / what did we learn", or "capture this so the next agent doesn't repeat it". An explicit request for a session retro ALWAYS qualifies, even a quick or informal one, and even if the user doesn't mention saving anything. Also use when the user complains the session went badly — repeated corrections, redone work, "that took way longer than it should have" — and wants next time to go better. The skill mines the session for load-bearing lessons and persists them as lint rules, CI checks, hooks, skills, or CLAUDE.md edits. Do NOT use for retrospectives about anything other than this Claude session: team or sprint retros, production incident post-mortems, standup or status summaries, review decks, or drafting retro templates and process docs.
+description: Run a retrospective on the session — harvest the load-bearing lessons from corrections, rework, and hard-won patterns, then route each to an automated guard (lint rule, hook, CI check), a skill, or CLAUDE.md as a concrete diff. Use when the user asks for a retrospective, post-mortem, or "what did we learn"; says "so this doesn't happen again" or "so the next agent doesn't repeat this"; or after a multi-step session with repeated corrections or rework.
 ---
 
 # Retrospective
@@ -93,7 +92,6 @@ Load-bearing because: a future agent asks before publishing from staging. No gua
 2. **Route** — walk each survivor down the ladder; stop at the first rung that fits.
 3. **Propose as diffs** — for each, show the target file and the exact lines to add or change (for guards and hooks: the actual rule/config, not a promise to write one), plus the one-sentence reason it's load-bearing. A concrete diff lets the user approve at a glance; "I'll update the debugging skill" doesn't.
 4. **Apply on confirmation** — write the changes the user approves and leave the rest. If nothing clears the bar, say so plainly: "nothing here is worth persisting" is a valid and common result.
-5. **Mark it done** — `touch .claude/.retro-done` (from the repo root). The pre-PR hook checks this marker, so a PR can't be opened until a retrospective has actually run. Do this even when nothing was worth persisting — the retrospective happened.
 
 ## When to suggest one
 

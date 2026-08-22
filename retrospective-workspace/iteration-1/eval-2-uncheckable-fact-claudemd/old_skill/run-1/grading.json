@@ -1,0 +1,87 @@
+{
+  "expectations": [
+    {
+      "text": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it",
+      "passed": false,
+      "evidence": "Routing destination is substantively CORRECT: retrospective.md Lesson 1 routes to project CLAUDE.md ('That is the definition of a project CLAUDE.md entry') with a proposed diff under an 'Environments' or 'Invariants' section. However, the required guard-impossibility justification is ABSENT: the stated rationale only argues why it is not a *skill* ('Not a skill: there is no procedure to follow, just a rule to check against'). Neither 'guard' nor 'hook' (nor lint/CI check) appears anywhere in retrospective.md or transcript.md, and no reason is given why an automated guard or hook cannot carry this fact. Verdict is 'right home, missing justification' — graded strictly as written, this fails. (Eval-author note confirms the skill version under test never asks for this reasoning, so this failure reflects a skill gap, not executor sloppiness.)"
+    },
+    {
+      "text": "The reproduce-bug-before-patching heuristic is routed to a global skill (know-how transcending the repo)",
+      "passed": true,
+      "evidence": "retrospective.md Lesson 2: 'This is know-how that transcends this repo — a method, not a fact about this codebase. Per the routing rule, that goes to a global skill: ~/.claude/skills/debugging/SKILL.md'. The proposed diff targets that global-skill path and includes frontmatter for creating it if absent. The summary table also lists 'global skill ~/.claude/skills/debugging/' with rationale 'Cross-project method (know-how)'."
+    },
+    {
+      "text": "The read-the-contracts-lib-first lesson is routed to a project skill or other home above CLAUDE.md, not dumped into CLAUDE.md",
+      "passed": false,
+      "evidence": "retrospective.md Lesson 3 routes it INTO project CLAUDE.md: 'Between a procedure (project skill) and a rule checked against (CLAUDE.md), the rule wins here... a dedicated project skill for a single pointer would be overhead the next agent may never trigger. -> project CLAUDE.md.' The proposed diff adds a bullet to CLAUDE.md under 'Conventions'. The executor considered a project skill and explicitly rejected it — the reasoning is articulate, but the destination contradicts the expectation."
+    },
+    {
+      "text": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition",
+      "passed": false,
+      "evidence": "First half holds: no auto-memory writes anywhere; the transcript notes the skill's 'never write to auto-memory' rule was followed and 'no real files were modified anywhere' — all diffs are proposals. Second half fails: TWO CLAUDE.md additions are proposed (Lesson 1, staging/Postgres invariant, and Lesson 3, libs/shared/contracts rule), exceeding the 'at most one' limit. The summary table confirms two rows with home 'project CLAUDE.md'."
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 3,
+    "total": 4,
+    "pass_rate": 0.25
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": null,
+    "total_steps": 7,
+    "errors_encountered": 0,
+    "output_chars": 7975,
+    "transcript_chars": 2055,
+    "note": "No metrics.json present; total_steps taken from the 7 numbered transcript entries; output_chars = retrospective.md (5920) + transcript.md (2055)."
+  },
+  "timing": {
+    "executor_duration_seconds": 63.9,
+    "total_duration_seconds": 63.9,
+    "total_tokens": 52153,
+    "duration_ms": 63913
+  },
+  "claims": [
+    {
+      "claim": "All three candidate lessons pass the load-bearing test and nothing else in the summary cleared the bar",
+      "type": "quality",
+      "verified": true,
+      "evidence": "retrospective.md states a concrete behavior-change per lesson (refuse staging bulk writes; repro before patching; open libs/shared/contracts first) and a 'Dropped' section explaining why session-local details were excluded. Consistent with the fictional session summary described in the transcript."
+    },
+    {
+      "claim": "Diffs are proposals only — no real files were modified anywhere",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs dir contains only retrospective.md and transcript.md; retrospective.md ends 'On your confirmation I would apply the approved diffs and leave the rest.' Cannot fully verify from the narrative transcript that no filesystem writes occurred elsewhere, but no evidence contradicts it."
+    },
+    {
+      "claim": "The retrospective used only the skill snapshot as method, ignoring the installed retrospective skill and this repo's CLAUDE.md",
+      "type": "process",
+      "verified": false,
+      "evidence": "Stated in transcript step 1 but unverifiable from a narrative transcript with no tool-call log. The output's structure (harvest -> load-bearing test -> single home -> proposed diffs) is consistent with the claim."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response does not write anything to the auto-memory system and proposes at most one CLAUDE.md addition",
+        "reason": "This conjoins two independent checks; a FAIL cannot distinguish 'wrote to auto-memory' (serious) from 'proposed two CLAUDE.md bullets' (routing-stinginess). Here only the second half failed. Splitting them would make results more diagnostic."
+      },
+      {
+        "assertion": "The staging-shares-production-database fact is routed to CLAUDE.md, with a stated reason why no guard or hook can carry it",
+        "reason": "Also conjoined: the output got the home right and failed only the justification clause. If the improved skill is meant to add the guard-first routing ladder, consider two assertions (correct home; guard-impossibility stated) so the delta between skill versions is visible per-clause. The evidence field here records both halves separately as instructed."
+      },
+      {
+        "reason": "The transcript is a self-authored narrative, not a tool-call log, so process claims (e.g. 'ignored the installed retrospective skill', 'no real files modified') are unverifiable. If feasible, capture the real execution transcript."
+      }
+    ],
+    "overall": "Expectations are discriminating for the routing behavior under test; the two conjunction assertions blur which clause failed. The run shows 'right home, missing guard/hook justification' on exp 1 and a genuine wrong-home on exp 3."
+  }
+}

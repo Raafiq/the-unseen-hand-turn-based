@@ -1,0 +1,85 @@
+{
+  "expectations": [
+    {
+      "text": "Lesson routed to a skill, not forced into a lint rule or proxy metric",
+      "passed": true,
+      "evidence": "retrospective.md routes the surviving lesson to 'Rung 3 (skill) — fits' and proposes a concrete new skill file '~/.claude/skills/unit-testing/SKILL.md' with full SKILL.md content (frontmatter, IO-boundary rule, three-point diagnostic checklist). No lint rule, hook, or metric is adopted anywhere; the summary confirms: 'routed to a new global skill ~/.claude/skills/unit-testing/SKILL.md'."
+    },
+    {
+      "text": "If a guard is considered, it is explicitly rejected as a misfiring proxy",
+      "passed": true,
+      "evidence": "A guard is considered and explicitly rejected with proxy/misfire reasoning: 'Rung 1 (lint/CI guard) — tempting, rejected. A rule like \"flag test files with more than N vi.mock calls\" ... the actual rule has an exception clause — \"unless the dependency does IO\" — that no static check can evaluate.' It names both failure directions ('a heavy integration seam legitimately mocks three IO dependencies (rule fires, false positive), while a test that mocks the single pure collaborator that matters slips under any threshold (rule silent, false negative)') and the Goodhart risk ('trains agents to appease the counter instead of writing real tests')."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 0,
+    "total": 2,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": null,
+    "total_steps": 6,
+    "errors_encountered": 0,
+    "output_chars": 6702,
+    "transcript_chars": 1237,
+    "note": "No metrics.json was produced by the executor; total_steps taken from the 6 numbered transcript steps, char counts measured from the two output files."
+  },
+  "timing": {
+    "executor_duration_seconds": 87.8,
+    "grader_duration_seconds": null,
+    "total_duration_seconds": 87.8,
+    "total_tokens": 54296
+  },
+  "claims": [
+    {
+      "claim": "The over-mocking correction occurred twice, making it the highest-weight signal",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches the eval context: 'twice the user rejected Vitest tests that mocked so much they only verified the mocks'."
+    },
+    {
+      "claim": "The retrospective skill was read in full and used as the sole methodology",
+      "type": "process",
+      "verified": false,
+      "evidence": "Unverifiable from the outputs alone; the transcript asserts it (step 1) but the transcript is the executor's own claim. The output's structure (load-bearing test, routing ladder, one-home rule, approval gate) is consistent with the skill's method, which is circumstantial support."
+    },
+    {
+      "claim": "No changes were made to any real files; proposals exist only inside the output file",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs_dir contains only retrospective.md and transcript.md; retrospective.md ends with 'Apply on your confirmation — nothing has been written outside this proposal', matching the approval-gated contract."
+    },
+    {
+      "claim": "A hook (rung 2) has no applicable workflow moment for this lesson",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Reasoning is sound: the lesson governs test-double choice (content of an edit), not a timed workflow event; retrospective.md states 'There is no workflow moment a PreToolUse/Stop hook could intercept that decides \"is this mock justified\"'."
+    },
+    {
+      "claim": "The lesson transcends the repo, so a global skill is the right scope",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The rule ('test through real collaborators unless the dependency does IO') is repo-agnostic, and the output hedges appropriately: it offers project-scoped .claude/skills/ as an alternative if the user prefers."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": [],
+    "note": "No user_notes.md present."
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "If a guard is considered, it is explicitly rejected as a misfiring proxy",
+        "reason": "The conditional/vacuous-pass clause means an output that never mentions a guard at all passes just as easily as this one, which did the harder work of naming the proxy's false-positive and false-negative modes. Since the eval is titled 'guard-tempting-but-judgment', consider requiring that the guard temptation be surfaced and rejected, not merely absent — otherwise a shallower retrospective scores identically."
+      },
+      {
+        "reason": "No assertion checks the quality or fidelity of the proposed skill content itself — e.g. that it preserves the exception clause ('unless the dependency does IO') and the clock nuance rather than flattening the rule to 'never mock'. This run preserved both, but a lossy paraphrase would pass the current expectations."
+      }
+    ],
+    "overall": "Both expectations pass on strong evidence. Consider tightening expectation 2 to require the guard be considered-and-rejected (not just absent), and adding a content-fidelity check on the proposed skill."
+  }
+}
