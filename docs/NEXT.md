@@ -72,8 +72,9 @@ That is the biggest hole in the MVP, and it is cheap to close:
 
 ## Traps waiting for you
 
-1. **AN A/B BETWEEN TWO CALLERS OF THE SAME HELPER CANNOT SEE A BUG IN THE HELPER.** This
-   slice's own near-miss. `campaignBattleRecords` is the single party-carry mechanism, and
+1. **AN A/B BETWEEN TWO CALLERS OF THE SAME HELPER CANNOT SEE A BUG IN THE HELPER.**
+   Now codified in `CLAUDE.md`'s evidence-principle list; kept here because it is the trap
+   this slice's own code sets for the next one. `campaignBattleRecords` is the single party-carry mechanism, and
    the shell is verified by byte-comparing its save + report against the headless runner's
    — but both call it. Swap `save.party` for `def.party` and the two paths agree
    *perfectly*, on the wrong answer; only the older single-path test in
