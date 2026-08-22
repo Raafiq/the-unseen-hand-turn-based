@@ -39,3 +39,6 @@ Thumbs.db
 .claude/settings.local.json
 
 # Spec Kit — additional ignore rules are added by `specify init` at P0.
+
+# Written by the retrospective skill; checked by the pre-PR hook (.claude/hooks/require-retro-before-pr.sh)
+.claude/.retro-done
