@@ -38,6 +38,24 @@ enter `BattleState`.
   `clickTile` — `pickTile`. That is what makes the test seam provably the path a real click
   takes rather than parallel logic that drifts.
 
+## Two traps the shell sets, both earned
+
+- **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST
+  battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the
+  final victory's story beat was unreadable until the ending screen rendered it too — one
+  scene in the pack a player could never see, with every per-battle test green. When you
+  add anything to a screen here, enumerate the **transitions**, not the states:
+  `concludeBattle` branches on status, `continueGame` lands on three different screens,
+  and a loss on the last battle still goes to `AFTER_BATTLE`. Asserted in
+  `campaign-shell.test.ts`, mutation-verified.
+- **A sim docstring that delegates a rule to "the caller" is an obligation nobody is told
+  about.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates
+  nothing, which made `secondary === currentJob` reachable through the back door — exactly
+  the state `setLoadoutSlot` refuses to create, and one that throws nowhere downstream.
+  The caller owes a test. And **ask first whether a schema can see both fields**: a
+  refinement on `UnitRecordSchema` tells every codec boundary forever, where a docstring
+  told nobody.
+
 ## Honesty rules the UI must hold (pillar 4)
 
 - **Unmodeled things are ABSENT, never shown as zero.** Crit, reactions, status-on-hit,
