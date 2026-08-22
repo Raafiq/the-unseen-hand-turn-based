@@ -18,6 +18,7 @@
  */
 
 import campaignJson from "../../data/campaign/camp-the-first-march.json" with { type: "json" };
+import storyJson from "../../data/campaign/story/camp-the-first-march.story.json" with { type: "json" };
 import b1 from "../../data/campaign/encounters/camp-b1-the-toll-road.json" with { type: "json" };
 import b2 from "../../data/campaign/encounters/camp-b2-ambush-at-the-ford.json" with { type: "json" };
 import b3 from "../../data/campaign/encounters/camp-b3-the-hollow-watch.json" with { type: "json" };
@@ -27,9 +28,12 @@ import pack from "../../data/base-pack.json" with { type: "json" };
 import {
   loadContentPack,
   parseCampaign,
+  parseStoryPack,
+  storyCoverage,
   type CampaignDef,
   type ContentRegistry,
   type EncounterMap,
+  type StoryPack,
 } from "../sim/index.js";
 
 /** The content registry every campaign unit is compiled against. */
@@ -53,11 +57,45 @@ export const ENCOUNTERS: EncounterMap = Object.freeze(
   ),
 );
 
-/** Display name and battle order for the current step, for the briefing screen. */
+/**
+ * The shipped story pack (docs/11 M0 item 4, AC-M4) — the text a player reads around
+ * each battle, as DATA. Nothing in `src/sim` or `src/render` authors a word of it; this
+ * module only parses it and checks it lines up with the campaign it claims to be for.
+ */
+export const story: StoryPack = parseStoryPack(storyJson);
+
+// Boot-time coverage, in BOTH directions, for the reason the encounter partition below
+// exists: `missing` catches a battle that ships with a blank screen where a scene should
+// be, and `extra` catches an entry left behind by a renamed battle, which resolves for
+// nothing and reads as "covered". A one-direction check passes half of those. Loud at
+// module load rather than at the briefing, so a content mistake cannot reach a player.
+{
+  if (story.campaignId !== campaign.id) {
+    throw new Error(
+      `story pack is authored for campaign "${story.campaignId}", not "${campaign.id}"`,
+    );
+  }
+  const gaps = storyCoverage(
+    campaign.battles.map((b) => b.id),
+    story,
+  );
+  if (gaps.missing.length > 0 || gaps.extra.length > 0) {
+    throw new Error(
+      `story pack does not match the campaign's battles — no text for ` +
+        `[${gaps.missing.join(", ")}], text for absent [${gaps.extra.join(", ")}]`,
+    );
+  }
+}
+
+/**
+ * The FALLBACK display name for a battle, derived from its encounter id.
+ *
+ * The story pack authors a real title (`StoryEntry.title`) and the page prefers it; this
+ * is what a battle with no authored title gets. Kept because a derivation is honest about
+ * being one — it cannot invent prose, so an unauthored battle reads as plainly unnamed
+ * rather than as narrative the engine made up.
+ */
 export function battleTitle(encounterId: string): string {
-  // Derived from the id rather than authored: story text is a LATER M0 slice
-  // (docs/11 item 4) with its own data contract, and inventing prose here would put
-  // narrative content in the engine, which CLAUDE.md forbids.
   return encounterId
     .replace(/^camp-b\d+-/, "")
     .split("-")

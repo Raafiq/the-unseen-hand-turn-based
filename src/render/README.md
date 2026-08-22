@@ -59,8 +59,13 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
 - `viewer-api.ts` — the `window.tuh` seam's **type**, shared by `main.ts` and the
   Playwright specs (`tsconfig.json` includes `e2e`, so the seam is typechecked on
   both sides).
-- `prep.ts` — the prep/loadout viewer (customization pillar): the 5-slot chassis
-  and the live battle-command projection, independent of the battle above.
+- `prep.ts` — the prep panel (customization pillar): the 5-slot chassis, the live
+  battle-command projection, and — where the caller asks for it — the job
+  selector and the AP-priced learn list. Split into a **DOM-free `PrepModel`**
+  (records, selection, every rule-bearing edit; unit-tested in `prep.test.ts`)
+  and `mountPrep`, which draws one. `mountPrepDemo` is `/`'s fixed showcase
+  record; `game.ts` mounts the real one on the briefing screen over the save's
+  party, with `onChange` → `CampaignShell.updateParty` (`docs/11` M0 item 3).
 - `panels.ts` — the timeline, status line, **resolution preview** and turn log as
   pure `state → HTML`, shared by both pages. Presentation metadata is injected
   (`LookUp`), so the demo's hand-authored roster and a campaign's records use the
@@ -71,14 +76,22 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
   DOM-free for the same reason `session.ts` is, so "title screen to ending" is a
   unit test (`campaign-shell.test.ts`), not only a Playwright run. It starts
   battles with `loadCampaignBattle` and ends them with `resolveCampaignBattle` —
-  the same two calls the headless `runCampaignBattle` is built from.
+  the same two calls the headless `runCampaignBattle` is built from. It also
+  holds the **story seam** (`sceneTitle` / `preBeat` / `outcomeBeat`, `docs/11`
+  M0 item 4): three lookups into an optional `StoryPack` and not one word of
+  prose, so swapping the data changes what a player reads with no code change
+  (AC-M4). `updateParty` is the prep panel's write-back — `updatePartyMember`
+  plus a save, refused during a battle.
 - `storage.ts` — **the only persistent IO in the project**. A three-method
   `SaveSlot` over `localStorage` (or memory). Reads return a discriminated
   `LoadedSave` and never throw, so a corrupt slot is a message on the title
   screen; writes DO throw, because a save that silently fails to write looks
   exactly like one that worked.
-- `campaign-data.ts` — the shipped campaign + encounters + content pack, bundled
-  for the browser. The sim never reads a file; this is the caller that does.
+- `campaign-data.ts` — the shipped campaign + encounters + **story pack** +
+  content pack, bundled for the browser. The sim never reads a file; this is the
+  caller that does. It checks the story pack against the campaign in BOTH
+  directions at module load, so a battle with no scene, or a scene for a battle
+  that no longer exists, fails at boot rather than on the briefing screen.
 - `game.ts` / `game-api.ts` — DOM wiring for `game.html`, and the
   `window.tuhGame` seam's type (shared with `e2e/campaign.spec.ts`).
 

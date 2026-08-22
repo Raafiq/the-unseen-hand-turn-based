@@ -11,12 +11,13 @@
  * does, so nothing derived from elapsed time can reach `BattleState`.
  */
 
-import type { Position } from "../sim/index.js";
-import { ENCOUNTERS, battleTitle, campaign, registry } from "./campaign-data.js";
+import type { Position, StoryBeat } from "../sim/index.js";
+import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
-import type { GameApi } from "./game-api.js";
+import type { GameApi, PrepSeam } from "./game-api.js";
 import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
+import { mountPrep, type PrepHandle } from "./prep.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import type { Phase, Session } from "./session.js";
 
@@ -37,6 +38,7 @@ const shell = new CampaignShell({
   encounters: ENCOUNTERS,
   registry,
   slot: storageAvailable ? browserSlot(localStorage) : memorySlot(),
+  story,
 });
 
 const SCREENS: Screen[] = ["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
@@ -111,11 +113,78 @@ function renderTitle(): void {
   }
 }
 
-function renderBriefing(): void {
+/**
+ * Draw one story beat, or hide the block entirely when the pack authors nothing here.
+ *
+ * HIDDEN, not empty: an unauthored moment is a legitimate choice (`storyBeat` returns
+ * `null` for it), and rendering an empty bordered box in its place would present an
+ * authoring gap as a scene. Same rule as the preview panel's absent-not-zero.
+ *
+ * `textContent`, never `innerHTML` — story text is CONTENT from a data file, and the
+ * seam exists so a separate repo can supply it. Interpolating it as markup would make
+ * every future story author able to inject script into the page.
+ */
+function renderStory(id: string, beat: StoryBeat | null): void {
+  const box = el(id);
+  box.hidden = beat === null;
+  box.textContent = "";
+  if (!beat) return;
+  if (beat.speaker !== undefined) {
+    const who = document.createElement("p");
+    who.className = "who";
+    who.textContent = beat.speaker;
+    box.append(who);
+  }
+  for (const line of beat.lines) {
+    const p = document.createElement("p");
+    p.className = "line";
+    p.textContent = line;
+    box.append(p);
+  }
+}
+
+/**
+ * The between-battle prep panel (docs/11 M0 item 3), mounted once and re-pointed at the
+ * save's party on every briefing.
+ *
+ * `onChange` routes straight to `shell.updateParty`, which is `updatePartyMember` plus a
+ * write — so a loadout swap, a job change or an AP purchase is in the save file before
+ * the player reaches Deploy. Mounted lazily because the panel needs a party to exist,
+ * and there is none on the title screen.
+ */
+let prep: PrepHandle | null = null;
+
+function renderPrep(): void {
+  const party = shell.save?.party;
+  if (!party || party.length === 0) return;
+  if (!prep) {
+    prep = mountPrep(el("prep-body"), {
+      registry,
+      records: party,
+      progression: true,
+      onChange: (record) => {
+        shell.updateParty(record);
+        // Repaint the screens that show party state (the roster list, the save note).
+        // The panel has already redrawn itself.
+        renderBriefingText();
+      },
+    });
+    return;
+  }
+  // A no-op when the party is unchanged, so this cannot steal focus mid-edit.
+  prep.setRecords(party);
+}
+
+/** Everything on the briefing EXCEPT the prep panel, which owns its own repaint. */
+function renderBriefingText(): void {
   const brief = shell.briefing();
   if (!brief) return;
   el("brief-step").textContent = `Battle ${brief.step} of ${brief.total}`;
-  el("brief-title").textContent = battleTitle(brief.encounterId);
+  // The authored scene name when the story pack has one, the id-derived fallback when it
+  // does not — the page prefers data over its own derivation, which is what makes the
+  // title part of the story seam rather than a naming convention.
+  el("brief-title").textContent = shell.sceneTitle() ?? battleTitle(brief.encounterId);
+  renderStory("brief-story", shell.preBeat());
   el("brief-note").textContent = brief.retrying
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
@@ -126,6 +195,11 @@ function renderBriefing(): void {
         `<li><b>${r.name}</b> · ${r.currentJob} · <span class="muted">${r.ap} AP banked</span></li>`,
     )
     .join("");
+}
+
+function renderBriefing(): void {
+  renderBriefingText();
+  renderPrep();
 }
 
 function renderBattle(): void {
@@ -171,11 +245,16 @@ function renderAfter(): void {
   el("after-note").textContent = won
     ? "AP is banked. The party redeploys at full HP — nobody is lost in this chapter."
     : "Nothing was spent. Retry the same battle with exactly the party you had.";
+  renderStory("after-story", shell.outcomeBeat());
   el<HTMLButtonElement>("btn-next").hidden = !won;
   el<HTMLButtonElement>("btn-retry").hidden = won;
 }
 
 function renderCompleted(): void {
+  // The FINAL victory never passes through the after-battle screen — winning the last
+  // battle goes straight to `COMPLETED` — so the last battle's victory scene would be
+  // the one beat in the pack a player could never read. It belongs here.
+  renderStory("done-story", shell.outcomeBeat());
   const wins = shell.save?.history.filter((h) => h.outcome === "victory").length ?? 0;
   const losses = (shell.save?.history.length ?? 0) - wins;
   el("done-note").textContent =
@@ -338,6 +417,22 @@ const api: GameApi = {
   retry: () => guard(() => shell.retry()),
   quitToTitle: () => guard(() => shell.quitToTitle()),
   storedSave: () => (storageAvailable ? localStorage.getItem(SAVE_KEY) : null),
+  prep: (): PrepSeam | null => {
+    const h = prep;
+    if (!h) return null;
+    // Each entry is the handle's own method — the one the panel's controls call — so
+    // there is no parallel path for tests (docs/10 §7). `guard` around the mutators for
+    // the same reason every button has it: repaint even when the sim refuses the edit.
+    return {
+      record: h.record,
+      records: h.records,
+      select: (id) => guard(() => h.select(id)),
+      commands: h.commands,
+      setSlot: (slot, value) => guard(() => h.setSlot(slot, value)),
+      setJob: (jobId) => guard(() => h.setJob(jobId)),
+      learn: (jobId, nodeId) => guard(() => h.learn(jobId, nodeId)),
+    };
+  },
 };
 window.tuhGame = api;
 

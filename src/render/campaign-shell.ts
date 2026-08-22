@@ -23,11 +23,17 @@ import {
   retryBattle,
   startCampaign,
   currentBattle,
+  updatePartyMember,
+  storyBeat,
+  storyEntry,
   type CampaignDef,
   type CampaignSave,
   type ContentRegistry,
   type EncounterMap,
   type Encounter,
+  type StoryBeat,
+  type StoryPack,
+  type UnitRecord,
 } from "../sim/index.js";
 import { Session } from "./session.js";
 import { readSave, writeSave, type SaveSlot } from "./storage.js";
@@ -44,6 +50,13 @@ export interface ShellOptions {
   encounters: EncounterMap;
   registry: ContentRegistry;
   slot: SaveSlot;
+  /**
+   * The story pack (docs/11 M0 item 4). OPTIONAL: the shell runs a campaign with no
+   * text at all, which is what the story seam being a seam means — the engine plays the
+   * game and the prose is data laid alongside it. Absent here, every accessor below
+   * reports nothing to say, and the page renders no scene rather than an empty one.
+   */
+  story?: StoryPack;
 }
 
 /** What the briefing screen has to say: which battle, and where it sits in the run. */
@@ -62,6 +75,7 @@ export class CampaignShell {
   private readonly encounters: EncounterMap;
   private readonly registry: ContentRegistry;
   private readonly slot: SaveSlot;
+  private readonly storyPack: StoryPack | null;
 
   screen: Screen = "TITLE";
   /** The live save, or `null` before a game is started/continued. */
@@ -90,6 +104,7 @@ export class CampaignShell {
     this.encounters = opts.encounters;
     this.registry = opts.registry;
     this.slot = opts.slot;
+    this.storyPack = opts.story ?? null;
     this.slotState = readSave(this.slot, this.def.id);
   }
 
@@ -166,6 +181,42 @@ export class CampaignShell {
       total: this.def.battles.length,
       retrying: this.save.history.some((h) => h.battleId === battle.id),
     };
+  }
+
+  // ─── the story seam (docs/11 M0 item 4, AC-M4) ────────────────────────────
+  //
+  // Three lookups, no prose. Each one asks the PACK a question and hands back what it
+  // says, so swapping the data changes what a player reads with no change here — which
+  // is AC-M4's discriminator, and the only reason these are methods rather than the
+  // page reading strings out of a constant.
+
+  /** The authored name of the pending battle's scene, or `null` if the pack has none. */
+  sceneTitle(): string | null {
+    const brief = this.briefing();
+    if (!brief || !this.storyPack) return null;
+    return storyEntry(this.storyPack, brief.battleId)?.title ?? null;
+  }
+
+  /** The text shown BEFORE the pending battle, or `null` when nothing is authored. */
+  preBeat(): StoryBeat | null {
+    const brief = this.briefing();
+    if (!brief || !this.storyPack) return null;
+    return storyBeat(this.storyPack, brief.battleId, "pre");
+  }
+
+  /**
+   * The text shown AFTER the most recently resolved battle, chosen by how it went.
+   *
+   * Keyed off `history`, not off the pending battle: by the time this is read the index
+   * has already moved past a win, and on the final victory there is no pending battle at
+   * all. Any non-`victory` outcome is a loss for the player — the same reading
+   * `applyBattleResult` uses — so a draw or a timeout gets the defeat scene rather than
+   * silently getting none.
+   */
+  outcomeBeat(): StoryBeat | null {
+    const last = this.save?.history.at(-1);
+    if (!last || !this.storyPack) return null;
+    return storyBeat(this.storyPack, last.battleId, last.outcome === "victory" ? "victory" : "defeat");
   }
 
   /**
@@ -272,6 +323,30 @@ export class CampaignShell {
     this.save = retryBattle(this.save);
     this.persist();
     this.screen = "BRIEFING";
+  }
+
+  // ─── between-battle prep (docs/11 M0 item 3) ──────────────────────────────
+
+  /**
+   * Write one party member's edited record back to the save and persist it — the seam
+   * the briefing screen's prep panel drives (spend AP, change job, change loadout).
+   *
+   * ONLY between battles. `updatePartyMember` would happily rewrite the party mid-fight,
+   * but the units on the field were compiled by `loadCampaignBattle` at deploy time, so
+   * the edit would apply to the NEXT battle while the player watched this one — a change
+   * that appears to do nothing and then does something an hour later.
+   *
+   * The sim owns the rules here too: `updatePartyMember` re-parses the record through
+   * `UnitRecordSchema` and throws on an id the party does not contain, so a panel wired
+   * to the wrong record fails loudly instead of silently saving nothing.
+   */
+  updateParty(record: UnitRecord): void {
+    if (!this.save) throw new Error("updateParty: no campaign in progress");
+    if (this.session !== null) {
+      throw new Error("updateParty: the party cannot be edited during a battle");
+    }
+    this.save = updatePartyMember(this.save, record);
+    this.persist();
   }
 
   // ─── persistence ──────────────────────────────────────────────────────────

@@ -1,0 +1,131 @@
+{
+  "storySchemaVersion": 1,
+  "campaignId": "camp-the-first-march",
+  "entries": [
+    {
+      "battleId": "b1",
+      "title": "The Toll Road",
+      "pre": {
+        "speaker": "Vance",
+        "lines": [
+          "Four of us, one road, and men on it who have decided the road is theirs.",
+          "They will want coin first and blood second. We are not carrying enough of the one to avoid the other."
+        ]
+      },
+      "victory": {
+        "speaker": "Kest",
+        "lines": [
+          "They ran before the last of them fell. That is not the same as being finished with us.",
+          "Whatever they were guarding, it was not this road."
+        ]
+      },
+      "defeat": {
+        "speaker": "Briar",
+        "lines": [
+          "Back to the treeline. Nobody is dead who will not walk again by morning.",
+          "We go again — and this time we do not let them choose the ground."
+        ]
+      }
+    },
+    {
+      "battleId": "b2",
+      "title": "Ambush at the Ford",
+      "pre": {
+        "speaker": "Briar",
+        "lines": [
+          "The water is shallow and the far bank is high. Whoever waits up there gets the first shot and the last word.",
+          "Cross fast or do not cross at all."
+        ]
+      },
+      "victory": {
+        "speaker": "Ottoline",
+        "lines": [
+          "They knew we were coming. Someone told them, and it was not a guess.",
+          "Wash the ford water off before it sets. We are not stopping here."
+        ]
+      },
+      "defeat": {
+        "speaker": "Vance",
+        "lines": [
+          "Fall back across. The river does not care who holds it.",
+          "We learn the bank and we take it properly."
+        ]
+      }
+    },
+    {
+      "battleId": "b3",
+      "title": "The Hollow Watch",
+      "pre": {
+        "speaker": "Ottoline",
+        "lines": [
+          "A watchtower with nobody watching, and a fire someone banked an hour ago.",
+          "There is a hexer inside. I can feel the shape of what they have been doing in there."
+        ]
+      },
+      "victory": {
+        "speaker": "Kest",
+        "lines": [
+          "Whatever the hexer was, it was not a brigand. Brigands do not keep a ledger.",
+          "Vance is reading it. He has gone quiet, which is worse than shouting."
+        ]
+      },
+      "defeat": {
+        "speaker": "Ottoline",
+        "lines": [
+          "That was not a fight we lost. That was a fight we walked into badly.",
+          "Change what you carry. The tower will still be there."
+        ]
+      }
+    },
+    {
+      "battleId": "b4",
+      "title": "The Broken Span",
+      "pre": {
+        "speaker": "Vance",
+        "lines": [
+          "The bridge is half down and the half that stands is held by people who broke it.",
+          "Nobody destroys their own crossing unless they are keeping something on the other side."
+        ]
+      },
+      "victory": {
+        "speaker": "Briar",
+        "lines": [
+          "The marauders were paid. Not in loot — in coin, minted, and not from any purse on this road.",
+          "One camp left, and it is the one they were all being paid out of."
+        ]
+      },
+      "defeat": {
+        "speaker": "Kest",
+        "lines": [
+          "Off the span. Falling is not a way to win an argument.",
+          "We come back at it with something they have not seen us do yet."
+        ]
+      }
+    },
+    {
+      "battleId": "b5",
+      "title": "The Warchief's Camp",
+      "pre": {
+        "speaker": "Vance",
+        "lines": [
+          "Everything since the toll road has been someone else's errand, run by someone else's hand.",
+          "The warchief is the last knuckle of it. Not the hand. But it is what we can reach today."
+        ]
+      },
+      "victory": {
+        "speaker": "Ottoline",
+        "lines": [
+          "It is over, and it is not finished. The ledger named a place none of us have been.",
+          "For tonight, the road is a road again. That will do."
+        ]
+      },
+      "defeat": {
+        "speaker": "Vance",
+        "lines": [
+          "Out. Now. We do not die in someone else's camp for someone else's reasons.",
+          "We came this far by changing. Change again, and we come back."
+        ]
+      }
+    }
+  ]
+}

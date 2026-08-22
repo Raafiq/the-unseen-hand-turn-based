@@ -26,7 +26,7 @@ import type { Position } from "../sim/index.js";
 import { UNIT_META } from "./demo.js";
 import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
-import { mountPrep } from "./prep.js";
+import { mountPrepDemo } from "./prep.js";
 import { Session, type Phase } from "./session.js";
 import type { ViewerApi } from "./viewer-api.js";
 
@@ -281,4 +281,4 @@ refresh();
 // Slice 8: the prep/loadout viewer (customization pillar). Rendered below the
 // battle; wholly independent of the battle state above.
 const prepBody = document.getElementById("prep-body");
-if (prepBody) mountPrep(prepBody);
+if (prepBody) mountPrepDemo(prepBody);

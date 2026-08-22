@@ -27,7 +27,7 @@ Real and tested, not aspirational:
 | ~~**A shell**~~ | **Built** (ADR-0023): `game.html` — title, New Game, Continue, quit, one save slot. |
 | ~~**A campaign container**~~ | **Built** (ADR-0022): `src/sim/campaign.ts` sequences the battles and carries the party. |
 | ~~**Persistence**~~ | **Built** (ADR-0023): `src/render/storage.ts` writes one `localStorage` slot. |
-| **Story delivery** | No text before/after a battle. The story repo does not exist. |
+| ~~**Story delivery**~~ | **Seam built** (ADR-0024): `src/sim/story.ts` + `data/campaign/story/`. Placeholder prose ships; the story repo still does not exist. |
 | **Equipment** | ADR-0021 scoped it (horizontal gear). `build.ts` still uses one placeholder weapon. |
 | **Economy** | No gil, no shops, no rewards loop. |
 | **Failure handling** | No game-over, no retry, no consequence for losing. |
@@ -55,26 +55,33 @@ anything, and reaches a real ending — win or lose.**
 7. **Onboarding, hour one** — battle 1 teaches move, attack, turn order and nothing else.
    Battle 3 introduces the loadout. `docs/08` §3's ramp, minimally.
 
-> **STATUS 2026-08-21 — the shell has landed (ADR-0023).** The campaign is now playable
-> by a person, end to end, at **`/game.html`**: title screen → New Game / Continue →
-> briefing → the real battle → win or lose → next or retry → ending. One save slot in
-> `localStorage`. `/` stays the engine viewer and links to it. What is done and what is
-> not:
+> **STATUS 2026-08-22 — the between-battle loop and the story seam have landed
+> (ADR-0024).** The campaign is playable by a person, end to end, at **`/game.html`**:
+> title screen → New Game / Continue → briefing (**scene text + prepare the party**) →
+> the real battle → win or lose (**with different text for each**) → next or retry →
+> ending. One save slot in `localStorage`. `/` stays the engine viewer and links to it.
+> What is done and what is not:
 >
 > | M0 item | State |
 > |---|---|
 > | 1. Shell | **done** — `game.html` + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
-> | 3. Between-battle loop | seam only — `updatePartyMember` is where prep writes; the briefing screen is where it mounts; no UI |
-> | 4. Story stubs | **not started** |
+> | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
+> | 4. Story stubs | **done** (ADR-0024) — `src/sim/story.ts` (schema, no prose) + `data/campaign/story/camp-the-first-march.story.json` (pre / victory / defeat per battle). `mid` hooks are deliberately out — see the ADR |
 > | 5. Equipment | **not started** |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
-> | 7. Onboarding | **not started** |
+> | 7. Onboarding | **not started** — the last M0 item |
 >
 > Persistence is now real: `src/render/storage.ts` is the only IO in the project, and
 > `src/sim/campaign.ts` stays pure by contract. An unreadable slot (corrupt, another
 > campaign, a version this build cannot migrate) is a message on the title screen with
 > New Game still working — never a crash.
+>
+> **What the prep loop exposed.** Under the balance probe the party banks 48 / 48 / 0 / 0
+> AP after battle one, so the first affordable purchase — a 60-AP tier-one node — lands at
+> **battle three**, and a member who never lands an action banks nothing. That is
+> ADR-0012's grant shape behaving as specified; whether it is the right shape is an M1
+> question, not an M0 blocker.
 
 **Explicitly NOT in the MVP** (`docs/08` AC-R5 — log every cut):
 permadeath consequences, hybrid jobs, rewind UI, scan, speed toggle, shops, gil, a world
@@ -113,9 +120,11 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 
 ## Acceptance Criteria (SDD-ready)
 
-> **AC status 2026-08-21.** **AC-M1, AC-M2 and AC-M3 are met on both halves** — headless
-> (`campaign.test.ts`, `campaign-run.test.ts`) and played, through the shell the browser
-> drives (`campaign-shell.test.ts`, `e2e/campaign.spec.ts`). AC-M4 is not started.
+> **AC status 2026-08-22.** **AC-M1, AC-M2, AC-M3 and AC-M4 are met on both halves** —
+> headless (`campaign.test.ts`, `campaign-run.test.ts`) and played, through the shell the
+> browser drives (`campaign-shell.test.ts`, `e2e/campaign.spec.ts`). AC-M4's A/B is
+> `campaign-shell.test.ts`'s "swapping the DATA changes what the player reads": the same
+> shell class, the same methods, a different pack, different text.
 >
 > Two things those tests deliberately do NOT claim. First, the player seat in every
 > automated run is the balance probe (watch mode) or a deliberate forfeit — so
@@ -137,4 +146,5 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 - **AC-M4 (the story seam is real):** Battle text SHALL be loaded from data satisfying the
   `docs/08` §4 contract, with **no** narrative content compiled into the engine.
   *Discriminator:* an A/B — swapping the story data changes what the player reads, with no
-  code change.
+  code change. **Met** (ADR-0024). The contract's `mid`-battle hook is explicitly deferred
+  until an event system exists to fire it; `pre`, `victory` and `defeat` ship.
