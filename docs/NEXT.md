@@ -42,26 +42,27 @@ reachable) and AC-M7 (gear is horizontal and authored).
 
 ---
 
-## The next slice — there isn't an obvious one, and that is the finding
+## The next slice — four candidates, and the first one is not code
 
-M0 is done, so the honest options are:
+**M0 is built and, since the playtest, lightly polished.** What is pending is a set of
+DECISIONS, not a queue of work:
 
-1. **Playtest first (recommended).** Both open bets are experiments, not tasks. A single
-   newcomer session settles more than any slice would. **Nothing in the repo can produce
-   this evidence** — every automated run drives the balance probe or a deliberate forfeit,
-   so "completable" is REACHABILITY, never difficulty or fun.
-2. **M1: the variety score, 7 → 8.** The long-standing engine exit criterion (`docs/06`
-   AC-E2). The obvious untried lever is now **gear**: the 15 reference builds all still
-   fight with the placeholder weapon, so equipment is a diversity axis the gate has never
-   used. Re-arming them is a balance pass — expect the count to move in both directions
-   before it settles, and expect a plateau, not a peak (CLAUDE.md's non-monotonic rule).
-3. **M1: the AP grant shape.** Still unresolved (ADR-0012): a healer who only heals banks
-   nothing, and Ottoline ends the campaign two battles behind.
-4. **Make `game.html` the landing page.** Still right, still a rewrite of twelve browser
-   specs' navigation. Cheap and dull; good filler.
+1. **A real playtest (recommended, and nothing here can substitute).** A person who has not
+   seen this repo, playing `/game.html` start to finish, timed. Every automated run drives
+   the balance probe or a forfeit, so "completable" is REACHABILITY, never difficulty or
+   fun. The agent-run pass (`docs/plans/playtest-2026-08-22.md`) found two real rendering
+   bugs but proves nothing about whether the game is legible to a stranger.
+2. **The Knight's dead tree — a user decision, not a slice.** Vance ends the campaign with
+   ONE command, and 7 of his 9 learn rows read "no effect yet". `battle-skill` is excluded
+   by explicit user decision (2026-08-16). Either give the Knight a live skillset or start
+   Vance in another job. **Do not quietly reverse the exclusion.**
+3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is now **gear**:
+   all 15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
+   gate has never used. Expect a plateau, not a peak.
+4. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
 
-Ask before picking. This is the first point in the project where the roadmap does not name
-the answer.
+Cheap filler if none of those: make `game.html` the landing page (still a rewrite of twelve
+browser specs' navigation).
 
 ## Traps waiting for you
 
