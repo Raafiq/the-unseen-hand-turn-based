@@ -16,6 +16,8 @@ import { describe, expect, it } from "vitest";
 import { makeDemoBattle, PLAYER_TEAM } from "./demo.js";
 import { abilityDamage, attackDamage, isBasicAttack, type UnitState } from "../sim/index.js";
 import { computeActPreview } from "./preview.js";
+import { logHtml, type LookUp } from "./panels.js";
+import { createBattleState, defaultUnit } from "../sim/index.js";
 
 /** `docs/07` §3 verbatim, matching `src/sim/ttk.test.ts`'s table. */
 const BANDS = {
@@ -165,5 +167,49 @@ describe("the demo fields the reaction capability, and the panel surfaces it", (
       ability: bow,
     })!;
     expect(shot.counterRisk).toBeUndefined();
+  });
+});
+
+describe("player-facing text never leaks an internal unit id (playtest, 2026-08-22)", () => {
+  it("DISCRIMINATING: a turn-log action names the TARGET, not its id", () => {
+    // Found by looking at a screenshot: the timeline chip said "Brigand" while the log
+    // line under it said "hit red-brigand-1 −137". The actor was resolved through
+    // `look()`; the target, which lives inside the action STRING, was not.
+    //
+    // The fixture deliberately uses ids that do NOT look like names, because the demo's
+    // ids (`knight`, `archer`) are already readable — a test written against those
+    // would pass whether or not the substitution happened.
+    const state = createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 1, tiles: [{ height: 0, passable: true }, { height: 0, passable: true }, { height: 0, passable: true }] },
+      units: [
+        defaultUnit("blue-vance", 0, { pos: { x: 0, y: 0 } }),
+        defaultUnit("red-brigand-1", 1, { pos: { x: 2, y: 0 } }),
+      ],
+    });
+    state.turnLog.push({ tick: 13, unitId: "blue-vance", action: "hit red-brigand-1 −137" });
+
+    const look: LookUp = (id) =>
+      id === "blue-vance"
+        ? { label: "Vance", color: "#4f8cff" }
+        : id === "red-brigand-1"
+          ? { label: "Brigand", color: "#e2603c" }
+          : undefined;
+
+    const html = logHtml(state, look, "empty");
+    expect(html).toContain("hit Brigand −137");
+    expect(html).not.toContain("red-brigand-1");
+  });
+
+  it("leaves an id alone when nothing names it", () => {
+    // Absent-not-guessed: an unnamed unit keeps its id rather than being blanked, so a
+    // content gap reads as a content gap.
+    const state = createBattleState({
+      seed: 1,
+      grid: { width: 2, height: 1, tiles: [{ height: 0, passable: true }, { height: 0, passable: true }] },
+      units: [defaultUnit("ghost-9", 0, { pos: { x: 0, y: 0 } }), defaultUnit("other", 1, { pos: { x: 1, y: 0 } })],
+    });
+    state.turnLog.push({ tick: 1, unitId: "ghost-9", action: "hit other −1" });
+    expect(logHtml(state, () => undefined, "empty")).toContain("hit other −1");
   });
 });

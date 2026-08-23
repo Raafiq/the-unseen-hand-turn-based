@@ -1,5 +1,6 @@
 {
-  "rosterSchemaVersion": 2,
+  "rosterSchemaVersion": 3,
+  "weapon": null,
   "id": "bld-reraise-cleric",
   "name": "Reraise Cleric",
   "level": 10,

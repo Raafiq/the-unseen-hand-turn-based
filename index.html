@@ -72,6 +72,11 @@
       .prep { margin-top: 22px; }
       .prep > p.lede { margin: 0 0 14px; color: var(--ink-soft); max-width: 64ch; font-size: .92rem; }
       .prep-grid { display: grid; gap: 18px; grid-template-columns: 1fr; }
+      .prep-grid .slot .hint { margin: 7px 0 0; font-size: .72rem; color: var(--ink-faint); }
+      .prep-grid .learn-list .desc, .prep-grid .cmd-list .desc { flex-basis: 100%; display: block; font-size: .72rem; color: var(--ink-faint); margin-top: 3px; line-height: 1.45; }
+      .receipt { margin: 10px 0 0; font-size: .8rem; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(226,169,72,.08); color: var(--ink-soft); }
+      .receipt b { color: var(--ink); }
+      .prep-grid .learn-list .kind { font-family: var(--mono); font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); margin-left: 6px; }
       @media (min-width: 760px) { .prep-grid { grid-template-columns: 1.25fr 1fr; align-items: start; } }
       .chassis { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
       @media (min-width: 520px) { .chassis { grid-template-columns: repeat(3, 1fr); } }

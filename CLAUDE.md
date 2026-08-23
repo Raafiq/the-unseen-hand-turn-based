@@ -101,7 +101,7 @@ Vitest, Zod, Vite, ESLint (with a determinism guard), npm. Install with
 - **Everything CI runs:** `npm run check` (typecheck + lint + check:rng + check:handoff + test)
 - **State dashboard:** `npm run state` (regenerate the generated, drift-proof "state of the engine" page → `state/index.html`, published to `/state/`; derives all counts + a LIVE diversity-gate run, prose lives in `scripts/state-content.ts`; CI fails if the committed copy drifted)
 - **Viewer (dev):** `npm run dev` (Vite) · **preview built app:** `npm run preview`
-- **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`)
+- **Visual tests:** `npm run test:visual` (build + Playwright screenshots/video) → `npm run gallery` (proof-sheet in `visual-artifacts/gallery/`). **`npx playwright test` alone does NOT rebuild** — it serves whatever is in `dist`, so a spec for a feature you just wrote fails exactly like a broken feature. Rebuild before believing a browser failure.
 
 The sim core is pure and headless — no rendering/UI deps in `src/sim/**` (ADR-0007,
 `sim-determinism-guard` skill). `src/render/**` is the thin viewer (imports the

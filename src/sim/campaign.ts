@@ -40,7 +40,7 @@ import { awardAp, type ApReward } from "./progression.js";
 import { UnitRecordSchema, type UnitRecord } from "./roster.js";
 
 /** Current on-disk campaign schema version. Bump when a shape below changes. */
-export const CAMPAIGN_SCHEMA_VERSION = 1;
+export const CAMPAIGN_SCHEMA_VERSION = 3;
 
 /** Oldest campaignSchemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_CAMPAIGN_SCHEMA_VERSION = 1;
@@ -56,6 +56,16 @@ export const CampaignBattleSchema = z
   .object({
     id: z.string().min(1),
     encounterId: z.string().min(1),
+    /**
+     * Equipment ids the party receives on REACHING this battle (ADR-0021's authored
+     * drip). Ids only — the caller resolves them, exactly as `encounterId` is.
+     *
+     * The grant is what makes gear power "authored, not farmed" (ADR-0021 decision
+     * 2): a player cannot repeat a battle to accumulate more of it, because the
+     * inventory is a SET keyed by id, so re-winning a battle grants nothing new.
+     * That property is the anti-grind invariant, and it is asserted — not a comment.
+     */
+    grants: z.array(z.string().min(1)).optional(),
   })
   .strict();
 export type CampaignBattle = z.infer<typeof CampaignBattleSchema>;
@@ -130,6 +140,28 @@ export const CampaignSaveSchema = z
     status: CampaignStatusSchema,
     party: z.array(UnitRecordSchema).min(1),
     history: z.array(CampaignHistoryEntrySchema),
+    /**
+     * Equipment ids the party owns (campaignSchemaVersion 2). A SET by construction:
+     * `grantEquipment` never appends a duplicate, so replaying a battle cannot farm
+     * a second copy. No counts, because M0 has no reason to own two of anything and
+     * a quantity nothing spends would be a currency with no sink.
+     */
+    inventory: z.array(z.string().min(1)),
+    /**
+     * Which party members take the battle's player slots, in slot order
+     * (campaignSchemaVersion 3). **Empty means "as the encounter authored it"** — not
+     * "nobody deploys".
+     *
+     * Empty-as-default rather than a filled list, because the save cannot see the
+     * encounter: slot COUNT is a property of the battle, and a save that carried four
+     * ids into a two-slot fight would have to be silently truncated at load, which is
+     * exactly the kind of quiet fixup that hides an authoring mistake. An empty list
+     * asks the encounter, every time.
+     *
+     * Reset on advancing to a new battle: a roster chosen for one fight is not a
+     * standing order, and battle three has two more slots than battle one.
+     */
+    deployment: z.array(z.string().min(1)),
   })
   .strict();
 export type CampaignSave = z.infer<typeof CampaignSaveSchema>;
@@ -150,7 +182,33 @@ export type CampaignMigration = (save: Record<string, unknown>) => Record<string
  * `v + 1`. Empty at v1 (no prior versions); every future bump registers here, the
  * migration-per-bump pattern the other three codecs use.
  */
-export const CAMPAIGN_MIGRATIONS: Readonly<Record<number, CampaignMigration>> = {};
+/**
+ * v2 → v3: an empty deployment, which resolves to the encounter's own placements —
+ * byte-identical to how a v2 save played.
+ */
+const migrateCampaign2to3: CampaignMigration = (save) => ({
+  ...save,
+  campaignSchemaVersion: 3,
+  deployment: [],
+});
+
+const migrateCampaign1to2: CampaignMigration = (save) => ({
+  ...save,
+  campaignSchemaVersion: 2,
+  // Empty, not "everything the campaign would have granted by now": a v1 save was
+  // played without gear, and back-filling it would hand the player items they never
+  // earned. An empty inventory is exactly the state they were in.
+  inventory: [],
+});
+
+/**
+ * Migration registry: `CAMPAIGN_MIGRATIONS[v]` upgrades a save from version `v` to
+ * `v + 1`. `1→2` adds the equipment inventory (ADR-0021).
+ */
+export const CAMPAIGN_MIGRATIONS: Readonly<Record<number, CampaignMigration>> = {
+  1: migrateCampaign1to2,
+  2: migrateCampaign2to3,
+};
 
 /** Parse + validate an authored campaign def (loud fail on an unsupported version). */
 export function parseCampaign(def: unknown): CampaignDef {
@@ -185,7 +243,48 @@ export function startCampaign(def: CampaignDef): CampaignSave {
     status: "in-progress",
     party: def.party.map((r) => UnitRecordSchema.parse(r)),
     history: [],
+    deployment: [],
+    // Battle one's own grant is applied here, not on arriving at battle two: a drip
+    // that only paid out on ADVANCING would leave the first battle — the one a new
+    // player meets — as the single fight with no gear in it.
+    inventory: [...(def.battles[0]?.grants ?? [])],
   });
+}
+
+/**
+ * Add a battle's `grants` to the save's inventory, ignoring anything already owned.
+ *
+ * SET SEMANTICS ARE THE ANTI-GRIND INVARIANT (ADR-0021 decision 2), not a tidiness
+ * choice: without them, losing and retrying a battle — or any future replay — would
+ * pay its grant again, and gear on a farmable drip is exactly as ruinous as farmable
+ * levels. Idempotent by construction, and asserted that way.
+ */
+/**
+ * Choose which party members deploy, in slot order. `[]` restores the encounter's own
+ * placements.
+ *
+ * Validates what a SAVE can see — every id is in the party, and nobody is fielded
+ * twice. It cannot check the COUNT, because that lives on the encounter; `loadEncounter`'s
+ * caller does that (`applyDeployment`). Split deliberately rather than deferred wholly to
+ * the caller: a docstring that hands a rule to "the caller" is an obligation nobody is
+ * told about, so each half is enforced where the data to enforce it actually is.
+ */
+export function setDeployment(save: CampaignSave, ids: readonly string[]): CampaignSave {
+  const inParty = new Set(save.party.map((r) => r.id));
+  for (const id of ids) {
+    if (!inParty.has(id)) throw new Error(`setDeployment: "${id}" is not in the party`);
+  }
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("setDeployment: a unit cannot be deployed twice");
+  }
+  return { ...save, deployment: [...ids] };
+}
+
+export function grantEquipment(save: CampaignSave, grants: readonly string[]): CampaignSave {
+  const owned = new Set(save.inventory);
+  const fresh = grants.filter((id) => !owned.has(id));
+  if (fresh.length === 0) return save;
+  return { ...save, inventory: [...save.inventory, ...fresh] };
 }
 
 /**
@@ -254,13 +353,21 @@ export function applyBattleResult(
     awardAp(rec, result.rewards[rec.id] ?? { participated: false, meaningfulActions: 0 }),
   );
   const battleIndex = save.battleIndex + 1;
-  return {
+  const advanced: CampaignSave = {
     ...save,
     battleIndex,
     status: battleIndex >= def.battles.length ? "completed" : "in-progress",
     party,
     history,
+    // A roster chosen for the battle just fought is not a standing order, and the next
+    // battle may have a different number of slots. Back to the authored default.
+    deployment: [],
   };
+  // The NEXT battle's grant, paid on arrival — so a player reads its briefing already
+  // holding what it hands out and can equip before deploying, rather than finding the
+  // reward only after the fight it was meant for. `grantEquipment` is idempotent, so a
+  // retried-then-won battle cannot pay twice.
+  return grantEquipment(advanced, def.battles[battleIndex]?.grants ?? []);
 }
 
 /**

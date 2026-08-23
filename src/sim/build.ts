@@ -40,6 +40,7 @@ import { makeActiveStatus } from "./active-status.js";
 import type { StatusEffect } from "./status.js";
 import type { ContentRegistry } from "./content.js";
 import { equippedSecondaryAbilities } from "./loadout.js";
+import type { Equipment } from "./equipment.js";
 import type { UnitRecord } from "./roster.js";
 import {
   basicAttackFrom,
@@ -57,6 +58,39 @@ import { applyTraitEffects, type TraitStatBase } from "./trait.js";
 import { applySupportEffect, applySupportToAbility, type SupportEffect } from "./support.js";
 import { type ReactionState } from "./reaction.js";
 import { applyMovementEffect, type MovementEffect } from "./movement.js";
+
+/**
+ * The item in the record's weapon slot, or `undefined` when nothing is equipped.
+ *
+ * Throws on an id the pack does not contain, rather than falling back to the
+ * placeholder: a save naming gear this build has never heard of is a real error
+ * (a downgraded client, a hand-edited file), and silently arming that unit with
+ * the default weapon would present a corrupted record as a working one.
+ */
+export function equippedWeapon(
+  record: UnitRecord,
+  registry: ContentRegistry,
+): Equipment | undefined {
+  if (record.weapon === null) return undefined;
+  const item = registry.equipment(record.weapon);
+  if (item.slot !== "weapon") {
+    throw new Error(`equipment "${item.id}" is a ${item.slot}, not a weapon`);
+  }
+  return item;
+}
+
+/**
+ * Apply a signed gear shift to a 0–100 personality stat, clamped.
+ *
+ * Clamped HERE rather than at the final stat clamp because Brave and Faith are not
+ * part of the docs/05 §4 derivation pipeline — they pass through `buildBattleUnit`
+ * untouched by growth, traits or supports — so there is no later clamp to catch an
+ * out-of-range value before serialize does.
+ */
+function shiftPercent(base: number, shift: number | undefined): number {
+  if (shift === undefined) return base;
+  return Math.max(0, Math.min(100, base + shift));
+}
 
 /**
  * Placeholder weapon until an equipment layer lands — a UnitRecord carries no
@@ -342,6 +376,8 @@ export function buildBattleUnit(
   // ordering question between them to get wrong, and each floors exactly once. Absent
   // movement ⇒ the identity, so a movement-less build stays byte-identical.
   const movement = equippedMovementEffect(record, registry);
+  const equipped = equippedWeapon(record, registry);
+  const equipEv = equipped?.weaponEv ?? 0;
   const adjusted = clampToUnitStateBounds({
     ...withTraits,
     ...applySupportEffect(
@@ -349,9 +385,17 @@ export function buildBattleUnit(
       support,
     ),
     move: applyMovementEffect(withTraits.move, movement),
+    // Gear evasion joins the derivation BEFORE the final clamp, like every other
+    // modifier layer — a build-time value outside the schema bounds would otherwise
+    // only throw at serialize/rewind (the build-time clamp rule).
+    evasion: { ...withTraits.evasion, weaponEv: withTraits.evasion.weaponEv + equipEv },
   });
 
-  const weapon: Weapon = over.weapon ?? DEFAULT_BUILD_WEAPON;
+  // Equipment layer (ADR-0021). `over.weapon` still wins — placement helpers and the
+  // demo hand one in directly — then the record's equipped item, then the placeholder.
+  // Resolving through the REGISTRY rather than off a copy on the record is what lets a
+  // weapon be re-tuned in the pack and reach every existing save (roster.ts's note).
+  const weapon: Weapon = over.weapon ?? equipped?.weapon ?? DEFAULT_BUILD_WEAPON;
   const abilities = projectAbilities(record, registry, weapon, support);
 
   // Equipped-reaction layer (ADR-0019). Unlike the support's stat mods this touches
@@ -368,8 +412,8 @@ export function buildBattleUnit(
     hp: adjusted.maxHp,
     move: adjusted.move,
     evasion: adjusted.evasion,
-    brave: record.brave,
-    faith: record.faith,
+    brave: shiftPercent(record.brave, equipped?.brave),
+    faith: shiftPercent(record.faith, equipped?.faith),
     weapon,
     abilities,
     reaction,

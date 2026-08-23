@@ -28,7 +28,7 @@ import { z } from "zod";
 import { LoadoutSchema, emptyLoadout } from "./loadout.js";
 
 /** Current on-disk unit-record schema version. Bump when UnitRecord shape changes. */
-export const ROSTER_SCHEMA_VERSION = 2;
+export const ROSTER_SCHEMA_VERSION = 3;
 
 /** Oldest rosterSchemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_ROSTER_SCHEMA_VERSION = 1;
@@ -88,6 +88,20 @@ export const UnitRecordSchema = z
      * permanent progress fields above.
      */
     loadout: LoadoutSchema,
+    /**
+     * The equipped weapon's catalog id, or `null` for the placeholder weapon
+     * (ADR-0021, rosterSchemaVersion 3).
+     *
+     * An ID, not an inlined {@link Weapon}: gear is CONTENT, and a record that
+     * copied its stats would freeze them at the moment of equipping — re-tuning a
+     * weapon in the pack would silently not reach any existing save. `build.ts`
+     * resolves it against the registry, the way `learned` and `loadout` already do.
+     *
+     * NULLABLE rather than defaulted to a starting weapon, because "unarmed" and
+     * "holding the pack's first weapon" are different states and only the first is
+     * a safe migration target for a record written before gear existed.
+     */
+    weapon: z.string().min(1).nullable(),
   })
   .strict()
   .refine((r) => r.loadout.secondary === null || r.loadout.secondary !== r.currentJob, {
@@ -127,11 +141,28 @@ const migrate1to2: RosterMigration = (record) => ({
 });
 
 /**
+ * Migrate a v2 record to v3 by attaching an empty weapon slot.
+ *
+ * `null`, never the pack's first weapon: a v2 record was built and balanced against
+ * `DEFAULT_BUILD_WEAPON`, and `null` is exactly what `build.ts` still resolves to
+ * that placeholder — so a migrated save fights identically to how it did before the
+ * equipment layer existed. Handing it a real weapon would silently re-balance every
+ * unit in every old save, which is a behaviour change wearing a migration's clothes.
+ */
+const migrate2to3: RosterMigration = (record) => ({
+  ...record,
+  rosterSchemaVersion: 3,
+  weapon: null,
+});
+
+/**
  * Migration registry: `ROSTER_MIGRATIONS[v]` upgrades a record from version `v`
- * to `v + 1`. `1→2` adds the loadout field (Slice 3).
+ * to `v + 1`. `1→2` adds the loadout field (Slice 3); `2→3` the weapon slot
+ * (ADR-0021 equipment).
  */
 export const ROSTER_MIGRATIONS: Readonly<Record<number, RosterMigration>> = {
   1: migrate1to2,
+  2: migrate2to3,
 };
 
 /**
@@ -157,6 +188,7 @@ export function defaultUnitRecord(
     learned: over.learned ?? [],
     mastered: over.mastered ?? [],
     loadout: over.loadout ?? emptyLoadout(),
+    weapon: over.weapon ?? null,
   };
 }
 

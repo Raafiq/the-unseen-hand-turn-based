@@ -350,6 +350,8 @@ export {
   applyBattleResult,
   retryBattle,
   updatePartyMember,
+  setDeployment,
+  grantEquipment,
   serializeCampaign,
   deserializeCampaign,
   type CampaignDef,
@@ -364,6 +366,8 @@ export {
   runCampaign,
   runCampaignBattle,
   campaignBattleRecords,
+  deployableSlots,
+  applyDeployment,
   loadCampaignBattle,
   deriveRewards,
   resolveCampaignBattle,
@@ -394,3 +398,11 @@ export {
   type StoryMoment,
   type StoryMigration,
 } from "./story.js";
+
+export {
+  EquipSlotSchema,
+  EquipmentSchema,
+  LIVE_EQUIP_SLOTS,
+  type EquipSlot,
+  type Equipment,
+} from "./equipment.js";

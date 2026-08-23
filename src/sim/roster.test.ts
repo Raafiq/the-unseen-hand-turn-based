@@ -88,7 +88,7 @@ describe("roster codec — loud version + shape guards", () => {
   });
 });
 
-describe("roster codec — v1→v2 loadout migration (Slice 3)", () => {
+describe("roster codec — forward migration from every supported version", () => {
   /** A hand-authored v1 record: pre-loadout shape, no `loadout` field. */
   function v1Record(): Record<string, unknown> {
     return {
@@ -106,10 +106,17 @@ describe("roster codec — v1→v2 loadout migration (Slice 3)", () => {
     };
   }
 
-  it("migrates a v1 record forward to v2 with an empty loadout", () => {
+  it("migrates a v1 record ALL THE WAY FORWARD, not just one step", () => {
+    // Pinned to ROSTER_SCHEMA_VERSION rather than a literal: the chain is
+    // 1→2→3 today and longer tomorrow, and a test asserting `2` would go red on
+    // every future bump while proving nothing about the chain running to the end.
     const migrated = deserializeRecord(JSON.stringify(v1Record()));
-    expect(migrated.rosterSchemaVersion).toBe(2);
+    expect(migrated.rosterSchemaVersion).toBe(ROSTER_SCHEMA_VERSION);
     expect(migrated.loadout).toEqual(emptyLoadout());
+    // 2→3: an old record comes forward UNARMED, which `build.ts` resolves to the
+    // same placeholder weapon it used before gear existed — so a migrated save
+    // fights identically. Handing it a real weapon would be a silent re-balance.
+    expect(migrated.weapon).toBeNull();
     // Non-loadout fields are carried through untouched.
     expect(migrated.ap).toBe(180);
     expect(migrated.learned).toEqual(["battle-skill.weapon-break"]);

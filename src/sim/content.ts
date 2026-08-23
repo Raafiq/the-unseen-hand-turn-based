@@ -18,6 +18,7 @@
 
 import { z } from "zod";
 import { AbilitySchema, type Ability } from "./ability.js";
+import { EquipmentSchema, LIVE_EQUIP_SLOTS, type Equipment } from "./equipment.js";
 import { JobSchema, type Job } from "./job.js";
 import { StatusEffectSchema, type StatusEffect } from "./status.js";
 import { TraitSchema, type Trait } from "./trait.js";
@@ -161,6 +162,13 @@ export const ContentPackSchema = z
     abilities: z.array(AbilitySchema),
     statuses: z.array(StatusEffectSchema),
     traits: z.array(TraitSchema),
+    /**
+     * Gear (ADR-0021). ADDITIVE + OPTIONAL, the `supportEffect` precedent: an
+     * unspecified optional field can never invalidate prior data, so
+     * CONTENT_SCHEMA_VERSION does NOT bump and a pre-equipment pack loads unchanged
+     * with every unit on the placeholder weapon — exactly the behaviour it had.
+     */
+    equipment: z.array(EquipmentSchema).optional(),
   })
   .strict();
 export type ContentPack = z.infer<typeof ContentPackSchema>;
@@ -175,10 +183,12 @@ export interface ContentRegistry {
   readonly abilityById: ReadonlyMap<string, Ability>;
   readonly statusById: ReadonlyMap<string, StatusEffect>;
   readonly traitById: ReadonlyMap<string, Trait>;
+  readonly equipmentById: ReadonlyMap<string, Equipment>;
   job(id: string): Job;
   ability(id: string): Ability;
   status(id: string): StatusEffect;
   trait(id: string): Trait;
+  equipment(id: string): Equipment;
 }
 
 /** Index `items` by `id`, rejecting duplicates with a clear error. */
@@ -353,6 +363,17 @@ export function loadContentPack(raw: unknown): ContentRegistry {
   const abilityById = indexById(pack.abilities, "ability");
   const statusById = indexById(pack.statuses, "status");
   const traitById = indexById(pack.traits, "trait");
+  const equipmentById = indexById(pack.equipment ?? [], "equipment");
+  // A slot the chassis cannot fill must not ship looking filled: `EquipSlotSchema`
+  // names shield and accessory so adding them later is authoring rather than a schema
+  // change, and this refuses content for them until they are wired.
+  for (const item of pack.equipment ?? []) {
+    if (!LIVE_EQUIP_SLOTS.includes(item.slot)) {
+      throw new ContentIntegrityError(
+        `equipment "${item.id}" uses slot "${item.slot}", which nothing equips yet`,
+      );
+    }
+  }
 
   checkReferentialIntegrity(pack, abilityById, statusById, traitById);
 
@@ -360,15 +381,18 @@ export function loadContentPack(raw: unknown): ContentRegistry {
   const frozenAbilities = freezeMap(abilityById);
   const frozenStatuses = freezeMap(statusById);
   const frozenTraits = freezeMap(traitById);
+  const frozenEquipment = freezeMap(equipmentById);
 
   return Object.freeze({
     jobById: frozenJobs,
     abilityById: frozenAbilities,
     statusById: frozenStatuses,
     traitById: frozenTraits,
+    equipmentById: frozenEquipment,
     job: makeLookup(frozenJobs, "job"),
     ability: makeLookup(frozenAbilities, "ability"),
     status: makeLookup(frozenStatuses, "status"),
     trait: makeLookup(frozenTraits, "trait"),
+    equipment: makeLookup(frozenEquipment, "equipment"),
   });
 }

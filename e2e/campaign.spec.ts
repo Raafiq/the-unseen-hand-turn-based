@@ -200,3 +200,137 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
     "no effect yet",
   );
 });
+
+test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {
+  // The `?` is the whole of M0 item 7 (user decision, 2026-08-22): nothing is TAUGHT on
+  // rails, so this control is the only route to an explanation. A panel that exists in
+  // the markup but cannot be opened is the same as no panel at all, and no headless test
+  // can see the difference — `<dialog>.showModal()` only means anything in a browser.
+  await page.goto("/game.html");
+
+  const panel = page.getByTestId("help");
+  await expect(panel).toBeHidden();
+
+  await page.getByTestId("help-open").click();
+  await expect(panel).toBeVisible();
+  // Content, not just an open box: the slot topics are the ones this slice made real.
+  await expect(page.getByTestId("help-body")).toContainText("Secondary command");
+  await expect(page.getByTestId("help-body")).toContainText("Reaction");
+
+  await page.getByTestId("help-close").click();
+  await expect(panel).toBeHidden();
+
+  // Reachable mid-battle too, not only from the title — a player asks "what is CT?"
+  // while looking at the clock, not before they have seen one.
+  await page.getByTestId("new-game").click();
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  await page.getByTestId("help-open").click();
+  await expect(panel).toBeVisible();
+});
+
+test("equipment: a granted weapon can be equipped, and it survives a reload", async ({ page }) => {
+  // The headless tests prove the record changes and the built unit changes. What only a
+  // browser proves is the half outside those objects: the drip reaches the panel, the
+  // selector writes through `updateParty` to the save, and the save is really in
+  // localStorage. An in-memory slot passes every headless persistence test regardless.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  // Battle one's grant is in hand before battle one is fought, so the row exists now.
+  const weapon = page.getByTestId("prep-weapon");
+  await expect(weapon).toBeVisible();
+  await weapon.selectOption("wpn-cestus");
+
+  await page.reload();
+  await page.getByTestId("continue").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  await expect(page.getByTestId("prep-weapon")).toHaveValue("wpn-cestus");
+});
+
+test("prep: free things that are going unused SAY so, and stop saying it once used", async ({ page }) => {
+  // A playtest found the final battle's prep screen with nine weapons owned, none
+  // equipped, and a free trait unchecked — with nothing on screen pointing at either.
+  //
+  // The A/B is the point: a hint that is always present is wallpaper and would pass a
+  // mere "is it visible" check. Both halves are asserted — it appears while the free
+  // thing is unused, and it is GONE once the player uses it.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  const weaponHint = page.getByTestId("prep-weapon-hint");
+  const traitHint = page.getByTestId("prep-traits-hint");
+
+  await expect(weaponHint).toBeVisible();
+  await expect(weaponHint).toContainText("none equipped");
+  await expect(traitHint).toBeVisible();
+
+  await page.getByTestId("prep-weapon").selectOption("wpn-arming-sword");
+  await expect(weaponHint).toHaveCount(0);
+
+  await page.locator('[data-testid="prep-traits"] input[type="checkbox"]').first().check();
+  await expect(traitHint).toHaveCount(0);
+});
+
+test("deployment: the briefing shows who fights, and a click swaps them into the battle", async ({ page }) => {
+  // The gap: the briefing listed four names and then deployed two, which reads as a bug
+  // rather than the authored ramp it is. What only a browser proves is that the click
+  // reaches the SAVE and then the BOARD — the headless tests drive the shell directly.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+
+  await expect(page.getByTestId("brief-deploy-note")).toContainText("fields 2 of 4");
+  const benched = page.locator('[data-testid="brief-party"] li.benched');
+  await expect(benched).toHaveCount(2);
+
+  // Bench somebody who is going, by deploying somebody who is not.
+  await page.locator('[data-testid="brief-party"] li.benched button[data-deploy]').first().click();
+  await expect(benched).toHaveCount(2); // the COUNT never moves — the ramp is the battle's
+
+  const chosen = await page.evaluate(() => window.tuhGame.save()?.deployment ?? []);
+  expect(chosen).toHaveLength(2);
+
+  // The names still on the briefing's DEPLOYED rows are the ones that must appear on
+  // the board. Read them off the page rather than writing them down: which member the
+  // click promoted depends on the authored roster, and hard-coding it would rot the
+  // moment the campaign's opening battle is re-authored.
+  const going = await page
+    .locator('[data-testid="brief-party"] li:not(.benched) b')
+    .allInnerTexts();
+  expect(going).toHaveLength(2);
+
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // The timeline names every unit due to act, so it is where "who actually took the
+  // field" is observable to a player.
+  const timeline = page.getByTestId("timeline");
+  for (const name of going) await expect(timeline).toContainText(name);
+});
+
+test("learnability: the board explains itself and the buttons drop engine jargon", async ({ page }) => {
+  // Findings 3 and 4 of the cognitive walkthrough. Scoped to what ONLY a browser can
+  // show: the legend exists solely in markup, and the End Turn label is rendered text.
+  // The purchase receipt (finding 1) is asserted in `prep.test.ts`, where the model can
+  // be handed AP directly — battle one pays none, so a browser test would have to walk
+  // three battles to reach a purchase and would be testing the campaign, not the fix.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+
+  const legend = page.getByTestId("legend");
+  await expect(legend).toBeVisible();
+  await expect(legend).toContainText("Your party");
+  await expect(legend).toContainText("Enemies");
+
+  // "CT" is the engine's word for the turn clock. It belonged on neither of the two
+  // controls a new player looks at most.
+  // Checked across ALL FOUR surfaces, not just the button: the first pass reworded the
+  // button and left the preview panel two inches below still reading "CT AFTER", which
+  // is worse than not fixing it — the two controls then disagreed on vocabulary.
+  for (const id of ["end-turn", "timeline", "preview", "status"]) {
+    await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
+  }
+});

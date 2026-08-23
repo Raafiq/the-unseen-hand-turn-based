@@ -412,11 +412,21 @@ export class Session {
     });
   }
 
-  /** Button label that STATES THE PRICE IT WILL PAY (docs/10 §3). */
+  /**
+   * Button label that STATES THE PRICE IT WILL PAY (docs/10 §3), in plain words.
+   *
+   * It used to read "−60 CT". `docs/10` §3's rule is that the button names its cost, and
+   * it still does — but "CT" is engine vocabulary, and a learnability walkthrough found
+   * it on the two controls a new player looks at most with nothing to associate it with
+   * (finding 4). Naming the CONSEQUENCE — you act again sooner — is the same fact in
+   * words a first-time player already has. The exact tick figures stay one hover away.
+   */
   endTurnLabel(): string {
     const cost = this.endTurnCost();
     if (!cost) return "End Turn";
-    return cost.didMove ? "End Turn · Move only · −80 CT" : "End Turn · Wait · −60 CT";
+    return cost.didMove
+      ? "End Turn · moved only · act again sooner"
+      : "End Turn · waited · act again soonest";
   }
 
   // ─── input ────────────────────────────────────────────────────────────────

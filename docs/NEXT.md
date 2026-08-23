@@ -1,4 +1,4 @@
-<!-- written-against: e389e464d49baf6a0d13d321f3c6aa30dda727be -->
+<!-- written-against: e8aa5399fa4e2001b4396661ac3a87e337154789 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -14,122 +14,135 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## Where things stand
 
-**M0 — the playable slice (`docs/11`), in progress.** 688 tests / 36 files, 17 Playwright
-specs. Variety score still 7 (bar 8), carried into M1 by user decision — **not an MVP
-blocker, do not "just finish the gate first"**.
+**M0 IS BUILT — all seven items (`docs/11` §3).** 716 tests / 38 files, 19 Playwright
+specs. Variety score still 7 (bar 8), carried into M1 by user decision.
 
-**The prep loop and the story seam landed 2026-08-22 (ADR-0024).** A player now makes
-decisions between battles and reads text around them. `/game.html`: title → New Game /
-Continue → briefing (**scene text + prepare the party**) → the real battle → win or lose
-(**different text for each**) → next or retry → ending. What exists now:
+**What "built" does and does not mean.** Every M0 ITEM is shipped and tested. M0's
+definition of done is "a stranger plays 30–45 minutes without being told anything and
+reaches a real ending" — and **that is untested. No stranger has played this.** Two bets
+are open and neither needs code: onboarding (nothing is taught, only a `?` — ADR-0025)
+and session length (nobody has timed a run). **The next thing this project needs is a
+playtest, not a slice.**
 
-- `src/sim/story.ts` — the `docs/08` §4 story contract: a Zod schema, a parse, two
-  lookups, **its own version line**, and not one authored word. Prose lives in
-  `data/campaign/story/camp-the-first-march.story.json`.
-- `CampaignShell.sceneTitle()` / `preBeat()` / `outcomeBeat()` — three lookups into an
-  OPTIONAL pack. `CampaignShell.updateParty()` — the prep write-back, refused mid-battle.
-- `prep.ts` split into a **DOM-free `PrepModel`** (records, selection, every rule-bearing
-  edit) and `mountPrep`. `mountPrepDemo` keeps `/`'s fixed showcase unchanged.
-- The panel gained a party picker, a job selector and an **AP-priced learn list** whose
-  blocked rows carry `canLearn`'s own reason.
-- `UnitRecordSchema` now **rejects `secondary === currentJob`** at every codec boundary.
+**Equipment landed 2026-08-22 (ADR-0026)**, the last item:
 
-**M0 items 1, 2, 3, 4 and 6 are done. 5 (equipment) and 7 (onboarding) are not.**
+- `UnitRecord.weapon` — an ID, not an inlined weapon (`rosterSchemaVersion` 3, migration
+  writes `null` = the old placeholder, so migrated saves fight identically).
+- 8 horizontal weapons in `data/base-pack.json`. **No weapon out-damages the baseline**;
+  they trade formula, element, accuracy, evasion, Brave/Faith.
+- `CampaignBattle.grants` → a **set-valued** `CampaignSave.inventory`
+  (`campaignSchemaVersion` 2). Replaying a battle grants nothing new — that is the
+  anti-grind invariant, asserted and mutation-verified.
+- A weapon row in the prep panel, offering only what the party owns.
 
----
-
-## The next slice — onboarding, the first hour (`docs/11` M0 item 7)
-
-The cheaper of the two remaining items, and the one that decides whether a stranger can
-play this at all. `docs/08` §3 designs the ramp; nothing implements it.
-
-1. **Battle 1 teaches move, attack and turn order, and nothing else.** It is content plus
-   a hint line — there is now a briefing screen with a story block to put it on, and
-   `data/campaign/story/` is the obvious home for the copy. Check `camp-b1` actually
-   restricts what it teaches before writing the text against it.
-2. **Battle 3 introduces the loadout.** Convenient: the AP economy first affords a
-   purchase at exactly battle 3 (Vance and Kest hold 96 AP; a tier-one node costs 60).
-   That is measured, not assumed — see the probe numbers below.
-3. **Decide whether a hint is story data or a separate channel.** A hint is not narrative
-   and does not belong to the story repo. Leaning: a distinct `hints` field or file, so
-   swapping the story pack cannot silently delete the tutorial. Do not just tack prose
-   onto a `pre` beat.
-
-### Deliberately NOT green-lit
-
-- **Making `game.html` the landing page** (and moving the viewer to `viewer.html`). Still
-  the right end state, still written down in ADR-0023's rejected alternatives, still a
-  rewrite of twelve browser specs' navigation. After onboarding, not before.
-- Equipment (M0 item 5). Unchanged: a `rosterSchemaVersion` bump + migration + regenerated
-  frozen golden + re-measured gate. The more expensive item; do onboarding first.
-- Anything that raises the variety score. Carried to M1.
-- Reworking the AP grant. See the observation below — it is an M1 question.
+**The balance numbers across ADR-0025 and ADR-0026 are MVP-PROVISIONAL** (user,
+2026-08-22): node costs, prereq chains and weapon stats exist to make M0 work, not because
+they are right. The RULES under them are not provisional — `docs/11` AC-M5 (every slot
+reachable) and AC-M7 (gear is horizontal and authored).
 
 ---
+
+## The next slice — four candidates, and the first one is not code
+
+**M0 is built and, since the playtest, lightly polished.** What is pending is a set of
+DECISIONS, not a queue of work:
+
+1. **A real playtest (recommended, and nothing here can substitute).** A person who has not
+   seen this repo, playing `/game.html` start to finish, timed. Every automated run drives
+   the balance probe or a forfeit, so "completable" is REACHABILITY, never difficulty or
+   fun. The agent-run pass (`docs/plans/playtest-2026-08-22.md`) found two real rendering
+   bugs but proves nothing about whether the game is legible to a stranger.
+2. **The Knight's dead tree — a user decision, not a slice.** Vance ends the campaign with
+   ONE command, and 7 of his 9 learn rows read "no effect yet". `battle-skill` is excluded
+   by explicit user decision (2026-08-16). Either give the Knight a live skillset or start
+   Vance in another job. **Do not quietly reverse the exclusion.**
+3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is now **gear**:
+   all 15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
+   gate has never used. Expect a plateau, not a peak.
+4. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
+
+Cheap filler if none of those: make `game.html` the landing page (still a rewrite of twelve
+browser specs' navigation).
 
 ## Traps waiting for you
 
-1. **A SCREEN THE STATE MACHINE SKIPS HAS CONTENT NOBODY CAN REACH.** Winning the LAST
-   battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE` — so the
-   final victory beat would have been the one scene in the pack a player could never read.
-   The ending screen renders it for exactly that reason. **When you add anything to a
-   screen in this shell, enumerate the TRANSITIONS, not the states**: `concludeBattle`
-   branches on status, `continueGame` lands on three different screens, and a loss on the
-   last battle still goes to `AFTER_BATTLE`. Asserted in `campaign-shell.test.ts`'s
-   "the FINAL victory's text is reachable on the ending screen", mutation-verified.
-2. **A SIM DOCSTRING THAT DELEGATES A RULE TO "THE CALLER" IS AN OBLIGATION NOBODY IS
-   TOLD ABOUT.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates
-   nothing, which made `secondary === currentJob` reachable through the back door — an
-   illegal record that throws nowhere and reads as a content bug. Fixed at two levels (the
-   UI clears it, `UnitRecordSchema` now rejects it). **When you meet another such
-   docstring, the caller owes a test, and ask first whether a schema can see both fields.**
-3. **The prep panel is mounted ONCE and re-pointed.** `renderPrep()` calls
-   `setRecords(party)`, which **no-ops when nothing changed** — deliberately, because a
-   blind re-render destroys the focus of the control the player is using. If you add state
-   to the panel that must survive a repaint, it has to live in `PrepModel`, not in the DOM.
-4. **`onChange` → `updateParty` → `renderBriefingText()`, not `refresh()`.** The panel has
-   already redrawn itself by then; calling the full repaint would re-enter `renderPrep`.
-   It terminates (setRecords no-ops), but do not rely on that by accident.
-5. **The story pack's coverage is checked at BOOT, both directions.** A new battle needs a
-   story entry or `campaign-data.ts` throws on module load — which is deliberate, and
-   which means a half-authored pack breaks `npm run dev` rather than shipping a blank
-   screen. Add a stub entry as you add the battle.
-6. **`data/campaign/story/` is a content directory NO `npm run state` counter can see.**
-   Nothing on the dashboard currently claims a story count, so nothing reads wrong today —
-   but if you add one, wire the directory in. The real guard is the boot check in trap 5.
-7. **Story text is rendered with `textContent`, never `innerHTML`** (`renderStory` in
-   `game.ts`). The whole point of the seam is that a different repo supplies the strings.
-8. Everything the previous handoff listed still holds: **an A/B between two callers of the
-   same helper cannot see a bug in the helper** (now codified in `CLAUDE.md`); **the
-   shell's `rules` CAPS are unasserted**; **`Session` has TWO verdict readings and only
-   one is right for an encounter**; **never grow a second accounting fold in
-   `src/render`**; **`campaign-data.ts` imports the five encounter files BY NAME**; **an
-   anchor added to `index.html` changes the tab order** (`play.spec.ts` asserts it
-   exactly; `campaign.spec.ts` does not, which is why the briefing could gain a dozen
-   controls freely); **the AP grant reads `landedActions`**; **the campaign is winnable
-   UNDER THE PROBE, which is reachability evidence, not difficulty evidence**;
-   **`ttk.test.ts` covers two rosters**; **`docs/11` §3 and `docs/08` §1a carry AUTHORED
+1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE.** `npx playwright test`
+   does NOT rebuild; `npm run test:visual` does. The equipment spec failed once against a
+   `dist` built before the feature existed, which looks exactly like a broken feature.
+   Rebuild before believing a browser failure.
+2. **GEAR IS A DIVERSITY AXIS THE GATE DOES NOT USE.** `data/builds/*` all carry
+   `weapon: null`, so the gate's 7 is measured with every build on the same placeholder
+   weapon. "The gate did not move" is a statement about COVERAGE here, not quality.
+3. **`wp` ON A HORIZONTAL WEAPON IS A CALIBRATION CONSTANT, NOT A TIER.** The five weapon
+   formulas scale differently, so equal damage needs DIFFERENT `wp` values. Oathblade
+   shipped at `wp: 12` in draft — 84 damage *and* +10 Brave, a strict upgrade — and was
+   caught by measuring, not by reading. **Re-run the reference-body comparison after any
+   weapon edit.**
+4. **THE ONBOARDING BET IS UNTESTED AND THE ONLY EVIDENCE THAT COULD SETTLE IT IS A
+   PERSON.** "The mechanics read on their own" is a design bet, not a finding. Nobody who
+   did not build this has played it. `docs/11` AC-M6 asserts the help panel's *claims* are
+   deliverable — it says nothing about whether the game is legible without it. If a
+   playtest happens, that is the evidence; until then do not cite the green suite as if it
+   settled the question.
+5. **A GATE THAT CANNOT SEE A CHANGE GOING GREEN IS NOT EVIDENCE.** Repricing skill trees
+   moved nothing in the diversity gate, and that is *structural*: shipped builds in
+   `data/builds` author `learned` explicitly, so progression costs never reach a built
+   unit. The evidence for ADR-0025 decision 4 is the reachability probe, not the 703
+   passing tests. Expect the same blindness for any future progression-economy change.
+6. **`ReactionEffectSchema` IS `{kind}` WITH NO MAGNITUDE, AND THAT CONSTRAINS CONTENT.**
+   Any cheap `counter` is byte-identical to the 240-AP capstone `counter` and strictly
+   dominates it. This is why no second cheap reaction was added anywhere. Same shape for
+   `MovementEffectSchema` (`{move}` only): a +1 move ability priced beside the thief's +2
+   just loses. **Before authoring a passive, check whether its effect schema can express
+   "weaker".** If it cannot, repricing the existing one is the only honest move.
+7. **A TEST THAT NAMES THE BUG IT CATCHES IS A CLAIM ABOUT CODE YOU HAVE NOT RUN.** Caught
+   again this slice: the cross-job purchase test's comment said it would fail if the panel
+   bought from `currentJob`. It did not — it passed the mutation, because it named the node
+   by literal id instead of taking it from `learnRows()`. Run the mutation.
+8. **`EXPECTED_TREE_SIZES` in `content-pack.test.ts` pins every job's node count.** Adding
+   a tree node fails there by design. Move it in the same slice.
+9. **`AP_TIERS` is 60/120/240.** A node priced anywhere else fails the pack integrity test.
+10. **The help panel is NOT on the story seam, deliberately.** It is UI chrome; swapping the
+   story pack must never delete the manual. Do not "consolidate" the two.
+11. **The `?` lives in `game.html` only.** `play.spec.ts` asserts `index.html`'s tab order
+   exactly; `campaign.spec.ts` does not. Adding a control to the viewer page will break it.
+12. Everything the previous handoff listed still holds: **a screen the state machine skips
+   has content nobody can reach** (`concludeBattle` branches on status; the FINAL victory
+   never passes through `AFTER_BATTLE`); **a sim docstring that delegates a rule to "the
+   caller" is an obligation nobody is told about**; **the prep panel is mounted ONCE and
+   re-pointed** (`setRecords` no-ops deliberately — panel state must live in `PrepModel`,
+   not the DOM); **`onChange` → `updateParty` → `renderBriefingText()`, not `refresh()`**;
+   **the story pack's coverage is checked at BOOT, both directions**; **story text is
+   rendered with `textContent`, never `innerHTML`**; **an A/B between two callers of the
+   same helper cannot see a bug in the helper**; **the shell's `rules` CAPS are
+   unasserted**; **`Session` has TWO verdict readings and only one is right for an
+   encounter**; **never grow a second accounting fold in `src/render`**;
+   **`campaign-data.ts` imports the five encounter files BY NAME**; **the AP grant reads
+   `landedActions`**; **the campaign is winnable UNDER THE PROBE, which is reachability
+   evidence, not difficulty evidence**; **`docs/11` §3 and `docs/08` §1a carry AUTHORED
    status tables nothing derives**; **`gen-state.mts` fails on an unresolved `{token}`**;
    **the browser tests are NOT in `npm run check` — run `npm run test:visual` separately.**
 
-## What the prep loop exposed (measured, not guessed)
+## Measured facts (re-derive rather than trust, but these were probed)
 
-Under the balance probe on both seats, banked AP after each battle:
+> **These costs are MVP-PROVISIONAL** (user, 2026-08-22). They were set to make the
+> chassis reachable inside a 5-battle campaign, not because 120/180 is the right price.
+> Expect to re-tune them when the campaign gets longer or the AP grant is revisited.
+> **Do not treat them as settled balance** — but do keep `docs/11` AC-M5 satisfied, which
+> is the rule underneath them and is NOT provisional.
 
-| after | Vance | Kest | Briar | Ottoline |
-|---|---|---|---|---|
-| b1 | 48 | 48 | **0** | **0** |
-| b2 | 96 | 96 | 56 | 0 |
-| b3 | 152 | 152 | 112 | 56 |
-| b5 | 280 | 272 | 256 | 184 |
+Cheapest LIVE option per chassis slot, walking prerequisites, after ADR-0025:
 
-Two facts fall out. **The first affordable purchase is at battle 3** (a tier-one node
-costs 60), which is exactly where `docs/08` §3 wanted the loadout introduced — convenient,
-and now load-bearing for onboarding. And **a member who never lands an action banks
-nothing**: Ottoline is two battles behind by the end. That is ADR-0012's grant shape
-working as specified (`participated` + capped `meaningfulActions`), not a bug — but
-whether a healer who heals should count as participating is a real M1 question. It is
-*not* an M0 blocker and it is not green-lit here.
+| Slot | Ability | Total AP |
+|---|---|---|
+| secondary | any job's first action | 60 |
+| support | `battle-skill.hp-boost` | 120 |
+| movement | `steal.move-plus-2` | 120 |
+| reaction | `punch-art.counter` | 180 |
+
+Campaign AP budget: **~280** for the best-earning member, **~184** for the worst
+(Ottoline, who banks nothing from a battle she lands no action in). Every 240-AP capstone
+stays out of reach in one playthrough — intended, and asserted.
 
 ### Still-live engine facts (unchanged by this slice)
 
@@ -141,13 +154,10 @@ whether a healer who heals should count as participating is a real M1 question. 
   has TWO carriers; `bld-cutpurse` sits EXACTLY at `VIABLE_MIN_MAPS` (4/6).
 - **Hamedo draws the hit roll it then discards** (ADR-0019 decision 5) — deliberate.
 - **The MP contingency is live:** `white-magic.holy` and `summon.*` ride unenforced MP.
-- **`battle-skill` is still excluded by user decision** (2026-08-16) — and the prep loop
-  made that visible for the first time: Vance's whole Knight tree is eight buyable nodes
-  whose abilities all do nothing. The learn rows now carry the same "no effect yet" tag
-  the command list does (ADR-0024 decision 12), so the panel is honest — but a **starting
-  party member whose entire native tree is inert** is a content problem the label only
-  discloses. Either give the Knight a live skillset or start Vance somewhere else; do not
-  let the tag stand in for the fix.
+- **`battle-skill` is still excluded by user decision** (2026-08-16). ADR-0025 softened the
+  symptom without touching the decision: Vance's Knight *actions* are all still inert, but
+  `battle-skill.hp-boost` gives him one live thing to buy. **He still has no live action
+  in the whole campaign** — that remains a content problem the label only discloses.
 - **`compareCandidate` is the most load-bearing function in the repo.**
 - **The frozen golden is a tripwire, not a maintenance item.**
 
@@ -157,7 +167,8 @@ whether a healer who heals should count as participating is a real M1 question. 
   imports against the Vite root, so a script in `/tmp` cannot import `src/`. Put it in
   `coverage/` (gitignored) and delete it after.
 - **Never round-trip `data/base-pack.json` through a JSON parser to edit it** — it
-  reformats the whole file. (Small authored files like `data/campaign/*` are fine.)
+  reformats the whole file. Line-level string edits only. (Small authored files like
+  `data/campaign/*` are fine.)
 - **Perturb the BASELINE as well as the fix.**
 - **Playwright browsers: the sandbox and a Windows box differ.** Chromium at
   `/opt/pw-browsers` is the Linux sandbox only.

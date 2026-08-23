@@ -231,6 +231,14 @@
       "tags": ["support", "brawl-up"]
     },
     {
+      "id": "battle-skill.hp-boost",
+      "type": "support",
+      "skillset": "battle-skill",
+      "apCost": 60,
+      "supportEffect": { "maxHp": { "mult": 1.2 } },
+      "tags": ["support", "hp-boost"]
+    },
+    {
       "id": "punch-art.counter",
       "type": "reaction",
       "skillset": "punch-art",
@@ -402,6 +410,30 @@
       "skillset": "steal",
       "apCost": 120,
       "tags": ["support", "poach", "effect-deferred"]
+    },
+    {
+      "id": "white-magic.short-chant",
+      "type": "support",
+      "skillset": "white-magic",
+      "apCost": 60,
+      "supportEffect": { "chargeSpeed": { "mult": 1.25 } },
+      "tags": ["support", "short-chant"]
+    },
+    {
+      "id": "aim.steady-aim",
+      "type": "support",
+      "skillset": "aim",
+      "apCost": 60,
+      "supportEffect": { "abilityRange": { "flat": 1 } },
+      "tags": ["support", "steady-aim"]
+    },
+    {
+      "id": "geomancy.attunement",
+      "type": "support",
+      "skillset": "geomancy",
+      "apCost": 60,
+      "supportEffect": { "pa": { "flat": 1 }, "ma": { "flat": 1 } },
+      "tags": ["support", "attunement"]
     },
     {
       "id": "steal.move-plus-2",
@@ -773,7 +805,8 @@
         { "node": "speed-break", "ability": "battle-skill.speed-break", "apCost": 120, "requires": ["weapon-break"] },
         { "node": "magic-break", "ability": "battle-skill.magic-break", "apCost": 120, "requires": ["speed-break"] },
         { "node": "mind-break", "ability": "battle-skill.mind-break", "apCost": 240, "requires": ["magic-break"] },
-        { "node": "equip-heavy-armor", "ability": "battle-skill.equip-heavy-armor", "apCost": 60, "requires": ["weapon-break"] }
+        { "node": "equip-heavy-armor", "ability": "battle-skill.equip-heavy-armor", "apCost": 60, "requires": ["weapon-break"] },
+        { "node": "hp-boost", "ability": "battle-skill.hp-boost", "apCost": 60, "requires": ["weapon-break"] }
       ]
     },
     {
@@ -785,11 +818,11 @@
       "tree": [
         { "node": "wave-fist", "ability": "punch-art.wave-fist", "apCost": 60, "requires": [] },
         { "node": "earth-slash", "ability": "punch-art.earth-slash", "apCost": 120, "requires": ["wave-fist"] },
-        { "node": "martial-arts", "ability": "punch-art.martial-arts", "apCost": 120, "requires": ["earth-slash"] },
+        { "node": "martial-arts", "ability": "punch-art.martial-arts", "apCost": 120, "requires": ["wave-fist"] },
         { "node": "hamedo", "ability": "punch-art.hamedo", "apCost": 240, "requires": ["martial-arts"] },
         { "node": "chakra", "ability": "punch-art.chakra", "apCost": 120, "requires": ["wave-fist"] },
         { "node": "revive", "ability": "punch-art.revive", "apCost": 120, "requires": ["chakra"] },
-        { "node": "counter", "ability": "punch-art.counter", "apCost": 240, "requires": ["revive"] },
+        { "node": "counter", "ability": "punch-art.counter", "apCost": 120, "requires": ["wave-fist"] },
         { "node": "purification", "ability": "punch-art.purification", "apCost": 60, "requires": ["chakra"] }
       ]
     },
@@ -805,7 +838,7 @@
         { "node": "bolt", "ability": "black-magic.bolt", "apCost": 120, "requires": ["fire-2"] },
         { "node": "bolt-2", "ability": "black-magic.bolt-2", "apCost": 240, "requires": ["bolt"] },
         { "node": "ice", "ability": "black-magic.ice", "apCost": 120, "requires": ["fire"] },
-        { "node": "magic-attack-up", "ability": "black-magic.magic-attack-up", "apCost": 120, "requires": ["ice"] },
+        { "node": "magic-attack-up", "ability": "black-magic.magic-attack-up", "apCost": 120, "requires": ["fire"] },
         { "node": "ice-2", "ability": "black-magic.ice-2", "apCost": 240, "requires": ["magic-attack-up"] }
       ]
     },
@@ -840,7 +873,8 @@
         { "node": "esuna", "ability": "white-magic.esuna", "apCost": 60, "requires": ["cure"] },
         { "node": "protect", "ability": "white-magic.protect", "apCost": 120, "requires": ["cure"] },
         { "node": "raise", "ability": "white-magic.raise", "apCost": 120, "requires": ["protect"] },
-        { "node": "reraise", "ability": "white-magic.reraise", "apCost": 240, "requires": ["raise"] }
+        { "node": "reraise", "ability": "white-magic.reraise", "apCost": 240, "requires": ["raise"] },
+        { "node": "short-chant", "ability": "white-magic.short-chant", "apCost": 60, "requires": ["cure"] }
       ]
     },
     {
@@ -857,7 +891,8 @@
         { "node": "scout", "ability": "aim.scout", "apCost": 60, "requires": ["aimed-shot"] },
         { "node": "leg-shot", "ability": "aim.leg-shot", "apCost": 120, "requires": ["aimed-shot"] },
         { "node": "volley", "ability": "aim.volley", "apCost": 120, "requires": ["leg-shot"] },
-        { "node": "eagle-eye", "ability": "aim.eagle-eye", "apCost": 240, "requires": ["volley"] }
+        { "node": "eagle-eye", "ability": "aim.eagle-eye", "apCost": 240, "requires": ["volley"] },
+        { "node": "steady-aim", "ability": "aim.steady-aim", "apCost": 60, "requires": ["aimed-shot"] }
       ]
     },
     {
@@ -874,7 +909,8 @@
         { "node": "tremor", "ability": "geomancy.tremor", "apCost": 60, "requires": ["pitfall"] },
         { "node": "sandstorm", "ability": "geomancy.sandstorm", "apCost": 120, "requires": ["pitfall"] },
         { "node": "quicksand", "ability": "geomancy.quicksand", "apCost": 120, "requires": ["sandstorm"] },
-        { "node": "terrain-stride", "ability": "geomancy.terrain-stride", "apCost": 240, "requires": ["quicksand"] }
+        { "node": "terrain-stride", "ability": "geomancy.terrain-stride", "apCost": 240, "requires": ["quicksand"] },
+        { "node": "attunement", "ability": "geomancy.attunement", "apCost": 60, "requires": ["pitfall"] }
       ]
     },
     {
@@ -891,8 +927,72 @@
         { "node": "arcane-focus", "ability": "summon.arcane-focus", "apCost": 240, "requires": ["bahamut"] },
         { "node": "golem", "ability": "summon.golem", "apCost": 120, "requires": ["shiva"] },
         { "node": "moogle", "ability": "summon.moogle", "apCost": 120, "requires": ["golem"] },
-        { "node": "short-charge", "ability": "summon.short-charge", "apCost": 240, "requires": ["moogle"] }
+        { "node": "short-charge", "ability": "summon.short-charge", "apCost": 120, "requires": ["shiva"] }
       ]
+    }
+  ],
+  "equipment": [
+    {
+      "id": "wpn-arming-sword",
+      "name": "Arming Sword",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "none", "accuracy": 100 },
+      "weaponEv": 5,
+      "tags": ["weapon", "baseline"]
+    },
+    {
+      "id": "wpn-flamebrand",
+      "name": "Flamebrand",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "fire", "accuracy": 100 },
+      "tags": ["weapon", "elemental"]
+    },
+    {
+      "id": "wpn-oathblade",
+      "name": "Oathblade",
+      "slot": "weapon",
+      "weapon": { "wp": 10, "formula": "braveWp", "element": "none", "accuracy": 100 },
+      "brave": 10,
+      "tags": ["weapon", "brave-scaling"]
+    },
+    {
+      "id": "wpn-heretics-edge",
+      "name": "Heretic's Edge",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "paWp", "element": "dark", "accuracy": 100 },
+      "faith": -20,
+      "tags": ["weapon", "faith-down"]
+    },
+    {
+      "id": "wpn-rapier",
+      "name": "Rapier",
+      "slot": "weapon",
+      "weapon": { "wp": 9, "formula": "speedWp", "element": "none", "accuracy": 100 },
+      "weaponEv": 10,
+      "tags": ["weapon", "evasive"]
+    },
+    {
+      "id": "wpn-warhammer",
+      "name": "Warhammer",
+      "slot": "weapon",
+      "weapon": { "wp": 8, "formula": "wpWp", "element": "earth", "accuracy": 95 },
+      "tags": ["weapon", "stat-independent"]
+    },
+    {
+      "id": "wpn-cestus",
+      "name": "Cestus",
+      "slot": "weapon",
+      "weapon": { "wp": 0, "formula": "bareHands", "element": "none", "accuracy": 100 },
+      "brave": 5,
+      "tags": ["weapon", "martial"]
+    },
+    {
+      "id": "wpn-ritual-staff",
+      "name": "Ritual Staff",
+      "slot": "weapon",
+      "weapon": { "wp": 6, "formula": "paWp", "element": "holy", "accuracy": 100 },
+      "faith": 15,
+      "tags": ["weapon", "caster"]
     }
   ]
 }

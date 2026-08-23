@@ -28,10 +28,10 @@ Real and tested, not aspirational:
 | ~~**A campaign container**~~ | **Built** (ADR-0022): `src/sim/campaign.ts` sequences the battles and carries the party. |
 | ~~**Persistence**~~ | **Built** (ADR-0023): `src/render/storage.ts` writes one `localStorage` slot. |
 | ~~**Story delivery**~~ | **Seam built** (ADR-0024): `src/sim/story.ts` + `data/campaign/story/`. Placeholder prose ships; the story repo still does not exist. |
-| **Equipment** | ADR-0021 scoped it (horizontal gear). `build.ts` still uses one placeholder weapon. |
+| ~~**Equipment**~~ | **Built** (ADR-0026): 8 horizontal weapons, an authored per-battle drip, an inventory on the save. No shop, no gil, weapon slot only. |
 | **Economy** | No gil, no shops, no rewards loop. |
 | **Failure handling** | No game-over, no retry, no consequence for losing. |
-| **Onboarding** | `docs/08` §3 designs it; nothing implements it. |
+| ~~**Onboarding**~~ | **Built** (ADR-0025), but NOT as `docs/08` §3 designs it: a `?` panel on demand, no tutorial, no staged unlocks. |
 | **World map** | Unscoped. May never be needed — chapter select may be enough. |
 | **Audio / art / UI polish** | Unscoped. |
 
@@ -55,6 +55,14 @@ anything, and reaches a real ending — win or lose.**
 7. **Onboarding, hour one** — battle 1 teaches move, attack, turn order and nothing else.
    Battle 3 introduces the loadout. `docs/08` §3's ramp, minimally.
 
+> **STATUS 2026-08-22 — ALL SEVEN M0 ITEMS ARE BUILT (ADR-0022 … ADR-0026).**
+> The MVP's definition of done is "a stranger downloads it, plays 30–45 minutes without
+> being told anything, and reaches a real ending". Every ITEM is now shipped and tested.
+> **Whether the definition is MET is a different claim, and it is untested: no stranger
+> has played this.** The two open bets are onboarding (ADR-0025 — nothing is taught, only
+> a `?`) and session length (nobody has timed a playthrough). Both need a playtest, not
+> another slice.
+>
 > **STATUS 2026-08-22 — the between-battle loop and the story seam have landed
 > (ADR-0024).** The campaign is playable by a person, end to end, at **`/game.html`**:
 > title screen → New Game / Continue → briefing (**scene text + prepare the party**) →
@@ -68,9 +76,9 @@ anything, and reaches a real ending — win or lose.**
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
 > | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
 > | 4. Story stubs | **done** (ADR-0024) — `src/sim/story.ts` (schema, no prose) + `data/campaign/story/camp-the-first-march.story.json` (pre / victory / defeat per battle). `mid` hooks are deliberately out — see the ADR |
-> | 5. Equipment | **not started** |
+> | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
-> | 7. Onboarding | **not started** — the last M0 item |
+> | 7. Onboarding | **done** (ADR-0025) — a `?` panel on `game.html`, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |
 >
 > Persistence is now real: `src/render/storage.ts` is the only IO in the project, and
 > `src/sim/campaign.ts` stays pure by contract. An unreadable slot (corrupt, another
@@ -148,3 +156,35 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   *Discriminator:* an A/B — swapping the story data changes what the player reads, with no
   code change. **Met** (ADR-0024). The contract's `mid`-battle hook is explicitly deferred
   until an event system exists to fire it; `pre`, `victory` and `defeat` ship.
+- **AC-M5 (the chassis is reachable, not just present):** Every chassis slot the game shows
+  a player SHALL have at least one **live** option affordable within a single playthrough's
+  AP. *Discriminator:* walk each job tree's prerequisites and compare the cheapest live
+  option per slot against the campaign's measured AP budget — a slot is only "reachable" if
+  a number says so. Asserting the slot *exists*, or that an ability of that type is
+  authored, passes identically when the cheapest one costs twice what the campaign pays
+  out — which is what support (300 AP) and reaction (540 AP) did for the life of the repo
+  against a ~280 AP budget. **Met** (ADR-0025). Capstones are deliberately excluded: the
+  same test pins that the deepest passive stays beyond one campaign, so the bar is one a
+  content pack could fail.
+- **AC-M6 (help on demand, and only about what works):** The game SHALL offer an
+  always-reachable explanation of its mechanics, and that text SHALL NOT describe a
+  capability the shipped content cannot deliver. *Discriminator:* the help topics are data,
+  and each topic claiming a chassis slot is asserted against AC-M5's reachability check —
+  so the prose fails with the content rather than outliving it. A hand-written panel would
+  read identically whether or not its claims were true. **Met** (ADR-0025).
+
+- **AC-M7 (gear is horizontal and authored):** Equipment SHALL NOT form a power ladder,
+  and the party's gear SHALL arrive on a schedule repetition cannot accelerate.
+  *Discriminators, three, because the obvious one is not sufficient:* (a) no catalog weapon
+  out-damages the baseline on a reference body; (b) **which weapon is best REORDERS across
+  bodies** — without this, a ladder with its top rung removed passes (a) while every unit
+  still wants the same weapon; (c) granting the same item twice changes nothing, walked
+  across a full playthrough rather than per call. **Met** (ADR-0026), all three
+  mutation-verified.
+
+> **NOT an M0 criterion: `docs/08` §3's teaching ramp.** Staged unlocks and the scripted
+> "guided first build" are deliberately unbuilt (ADR-0025 decision 1, user decision
+> 2026-08-22). The bet is that the mechanics read on their own with a `?` to fall back on.
+> That bet is falsifiable and untested: **no newcomer has played this**. A playtest where a
+> player cannot form a build without opening `?` is evidence against it, and §3's ramp is
+> still on the shelf.

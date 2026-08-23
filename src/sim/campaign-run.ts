@@ -101,6 +101,54 @@ export function campaignBattleRecords(
   return records;
 }
 
+/**
+ * The player-side placements of `encounter`, in authored order — one per deployable
+ * slot.
+ *
+ * The COUNT is the battle's, not the party's: the campaign ramps 2 → 3 → 4 units, and
+ * that ramp is authored in the encounter files. A player chooses WHO fills the slots,
+ * never HOW MANY.
+ */
+export function deployableSlots(encounter: Encounter, playerTeam: number): string[] {
+  return encounter.placements.filter((p) => p.teamId === playerTeam).map((p) => p.slotId);
+}
+
+/**
+ * Rewrite the player-side placements to field `deployment` instead of whoever the
+ * encounter names, keeping every position, facing and slot id exactly as authored.
+ *
+ * Substituting the RECORD and not the placement is what keeps the ramp intact and keeps
+ * `deriveRewards` working untouched: it maps battle-unit ids back through the same
+ * placements, so a substituted member is credited for the AP it earned without any
+ * second mapping.
+ *
+ * `[]` returns the encounter unchanged — the authored default. A length mismatch throws:
+ * a save naming three units for a two-slot battle is a real error, and silently dropping
+ * the third would bench somebody the player deliberately chose.
+ */
+export function applyDeployment(
+  encounter: Encounter,
+  playerTeam: number,
+  deployment: readonly string[],
+): Encounter {
+  if (deployment.length === 0) return encounter;
+  const slots = deployableSlots(encounter, playerTeam);
+  if (deployment.length !== slots.length) {
+    throw new CampaignSchemaVersionError(
+      `applyDeployment: ${deployment.length} units chosen for ${slots.length} slots`,
+    );
+  }
+  let next = 0;
+  return {
+    ...encounter,
+    placements: encounter.placements.map((p) =>
+      p.teamId === playerTeam
+        ? { ...p, unit: { kind: "ref" as const, recordId: deployment[next++]! } }
+        : p,
+    ),
+  };
+}
+
 /** The battle this save is sitting on, compiled and ready to fight. */
 export interface LoadedCampaignBattle {
   battle: CampaignBattle;
@@ -142,7 +190,7 @@ export function loadCampaignBattle(
     );
   }
   const records = campaignBattleRecords(def, save);
-  const encounter = parseEncounter(encDef);
+  const encounter = applyDeployment(parseEncounter(encDef), def.playerTeam, save.deployment);
   const state = loadEncounter(encounter, { ...resolver, records });
   return { battle, encounter, state };
 }

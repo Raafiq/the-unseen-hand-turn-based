@@ -1,11 +1,12 @@
 {
-  "campaignSchemaVersion": 1,
+  "campaignSchemaVersion": 3,
   "id": "camp-the-first-march",
   "title": "The First March",
   "playerTeam": 0,
   "party": [
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "pc-vance",
       "name": "Vance",
       "level": 1,
@@ -33,7 +34,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "pc-kest",
       "name": "Kest",
       "level": 1,
@@ -63,7 +65,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "pc-briar",
       "name": "Briar",
       "level": 1,
@@ -93,7 +96,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "pc-ottoline",
       "name": "Ottoline",
       "level": 1,
@@ -125,7 +129,8 @@
   ],
   "cast": [
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "foe-brigand",
       "name": "Brigand",
       "level": 1,
@@ -153,7 +158,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "foe-cutthroat",
       "name": "Cutthroat",
       "level": 1,
@@ -183,7 +189,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "foe-hexer",
       "name": "Hexer",
       "level": 1,
@@ -213,7 +220,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "foe-marauder",
       "name": "Marauder",
       "level": 1,
@@ -241,7 +249,8 @@
       }
     },
     {
-      "rosterSchemaVersion": 2,
+      "rosterSchemaVersion": 3,
+      "weapon": null,
       "id": "foe-warchief",
       "name": "Warchief",
       "level": 1,
@@ -275,23 +284,28 @@
   "battles": [
     {
       "id": "b1",
-      "encounterId": "camp-b1-the-toll-road"
+      "encounterId": "camp-b1-the-toll-road",
+      "grants": ["wpn-arming-sword", "wpn-cestus"]
     },
     {
       "id": "b2",
-      "encounterId": "camp-b2-ambush-at-the-ford"
+      "encounterId": "camp-b2-ambush-at-the-ford",
+      "grants": ["wpn-rapier"]
     },
     {
       "id": "b3",
-      "encounterId": "camp-b3-the-hollow-watch"
+      "encounterId": "camp-b3-the-hollow-watch",
+      "grants": ["wpn-ritual-staff", "wpn-flamebrand"]
     },
     {
       "id": "b4",
-      "encounterId": "camp-b4-the-broken-span"
+      "encounterId": "camp-b4-the-broken-span",
+      "grants": ["wpn-warhammer", "wpn-heretics-edge"]
     },
     {
       "id": "b5",
-      "encounterId": "camp-b5-the-warchiefs-camp"
+      "encounterId": "camp-b5-the-warchiefs-camp",
+      "grants": ["wpn-oathblade"]
     }
   ]
 }

@@ -32,6 +32,7 @@
  * Deterministic: no RNG, no wall-clock, no timers.
  */
 
+import { abilitySummary, equipmentSummary } from "./ability-text.js";
 import pack from "../../data/base-pack.json";
 import {
   DEFERRED_ACTIONS,
@@ -39,6 +40,7 @@ import {
   DEFERRED_REACTION_EFFECTS,
   DEFERRED_SUPPORT_EFFECTS,
   buildBattleUnit,
+  weaponBaseDamage,
   canLearn,
   changeJob,
   checkMastery,
@@ -140,22 +142,40 @@ const esc = (s: string): string =>
 
 // ---- The derived stat strip -------------------------------------------------
 
-/** The derived combat stats surfaced in the live stat strip. */
+/**
+ * The derived combat stats surfaced in the live stat strip.
+ *
+ * `damage`, `brave` and `faith` were added after a learnability walkthrough
+ * (`docs/plans/learnability-walkthrough-2026-08-23.md`, finding 2): the strip carried
+ * HP / PA / MA / Move / Evade, so equipping the **Cestus** (Brave +5) or **Heretic's
+ * Edge** (Faith −20) moved nothing a player could see. They did the right thing and got
+ * no evidence it worked — the cognitive walkthrough's question 4, failed.
+ *
+ * `damage` is the basic attack's own figure rather than a stat, because it is the one
+ * number a weapon swap is ABOUT and PA alone does not predict it: a horizontal catalog
+ * (ADR-0021) has weapons that scale off Brave, off Speed, or off nothing at all.
+ */
 export interface StatLine {
   hp: number;
   pa: number;
   ma: number;
   move: number;
   evade: number;
+  damage: number;
+  brave: number;
+  faith: number;
 }
 
 /** Stat strip cells: display label + which {@link StatLine} field, in display order. */
 const STAT_CELLS: ReadonlyArray<{ key: keyof StatLine; label: string; suffix: string }> = [
   { key: "hp", label: "HP", suffix: "" },
+  { key: "damage", label: "Attack", suffix: "" },
   { key: "pa", label: "PA", suffix: "" },
   { key: "ma", label: "MA", suffix: "" },
   { key: "move", label: "Move", suffix: "" },
   { key: "evade", label: "Evade", suffix: "%" },
+  { key: "brave", label: "Brave", suffix: "" },
+  { key: "faith", label: "Faith", suffix: "" },
 ];
 
 // ---- The panel --------------------------------------------------------------
@@ -175,6 +195,16 @@ export interface PrepModelOptions {
    * `updatePartyMember` and the demo throw it away.
    */
   onChange?: (record: UnitRecord) => void;
+  /**
+   * Equipment ids the party OWNS (the campaign save's inventory). Absent or empty ⇒
+   * the weapon row is not drawn at all.
+   *
+   * Owned, not "every item in the pack": gear arrives on an authored drip
+   * (ADR-0021), so listing the catalog would show a player eight weapons and let
+   * them equip the one the campaign has not handed out yet — which is precisely the
+   * farm-free schedule the ADR exists to protect.
+   */
+  inventory?: readonly string[];
 }
 
 /** One row of the learn list: what it is, what it costs, and why it is blocked. */
@@ -194,6 +224,25 @@ export interface LearnRow {
    * second copy of a rule the sim already owns, and the two would drift.
    */
   reason: string | null;
+  /**
+   * What the node grants: an `action` (a command in battle) or a passive that must
+   * then be EQUIPPED in its chassis slot.
+   *
+   * The learn list showed neither, so "Hp Boost" sat in the same list as Weapon Break
+   * with nothing saying one is a command and the other is a Support you still have to
+   * equip. A player who buys a passive and then looks for it in their command list
+   * finds nothing and reasonably concludes the 60 AP did nothing.
+   */
+  kind: "action" | "reaction" | "support" | "movement";
+  /**
+   * What the ability does, derived from its own fields (`ability-text.ts`), or `null`
+   * when the content declares nothing a player could act on.
+   *
+   * `null` is not a gap in the UI: every ability that summarises to `null` is one the
+   * game already labels "no effect yet", so the row is never blank AND unexplained.
+   * That is asserted, because it is the property the whole design leans on.
+   */
+  summary: string | null;
   /**
    * Why the ability this node grants currently does NOTHING, or `null` when it is live.
    *
@@ -220,12 +269,37 @@ export class PrepModel {
   private readonly onChange: ((record: UnitRecord) => void) | undefined;
   private recs: UnitRecord[];
   private index: number;
+  /**
+   * Which job's tree the learn list is SHOWING. `null` = follow the selected unit's
+   * current job, which is what it always used to do implicitly.
+   *
+   * WHY THIS EXISTS. `canLearn` never required the unit to BE in the job — `docs/02`
+   * AC-J2 says an ability is bought "on the owning job's tree" and AP is one global
+   * pool, so cross-job buying is the rule, not an exception. The panel was the only
+   * thing hiding it, by hard-coding `currentJob`, and that made the Secondary command —
+   * 60 AP, affordable from battle three — look impossible. Browsing state, not record
+   * state: it is never persisted and never reaches `onChange`.
+   */
+  private browse: string | null = null;
+  private inv: string[];
+  /**
+   * The ability bought by the most recent {@link learn}, so the panel can say where it
+   * went. Cleared whenever the panel is re-pointed at different records or a different
+   * member — a receipt for somebody else's purchase is worse than none.
+   *
+   * WHY THIS EXISTS. Buying a passive adds nothing to "Commands in battle" — correctly,
+   * a Support is not a command — so a player who spent 60 unrefundable AP saw no change
+   * at all and had no way to know the ability was waiting in a dropdown
+   * (`docs/plans/learnability-walkthrough-2026-08-23.md`, finding 1).
+   */
+  private justLearned: string | null = null;
 
   constructor(opts: PrepModelOptions) {
     if (opts.records.length === 0) throw new Error("PrepModel: needs at least one record");
     this.registry = opts.registry;
     this.onChange = opts.onChange;
     this.recs = [...opts.records];
+    this.inv = [...(opts.inventory ?? [])];
     this.index = Math.max(
       0,
       this.recs.findIndex((r) => r.id === opts.selectedId),
@@ -251,6 +325,10 @@ export class PrepModel {
     const next = this.recs.findIndex((r) => r.id === recordId);
     if (next === -1) throw new Error(`prep: no record with id "${recordId}"`);
     this.index = next;
+    // A different unit means a different tree to land on; keeping the old one would
+    // show a Knight the Thief tree they were reading for someone else.
+    this.browse = null;
+    this.justLearned = null;
   }
 
   /**
@@ -271,6 +349,8 @@ export class PrepModel {
     }
     this.recs = [...next];
     this.index = nextIndex;
+    this.browse = null;
+    this.justLearned = null;
     return true;
   }
 
@@ -290,7 +370,18 @@ export class PrepModel {
    */
   stats(record: UnitRecord = this.record()): StatLine {
     const u = buildBattleUnit(record, this.registry);
-    return { hp: u.maxHp, pa: u.pa, ma: u.ma, move: u.move, evade: u.evasion.classEv };
+    return {
+      hp: u.maxHp,
+      pa: u.pa,
+      ma: u.ma,
+      move: u.move,
+      evade: u.evasion.classEv,
+      // Read off the SAME built unit, so the strip cannot quote a number the fight
+      // disagrees with — and so a Brave- or Faith-shifting weapon shows up here.
+      damage: weaponBaseDamage(u),
+      brave: u.brave,
+      faith: u.faith,
+    };
   }
 
   /** Job ids equippable as the Secondary: another job the unit knows an action in. */
@@ -336,6 +427,90 @@ export class PrepModel {
     return [...this.registry.jobById.keys()];
   }
 
+  /** The equipment ids the party owns, in grant order. */
+  inventory(): string[] {
+    return [...this.inv];
+  }
+
+  /**
+   * Replace the owned-equipment list. Returns whether it changed, mirroring
+   * {@link setRecords} — the page calls this on every repaint and a blind redraw
+   * would steal focus from the control the player is using.
+   */
+  setInventory(next: readonly string[]): boolean {
+    if (next.length === this.inv.length && next.every((id, i) => id === this.inv[i])) {
+      return false;
+    }
+    this.inv = [...next];
+    return true;
+  }
+
+  /**
+   * Owned weapons, each with the basic-attack damage THIS unit would swing for.
+   *
+   * The damage is the point. Eight weapon NAMES are not a choice a player can make —
+   * and a catalog line cannot carry the number, because the whole design is horizontal
+   * (ADR-0021): a Warhammer ignores the wielder's stats and so is the best swing a
+   * low-Attack caster has and among the worst for a Knight. Only a per-unit figure says
+   * that, and it is computed from the same one-way build a battle uses, so it cannot
+   * disagree with what the swing actually does.
+   *
+   * `null` damage for a weapon whose swing this unit cannot derive — never 0, which
+   * would read as "this weapon does nothing".
+   */
+  weaponOptions(): { id: string; name: string; damage: number | null }[] {
+    const rec = this.record();
+    return this.inv
+      .map((id) => this.registry.equipment(id))
+      .filter((item) => item.slot === "weapon")
+      .map((item) => {
+        let damage: number | null = null;
+        try {
+          damage = weaponBaseDamage(buildBattleUnit({ ...rec, weapon: item.id }, this.registry));
+        } catch {
+          damage = null;
+        }
+        return { id: item.id, name: item.name, damage };
+      });
+  }
+
+  /** The damage this unit swings for with what it currently holds. */
+  currentWeaponDamage(): number {
+    return weaponBaseDamage(buildBattleUnit(this.record(), this.registry));
+  }
+
+  /**
+   * Equip a weapon by id, or `null` to go unarmed. Free and reversible like the
+   * loadout slots (AC-J4): it never touches `ap`, `learned` or `mastered`.
+   *
+   * Refuses an item the party does not own, rather than trusting the view to only
+   * offer owned ones — the drip is a rule, and a rule enforced solely by which
+   * options a dropdown happens to render is not enforced.
+   */
+  setWeapon(itemId: string | null): void {
+    if (itemId !== null) {
+      if (!this.inv.includes(itemId)) {
+        throw new Error(`prep: the party does not own equipment "${itemId}"`);
+      }
+      const item = this.registry.equipment(itemId);
+      if (item.slot !== "weapon") {
+        throw new Error(`prep: equipment "${itemId}" is a ${item.slot}, not a weapon`);
+      }
+    }
+    this.commit({ ...this.record(), weapon: itemId });
+  }
+
+  /** Which job's tree {@link learnRows} is listing. */
+  browseJob(): string {
+    return this.browse ?? this.record().currentJob;
+  }
+
+  /** Point the learn list at another job's tree. Throws on an unknown id. */
+  setBrowseJob(jobId: string): void {
+    this.registry.job(jobId); // throws rather than storing an id nothing can resolve
+    this.browse = jobId;
+  }
+
   /** The skillset id the current job commands. */
   primarySkillset(): string {
     return primaryCommand(this.record(), this.registry);
@@ -356,8 +531,12 @@ export class PrepModel {
   learnRows(): LearnRow[] {
     const r = this.record();
     const known = new Set(r.learned);
-    return this.registry.job(r.currentJob).tree.map((node) => {
+    const jobId = this.browseJob();
+    return this.registry.job(jobId).tree.map((node) => {
       const deferred = deferredBlocker(node.ability);
+      const ability = this.registry.ability(node.ability);
+      const kind = ability.type;
+      const summary = abilitySummary(ability);
       if (known.has(node.ability)) {
         return {
           node: node.node,
@@ -367,9 +546,11 @@ export class PrepModel {
           buyable: false,
           reason: null,
           deferred,
+          kind,
+          summary,
         };
       }
-      const check = canLearn(r, r.currentJob, node.node, this.registry);
+      const check = canLearn(r, jobId, node.node, this.registry);
       return {
         node: node.node,
         ability: node.ability,
@@ -378,6 +559,8 @@ export class PrepModel {
         buyable: check.ok,
         reason: check.ok ? null : check.reason,
         deferred,
+        kind,
+        summary,
       };
     });
   }
@@ -409,13 +592,39 @@ export class PrepModel {
     if (next.loadout.secondary === jobId) {
       next = setLoadoutSlot(next, "secondary", null, this.registry);
     }
+    this.browse = null;
     this.commit(next);
   }
 
   /** Buy a tree node with banked AP, then latch any mastery it completed. */
   learn(jobId: string, nodeId: string): void {
+    const node = this.registry.job(jobId).tree.find((n) => n.node === nodeId);
     const bought = learnAbility(this.record(), jobId, nodeId, this.registry);
+    this.justLearned = node?.ability ?? null;
     this.commit(checkMastery(bought, jobId, this.registry));
+  }
+
+  /**
+   * What the last purchase was and where the player must now put it, or `null` when
+   * nothing was just bought.
+   *
+   * Three outcomes, not two, and the third is the one that bites: an ACTION bought from
+   * ANOTHER job's tree does **not** appear in the command list either. The list is the
+   * current job's skillset plus the equipped Secondary, so a Knight who buys Wave Fist
+   * must first equip Monk as their Secondary. A receipt that said "it is in your
+   * commands now" would be the exact failure this method exists to fix — a confident
+   * message that is false — so membership is READ OFF the real projection rather than
+   * inferred from the ability's type.
+   */
+  learnReceipt(): {
+    ability: string;
+    slot: "command" | "secondary" | "reaction" | "support" | "movement";
+  } | null {
+    if (this.justLearned === null) return null;
+    const type = this.registry.ability(this.justLearned).type;
+    if (type !== "action") return { ability: this.justLearned, slot: type };
+    const usable = this.commands().includes(this.justLearned);
+    return { ability: this.justLearned, slot: usable ? "command" : "secondary" };
   }
 
   /**
@@ -453,6 +662,12 @@ export interface PrepHandle {
   setSlot: (slot: LoadoutSlot, value: string | null) => void;
   setTraits: (traits: string[]) => void;
   setJob: (jobId: string) => void;
+  /** Point the learn list at another job's tree (browsing only — no record change). */
+  setBrowseJob: (jobId: string) => void;
+  /** Equip an owned weapon by id, or `null` for unarmed. */
+  setWeapon: (itemId: string | null) => void;
+  /** Re-point the panel at the party's owned equipment. */
+  setInventory: (ids: readonly string[]) => boolean;
   learn: (jobId: string, nodeId: string) => void;
 }
 
@@ -479,6 +694,7 @@ const valueOrNull = (v: string): string | null => (v === "" ? null : v);
 export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle {
   const model = new PrepModel(opts);
   const progression = opts.progression ?? false;
+  const registry = opts.registry;
 
   function sel(testid: string): HTMLElement {
     const el = container.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
@@ -503,6 +719,87 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     return `<div class="roster" data-testid="prep-roster">${tabs}</div>`;
   }
 
+  /**
+   * What the ability currently in `slot` does, or nothing when the slot is empty.
+   *
+   * A `<select>` can only show one line per option, so the description of the CHOSEN
+   * one goes underneath it. Empty slot ⇒ no line at all, rather than "nothing equipped"
+   * — the dropdown already reads "— none —" and repeating it is noise.
+   */
+  function equippedSummary(slot: "reaction" | "support" | "movement"): string {
+    const id = model.record().loadout[slot];
+    if (id === null) return "";
+    const summary = abilitySummary(registry.ability(id));
+    return summary === null ? "" : `<p class="hint">${esc(summary)}</p>`;
+  }
+
+  /**
+   * A receipt for the purchase just made, naming where the ability went.
+   *
+   * Only after a purchase, and only until the panel is re-pointed — a permanent note
+   * would be wallpaper, and the walkthrough finding was specifically about the moment
+   * of buying.
+   */
+  function receiptHtml(): string {
+    const r = model.learnReceipt();
+    if (r === null) return "";
+    const name = esc(abilityLabel(r.ability));
+    const where =
+      r.slot === "command"
+        ? `<b>${name}</b> is now in this unit's commands.`
+        : r.slot === "secondary"
+          ? `<b>${name}</b> belongs to another job — equip that job as this unit's <b>Secondary</b> command above to use it.`
+          : `<b>${name}</b> is a passive — equip it in the <b>${r.slot}</b> slot above to use it.`;
+    return `<p class="receipt" data-testid="prep-receipt">Learned. ${where}</p>`;
+  }
+
+  /**
+   * The weapon row — drawn ONLY when the party owns a weapon.
+   *
+   * Hidden rather than empty-and-disabled, the absent-not-zero rule: before the
+   * campaign's first grant there is no such thing as a weapon choice, and an empty
+   * dropdown would present "you own nothing yet" as "your options are none", which
+   * reads like a bug. The engine viewer's demo panel has no inventory at all and so
+   * never draws it.
+   */
+  function weaponSlotHtml(): string {
+    const owned = model.weaponOptions();
+    if (owned.length === 0) return "";
+    // The damage rides in the OPTION LABEL, so weapons are comparable in the dropdown
+    // itself rather than one-at-a-time by equipping each and reading a stat line.
+    const bare = model.currentWeaponDamage();
+    const label = (name: string, dmg: number | null, perks?: string | null): string => {
+      const head = dmg === null ? name : `${name} — ${dmg} damage`;
+      return perks === null || perks === undefined ? head : `${head}, ${perks.toLowerCase()}`;
+    };
+    const opts = optionList(
+      [
+        { value: "", label: label("Unarmed", model.record().weapon === null ? bare : null) },
+        ...owned.map((w) => ({
+          value: w.id,
+          label: label(w.name, w.damage, equipmentSummary(registry.equipment(w.id), { scaling: false })),
+        })),
+      ],
+      model.record().weapon ?? "",
+    );
+    const equipped = model.record().weapon;
+    const desc = equipped === null ? null : equipmentSummary(registry.equipment(equipped));
+    // A nudge only while something free is going unused, and only then — a hint that
+    // is always on is wallpaper, and a player who has deliberately chosen Unarmed does
+    // not need telling twice.
+    const unused =
+      model.record().weapon === null
+        ? `<p class="hint" data-testid="prep-weapon-hint">You own ${owned.length} weapon${owned.length === 1 ? "" : "s"} and have none equipped.</p>`
+        : "";
+    return `
+      <div class="slot">
+        <h3>Weapon <span class="lock">swaps are free</span></h3>
+        <select data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
+        ${desc === null ? "" : `<p class="hint" data-testid="prep-weapon-desc">${esc(desc)}</p>`}
+        ${unused}
+      </div>`;
+  }
+
   /** The job selector + the AP-priced learn list, straight off {@link PrepModel.learnRows}. */
   function progressionHtml(): string {
     if (!progression) return "";
@@ -510,6 +807,14 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     const jobOptions = optionList(
       model.jobIds().map((j) => ({ value: j, label: jobLabel(j) })),
       r.currentJob,
+    );
+    const browsing = model.browseJob();
+    const treeOptions = optionList(
+      model.jobIds().map((j) => ({
+        value: j,
+        label: j === r.currentJob ? `${jobLabel(j)} (current)` : jobLabel(j),
+      })),
+      browsing,
     );
 
     const rows = model
@@ -519,19 +824,31 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
           row.deferred === null
             ? ""
             : ` <span class="tag" title="No effect yet — ${esc(row.deferred)}">no effect yet</span>`;
-        const label = `${esc(abilityLabel(row.ability))}${tag}`;
+        // Passives get their slot named on the row; actions do not, because "it is a
+        // command" is what a learn list already implies. Naming only the exception
+        // keeps the list quiet and still closes the gap.
+        const kindTag =
+          row.kind === "action" ? "" : ` <span class="kind">${esc(row.kind)}</span>`;
+        const label = `${esc(abilityLabel(row.ability))}${kindTag}${tag}`;
         const cls = [row.known ? "known" : "", row.buyable ? "" : "locked", row.deferred === null ? "" : "deferred"]
           .filter(Boolean)
           .join(" ");
+        // The description sits UNDER the name rather than in a `title` tooltip: AP is
+        // spent permanently, so what a purchase does must be readable without hovering
+        // (and a tooltip is unreachable on touch).
+        const desc =
+          row.summary === null ? "" : `<span class="desc">${esc(row.summary)}</span>`;
         if (row.known) {
-          return `<li class="${cls}" data-node="${esc(row.node)}"><span class="n">${label}</span><span class="s">learned</span></li>`;
+          return `<li class="${cls}" data-node="${esc(row.node)}"><span class="n">${label}</span><span class="s">learned</span>${desc}</li>`;
         }
         const why = row.buyable ? `Spend ${row.apCost} AP` : (row.reason ?? "");
         return (
           `<li class="${cls}" data-node="${esc(row.node)}">` +
           `<span class="n">${label}</span>` +
           `<button type="button" class="buy" data-learn="${esc(row.node)}"` +
-          `${row.buyable ? "" : " disabled"} title="${esc(why)}">${row.apCost} AP</button></li>`
+          `${row.buyable ? "" : " disabled"} title="${esc(why)}">${row.apCost} AP</button>` +
+          desc +
+          `</li>`
         );
       })
       .join("");
@@ -544,8 +861,11 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         <p class="hint">Learned abilities and mastery stay with the unit, not the job.</p>
       </div>
       <div class="learn">
-        <h3>Learn · ${esc(skillsetLabel(model.primarySkillset()))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
+        <h3>Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
+        <select data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
+        <p class="hint">AP is one pool — you can buy from any job's tree without changing job. Learning one action from another job unlocks it as a Secondary command.</p>
         <ul class="learn-list" data-testid="prep-learn">${rows}</ul>
+        ${receiptHtml()}
       </div>
     </div>`;
   }
@@ -626,9 +946,15 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     const commandItems = commands
       .map((id) => {
         const blocker = DEFERRED_ACTIONS[id];
+        // `basic.attack` is weapon-derived and has no catalog entry, so the lookup is
+        // guarded rather than assumed — the equipped weapon's own numbers describe it.
+        const summary = registry.abilityById.has(id)
+          ? abilitySummary(registry.ability(id))
+          : null;
+        const desc = summary === null ? "" : `<span class="desc">${esc(summary)}</span>`;
         return blocker === undefined
-          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}</li>`
-          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span></li>`;
+          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}${desc}</li>`
+          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span>${desc}</li>`;
       })
       .join("");
 
@@ -644,6 +970,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         <div class="val">${esc(skillsetLabel(model.primarySkillset()))} (${esc(jobLabel(record.currentJob))})</div>
         <div class="sub">${model.primaryActionIds().map((id) => esc(abilityLabel(id))).join(", ") || "—"}</div>
       </div>
+      ${weaponSlotHtml()}
       <div class="slot">
         <h3>Secondary</h3>
         <select data-testid="prep-secondary" aria-label="Secondary command">${secondaryOptions}</select>
@@ -651,18 +978,26 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       <div class="slot">
         <h3>Reaction</h3>
         <select data-testid="prep-reaction" aria-label="Reaction ability">${abilitySelect("reaction")}</select>
+        ${equippedSummary("reaction")}
       </div>
       <div class="slot">
         <h3>Support</h3>
         <select data-testid="prep-support" aria-label="Support ability">${abilitySelect("support")}</select>
+        ${equippedSummary("support")}
       </div>
       <div class="slot">
         <h3>Movement</h3>
         <select data-testid="prep-movement" aria-label="Movement ability">${abilitySelect("movement")}</select>
+        ${equippedSummary("movement")}
       </div>
       <div class="slot" data-testid="prep-traits">
         <h3>Traits <span class="lock">max 2</span></h3>
         ${traitsBody}
+        ${
+          traits.length > 0 && record.loadout.traits.length === 0
+            ? `<p class="hint" data-testid="prep-traits-hint">Earned and not equipped — traits cost no AP.</p>`
+            : ""
+        }
       </div>
     </div>
     ${progressionHtml()}
@@ -681,6 +1016,13 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         act(() => model.setSlot(slot, valueOrNull((e.target as HTMLSelectElement).value)));
       });
     };
+    // Only bound when the row was drawn — an empty inventory renders no selector,
+    // and `sel()` throws on a missing element rather than silently doing nothing.
+    if (model.weaponOptions().length > 0) {
+      sel("prep-weapon").addEventListener("change", (e) => {
+        act(() => model.setWeapon(valueOrNull((e.target as HTMLSelectElement).value)));
+      });
+    }
     onSlot("secondary", "prep-secondary");
     onSlot("reaction", "prep-reaction");
     onSlot("support", "prep-support");
@@ -700,9 +1042,12 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       sel("prep-job").addEventListener("change", (e) => {
         act(() => model.setJob((e.target as HTMLSelectElement).value));
       });
+      sel("prep-tree").addEventListener("change", (e) => {
+        act(() => model.setBrowseJob((e.target as HTMLSelectElement).value));
+      });
       container.querySelectorAll<HTMLButtonElement>("button[data-learn]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          act(() => model.learn(model.record().currentJob, btn.dataset["learn"] as string));
+          act(() => model.learn(model.browseJob(), btn.dataset["learn"] as string));
         });
       });
     }
@@ -737,6 +1082,13 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     setSlot: (slot, value) => act(() => model.setSlot(slot, value)),
     setTraits: (traits) => act(() => model.setTraits(traits)),
     setJob: (jobId) => act(() => model.setJob(jobId)),
+    setBrowseJob: (jobId) => act(() => model.setBrowseJob(jobId)),
+    setWeapon: (itemId) => act(() => model.setWeapon(itemId)),
+    setInventory: (ids) => {
+      const changed = model.setInventory(ids);
+      if (changed) render();
+      return changed;
+    },
     learn: (jobId, nodeId) => act(() => model.learn(jobId, nodeId)),
   };
 }

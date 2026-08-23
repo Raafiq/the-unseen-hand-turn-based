@@ -133,3 +133,30 @@ pre-installed at `/opt/pw-browsers` — never run `playwright install` there. On
 host** it may genuinely be missing, or be the wrong build number: every spec then fails
 with "Executable doesn't exist", which reads like a code failure and is not. Check the
 requested build against `~/AppData/Local/ms-playwright/` before believing it.
+
+
+**A CONTENT-KEYED LOOKUP WITH A FALLBACK CANNOT TELL "no entry" FROM "no match".**
+`drawUnit` read `UNIT_META[u.id]` — a table holding the four DEMO ids (`knight`, `archer`,
+`brawler`, `mage`) — and fell back to one grey. The campaign's ids are `blue-vance`,
+`red-brigand-1`, …, so **every** unit in the shipped game missed and friend and foe were
+painted the same colour, while `game.ts` held a `TEAM_COLOR` table it passed only to the
+side panels. The fallback is what hid it: a miss looked like a deliberate neutral. When a
+render path keys off content ids, either assert the map resolves for the content that
+actually ships, or take the mapping as a PARAMETER so the page that owns the content owns
+the answer. Found by opening a screenshot; 720 tests were green.
+
+**THE SUITE CANNOT SEE THE SCREEN — so look at it, and give the new check a canvas.**
+Every browser spec drives the seam (`window.tuh*`), not the picture, so nothing caught the
+bug above and nothing would catch the next one. Two things now exist and both should be
+used after any change to `iso.ts` or a panel: `e2e/playtest-capture.spec.ts` writes nine
+PNGs of every screen a player passes through (`visual-artifacts/playtest/`) — **read
+them**, that is where both playtest bugs were found; and `iso.test.ts` has a **recording
+2D context** whose `fillStyle` writes are captured, which is the only way to assert what
+colour actually reached the canvas.
+
+**Player-facing text is assembled from TWO sources and only one gets resolved.** A turn-log
+row resolves the ACTOR through `look()`, but the target lives inside the sim's action
+STRING (`"hit red-brigand-1 −137"`) — the sim writes ids there because a log line must
+survive a replay with no registry attached. `panels.ts:nameIdsIn` now substitutes them.
+Anywhere else a sim-authored string reaches a player, check it for ids the same way; a
+fixture whose ids already look like names (the demo's `knight`) cannot tell you.

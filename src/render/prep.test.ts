@@ -268,3 +268,268 @@ describe("a node whose ability does NOTHING says so before you pay for it", () =
     expect(rowsFor("archer")["aimed-shot"]!.deferred).toBeNull();
   });
 });
+
+describe("the learn list browses ANY job's tree (M0 item 7)", () => {
+  it("DISCRIMINATING: browsing another job lists THAT tree, not the current job's", () => {
+    // The panel used to hard-code `record().currentJob`, so this is the A/B that tells
+    // "browsing is wired" from "the selector is decorative": the two row sets must
+    // DISAGREE. Asserting only that rows exist would pass under the old behaviour.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    const own = m.learnRows().map((r) => r.ability);
+    m.setBrowseJob("monk");
+    const other = m.learnRows().map((r) => r.ability);
+
+    expect(own.every((id) => id.startsWith("battle-skill."))).toBe(true);
+    expect(other.every((id) => id.startsWith("punch-art."))).toBe(true);
+    expect(other).not.toEqual(own);
+  });
+
+  it("buying across jobs unlocks the Secondary command — the whole point", () => {
+    // Reaches THROUGH the browse state to an observable end (docs/02's cross-job
+    // recombination), rather than stopping at "the model accepted the job id".
+    //
+    // The purchase goes through `learnRows()` — the same list the panel renders and the
+    // same node id its buy button carries — precisely so this cannot pass while the
+    // listing is broken. Passing "wave-fist" as a literal instead would keep this green
+    // with `learnRows` still hard-coded to `currentJob`: mutation-verified, that was the
+    // first draft's actual behaviour.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    expect(m.equippableSecondaryJobs()).not.toContain("monk");
+
+    m.setBrowseJob("monk");
+    const buyable = m.learnRows().filter((row) => row.buyable);
+    expect(buyable.map((row) => row.ability)).toEqual(["punch-art.wave-fist"]);
+    m.learn(m.browseJob(), buyable[0]!.node); // 60 AP — exactly what the button passes
+
+    expect(m.record().learned).toContain("punch-art.wave-fist");
+    expect(m.record().currentJob).toBe("knight"); // browsing is NOT a job change
+    expect(m.record().ap).toBe(0);
+    expect(m.equippableSecondaryJobs()).toContain("monk");
+  });
+
+  it("browsing resets when the tree underneath it could change", () => {
+    // Stale browse state is the failure this prevents: a Knight left looking at the
+    // Thief tree while the panel is re-pointed at a different unit entirely.
+    const m = new PrepModel({ registry, records: [knightish("u1"), monkish("u2", 60)] });
+    m.setBrowseJob("thief");
+    m.select("u2");
+    expect(m.browseJob()).toBe("monk");
+
+    m.setBrowseJob("thief");
+    m.setJob("archer");
+    expect(m.browseJob()).toBe("archer");
+  });
+});
+
+describe("every chassis slot is reachable inside one campaign (M0 item 7)", () => {
+  /** Cheapest total AP to reach a LIVE ability of `type`, walking prerequisites. */
+  function cheapestLive(type: "support" | "reaction" | "movement"): number {
+    let best = Infinity;
+    for (const jobId of registry.jobById.keys()) {
+      const tree = registry.job(jobId).tree;
+      const byNode = new Map(tree.map((n) => [n.node, n]));
+      const cost = (node: string, seen = new Set<string>()): number => {
+        if (seen.has(node)) return 0;
+        seen.add(node);
+        const n = byNode.get(node);
+        if (!n) return 0;
+        return n.apCost + n.requires.reduce((s, r) => s + cost(r, seen), 0);
+      };
+      for (const n of tree) {
+        const ab = registry.ability(n.ability);
+        if (ab.type !== type) continue;
+        // "Live" = the effect field the equip actually reads is authored. An inert
+        // ability is exactly what this slice existed to stop counting as reachable.
+        const live =
+          type === "support"
+            ? ab.supportEffect !== undefined
+            : type === "reaction"
+              ? ab.reactionEffect !== undefined
+              : ab.movementEffect !== undefined;
+        if (live) best = Math.min(best, cost(n.node));
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The campaign's AP budget, measured (`campaign-run.test.ts` walks the real thing):
+   * the best-earning member banks ~280 AP across all five battles, the worst ~184. A
+   * slot whose cheapest LIVE option costs more than that is one a player is told about
+   * and can never use — which is what every non-trait slot was before this slice
+   * (support 300, reaction 540).
+   */
+  const CAMPAIGN_AP_BUDGET = 280;
+
+  it.each(["support", "reaction", "movement"] as const)(
+    "a live %s is affordable within one campaign",
+    (type) => {
+      expect(cheapestLive(type)).toBeLessThanOrEqual(CAMPAIGN_AP_BUDGET);
+    },
+  );
+
+  it("DISCRIMINATING: the budget is a real bar, not one nothing could fail", () => {
+    // Guards the check above from reading as proof when it cannot come out the other
+    // way. The deepest live option in the pack must still sit BEYOND the budget —
+    // capstones stay capstones, so "reachable" means the shallow tier, not everything.
+    let deepest = 0;
+    for (const jobId of registry.jobById.keys()) {
+      for (const n of registry.job(jobId).tree) {
+        const ab = registry.ability(n.ability);
+        if (ab.type === "action") continue;
+        deepest = Math.max(deepest, n.apCost);
+      }
+    }
+    expect(deepest).toBeGreaterThan(0);
+    expect(cheapestLive("reaction")).toBeGreaterThan(60); // never a first-purchase freebie
+  });
+});
+
+describe("the panel discloses what is FREE and what a purchase actually is (playtest, 2026-08-22)", () => {
+  it("DISCRIMINATING: a learn row says whether it is a command or a passive", () => {
+    // Found by screenshot: "Hp Boost" (a Support) sat in the same list as "Weapon Break"
+    // (an action) with nothing distinguishing them. A player who buys the passive and
+    // then looks for it in their command list finds nothing.
+    //
+    // The Knight tree is the fixture precisely because it holds BOTH kinds — a tree of
+    // one kind could not tell "the field is populated" from "the field is right".
+    const m = new PrepModel({ registry, records: [knightish()] });
+    const byAbility = new Map(m.learnRows().map((r) => [r.ability, r.kind]));
+    expect(byAbility.get("battle-skill.weapon-break")).toBe("action");
+    expect(byAbility.get("battle-skill.hp-boost")).toBe("support");
+    expect(byAbility.get("battle-skill.equip-heavy-armor")).toBe("support");
+    // Both kinds are present, so the assertion above is not vacuous.
+    expect(new Set(byAbility.values()).size).toBeGreaterThan(1);
+  });
+
+  it("kind is reported for a known row too, not only a buyable one", () => {
+    // The row a player has ALREADY bought is the one they go looking for when they
+    // cannot find their new ability in the command list.
+    const bought = learnAbility(knightish(), "knight", "hp-boost", registry);
+    const m = new PrepModel({ registry, records: [{ ...bought, ap: 0 }] });
+    const row = m.learnRows().find((r) => r.ability === "battle-skill.hp-boost");
+    expect(row?.known).toBe(true);
+    expect(row?.kind).toBe("support");
+  });
+});
+
+describe("the weapon picker shows damage for THIS unit (playtest follow-up)", () => {
+  /** A party member holding two weapons, so the picker has something to compare. */
+  function armed(job: string, raw: { pa: number; ma: number; speed: number; hp: number; mp: number }) {
+    return new PrepModel({
+      registry,
+      records: [defaultUnitRecord("u1", job, { raw, brave: 70, faith: 50 })],
+      inventory: ["wpn-arming-sword", "wpn-warhammer", "wpn-cestus"],
+    });
+  }
+
+  it("DISCRIMINATING: the same weapon shows DIFFERENT damage on different units", () => {
+    // A catalog number would be identical for both — and would be a lie for at least one
+    // of them, because the catalog is horizontal (ADR-0021): the Warhammer ignores the
+    // wielder's stats, so it is the best swing a low-Attack unit has and among the worst
+    // for a Knight. That inversion is the whole reason the figure has to be per-unit.
+    const strong = armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 });
+    const weak = armed("wizard", { pa: 4, ma: 8, speed: 8, hp: 192, mp: 24 });
+    const sword = (m: PrepModel) => m.weaponOptions().find((w) => w.id === "wpn-arming-sword")!.damage;
+    expect(sword(strong)).not.toBe(sword(weak));
+    expect(sword(strong)!).toBeGreaterThan(sword(weak)!);
+  });
+
+  it("DISCRIMINATING: the ranking REORDERS across units", () => {
+    // Stronger than "the numbers differ": if one weapon simply won on every body, the
+    // picker would be a ladder and the per-unit figure would be decoration.
+    const best = (m: PrepModel) =>
+      m.weaponOptions().reduce((a, b) => ((b.damage ?? -1) > (a.damage ?? -1) ? b : a)).id;
+    expect(best(armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 }))).not.toBe(
+      best(armed("wizard", { pa: 4, ma: 8, speed: 8, hp: 192, mp: 24 })),
+    );
+  });
+
+  it("the figure matches what the unit would actually swing for", () => {
+    // Reaches through to the same one-way build a battle uses, so the picker cannot
+    // quote a number the fight disagrees with.
+    const m = armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 });
+    const shown = m.weaponOptions().find((w) => w.id === "wpn-cestus")!.damage;
+    m.setWeapon("wpn-cestus");
+    expect(m.currentWeaponDamage()).toBe(shown);
+  });
+});
+
+describe("the player sees that their action WORKED (learnability walkthrough, 2026-08-23)", () => {
+  it("DISCRIMINATING: equipping a Brave-shifting weapon MOVES the stat strip", () => {
+    // Finding 2. The strip carried HP / PA / MA / Move / Evade, so the Cestus (Brave +5)
+    // changed nothing visible — the player did the right thing and got no evidence of it.
+    // The fixture is deliberately a weapon whose ONLY effect is off the old strip: one
+    // that also moved Evade would pass against the pre-fix code.
+    const rec = defaultUnitRecord("u1", "monk", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 190, mp: 24 },
+      brave: 70,
+      faith: 50,
+    });
+    const m = new PrepModel({ registry, records: [rec], inventory: ["wpn-cestus"] });
+    const before = m.stats();
+    m.setWeapon("wpn-cestus");
+    const after = m.stats();
+
+    expect(after.brave).not.toBe(before.brave);
+    expect(after).not.toEqual(before);
+    // The old strip's five fields are untouched by this weapon — which is exactly why
+    // the gap existed, and why this assertion pins that the NEW fields carry it.
+    expect(after.evade).toBe(before.evade);
+    expect(after.pa).toBe(before.pa);
+  });
+
+  it("the strip's Attack figure follows the equipped weapon", () => {
+    const rec = defaultUnitRecord("u1", "knight", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 255, mp: 24 },
+      brave: 70,
+      faith: 50,
+    });
+    const m = new PrepModel({ registry, records: [rec], inventory: ["wpn-warhammer"] });
+    const before = m.stats().damage;
+    m.setWeapon("wpn-warhammer");
+    expect(m.stats().damage).not.toBe(before);
+    expect(m.stats().damage).toBe(m.currentWeaponDamage());
+  });
+
+  it("DISCRIMINATING: buying a PASSIVE names the slot it is waiting in", () => {
+    // Finding 1, the most severe. A Support adds nothing to the command list — correctly
+    // — so without this the player spent 60 unrefundable AP and saw no change at all.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    expect(m.learnReceipt()).toBeNull(); // nothing claimed before a purchase
+
+    m.learn("knight", "hp-boost");
+    const receipt = m.learnReceipt();
+    expect(receipt?.ability).toBe("battle-skill.hp-boost");
+    expect(receipt?.slot).toBe("support"); // NOT "command" — that is the whole finding
+  });
+
+  it("DISCRIMINATING: a cross-job ACTION is NOT claimed as usable", () => {
+    // The first draft of the receipt said "it is now in your commands" for every action.
+    // False: the command list is the current job's skillset plus the equipped Secondary,
+    // so a Knight who buys Wave Fist has bought something they still cannot use. A
+    // confident-but-wrong message is the exact failure the receipt exists to fix, and
+    // this test caught it — membership is now read off the real projection.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    m.setBrowseJob("monk");
+    m.learn("monk", "wave-fist");
+    expect(m.commands()).not.toContain("punch-art.wave-fist");
+    expect(m.learnReceipt()?.slot).toBe("secondary");
+  });
+
+  it("an action from the unit's OWN job is claimed as usable, and is", () => {
+    const m = new PrepModel({ registry, records: [monkish("u1", 200)] });
+    m.learn("monk", "chakra");
+    expect(m.learnReceipt()?.slot).toBe("command");
+    expect(m.commands()).toContain("punch-art.chakra");
+  });
+
+  it("the receipt does not follow the panel to another member", () => {
+    // A receipt for somebody else's purchase is worse than none.
+    const m = new PrepModel({ registry, records: [knightish("u1"), monkish("u2", 200)] });
+    m.learn("knight", "hp-boost");
+    expect(m.learnReceipt()).not.toBeNull();
+    m.select("u2");
+    expect(m.learnReceipt()).toBeNull();
+  });
+});
