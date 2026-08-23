@@ -32,6 +32,7 @@
  * Deterministic: no RNG, no wall-clock, no timers.
  */
 
+import { abilitySummary } from "./ability-text.js";
 import pack from "../../data/base-pack.json";
 import {
   DEFERRED_ACTIONS,
@@ -214,6 +215,15 @@ export interface LearnRow {
    * finds nothing and reasonably concludes the 60 AP did nothing.
    */
   kind: "action" | "reaction" | "support" | "movement";
+  /**
+   * What the ability does, derived from its own fields (`ability-text.ts`), or `null`
+   * when the content declares nothing a player could act on.
+   *
+   * `null` is not a gap in the UI: every ability that summarises to `null` is one the
+   * game already labels "no effect yet", so the row is never blank AND unexplained.
+   * That is asserted, because it is the property the whole design leans on.
+   */
+  summary: string | null;
   /**
    * Why the ability this node grants currently does NOTHING, or `null` when it is live.
    *
@@ -455,7 +465,9 @@ export class PrepModel {
     const jobId = this.browseJob();
     return this.registry.job(jobId).tree.map((node) => {
       const deferred = deferredBlocker(node.ability);
-      const kind = this.registry.ability(node.ability).type;
+      const ability = this.registry.ability(node.ability);
+      const kind = ability.type;
+      const summary = abilitySummary(ability);
       if (known.has(node.ability)) {
         return {
           node: node.node,
@@ -466,6 +478,7 @@ export class PrepModel {
           reason: null,
           deferred,
           kind,
+          summary,
         };
       }
       const check = canLearn(r, jobId, node.node, this.registry);
@@ -478,6 +491,7 @@ export class PrepModel {
         reason: check.ok ? null : check.reason,
         deferred,
         kind,
+        summary,
       };
     });
   }
@@ -586,6 +600,7 @@ const valueOrNull = (v: string): string | null => (v === "" ? null : v);
 export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle {
   const model = new PrepModel(opts);
   const progression = opts.progression ?? false;
+  const registry = opts.registry;
 
   function sel(testid: string): HTMLElement {
     const el = container.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
@@ -608,6 +623,20 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       )
       .join("");
     return `<div class="roster" data-testid="prep-roster">${tabs}</div>`;
+  }
+
+  /**
+   * What the ability currently in `slot` does, or nothing when the slot is empty.
+   *
+   * A `<select>` can only show one line per option, so the description of the CHOSEN
+   * one goes underneath it. Empty slot ⇒ no line at all, rather than "nothing equipped"
+   * — the dropdown already reads "— none —" and repeating it is noise.
+   */
+  function equippedSummary(slot: "reaction" | "support" | "movement"): string {
+    const id = model.record().loadout[slot];
+    if (id === null) return "";
+    const summary = abilitySummary(registry.ability(id));
+    return summary === null ? "" : `<p class="hint">${esc(summary)}</p>`;
   }
 
   /**
@@ -674,15 +703,22 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         const cls = [row.known ? "known" : "", row.buyable ? "" : "locked", row.deferred === null ? "" : "deferred"]
           .filter(Boolean)
           .join(" ");
+        // The description sits UNDER the name rather than in a `title` tooltip: AP is
+        // spent permanently, so what a purchase does must be readable without hovering
+        // (and a tooltip is unreachable on touch).
+        const desc =
+          row.summary === null ? "" : `<span class="desc">${esc(row.summary)}</span>`;
         if (row.known) {
-          return `<li class="${cls}" data-node="${esc(row.node)}"><span class="n">${label}</span><span class="s">learned</span></li>`;
+          return `<li class="${cls}" data-node="${esc(row.node)}"><span class="n">${label}</span><span class="s">learned</span>${desc}</li>`;
         }
         const why = row.buyable ? `Spend ${row.apCost} AP` : (row.reason ?? "");
         return (
           `<li class="${cls}" data-node="${esc(row.node)}">` +
           `<span class="n">${label}</span>` +
           `<button type="button" class="buy" data-learn="${esc(row.node)}"` +
-          `${row.buyable ? "" : " disabled"} title="${esc(why)}">${row.apCost} AP</button></li>`
+          `${row.buyable ? "" : " disabled"} title="${esc(why)}">${row.apCost} AP</button>` +
+          desc +
+          `</li>`
         );
       })
       .join("");
@@ -779,9 +815,15 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     const commandItems = commands
       .map((id) => {
         const blocker = DEFERRED_ACTIONS[id];
+        // `basic.attack` is weapon-derived and has no catalog entry, so the lookup is
+        // guarded rather than assumed — the equipped weapon's own numbers describe it.
+        const summary = registry.abilityById.has(id)
+          ? abilitySummary(registry.ability(id))
+          : null;
+        const desc = summary === null ? "" : `<span class="desc">${esc(summary)}</span>`;
         return blocker === undefined
-          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}</li>`
-          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span></li>`;
+          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}${desc}</li>`
+          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span>${desc}</li>`;
       })
       .join("");
 
@@ -805,14 +847,17 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       <div class="slot">
         <h3>Reaction</h3>
         <select data-testid="prep-reaction" aria-label="Reaction ability">${abilitySelect("reaction")}</select>
+        ${equippedSummary("reaction")}
       </div>
       <div class="slot">
         <h3>Support</h3>
         <select data-testid="prep-support" aria-label="Support ability">${abilitySelect("support")}</select>
+        ${equippedSummary("support")}
       </div>
       <div class="slot">
         <h3>Movement</h3>
         <select data-testid="prep-movement" aria-label="Movement ability">${abilitySelect("movement")}</select>
+        ${equippedSummary("movement")}
       </div>
       <div class="slot" data-testid="prep-traits">
         <h3>Traits <span class="lock">max 2</span></h3>
