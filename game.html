@@ -31,6 +31,10 @@
       button[disabled] { opacity: .42; cursor: not-allowed; }
       button[hidden] { display: none; }
       button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .party li.benched { opacity: .5; }
+      .party .pick { background: none; border: 1px solid var(--border); color: var(--accent); font-family: var(--mono); font-size: .8rem; padding: 0 6px; border-radius: 5px; margin-right: 4px; }
+      .party li.benched .pick { color: var(--ink-faint); }
+      #brief-deploy-note { margin: 10px 0 0; font-size: .8rem; color: var(--ink-faint); }
       .help-btn { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.2rem; line-height: 1; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
       dialog#help { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); }
       dialog#help::backdrop { background: rgba(6,9,16,.72); }
@@ -164,6 +168,7 @@
           <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
           <p id="brief-note" class="lede" data-testid="brief-note"></p>
           <ul class="party" id="brief-party" data-testid="brief-party"></ul>
+          <p class="hint" id="brief-deploy-note" data-testid="brief-deploy-note" hidden></p>
           <div class="controls">
             <button id="btn-deploy" data-testid="deploy">Deploy ▸</button>
             <button id="btn-brief-quit" class="ghost" data-testid="brief-quit">Quit to title</button>

@@ -19,6 +19,9 @@
 
 import {
   loadCampaignBattle,
+  deployableSlots,
+  parseEncounter,
+  setDeployment,
   resolveCampaignBattle,
   retryBattle,
   startCampaign,
@@ -346,6 +349,52 @@ export class CampaignShell {
       throw new Error("updateParty: the party cannot be edited during a battle");
     }
     this.save = updatePartyMember(this.save, record);
+    this.persist();
+  }
+
+  /**
+   * How many party members this battle fields, and who is currently chosen.
+   *
+   * The COUNT comes from the encounter, never from the party: the campaign ramps
+   * 2 → 3 → 4 units and that ramp is authored content. `chosen` falls back to the
+   * encounter's own placements when the player has not picked, so "the default" is
+   * always the authored roster rather than a guess made here.
+   *
+   * `null` when there is no battle to deploy into (the title or ending screen).
+   */
+  deployment(): { slots: number; chosen: string[]; party: UnitRecord[] } | null {
+    if (!this.save) return null;
+    const battle = currentBattle(this.def, this.save);
+    if (!battle) return null;
+    const encDef = this.encounters[battle.encounterId];
+    if (encDef === undefined) return null;
+    const encounter = parseEncounter(encDef);
+    const slots = deployableSlots(encounter, this.def.playerTeam);
+    const authored = encounter.placements
+      .filter((p) => p.teamId === this.def.playerTeam)
+      .map((p) => (p.unit.kind === "ref" ? p.unit.recordId : ""));
+    const chosen = this.save.deployment.length > 0 ? [...this.save.deployment] : authored;
+    return { slots: slots.length, chosen, party: [...this.save.party] };
+  }
+
+  /**
+   * Choose who deploys. Refused mid-battle for the same reason `updateParty` is: the
+   * units on the field were compiled at deploy time, so a change here would appear to
+   * do nothing and then take effect an hour later.
+   *
+   * The COUNT is checked here because only this class can see both the save and the
+   * encounter; membership and duplicates are `setDeployment`'s, in the sim.
+   */
+  setDeployment(ids: readonly string[]): void {
+    if (!this.save) throw new Error("setDeployment: no campaign in progress");
+    if (this.session !== null) {
+      throw new Error("setDeployment: the roster cannot be changed during a battle");
+    }
+    const current = this.deployment();
+    if (current && ids.length !== current.slots) {
+      throw new Error(`setDeployment: this battle fields ${current.slots}, not ${ids.length}`);
+    }
+    this.save = setDeployment(this.save, ids);
     this.persist();
   }
 

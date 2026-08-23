@@ -23,10 +23,11 @@ import {
   retryBattle,
   serializeCampaign,
   startCampaign,
+  setDeployment,
   updatePartyMember,
   type CampaignDef,
 } from "./campaign.js";
-import { runCampaign, runCampaignBattle, type EncounterMap } from "./campaign-run.js";
+import { runCampaign, runCampaignBattle, loadCampaignBattle, deployableSlots, type EncounterMap } from "./campaign-run.js";
 import { loadContentPack, type ContentRegistry } from "./content.js";
 
 function loadShippedPack(): ContentRegistry {
@@ -216,5 +217,95 @@ describe("the AP grant is not a damage proxy", () => {
       expect(b.rewards["pc-ottoline"]!.participated).toBe(true);
       expect(b.rewards["pc-ottoline"]!.meaningfulActions, b.battleId).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("the player chooses WHO deploys, never how many (playtest, 2026-08-22)", () => {
+  it("DISCRIMINATING: a chosen roster reaches the BATTLE STATE, not just the save", () => {
+    // Both the played shell and the headless runner call `loadCampaignBattle`, so an
+    // A/B between them would prove only that they agree — CLAUDE.md's rule. This
+    // reaches THROUGH the shared helper to an observable end: the units standing on
+    // the board are the ones chosen, and the ones not chosen are absent.
+    const save = startCampaign(def);
+    const loadedDefault = loadCampaignBattle(def, save, encounters, resolver);
+    const slots = deployableSlots(loadedDefault.encounter, def.playerTeam);
+    expect(slots.length).toBe(2); // battle one really is a two-slot fight
+
+    // NOT unit ids: `loadEncounter` names a battle unit after its SLOT (`blue-kest`),
+    // not after the record standing in it — deliberately, so `deriveRewards` can map
+    // back through the placements. Asserting ids would have compared two identical
+    // lists and passed whether or not the swap did anything. The COMMAND LIST is the
+    // observable: a Monk brings Wave Fist, a Priest brings Cure.
+    const onField = (s: typeof loadedDefault) =>
+      s.state.units
+        .filter((u) => u.teamId === def.playerTeam)
+        .flatMap((u) => u.abilities.map((a) => a.id))
+        .sort();
+    // Battle one authors Vance + Kest; swap Kest for Ottoline, who never deploys early.
+    const swapped = setDeployment(save, ["pc-vance", "pc-ottoline"]);
+    const loadedSwapped = loadCampaignBattle(def, swapped, encounters, resolver);
+
+    // The COUNT is unchanged — the ramp is the encounter's, not the player's.
+    expect(
+      loadedSwapped.state.units.filter((u) => u.teamId === def.playerTeam).length,
+    ).toBe(slots.length);
+    expect(onField(loadedDefault)).toContain("punch-art.wave-fist"); // Kest deployed
+    expect(onField(loadedSwapped)).toContain("white-magic.cure"); // Ottoline did
+    expect(onField(loadedSwapped)).not.toEqual(onField(loadedDefault));
+
+    // And the SLOT keeps its authored name-mapping target, which is what the board
+    // labels read: the placement now points at Ottoline, so the field says Ottoline.
+    const refs = loadedSwapped.encounter.placements
+      .filter((p) => p.teamId === def.playerTeam)
+      .map((p) => (p.unit.kind === "ref" ? p.unit.recordId : ""));
+    expect(refs).toEqual(["pc-vance", "pc-ottoline"]);
+  });
+
+  it("the substituted member keeps the slot's POSITION and earns its AP", () => {
+    // Substituting the record rather than the placement is what keeps `deriveRewards`
+    // working: it maps battle-unit ids back through the same placements. If a swap had
+    // moved the placement instead, the newcomer would fight from nowhere and be paid
+    // nothing.
+    const save = setDeployment(startCampaign(def), ["pc-ottoline", "pc-briar"]);
+    const authored = loadCampaignBattle(def, startCampaign(def), encounters, resolver);
+    const swapped = loadCampaignBattle(def, save, encounters, resolver);
+    const posOf = (s: typeof authored) =>
+      s.state.units.filter((u) => u.teamId === def.playerTeam).map((u) => `${u.pos.x},${u.pos.y}`);
+    expect(posOf(swapped)).toEqual(posOf(authored));
+
+    const step = runCampaignBattle(def, save, encounters, resolver);
+    const paid = Object.entries(step.battle.report.contributionByUnit).length;
+    expect(paid).toBeGreaterThan(0);
+    // Ottoline deployed, so she can now bank AP in battle one — which she never could.
+    expect(step.save.party.find((r) => r.id === "pc-ottoline")!.ap).toBeGreaterThan(0);
+  });
+
+  it("refuses a roster that is the wrong size, rather than truncating it", () => {
+    const save = startCampaign(def);
+    const three = setDeployment(save, ["pc-vance", "pc-kest", "pc-briar"]);
+    expect(() => loadCampaignBattle(def, three, encounters, resolver)).toThrow(/2 slots/);
+  });
+
+  it("refuses a duplicate and a non-member at the save layer", () => {
+    const save = startCampaign(def);
+    expect(() => setDeployment(save, ["pc-vance", "pc-vance"])).toThrow(/twice/);
+    expect(() => setDeployment(save, ["pc-vance", "foe-brigand"])).toThrow(/not in the party/);
+  });
+
+  it("an empty choice means the ENCOUNTER's roster, not an empty field", () => {
+    // The default is authored, never guessed here — and `[]` is what every migrated v2
+    // save carries, so this is also the assertion that they still play identically.
+    const save = startCampaign(def);
+    expect(save.deployment).toEqual([]);
+    const loaded = loadCampaignBattle(def, save, encounters, resolver);
+    expect(loaded.state.units.filter((u) => u.teamId === def.playerTeam).length).toBe(2);
+  });
+
+  it("advancing a battle CLEARS the choice", () => {
+    // Battle three has two more slots than battle one; a roster carried forward would
+    // be the wrong size and throw at the next load.
+    const save = setDeployment(startCampaign(def), ["pc-vance", "pc-ottoline"]);
+    const after = runCampaignBattle(def, save, encounters, resolver).save;
+    expect(after.deployment).toEqual([]);
   });
 });

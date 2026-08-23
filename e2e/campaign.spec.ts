@@ -273,3 +273,38 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   await page.locator('[data-testid="prep-traits"] input[type="checkbox"]').first().check();
   await expect(traitHint).toHaveCount(0);
 });
+
+test("deployment: the briefing shows who fights, and a click swaps them into the battle", async ({ page }) => {
+  // The gap: the briefing listed four names and then deployed two, which reads as a bug
+  // rather than the authored ramp it is. What only a browser proves is that the click
+  // reaches the SAVE and then the BOARD — the headless tests drive the shell directly.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+
+  await expect(page.getByTestId("brief-deploy-note")).toContainText("fields 2 of 4");
+  const benched = page.locator('[data-testid="brief-party"] li.benched');
+  await expect(benched).toHaveCount(2);
+
+  // Bench somebody who is going, by deploying somebody who is not.
+  await page.locator('[data-testid="brief-party"] li.benched button[data-deploy]').first().click();
+  await expect(benched).toHaveCount(2); // the COUNT never moves — the ramp is the battle's
+
+  const chosen = await page.evaluate(() => window.tuhGame.save()?.deployment ?? []);
+  expect(chosen).toHaveLength(2);
+
+  // The names still on the briefing's DEPLOYED rows are the ones that must appear on
+  // the board. Read them off the page rather than writing them down: which member the
+  // click promoted depends on the authored roster, and hard-coding it would rot the
+  // moment the campaign's opening battle is re-authored.
+  const going = await page
+    .locator('[data-testid="brief-party"] li:not(.benched) b')
+    .allInnerTexts();
+  expect(going).toHaveLength(2);
+
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // The timeline names every unit due to act, so it is where "who actually took the
+  // field" is observable to a player.
+  const timeline = page.getByTestId("timeline");
+  for (const name of going) await expect(timeline).toContainText(name);
+});

@@ -194,12 +194,66 @@ function renderBriefingText(): void {
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
   const party = shell.save?.party ?? [];
+  const dep = shell.deployment();
+  const chosen = new Set(dep?.chosen ?? party.map((r) => r.id));
+
+  // Every member is listed, but WHO FIGHTS is marked — the briefing used to show four
+  // names and then send two, which reads as a bug rather than as the authored ramp it is.
   el("brief-party").innerHTML = party
-    .map(
-      (r) =>
-        `<li><b>${r.name}</b> · ${r.currentJob} · <span class="muted">${r.ap} AP banked</span></li>`,
-    )
+    .map((r) => {
+      const going = chosen.has(r.id);
+      return (
+        `<li class="${going ? "deployed" : "benched"}">` +
+        `<button type="button" class="pick" data-deploy="${r.id}"` +
+        ` aria-pressed="${going}" title="${going ? "Deployed — click to bench" : "Benched — click to deploy"}">` +
+        `${going ? "▪" : "▫"}</button> ` +
+        `<b>${r.name}</b> · ${r.currentJob} · <span class="muted">${r.ap} AP banked</span>` +
+        `${going ? "" : ` <span class="muted">· benched</span>`}</li>`
+      );
+    })
     .join("");
+
+  const note = el("brief-deploy-note");
+  if (dep === null) {
+    note.hidden = true;
+  } else {
+    note.hidden = false;
+    note.textContent =
+      `This battle fields ${dep.slots} of ${party.length}. ` +
+      `A benched member earns no AP — click a name to swap.`;
+  }
+
+  // Rebound on every repaint because the list is rewritten wholesale.
+  for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-deploy]")) {
+    btn.addEventListener("click", () => guard(() => toggleDeploy(btn.dataset["deploy"] as string)));
+  }
+}
+
+/**
+ * Swap one member in or out.
+ *
+ * The slot count is FIXED by the encounter, so benching somebody is only legal when
+ * another is benched to take their place — otherwise the click would silently shrink
+ * the party the battle expects. Deploying somebody when the roster is full replaces the
+ * FIRST currently-deployed member who was not just clicked, which is what "swap" means
+ * with no drag-and-drop: one click, one exchange, and the reason is visible in the list.
+ */
+function toggleDeploy(id: string): void {
+  const dep = shell.deployment();
+  if (!dep) return;
+  const chosen = [...dep.chosen];
+  const at = chosen.indexOf(id);
+  if (at !== -1) {
+    // Benching: only if somebody is waiting to take the slot.
+    const bench = dep.party.map((r) => r.id).filter((pid) => !chosen.includes(pid));
+    if (bench.length === 0) return;
+    chosen[at] = bench[0]!;
+  } else {
+    // Deploying: take the first slot, pushing its occupant to the bench.
+    chosen[0] = id;
+  }
+  shell.setDeployment(chosen);
+  refresh();
 }
 
 function renderBriefing(): void {
