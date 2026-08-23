@@ -142,22 +142,40 @@ const esc = (s: string): string =>
 
 // ---- The derived stat strip -------------------------------------------------
 
-/** The derived combat stats surfaced in the live stat strip. */
+/**
+ * The derived combat stats surfaced in the live stat strip.
+ *
+ * `damage`, `brave` and `faith` were added after a learnability walkthrough
+ * (`docs/plans/learnability-walkthrough-2026-08-23.md`, finding 2): the strip carried
+ * HP / PA / MA / Move / Evade, so equipping the **Cestus** (Brave +5) or **Heretic's
+ * Edge** (Faith −20) moved nothing a player could see. They did the right thing and got
+ * no evidence it worked — the cognitive walkthrough's question 4, failed.
+ *
+ * `damage` is the basic attack's own figure rather than a stat, because it is the one
+ * number a weapon swap is ABOUT and PA alone does not predict it: a horizontal catalog
+ * (ADR-0021) has weapons that scale off Brave, off Speed, or off nothing at all.
+ */
 export interface StatLine {
   hp: number;
   pa: number;
   ma: number;
   move: number;
   evade: number;
+  damage: number;
+  brave: number;
+  faith: number;
 }
 
 /** Stat strip cells: display label + which {@link StatLine} field, in display order. */
 const STAT_CELLS: ReadonlyArray<{ key: keyof StatLine; label: string; suffix: string }> = [
   { key: "hp", label: "HP", suffix: "" },
+  { key: "damage", label: "Attack", suffix: "" },
   { key: "pa", label: "PA", suffix: "" },
   { key: "ma", label: "MA", suffix: "" },
   { key: "move", label: "Move", suffix: "" },
   { key: "evade", label: "Evade", suffix: "%" },
+  { key: "brave", label: "Brave", suffix: "" },
+  { key: "faith", label: "Faith", suffix: "" },
 ];
 
 // ---- The panel --------------------------------------------------------------
@@ -264,6 +282,17 @@ export class PrepModel {
    */
   private browse: string | null = null;
   private inv: string[];
+  /**
+   * The ability bought by the most recent {@link learn}, so the panel can say where it
+   * went. Cleared whenever the panel is re-pointed at different records or a different
+   * member — a receipt for somebody else's purchase is worse than none.
+   *
+   * WHY THIS EXISTS. Buying a passive adds nothing to "Commands in battle" — correctly,
+   * a Support is not a command — so a player who spent 60 unrefundable AP saw no change
+   * at all and had no way to know the ability was waiting in a dropdown
+   * (`docs/plans/learnability-walkthrough-2026-08-23.md`, finding 1).
+   */
+  private justLearned: string | null = null;
 
   constructor(opts: PrepModelOptions) {
     if (opts.records.length === 0) throw new Error("PrepModel: needs at least one record");
@@ -299,6 +328,7 @@ export class PrepModel {
     // A different unit means a different tree to land on; keeping the old one would
     // show a Knight the Thief tree they were reading for someone else.
     this.browse = null;
+    this.justLearned = null;
   }
 
   /**
@@ -320,6 +350,7 @@ export class PrepModel {
     this.recs = [...next];
     this.index = nextIndex;
     this.browse = null;
+    this.justLearned = null;
     return true;
   }
 
@@ -339,7 +370,18 @@ export class PrepModel {
    */
   stats(record: UnitRecord = this.record()): StatLine {
     const u = buildBattleUnit(record, this.registry);
-    return { hp: u.maxHp, pa: u.pa, ma: u.ma, move: u.move, evade: u.evasion.classEv };
+    return {
+      hp: u.maxHp,
+      pa: u.pa,
+      ma: u.ma,
+      move: u.move,
+      evade: u.evasion.classEv,
+      // Read off the SAME built unit, so the strip cannot quote a number the fight
+      // disagrees with — and so a Brave- or Faith-shifting weapon shows up here.
+      damage: weaponBaseDamage(u),
+      brave: u.brave,
+      faith: u.faith,
+    };
   }
 
   /** Job ids equippable as the Secondary: another job the unit knows an action in. */
@@ -556,8 +598,33 @@ export class PrepModel {
 
   /** Buy a tree node with banked AP, then latch any mastery it completed. */
   learn(jobId: string, nodeId: string): void {
+    const node = this.registry.job(jobId).tree.find((n) => n.node === nodeId);
     const bought = learnAbility(this.record(), jobId, nodeId, this.registry);
+    this.justLearned = node?.ability ?? null;
     this.commit(checkMastery(bought, jobId, this.registry));
+  }
+
+  /**
+   * What the last purchase was and where the player must now put it, or `null` when
+   * nothing was just bought.
+   *
+   * Three outcomes, not two, and the third is the one that bites: an ACTION bought from
+   * ANOTHER job's tree does **not** appear in the command list either. The list is the
+   * current job's skillset plus the equipped Secondary, so a Knight who buys Wave Fist
+   * must first equip Monk as their Secondary. A receipt that said "it is in your
+   * commands now" would be the exact failure this method exists to fix — a confident
+   * message that is false — so membership is READ OFF the real projection rather than
+   * inferred from the ability's type.
+   */
+  learnReceipt(): {
+    ability: string;
+    slot: "command" | "secondary" | "reaction" | "support" | "movement";
+  } | null {
+    if (this.justLearned === null) return null;
+    const type = this.registry.ability(this.justLearned).type;
+    if (type !== "action") return { ability: this.justLearned, slot: type };
+    const usable = this.commands().includes(this.justLearned);
+    return { ability: this.justLearned, slot: usable ? "command" : "secondary" };
   }
 
   /**
@@ -664,6 +731,26 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     if (id === null) return "";
     const summary = abilitySummary(registry.ability(id));
     return summary === null ? "" : `<p class="hint">${esc(summary)}</p>`;
+  }
+
+  /**
+   * A receipt for the purchase just made, naming where the ability went.
+   *
+   * Only after a purchase, and only until the panel is re-pointed — a permanent note
+   * would be wallpaper, and the walkthrough finding was specifically about the moment
+   * of buying.
+   */
+  function receiptHtml(): string {
+    const r = model.learnReceipt();
+    if (r === null) return "";
+    const name = esc(abilityLabel(r.ability));
+    const where =
+      r.slot === "command"
+        ? `<b>${name}</b> is now in this unit's commands.`
+        : r.slot === "secondary"
+          ? `<b>${name}</b> belongs to another job — equip that job as this unit's <b>Secondary</b> command above to use it.`
+          : `<b>${name}</b> is a passive — equip it in the <b>${r.slot}</b> slot above to use it.`;
+    return `<p class="receipt" data-testid="prep-receipt">Learned. ${where}</p>`;
   }
 
   /**
@@ -778,6 +865,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         <select data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
         <p class="hint">AP is one pool — you can buy from any job's tree without changing job. Learning one action from another job unlocks it as a Secondary command.</p>
         <ul class="learn-list" data-testid="prep-learn">${rows}</ul>
+        ${receiptHtml()}
       </div>
     </div>`;
   }

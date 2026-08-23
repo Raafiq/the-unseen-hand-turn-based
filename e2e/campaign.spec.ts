@@ -308,3 +308,29 @@ test("deployment: the briefing shows who fights, and a click swaps them into the
   const timeline = page.getByTestId("timeline");
   for (const name of going) await expect(timeline).toContainText(name);
 });
+
+test("learnability: the board explains itself and the buttons drop engine jargon", async ({ page }) => {
+  // Findings 3 and 4 of the cognitive walkthrough. Scoped to what ONLY a browser can
+  // show: the legend exists solely in markup, and the End Turn label is rendered text.
+  // The purchase receipt (finding 1) is asserted in `prep.test.ts`, where the model can
+  // be handed AP directly — battle one pays none, so a browser test would have to walk
+  // three battles to reach a purchase and would be testing the campaign, not the fix.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+
+  const legend = page.getByTestId("legend");
+  await expect(legend).toBeVisible();
+  await expect(legend).toContainText("Your party");
+  await expect(legend).toContainText("Enemies");
+
+  // "CT" is the engine's word for the turn clock. It belonged on neither of the two
+  // controls a new player looks at most.
+  // Checked across ALL FOUR surfaces, not just the button: the first pass reworded the
+  // button and left the preview panel two inches below still reading "CT AFTER", which
+  // is worse than not fixing it — the two controls then disagreed on vocabulary.
+  for (const id of ["end-turn", "timeline", "preview", "status"]) {
+    await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
+  }
+});

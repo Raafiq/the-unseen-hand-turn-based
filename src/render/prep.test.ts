@@ -454,3 +454,82 @@ describe("the weapon picker shows damage for THIS unit (playtest follow-up)", ()
     expect(m.currentWeaponDamage()).toBe(shown);
   });
 });
+
+describe("the player sees that their action WORKED (learnability walkthrough, 2026-08-23)", () => {
+  it("DISCRIMINATING: equipping a Brave-shifting weapon MOVES the stat strip", () => {
+    // Finding 2. The strip carried HP / PA / MA / Move / Evade, so the Cestus (Brave +5)
+    // changed nothing visible — the player did the right thing and got no evidence of it.
+    // The fixture is deliberately a weapon whose ONLY effect is off the old strip: one
+    // that also moved Evade would pass against the pre-fix code.
+    const rec = defaultUnitRecord("u1", "monk", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 190, mp: 24 },
+      brave: 70,
+      faith: 50,
+    });
+    const m = new PrepModel({ registry, records: [rec], inventory: ["wpn-cestus"] });
+    const before = m.stats();
+    m.setWeapon("wpn-cestus");
+    const after = m.stats();
+
+    expect(after.brave).not.toBe(before.brave);
+    expect(after).not.toEqual(before);
+    // The old strip's five fields are untouched by this weapon — which is exactly why
+    // the gap existed, and why this assertion pins that the NEW fields carry it.
+    expect(after.evade).toBe(before.evade);
+    expect(after.pa).toBe(before.pa);
+  });
+
+  it("the strip's Attack figure follows the equipped weapon", () => {
+    const rec = defaultUnitRecord("u1", "knight", {
+      raw: { pa: 8, ma: 8, speed: 8, hp: 255, mp: 24 },
+      brave: 70,
+      faith: 50,
+    });
+    const m = new PrepModel({ registry, records: [rec], inventory: ["wpn-warhammer"] });
+    const before = m.stats().damage;
+    m.setWeapon("wpn-warhammer");
+    expect(m.stats().damage).not.toBe(before);
+    expect(m.stats().damage).toBe(m.currentWeaponDamage());
+  });
+
+  it("DISCRIMINATING: buying a PASSIVE names the slot it is waiting in", () => {
+    // Finding 1, the most severe. A Support adds nothing to the command list — correctly
+    // — so without this the player spent 60 unrefundable AP and saw no change at all.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    expect(m.learnReceipt()).toBeNull(); // nothing claimed before a purchase
+
+    m.learn("knight", "hp-boost");
+    const receipt = m.learnReceipt();
+    expect(receipt?.ability).toBe("battle-skill.hp-boost");
+    expect(receipt?.slot).toBe("support"); // NOT "command" — that is the whole finding
+  });
+
+  it("DISCRIMINATING: a cross-job ACTION is NOT claimed as usable", () => {
+    // The first draft of the receipt said "it is now in your commands" for every action.
+    // False: the command list is the current job's skillset plus the equipped Secondary,
+    // so a Knight who buys Wave Fist has bought something they still cannot use. A
+    // confident-but-wrong message is the exact failure the receipt exists to fix, and
+    // this test caught it — membership is now read off the real projection.
+    const m = new PrepModel({ registry, records: [knightish()] });
+    m.setBrowseJob("monk");
+    m.learn("monk", "wave-fist");
+    expect(m.commands()).not.toContain("punch-art.wave-fist");
+    expect(m.learnReceipt()?.slot).toBe("secondary");
+  });
+
+  it("an action from the unit's OWN job is claimed as usable, and is", () => {
+    const m = new PrepModel({ registry, records: [monkish("u1", 200)] });
+    m.learn("monk", "chakra");
+    expect(m.learnReceipt()?.slot).toBe("command");
+    expect(m.commands()).toContain("punch-art.chakra");
+  });
+
+  it("the receipt does not follow the panel to another member", () => {
+    // A receipt for somebody else's purchase is worse than none.
+    const m = new PrepModel({ registry, records: [knightish("u1"), monkish("u2", 200)] });
+    m.learn("knight", "hp-boost");
+    expect(m.learnReceipt()).not.toBeNull();
+    m.select("u2");
+    expect(m.learnReceipt()).toBeNull();
+  });
+});

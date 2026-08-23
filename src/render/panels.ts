@@ -47,7 +47,7 @@ function chip(
 ): string {
   const cls = `chip${leading ? " lead" : ""}${projected ? " proj" : ""}`;
   const title = projected
-    ? `Projected — this slot assumes every turn ahead of it costs −${ASSUMED_FUTURE_TURN_COST} CT`
+    ? `A guess — this slot assumes every turn ahead of it costs −${ASSUMED_FUTURE_TURN_COST} clock`
     : "Exact — no actor ahead of this slot takes a second turn first";
   if (actor.kind === "charge") {
     const charge = state.chargeQueue.find((c) => c.id === actor.id);
@@ -76,8 +76,8 @@ export function timelineHtml(state: BattleState, look: LookUp): string {
   const divider =
     assumedFrom >= entries.length
       ? ""
-      : `<span class="tl-split" title="From here on, a Wait (−60) or a move+act fold (−100) by anyone ahead moves the order">
-          projected · −${ASSUMED_FUTURE_TURN_COST}/turn ▸</span>`;
+      : `<span class="tl-split" title="A guess from here on: it assumes everyone ahead takes an ordinary turn. Anyone who only waits, or who moves and attacks together, will shift the order.">
+          guessed from here ▸</span>`;
   return (
     `<span class="tl-label">Next up</span>` +
     entries
@@ -114,9 +114,9 @@ export function previewHtml(session: Session, look: LookUp): string {
   if (!p) {
     const cost = session.endTurnCost();
     return cost
-      ? row("Turn as staged", `${cost.didMove ? "Move only" : "Wait"} · −${cost.cost} CT`) +
-          row("CT after", `${cost.ctBefore} → ${cost.ctAfter}`) +
-          `<p class="phint">Hover an enemy to see the exact hit %, damage and CT price before you commit.</p>`
+      ? row("Turn as staged", `${cost.didMove ? "Move only" : "Wait"} · −${cost.cost} clock`) +
+          row("Turn clock after", `${cost.ctBefore} → ${cost.ctAfter}`) +
+          `<p class="phint">Hover an enemy to see the exact hit %, damage and clock cost before you commit.</p>`
       : `<p class="phint">No unit is awaiting your input.</p>`;
   }
   const hpBar = `${p.targetHpBefore} → ${p.targetHpAfter} / ${p.targetMaxHp}`;
@@ -157,8 +157,8 @@ export function previewHtml(session: Session, look: LookUp): string {
       : "") +
     row(
       "Turn price",
-      `${p.moved ? "Move + Act" : "Act"} · −${p.turn.cost} CT` +
-        ` · CT ${p.turn.ctBefore} → ${p.turn.ctAfter}`,
+      `${p.moved ? "Move + Act" : "Act"} · −${p.turn.cost} clock` +
+        ` · clock ${p.turn.ctBefore} → ${p.turn.ctAfter}`,
     ) +
     row(
       p.turn.timelineSlotExact ? "Next slot" : "Next slot (projected)",

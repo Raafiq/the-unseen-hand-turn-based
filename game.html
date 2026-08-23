@@ -35,6 +35,10 @@
       .party .pick { background: none; border: 1px solid var(--border); color: var(--accent); font-family: var(--mono); font-size: .8rem; padding: 0 6px; border-radius: 5px; margin-right: 4px; }
       .party li.benched .pick { color: var(--ink-faint); }
       #brief-deploy-note { margin: 10px 0 0; font-size: .8rem; color: var(--ink-faint); }
+      .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: .78rem; color: var(--ink-faint); }
+      .legend span { display: inline-flex; align-items: center; gap: 7px; }
+      .legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; display: inline-block; }
+      .legend .sw.ring { border: 2px solid var(--accent); background: rgba(226,169,72,.27); border-radius: 50%; }
       .help-btn { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.2rem; line-height: 1; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
       dialog#help { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); }
       dialog#help::backdrop { background: rgba(6,9,16,.72); }
@@ -112,6 +116,8 @@
       .learn-list li.locked { color: var(--ink-faint); }
       .learn-list li.deferred { border-style: dashed; }
       .learn-list li.deferred .tag { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 5px; }
+      .receipt { margin: 10px 0 0; font-size: .8rem; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(226,169,72,.08); color: var(--ink-soft); }
+      .receipt b { color: var(--ink); }
       .learn-list .kind { font-family: var(--mono); font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
       .learn-list li { flex-wrap: wrap; }
       .learn-list .desc, .cmd-list .desc { flex-basis: 100%; display: block; font-size: .72rem; color: var(--ink-faint); margin-top: 3px; line-height: 1.45; }
@@ -206,6 +212,12 @@
           </div>
           <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
           <div id="timeline" class="timeline" data-testid="timeline"></div>
+          <div class="legend" data-testid="legend">
+            <span><i class="sw" style="background:#4f8cff"></i>Your party</span>
+            <span><i class="sw" style="background:#e2603c"></i>Enemies</span>
+            <span><i class="sw" style="background:#e2a948"></i>Where the active unit can walk</span>
+            <span><i class="sw ring"></i>Whose turn it is</span>
+          </div>
         </div>
         <div class="cols">
           <div class="panel">

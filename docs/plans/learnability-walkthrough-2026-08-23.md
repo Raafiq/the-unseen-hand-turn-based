@@ -77,6 +77,17 @@ A "no" at any step is a learnability defect.
 
 ## Findings, ranked
 
+> **All four actionable findings were fixed on 2026-08-23.** Finding 5 was accepted as
+> intended behaviour, not a defect. Two things worth recording about the fixing:
+> the receipt's first draft told a Knight who bought Wave Fist that it was "now in your
+> commands" — **false**, because the command list is the current job's skillset plus the
+> equipped Secondary — and a test caught it; and the first pass at the jargon reworded
+> the End Turn button while leaving the preview panel two inches below reading
+> "CT AFTER", which is worse than not fixing it, because the two controls then disagreed.
+> Both are the same lesson as the findings themselves: a confident message that is wrong
+> costs more than no message.
+
+
 | # | Severity | Problem | Fix |
 |---|---|---|---|
 | 1 | **High** | Buying a passive produces no visible change (Task 5, Q4) | After a purchase, say where it went: "Learned — equip it in the Support slot". |

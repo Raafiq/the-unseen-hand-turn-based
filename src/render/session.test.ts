@@ -200,11 +200,24 @@ describe("Session — the turn state machine (docs/10 §3)", () => {
     expect(s.commands()).toHaveLength(0);
   });
 
-  it("End Turn's label states the price it will pay", () => {
+  it("End Turn's label states the price it will pay, and the two prices DIFFER", () => {
+    // docs/10 §3 requires the button to name its cost. It now names the CONSEQUENCE
+    // rather than the tick figure — "CT" was engine vocabulary on the control a new
+    // player looks at most (learnability walkthrough, finding 4).
+    //
+    // Asserted as a DIFFERENCE plus the distinguishing word, not as two literals: the
+    // wording is presentation and will be reworded again, but "waiting and moving cost
+    // different amounts, and the button says which you are about to pay" is the rule.
     const s = newSession();
-    expect(s.endTurnLabel()).toBe("End Turn · Wait · −60 CT");
+    const waited = s.endTurnLabel();
     s.onPick(FLANK_TILE);
-    expect(s.endTurnLabel()).toBe("End Turn · Move only · −80 CT");
+    const moved = s.endTurnLabel();
+
+    expect(waited).not.toBe(moved);
+    expect(waited).toContain("waited");
+    expect(moved).toContain("moved");
+    // …and neither leaks the engine's own vocabulary onto the button.
+    expect(`${waited} ${moved}`).not.toContain("CT");
   });
 });
 
