@@ -19,10 +19,13 @@ and headless: **no imports from `src/render`, ever** (ADR-0007).
 - **The codec uses explicit migrations with no schema `.default()`s.** Adding a *required*
   field therefore fans out to every typed literal (`defaultUnit`, tests, demo). That is the
   migration-per-bump pattern working as intended, not a reason to reach for a default.
-- **Only 3 of the 5 chassis slots are wired — check before you blame a build's numbers.**
-  `build.ts` applies the equipped **support** (ADR-0017, `support.ts`) at
-  `growth → trait → support → clamp`; **reaction and movement are still
-  validated-then-ignored**, as support was until it cost two slices of mis-diagnosis. A
+- **ALL FIVE chassis slots are wired now — and this line used to say three, which is the
+  more dangerous error.** Support (ADR-0017), reaction (ADR-0019), movement (ADR-0020)
+  and the weapon (ADR-0026) all reach the built unit; `build.ts` line-checks are
+  `applySupportEffect`, `equippedReaction`, `applyMovementEffect`, `equippedWeapon`. The
+  stale version told an agent NOT to suspect reaction or movement, which is exactly the
+  misdirection this bullet exists to prevent — **re-read it against `build.ts` before
+  trusting it.** A
   support's stat mods land on the unit, its ability mods (`chargeSpeed`, `abilityRange`) on
   each projected `BattleAbility` — and never on `basic.attack`, which is weapon-derived.
   Effect-less supports must be listed in `DEFERRED_SUPPORT_EFFECTS` with a blocker; a test
