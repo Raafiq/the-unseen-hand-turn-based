@@ -1,184 +1,49 @@
 # `src/render/` — the thin viewer
 
-Rules that apply while **editing viewer code**. The root `CLAUDE.md` still governs; this
-file holds what only matters in here. `README.md` next to this file describes what each
-module *is* — this one says what you must not break.
+Rules for **editing viewer code**. The root `CLAUDE.md` still governs; `README.md` next to this file says what each module *is*. This one says what you must not break.
 
-**`docs/10-viewer-and-interaction.md` is the authoritative spec** and outranks both this
-file and any ADR that contradicts it (AC-V1 … AC-V11).
+**`docs/10-viewer-and-interaction.md` is the authoritative spec** and outranks both this file and any ADR that contradicts it (AC-V1 … AC-V11).
 
 ## The two directional rules
 
-- **Render imports sim, never the reverse** (ADR-0007). The sim has zero render deps, which
-  is what keeps it deterministic and unit-testable.
-- **Player input is a command SOURCE, not a parallel engine.** A human clicking a tile and
-  the balance-probe AI choosing one produce the same `Command`, through the same
-  `applyCommand`, into the same replayable log — that is why player battles inherit rewind,
-  save and build-sharing for free. `advanceToDecision` is the single "who acts next"
-  primitive shared with the headless harness, so the two cannot diverge. **The sim owns
-  legality**: ask `moveRange` / `inAbilityRange` / the equipped `unit.abilities` projection;
-  never re-derive reachability with a radius or Manhattan check.
+- **Render imports sim, never the reverse** (ADR-0007). The sim has zero render deps, which is what keeps it deterministic and unit-testable.
+- **Player input is a command SOURCE, not a parallel engine.** A human clicking a tile and the balance-probe AI choosing one produce the same `Command`, through the same `applyCommand`, into the same replayable log — that is why player battles inherit rewind, save and build-sharing for free. `advanceToDecision` is the single "who acts next" primitive shared with the headless harness. **The sim owns legality**: ask `moveRange` / `inAbilityRange` / the equipped `unit.abilities` projection; never re-derive reachability with a radius or Manhattan check.
 
 ## Determinism still applies here
 
-`npm run check:rng` only scans `src/sim`, but **`session.ts` is state-bearing** — it emits
-the command log — so it must be hand-checked. It is currently clean: no wall-clock, no
-timers, and AI turns advance on an explicit **Step** rather than a racing timer, precisely
-so "how many commands have been applied by now" is never a function of elapsed time.
-`main.ts` and `iso.ts` may use wall-clock for animation pacing; nothing derived from it may
-enter `BattleState`.
+`npm run check:rng` only scans `src/sim`, but **`session.ts` is state-bearing** — it emits the command log — so hand-check it. It is currently clean: no wall-clock, no timers, and AI turns advance on an explicit **Step** rather than a racing timer, so "how many commands have been applied by now" is never a function of elapsed time. `main.ts` and `iso.ts` may use wall-clock for animation pacing; nothing derived from it may enter `BattleState`.
 
-- **Never preview by resolving.** `resolveAttack` consumes the seeded stream. `preview.ts`
-  deliberately does not *import* the resolvers or `applyCommand` at all, so the two ways to
-  break preview purity are unreachable rather than merely avoided (AC-V6).
-- **Never speculatively `applyCommand` and discard** — it advances the clock and can mature
-  a charge.
-- **Exactly one tile-driven mutator.** `pointerdown`, keyboard Enter, `clickTile` and
-  `clickCanvas` all bottom out in `Session.onPick`; `clickCanvas` adds exactly one thing over
-  `clickTile` — `pickTile`. That is what makes the test seam provably the path a real click
-  takes rather than parallel logic that drifts.
+- **Never preview by resolving.** `resolveAttack` consumes the seeded stream. `preview.ts` deliberately does not *import* the resolvers or `applyCommand`, so both ways to break preview purity are unreachable rather than merely avoided (AC-V6).
+- **Never speculatively `applyCommand` and discard** — it advances the clock and can mature a charge.
+- **Exactly one tile-driven mutator.** `pointerdown`, keyboard Enter, `clickTile` and `clickCanvas` all bottom out in `Session.onPick`; `clickCanvas` adds exactly one thing over `clickTile` — `pickTile`. That is what makes the test seam provably the path a real click takes.
 
 ## Two traps the shell sets, both earned
 
-- **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST
-  battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the
-  final victory's story beat was unreadable until the ending screen rendered it too — one
-  scene in the pack a player could never see, with every per-battle test green. When you
-  add anything to a screen here, enumerate the **transitions**, not the states:
-  `concludeBattle` branches on status, `continueGame` lands on three different screens,
-  and a loss on the last battle still goes to `AFTER_BATTLE`. Asserted in
-  `campaign-shell.test.ts`, mutation-verified.
-- **A sim docstring that delegates a rule to "the caller" is an obligation nobody is told
-  about.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates
-  nothing, which made `secondary === currentJob` reachable through the back door — exactly
-  the state `setLoadoutSlot` refuses to create, and one that throws nowhere downstream.
-  The caller owes a test. And **ask first whether a schema can see both fields**: a
-  refinement on `UnitRecordSchema` tells every codec boundary forever, where a docstring
-  told nobody.
+- **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the final victory's story beat was unreadable until the ending screen rendered it too — one scene a player could never see, with every per-battle test green. When you add anything to a screen, enumerate the **transitions**, not the states: `concludeBattle` branches on status, `continueGame` lands on three different screens, and a loss on the last battle still goes to `AFTER_BATTLE`.
+- **A sim docstring that delegates a rule to "the caller" is an obligation nobody is told about.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates nothing, which made `secondary === currentJob` reachable through the back door — exactly the state `setLoadoutSlot` refuses to create, and one that throws nowhere downstream. The caller owes a test. And **ask first whether a schema can see both fields**: a refinement on `UnitRecordSchema` tells every codec boundary forever, where a docstring told nobody.
 
 ## Honesty rules the UI must hold (pillar 4)
 
-- **Unmodeled things are ABSENT, never shown as zero.** Crit, reactions, status-on-hit,
-  elemental, AoE spread and LoS are deferred (ADR-0010); printing "Crit 0%" would assert a
-  modeled zero the engine cannot back up. `exactOptionalPropertyTypes` is on — keep those
-  fields genuinely absent from the type so the compiler enforces it.
-- **Never render a state the sim did not produce.** The demo once applied a scripted Slow
-  purely in the render layer, asserting a status the sim never inflicts; it was removed.
-  Damage popups are derived by *diffing HP* across a transition, so a popup can only report
-  a change the sim actually made.
-- **The timeline splits at an honesty boundary.** `forecast()` cannot know what a future
-  actor will *choose*, so it guesses once (`ASSUMED_FUTURE_TURN_COST` = −80). Slots below
-  `Forecast.assumedFrom` are fact; from it on they are projections and must render as such.
-  `assumedFrom` is computed at the *cheapest* legal turn (−60) so it is a lower bound and
-  never overclaims. **When `ai.ts` learns the move+act fold, this assumption breaks** —
-  `forecast.test.ts` is the oracle that will go red rather than let the UI lie quietly.
-- **When a deferred capability SHIPS, the absent row becomes a lie — go un-hide it.** The
-  rule is "never assert an effect the engine cannot back up", not "these keys stay hidden".
-  `preview.ts` correctly omitted `inflicts` while status-on-hit was unmodeled, and
-  `session.test.ts` asserted the key was *absent*. The moment the resolvers began applying
-  it, that same omission started hiding a Stop from a player about to commit the shot —
-  same rule, opposite verdict, because the engine moved. **Any slice that implements a
-  deferred effect owes a pass over the banned-key list**, and the new row needs a test
-  tying what the panel promises to what the sim actually does (not just that the key
-  exists).
-- **A battle with RULES is judged by `evalTerminal`; only a conditionless one may count
-  corpses.** `Session` ships both reads (ADR-0023). The team-wipe read is not a rule the
-  sim models — it is the most a battle with no `Condition` can honestly support, and it
-  is *wrong* for any authored encounter, where victory may be one named foe or a survival
-  clock. When you touch that branch, the discriminating fixture is a `defeatUnit` victory
-  with a second foe still alive: a wipe-counting viewer and `evalTerminal` give opposite
-  answers there. A fixture whose victory is "wipe team 1" passes under either and
-  certifies nothing.
-- **The viewer must never grow its own accounting.** `Session.report()` is assembled from
-  `harness.ts`'s exported fold (`seedContributions` / `accountEvents` / `assembleReport`),
-  because the campaign's AP grant reads `contributionByUnit[…].landedActions`. A second
-  fold here would pay a human differently from the probe for an identical battle, and both
-  would look correct alone. The check is the A/B in `session.test.ts`: a probe-driven
-  session's report is byte-compared to `runFromState`'s. Keep it that way.
-- **`pickTile` is not an algebraic inverse.** Per-tile height shifts a tile's screen position
-  and taller tiles occlude those behind, so it walks reverse painter's order. A naive inverse
-  picks the wrong tile on any raised terrain.
+- **Unmodeled things are ABSENT, never shown as zero.** Crit, reactions, status-on-hit, elemental, AoE spread and LoS are deferred (ADR-0010); printing "Crit 0%" asserts a modeled zero the engine cannot back up. `exactOptionalPropertyTypes` is on — keep those fields genuinely absent from the type so the compiler enforces it.
+- **Never render a state the sim did not produce.** The demo once applied a scripted Slow purely in the render layer, asserting a status the sim never inflicts; it was removed. Damage popups are derived by *diffing HP* across a transition, so a popup can only report a change the sim actually made.
+- **The timeline splits at an honesty boundary.** `forecast()` cannot know what a future actor will *choose*, so it guesses once (`ASSUMED_FUTURE_TURN_COST` = −80). Slots below `Forecast.assumedFrom` are fact; from it on they are projections and must render as such. `assumedFrom` is computed at the *cheapest* legal turn (−60), so it is a lower bound and never overclaims. `forecast.test.ts` is the oracle that goes red rather than let the UI lie quietly. **Open question:** ADR-0015's move+act fold has since landed in `ai.ts` at −100, and the −80 guess still stands (green, still a lower bound) — worth re-deriving, not assumed correct.
+- **When a deferred capability SHIPS, the absent row becomes a lie — go un-hide it.** The rule is "never assert an effect the engine cannot back up", not "these keys stay hidden". `preview.ts` correctly omitted `inflicts` while status-on-hit was unmodeled, and `session.test.ts` asserted the key was *absent*. The moment the resolvers began applying it, that omission started hiding a Stop from a player about to commit the shot — same rule, opposite verdict, because the engine moved. **Any slice that implements a deferred effect owes a pass over the banned-key list**, and the new row needs a test tying what the panel promises to what the sim does — not just that the key exists.
+- **A battle with RULES is judged by `evalTerminal`; only a conditionless one may count corpses.** `Session` ships both reads (ADR-0023). The team-wipe read is not a rule the sim models — it is the most a battle with no `Condition` can honestly support, and it is *wrong* for any authored encounter, where victory may be one named foe or a survival clock. The discriminating fixture is a `defeatUnit` victory with a second foe still alive: a wipe-counting viewer and `evalTerminal` disagree there. A fixture whose victory is "wipe team 1" passes under either and certifies nothing.
+- **The viewer must never grow its own accounting.** `Session.report()` is assembled from `harness.ts`'s exported fold (`seedContributions` / `accountEvents` / `assembleReport`), because the campaign's AP grant reads `contributionByUnit[…].landedActions`. A second fold here would pay a human differently from the probe for an identical battle, and both would look correct alone. The check is the A/B in `session.test.ts`: a probe-driven session's report is byte-compared to `runFromState`'s.
+- **`pickTile` is not an algebraic inverse.** Per-tile height shifts a tile's screen position and taller tiles occlude those behind, so it walks reverse painter's order. A naive inverse picks the wrong tile on any raised terrain.
+
+## Player-facing text
+
+- **A CONTENT-KEYED LOOKUP WITH A FALLBACK CANNOT TELL "no entry" FROM "no match".** `drawUnit` read `UNIT_META[u.id]` — a table holding the four DEMO ids — and fell back to one grey. The campaign's ids are `blue-vance`, `red-brigand-1`, …, so **every** unit in the shipped game missed and friend and foe were painted the same colour, while `game.ts` held a `TEAM_COLOR` table it passed only to the side panels. The fallback is what hid it: a miss looked like a deliberate neutral. When a render path keys off content ids, either assert the map resolves for the content that actually ships, or take the mapping as a **parameter** so the page that owns the content owns the answer. Found by opening a screenshot; 720 tests were green.
+- **Text is assembled from TWO sources and only one gets resolved.** A turn-log row resolves the ACTOR through `look()`, but the target lives inside the sim's action STRING (`"hit red-brigand-1 −137"`) — the sim writes ids there because a log line must survive a replay with no registry attached. `panels.ts:nameIdsIn` substitutes them. Anywhere else a sim-authored string reaches a player, check it the same way; a fixture whose ids already look like names (the demo's `knight`) cannot tell you.
+- **DERIVED text must be read off the REAL PROJECTION, never inferred from a type.** The purchase receipt told a Knight who bought Wave Fist it was "now in your commands" — inferred from `ability.type === "action"`, and **false**: the command list is the current job's skillset plus the equipped Secondary, so a borrowed job's action is bought but not yet usable. It now asks `commands()`. A confident sentence that is wrong costs more than no sentence, because the player acts on it. Whenever the UI states what the sim will do, derive it from the same projection the battle uses (`buildBattleUnit`, `commands()`, `weaponBaseDamage`).
+- **A test may not pin story-pack prose — `npm run check:story` enforces it.** `docs/11` AC-M4's claim is that the pack is swappable with no code change; a test asserting its text turns exercising that seam into a build failure. Four tests did it. Assert structure (a speaker, a non-empty block) or read the value out of the pack. Note the guard's own history: its first draft stripped commas from the needle while grepping the raw file, its second passed `--` before the pattern so grep read `--include` as a filename — both silently green on a real violation. **Mutation-test a guard at the START and the MIDDLE of a line before trusting it.**
 
 ## Testing
 
-The turn state machine lives in a **DOM-free `session.ts`** constructible over an arbitrary
-`BattleState` — that is what lets legality tests build purpose-built grids instead of hoping
-the demo map discriminates (it frequently does not; see the root's evidence principle).
-Interaction tests drive the grid-coordinate seam, never raw canvas pixels — exactly one
-assertion (AC-V10) covers the pointer→tile mapping.
+The turn state machine lives in a **DOM-free `session.ts`** constructible over an arbitrary `BattleState` — that is what lets legality tests build purpose-built grids instead of hoping the demo map discriminates (it frequently does not). Interaction tests drive the grid-coordinate seam, never raw canvas pixels; exactly one assertion (AC-V10) covers the pointer→tile mapping.
 
-**When you cannot INJECT a fixture, DISCOVER it.** The root `CLAUDE.md` says prefer
-purpose-built fixtures over shipped demo content — but `e2e/*.spec.ts` drives the real
-page, which mounts `makeDemoBattle()`, so there is nothing to inject and that advice is
-unreachable there. Hard-coded tiles in those specs were invalidated by demo drift **four
-times**, each fix writing down new coordinates that rotted the same way, and the file's own
-comment predicted the next break. Instead ask the board, through the shipped seam, for
-something with the property under test — `findArcPair` in `play.spec.ts` walks unoccupied
-tiles, stages each (staging is pure, AC-V6; an illegal stage is refused, so `moveRange`
-does the filtering) and returns any foe reachable from two tiles in **different facing
-arcs with the same ability**. Then assert the discovery succeeded and that the two cases
-genuinely differ: a discovered fixture can degenerate too, and the first version of that
-helper returned two tiles that selected *different* abilities, which would have blamed the
-arc for an ability difference.
-
-**The shell has its own headless suite, and the browser spec must not duplicate it.**
-`campaign-shell.test.ts` drives the whole run — title, deploy, fight, bank, retry — over a
-memory slot. `e2e/campaign.spec.ts` exists for the half only a browser can prove: that the
-page mounts, that the screens swap, and that the save survives a real **reload**. Every
-persistence assertion in the headless file passes against an in-memory slot whether or not
-the `localStorage` wiring works, so the reload is the load-bearing one.
-
-`npm run test:visual` (build + Playwright). In the **Linux sandbox** Chromium is
-pre-installed at `/opt/pw-browsers` — never run `playwright install` there. On a **Windows
-host** it may genuinely be missing, or be the wrong build number: every spec then fails
-with "Executable doesn't exist", which reads like a code failure and is not. Check the
-requested build against `~/AppData/Local/ms-playwright/` before believing it.
-
-
-**A CONTENT-KEYED LOOKUP WITH A FALLBACK CANNOT TELL "no entry" FROM "no match".**
-`drawUnit` read `UNIT_META[u.id]` — a table holding the four DEMO ids (`knight`, `archer`,
-`brawler`, `mage`) — and fell back to one grey. The campaign's ids are `blue-vance`,
-`red-brigand-1`, …, so **every** unit in the shipped game missed and friend and foe were
-painted the same colour, while `game.ts` held a `TEAM_COLOR` table it passed only to the
-side panels. The fallback is what hid it: a miss looked like a deliberate neutral. When a
-render path keys off content ids, either assert the map resolves for the content that
-actually ships, or take the mapping as a PARAMETER so the page that owns the content owns
-the answer. Found by opening a screenshot; 720 tests were green.
-
-**THE SUITE CANNOT SEE THE SCREEN — so look at it, and give the new check a canvas.**
-Every browser spec drives the seam (`window.tuh*`), not the picture, so nothing caught the
-bug above and nothing would catch the next one. Two things now exist and both should be
-used after any change to `iso.ts` or a panel: `e2e/playtest-capture.spec.ts` writes nine
-PNGs of every screen a player passes through (`visual-artifacts/playtest/`) — **read
-them**, that is where both playtest bugs were found; and `iso.test.ts` has a **recording
-2D context** whose `fillStyle` writes are captured, which is the only way to assert what
-colour actually reached the canvas.
-
-**Player-facing text is assembled from TWO sources and only one gets resolved.** A turn-log
-row resolves the ACTOR through `look()`, but the target lives inside the sim's action
-STRING (`"hit red-brigand-1 −137"`) — the sim writes ids there because a log line must
-survive a replay with no registry attached. `panels.ts:nameIdsIn` now substitutes them.
-Anywhere else a sim-authored string reaches a player, check it for ids the same way; a
-fixture whose ids already look like names (the demo's `knight`) cannot tell you.
-
-
-**DERIVED PLAYER-FACING TEXT MUST BE READ OFF THE REAL PROJECTION, NEVER INFERRED FROM A
-TYPE.** The purchase receipt told a Knight who bought Wave Fist that it was "now in your
-commands" — inferred from `ability.type === "action"`, and **false**: the command list is
-the current job's skillset plus the equipped Secondary, so a borrowed job's action is
-bought but not yet usable. It now asks `commands()`. The rule generalises past this one
-message: a confident sentence that is wrong costs more than no sentence, because the
-player acts on it. Whenever the UI states what the sim will do, derive the claim from the
-same projection the battle uses (`buildBattleUnit`, `commands()`, `weaponBaseDamage`) —
-never from a field that merely correlates with it.
-
-**A TEST MAY NOT PIN STORY-PACK PROSE — and `npm run check:story` now enforces it.**
-`docs/11` AC-M4's claim is that the pack is swappable with no code change; a test
-asserting its text turns exercising that seam into a build failure. Four tests did it,
-and the first two only surfaced when a one-line content fix broke the suite. Assert
-structure (a speaker, a non-empty block) or read the value out of the pack
-(`story.entries.find(...)`). Note the guard's own history when editing it: its first
-draft stripped commas from the needle while grepping the raw file, and its second passed
-`--` before the pattern so grep read `--include` as a filename — both made it silently
-green on a real violation. **Mutation-test a guard at the START and MIDDLE of a line
-before trusting it.**
+- **When you cannot INJECT a fixture, DISCOVER it.** The root prefers purpose-built fixtures, but `e2e/*.spec.ts` drives the real page, which mounts `makeDemoBattle()` — there is nothing to inject. Hard-coded tiles were invalidated by demo drift **four times**, each fix writing coordinates that rotted the same way. Instead ask the board, through the shipped seam, for something with the property under test: `findArcPair` in `play.spec.ts` walks unoccupied tiles, stages each (staging is pure, AC-V6, and an illegal stage is refused) and returns any foe reachable from two tiles in **different facing arcs with the same ability**. Then assert the discovery succeeded *and* that the two cases genuinely differ — a discovered fixture can degenerate too, and the first version returned two tiles that selected *different* abilities, which would have blamed the arc for an ability difference.
+- **The shell has its own headless suite; the browser spec must not duplicate it.** `campaign-shell.test.ts` drives the whole run — title, deploy, fight, bank, retry — over a memory slot. `e2e/campaign.spec.ts` exists for the half only a browser can prove: the page mounts, the screens swap, and the save survives a real **reload**. Every persistence assertion in the headless file passes against an in-memory slot whether or not the `localStorage` wiring works, so the reload is the load-bearing one.
+- **THE SUITE CANNOT SEE THE SCREEN — so look at it, and give the new check a canvas.** Every browser spec drives the seam (`window.tuh*`), not the picture, so nothing caught the colour bug above. Two things exist and both should be used after any change to `iso.ts` or a panel: `e2e/playtest-capture.spec.ts` writes nine PNGs of every screen a player passes through (`visual-artifacts/playtest/`) — **read them**, that is where both playtest bugs were found; and `iso.test.ts` has a **recording 2D context** whose `fillStyle` writes are captured, the only way to assert what colour actually reached the canvas.
+- **`npm run test:visual`** (build + Playwright). In the **Linux sandbox** Chromium is pre-installed at `/opt/pw-browsers` — never run `playwright install` there. On a **Windows host** it may genuinely be missing or the wrong build number: every spec then fails with "Executable doesn't exist", which reads like a code failure and is not. Check the requested build against `~/AppData/Local/ms-playwright/` first.
