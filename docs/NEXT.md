@@ -52,10 +52,16 @@ DECISIONS, not a queue of work:
    the balance probe or a forfeit, so "completable" is REACHABILITY, never difficulty or
    fun. The agent-run pass (`docs/plans/playtest-2026-08-22.md`) found two real rendering
    bugs but proves nothing about whether the game is legible to a stranger.
-2. **The Knight's dead tree — a user decision, not a slice.** Vance ends the campaign with
-   ONE command, and 7 of his 9 learn rows read "no effect yet". `battle-skill` is excluded
-   by explicit user decision (2026-08-16). Either give the Knight a live skillset or start
-   Vance in another job. **Do not quietly reverse the exclusion.**
+2. ~~**The Knight's dead tree.**~~ **Resolved 2026-08-23 (user decision): Vance now
+   starts as a GEOMANCER**, not a Knight. His tree went 2-of-9 live to 7-of-9, he starts
+   with `geomancy.pitfall` like every other member starts with one ability, and he keeps
+   `mastered: ["knight"]` so the Bulwark trait still applies. `battle-skill` stays
+   excluded — nothing about that decision changed, the party simply no longer depends on
+   it. Asserted: every member starts with a live command AND has a tree more than half
+   live (`campaign-run.test.ts`). **Ottoline is the weakest at 5/9 and was left alone** —
+   Cure → Cura → Holy plus a support is a real progression, and her four dead nodes are
+   deferred capstones.
+
 3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is now **gear**:
    all 15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
    gate has never used. Expect a plateau, not a peak.

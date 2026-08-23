@@ -334,10 +334,21 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
   });
 
   it("the shell reports the pending battle's PRE beat and its authored title", () => {
+    // Read out of the PACK rather than written down here. This used to assert the
+    // literal "Four of us, one road" — which is prose the story repo owns and which
+    // this slice had to change (it named a party size the battle does not field). A
+    // test that pins a story literal makes swapping the pack — the entire point of the
+    // seam — into a test failure. The claim is that the shell returns what the pack
+    // holds for THIS battle, and that it is not returning some other battle's beat.
     const s = shell();
     s.newGame();
-    expect(s.sceneTitle()).toBe("The Toll Road");
-    expect(s.preBeat()?.lines[0]).toContain("Four of us, one road");
+    const entry = story.entries.find((e) => e.battleId === "b1")!;
+    expect(s.sceneTitle()).toBe(entry.title);
+    expect(s.preBeat()?.lines).toEqual(entry.pre?.lines);
+    // …and it really is battle one's, not whatever happened to be first.
+    expect(s.preBeat()?.lines).not.toEqual(
+      story.entries.find((e) => e.battleId === "b2")!.pre?.lines,
+    );
   });
 
   it("DISCRIMINATING (AC-M4's A/B): swapping the DATA changes what the player reads", () => {

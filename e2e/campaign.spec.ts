@@ -47,7 +47,12 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   // from `data/campaign/story/*.story.json`. The A/B that proves they came from the data
   // is headless (`campaign-shell.test.ts`); what a browser adds is that they render.
   await expect(page.getByTestId("brief-title")).toHaveText("The Toll Road");
-  await expect(page.getByTestId("brief-story")).toContainText("Four of us, one road");
+  // Not a story LITERAL: the pack is meant to be swappable, so pinning its prose here
+  // turns the seam's whole purpose into a test failure (it did — this line named a party
+  // size the battle does not field, and had to change). The speaker is structure, not
+  // prose, and the block being non-empty is the claim.
+  await expect(page.getByTestId("brief-story")).toContainText("Vance");
+  await expect(page.getByTestId("brief-story")).not.toBeEmpty();
 
   // The between-battle prep panel is mounted on the briefing with the whole party.
   await expect(page.getByTestId("prep-roster")).toContainText("Ottoline");
@@ -134,16 +139,23 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await page.goto("/game.html");
   await page.getByTestId("new-game").click();
 
-  // Two battles of banked AP. Vance holds 96 by the third briefing — enough for one
-  // 60-AP tier-one node and not much else, which is the whole decision.
+  // Two battles of banked AP — enough for one 60-AP tier-one node and not much else,
+  // which is the whole decision. The FIGURE is read off the panel rather than written
+  // down: it moved 96 → 88 the moment Vance changed job, because what a member earns
+  // depends on what they land, and a hard-coded total made a content change look like a
+  // regression. What matters is that it affords exactly one purchase.
   for (let i = 0; i < 2; i++) {
     await playCurrentBattle(page);
     await page.getByTestId("next").click();
   }
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
-  await expect(page.getByTestId("prep-ap")).toContainText("96 AP");
+  const apBefore = Number(
+    (await page.getByTestId("prep-ap").innerText()).replace(/[^0-9]/g, ""),
+  );
+  expect(apBefore).toBeGreaterThanOrEqual(60);
+  expect(apBefore).toBeLessThan(120);
 
-  // Vance is a Knight and knows no magic: no Fire anywhere in his command list.
+  // Vance knows no black magic: no Fire anywhere in his command list.
   const commands = page.getByTestId("prep-commands");
   await expect(commands).not.toContainText("Fire");
 
@@ -152,9 +164,10 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   // arriving through play rather than through the demo's pre-loaded record.
   await page.getByTestId("prep-job").selectOption("wizard");
   await page.locator('[data-testid="prep-learn"] li[data-node="fire"] button').click();
-  await expect(page.getByTestId("prep-ap")).toContainText("36 AP");
+  const apAfter = Number((await page.getByTestId("prep-ap").innerText()).replace(/[^0-9]/g, ""));
+  expect(apAfter).toBe(apBefore - 60); // the node's price, charged exactly once
 
-  await page.getByTestId("prep-job").selectOption("knight");
+  await page.getByTestId("prep-job").selectOption("geomancer");
   await page.getByTestId("prep-secondary").selectOption("wizard");
   await expect(commands).toContainText("Fire");
   await page.screenshot({ path: `${SHOTS}/25-briefing-prep.png`, fullPage: true });
@@ -165,7 +178,7 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await page.reload();
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
-  await expect(page.getByTestId("prep-ap")).toContainText("36 AP");
+  await expect(page.getByTestId("prep-ap")).toContainText(`${apAfter} AP`);
   await expect(page.getByTestId("prep-commands")).toContainText("Fire");
 
   // And the edit is on the unit that DEPLOYS, not merely in the panel — the assertion
@@ -189,16 +202,29 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("prep-ap")).toContainText("0 AP");
 
-  const first = page.locator('[data-testid="prep-learn"] li').first();
-  await expect(first.locator("button")).toBeDisabled();
-  await expect(first.locator("button")).toHaveAttribute("title", /insufficient AP/);
+  // The first row a member ALREADY KNOWS renders no buy button at all, so `.first()`
+  // is not necessarily purchasable — Vance starts knowing his tier-one node. Take the
+  // first row that actually offers a purchase.
+  const buyable = page.locator('[data-testid="prep-learn"] li button[data-learn]').first();
+  await expect(buyable).toBeDisabled();
+  await expect(buyable).toHaveAttribute("title", /insufficient AP/);
 
   // And a node whose ability does nothing SAYS so before anyone pays for it. AP is never
-  // refunded (AC-J3), so an unmarked inert node charges real currency for nothing —
-  // Vance's whole Knight tree is exactly that case today.
-  await expect(page.locator('[data-testid="prep-learn"] li[data-node="armor-break"]')).toContainText(
-    "no effect yet",
-  );
+  // refunded (AC-J3), so an unmarked inert node charges real currency for nothing.
+  //
+  // The row is DISCOVERED, not named: this used to point at `armor-break`, a Knight
+  // node, and broke the moment Vance changed job — the fourth time a hard-coded content
+  // id has rotted a spec here. Asking the page for "a row tagged inert" survives any
+  // re-jobbing, and the count assertion keeps it from passing vacuously on a tree that
+  // has none.
+  const inert = page.locator('[data-testid="prep-learn"] li.deferred');
+  await expect(inert.first()).toContainText("no effect yet");
+
+  // Every live row must NOT carry the tag — otherwise "some row says it" would pass on a
+  // panel that tagged everything.
+  const live = page.locator('[data-testid="prep-learn"] li:not(.deferred)');
+  expect(await live.count()).toBeGreaterThan(0);
+  await expect(live.first()).not.toContainText("no effect yet");
 });
 
 test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {
