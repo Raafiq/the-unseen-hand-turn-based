@@ -160,3 +160,25 @@ STRING (`"hit red-brigand-1 −137"`) — the sim writes ids there because a log
 survive a replay with no registry attached. `panels.ts:nameIdsIn` now substitutes them.
 Anywhere else a sim-authored string reaches a player, check it for ids the same way; a
 fixture whose ids already look like names (the demo's `knight`) cannot tell you.
+
+
+**DERIVED PLAYER-FACING TEXT MUST BE READ OFF THE REAL PROJECTION, NEVER INFERRED FROM A
+TYPE.** The purchase receipt told a Knight who bought Wave Fist that it was "now in your
+commands" — inferred from `ability.type === "action"`, and **false**: the command list is
+the current job's skillset plus the equipped Secondary, so a borrowed job's action is
+bought but not yet usable. It now asks `commands()`. The rule generalises past this one
+message: a confident sentence that is wrong costs more than no sentence, because the
+player acts on it. Whenever the UI states what the sim will do, derive the claim from the
+same projection the battle uses (`buildBattleUnit`, `commands()`, `weaponBaseDamage`) —
+never from a field that merely correlates with it.
+
+**A TEST MAY NOT PIN STORY-PACK PROSE — and `npm run check:story` now enforces it.**
+`docs/11` AC-M4's claim is that the pack is swappable with no code change; a test
+asserting its text turns exercising that seam into a build failure. Four tests did it,
+and the first two only surfaced when a one-line content fix broke the suite. Assert
+structure (a speaker, a non-empty block) or read the value out of the pack
+(`story.entries.find(...)`). Note the guard's own history when editing it: its first
+draft stripped commas from the needle while grepping the raw file, and its second passed
+`--` before the pattern so grep read `--include` as a filename — both made it silently
+green on a real violation. **Mutation-test a guard at the START and MIDDLE of a line
+before trusting it.**

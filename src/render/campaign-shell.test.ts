@@ -405,7 +405,10 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
 
     expect(won.lastOutcome()).toBe("victory");
     expect(lost.lastOutcome()).not.toBe("victory");
-    expect(won.outcomeBeat()?.lines[0]).toContain("They ran before the last of them fell");
+    // Read out of the pack, not written down — see the PRE-beat test above.
+    expect(won.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b1")!.victory?.lines,
+    );
     expect(lost.outcomeBeat()?.lines[0]).toContain("Back to the treeline");
     expect(won.outcomeBeat()).not.toEqual(lost.outcomeBeat());
   });
@@ -423,7 +426,9 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
       if (s.screen === "AFTER_BATTLE") s.nextBattle();
     }
     expect(s.screen).toBe("COMPLETED");
-    expect(s.outcomeBeat()?.lines[0]).toContain("It is over, and it is not finished");
+    expect(s.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b5")!.victory?.lines,
+    );
   });
 });
 
