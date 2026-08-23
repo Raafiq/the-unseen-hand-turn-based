@@ -1,4 +1,4 @@
-<!-- written-against: d9475c9ec0860d10dc8dc3879ae7a678e08a393b -->
+<!-- written-against: 025dd73aaaff9e394b3e188d5895dc927bcf2e65 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -12,17 +12,94 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ---
 
+## THE NEXT SLICE — the synthetic playtest
+
+**Green-lit by the user, 2026-08-23. Full scope: `docs/plans/slice-m1-synthetic-playtest.md`.**
+Start there; this section is the why and the shape, the plan file is the work.
+
+**In one line.** Build a deterministic agent playtest that settles *difficulty and length*,
+and instrument the page so the first human playtest produces data instead of an anecdote.
+**It does not settle legibility — nothing but a person can.**
+
+### Why it is this and not "wait for a playtest"
+
+The previous handoff said the next thing this project needs is a playtest, not a slice.
+That is true for **one** of the two open M0 bets, not both — and treating the whole
+question as blocked cost us the half that is measurable:
+
+| Open bet | Agent-settleable? | Why |
+|---|---|---|
+| Session length + difficulty | **Largely yes** | Agent playthrough performance tracks human difficulty *ratings* even when raw skill differs; agent-driven QA is established for coverage and bug-finding. |
+| Legibility (does a newcomer understand the chassis) | **No** | Expert inspection yields hypotheses, not evidence. Reported cognitive-walkthrough false-positive rates span 5–82%. |
+
+We already spent a slice on the second (`docs/plans/learnability-walkthrough-2026-08-23.md`)
+and got four real fixes. Nothing is left there that is not a person.
+
+### The shape
+
+- **Part A — `src/sim/playtest.ts`.** A `Persona` is a deterministic policy over the
+  decisions a *player* makes **between fights**: who deploys, what to buy, which job and
+  slots, which owned weapon. **Not tactics** — `ai.ts` owns those and keeps owning them.
+  Three personas (`naive` / `default` / `optimizer`), driven through the real
+  `CampaignShell` over a memory slot, swept over seeds.
+- **Part B — `src/render/telemetry.ts`.** A per-session funnel (time to first action,
+  per-battle outcome and retries, what was bought/equipped, **where they stopped**) in
+  `localStorage`, plus a "copy playtest log" button. No backend, no network, no PII.
+
+### The two assertions that make Part A evidence rather than a number
+
+1. **The three personas must be shown to SEPARATE.** If `naive` and `optimizer` clear the
+   campaign identically, the meta systems do not matter — and that is the headline
+   finding, not a broken harness.
+2. **A persona's choices must reach the BUILT UNIT.** Run with the purchases applied and
+   withheld; assert the reports differ. A policy that computes a plan and never applies it
+   reads exactly like one that works — the dead-support-slot shape.
+
+### Order, and the gate in the middle
+
+`A1` personas → `A2` runner + seed sweep → `A3` the two assertions → **`A4` report the
+numbers to the user before starting Part B** → `B1` recorder → `B2` copy-log control +
+a reload test → retrospective, this file re-stamped, `npm run state` last.
+
+**A4 is a real gate, not a formality.** If the personas do not separate, instrumenting a
+funnel through systems that do not matter is the wrong next move.
+
+### What the slice may NOT claim when it lands
+
+Write this into the PR body, not just the code: it establishes **relative** difficulty and
+a length proxy. It does **not** establish legibility, absolute difficulty ("60% of humans
+would win this"), or fun. Do not cite a green suite as if it had.
+
+### Landmines specific to this slice
+
+1. **The probe plays the PLAYER's units too.** Persona differences reach the outcome only
+   through the **build**, never through tactics. A player who would have positioned more
+   carefully cannot be modelled. This bounds what Part A can ever say — state it in the
+   report, do not let a reader infer otherwise.
+2. **A flat result is a FINDING.** If difficulty does not rise across the five battles,
+   that is the answer. Do not tune the harness until it produces a curve — that is
+   calibrating to the metric.
+3. **Determinism covers this file.** `src/sim/playtest.ts` is inside `check:rng`'s scan.
+   Persona choices must be pure functions of save state or draw from the seeded PRNG.
+   `src/render/telemetry.ts` may use wall-clock (the `iso.ts` animation precedent) but
+   **nothing derived from it may enter `BattleState`**, and telemetry must stay read-only
+   over the session — it observes, it never feeds back.
+4. **Session length is a PROXY.** Decision count → minutes needs a seconds-per-decision
+   constant. Mark it MVP-provisional like every other number in ADR-0025/0026, and let
+   Part B's wall-clock replace it later.
+
+---
+
 ## Where things stand
 
-**M0 IS BUILT — all seven items (`docs/11` §3).** 716 tests / 38 files, 19 Playwright
-specs. Variety score still 7 (bar 8), carried into M1 by user decision.
+**M0 IS BUILT — all seven items (`docs/11` §3).** 752 tests / 39 files, 23 Playwright
+specs. Variety score (distinct viable build identities) still **7** against a release bar
+of **8**, carried into M1 by user decision.
 
 **What "built" does and does not mean.** Every M0 ITEM is shipped and tested. M0's
 definition of done is "a stranger plays 30–45 minutes without being told anything and
-reaches a real ending" — and **that is untested. No stranger has played this.** Two bets
-are open and neither needs code: onboarding (nothing is taught, only a `?` — ADR-0025)
-and session length (nobody has timed a run). **The next thing this project needs is a
-playtest, not a slice.**
+reaches a real ending" — and **that is untested. No stranger has played this.** The slice
+above takes the measurable half of that; the other half still needs a person.
 
 **Equipment landed 2026-08-22 (ADR-0026)**, the last item:
 
@@ -30,94 +107,81 @@ playtest, not a slice.**
   writes `null` = the old placeholder, so migrated saves fight identically).
 - 8 horizontal weapons in `data/base-pack.json`. **No weapon out-damages the baseline**;
   they trade formula, element, accuracy, evasion, Brave/Faith.
-- `CampaignBattle.grants` → a **set-valued** `CampaignSave.inventory`
-  (`campaignSchemaVersion` 2). Replaying a battle grants nothing new — that is the
-  anti-grind invariant, asserted and mutation-verified.
-- A weapon row in the prep panel, offering only what the party owns.
+- `CampaignBattle.grants` → a **set-valued** `CampaignSave.inventory`. Replaying a battle
+  grants nothing new — the anti-grind invariant, asserted and mutation-verified.
 
 **The balance numbers across ADR-0025 and ADR-0026 are MVP-PROVISIONAL** (user,
 2026-08-22): node costs, prereq chains and weapon stats exist to make M0 work, not because
 they are right. The RULES under them are not provisional — `docs/11` AC-M5 (every slot
 reachable) and AC-M7 (gear is horizontal and authored).
 
+**Vance starts as a GEOMANCER** (user decision, 2026-08-23), not a Knight. His tree went
+2-of-9 live to 7-of-9; he keeps `mastered: ["knight"]` so the Bulwark trait still applies.
+`battle-skill` stays excluded — that decision is untouched, the party simply no longer
+depends on it. Ottoline is the weakest at 5/9 and was **left alone** deliberately: her
+four dead nodes are deferred capstones behind a real Cure → Cura → Holy progression.
+
+**The three `CLAUDE.md` files were compressed 2026-08-23** (root 6,005 → 3,815 words; the
+two subtree files restructured). Every rule survives; the war stories were cut to one
+identifying clause each. If a rule now reads too terse to act on, the full incident is in
+the git history of that file — do not re-expand it in place.
+
 ---
 
-## The next slice — four candidates, and the first one is not code
+## Other candidates, if the slice above is finished or rejected
 
-**M0 is built and, since the playtest, lightly polished.** What is pending is a set of
-DECISIONS, not a queue of work:
-
-1. **A real playtest (recommended, and nothing here can substitute).** A person who has not
-   seen this repo, playing `/game.html` start to finish, timed. Every automated run drives
-   the balance probe or a forfeit, so "completable" is REACHABILITY, never difficulty or
-   fun. The agent-run pass (`docs/plans/playtest-2026-08-22.md`) found two real rendering
-   bugs but proves nothing about whether the game is legible to a stranger.
-2. ~~**The Knight's dead tree.**~~ **Resolved 2026-08-23 (user decision): Vance now
-   starts as a GEOMANCER**, not a Knight. His tree went 2-of-9 live to 7-of-9, he starts
-   with `geomancy.pitfall` like every other member starts with one ability, and he keeps
-   `mastered: ["knight"]` so the Bulwark trait still applies. `battle-skill` stays
-   excluded — nothing about that decision changed, the party simply no longer depends on
-   it. Asserted: every member starts with a live command AND has a tree more than half
-   live (`campaign-run.test.ts`). **Ottoline is the weakest at 5/9 and was left alone** —
-   Cure → Cura → Holy plus a support is a real progression, and her four dead nodes are
-   deferred capstones.
-
-3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is now **gear**:
-   all 15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
+1. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is **gear**: all
+   15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
    gate has never used. Expect a plateau, not a peak.
-4. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
+2. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
+3. Cheap filler: make `game.html` the landing page (still a rewrite of twelve browser
+   specs' navigation).
 
-Cheap filler if none of those: make `game.html` the landing page (still a rewrite of twelve
-browser specs' navigation).
+---
 
 ## Traps waiting for you
 
 1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE.** `npx playwright test`
-   does NOT rebuild; `npm run test:visual` does. The equipment spec failed once against a
-   `dist` built before the feature existed, which looks exactly like a broken feature.
-   Rebuild before believing a browser failure.
+   does NOT rebuild; `npm run test:visual` does. Rebuild before believing a browser
+   failure.
 2. **GEAR IS A DIVERSITY AXIS THE GATE DOES NOT USE.** `data/builds/*` all carry
-   `weapon: null`, so the gate's 7 is measured with every build on the same placeholder
-   weapon. "The gate did not move" is a statement about COVERAGE here, not quality.
+   `weapon: null`, so the 7 is measured with every build on the same placeholder weapon.
+   "The gate did not move" is a statement about COVERAGE here, not quality.
 3. **`wp` ON A HORIZONTAL WEAPON IS A CALIBRATION CONSTANT, NOT A TIER.** The five weapon
    formulas scale differently, so equal damage needs DIFFERENT `wp` values. Oathblade
-   shipped at `wp: 12` in draft — 84 damage *and* +10 Brave, a strict upgrade — and was
-   caught by measuring, not by reading. **Re-run the reference-body comparison after any
-   weapon edit.**
-4. **THE ONBOARDING BET IS UNTESTED AND THE ONLY EVIDENCE THAT COULD SETTLE IT IS A
-   PERSON.** "The mechanics read on their own" is a design bet, not a finding. Nobody who
-   did not build this has played it. `docs/11` AC-M6 asserts the help panel's *claims* are
-   deliverable — it says nothing about whether the game is legible without it. If a
-   playtest happens, that is the evidence; until then do not cite the green suite as if it
-   settled the question.
+   shipped at `wp: 12` in draft — a strict upgrade — and was caught by measuring, not by
+   reading. **Re-run the reference-body comparison after any weapon edit.**
+4. **THE ONBOARDING BET IS UNTESTED AND ONLY A PERSON CAN SETTLE IT.** `docs/11` AC-M6
+   asserts the help panel's *claims* are deliverable — it says nothing about whether the
+   game is legible without it. Do not cite the green suite as if it settled the question.
 5. **A GATE THAT CANNOT SEE A CHANGE GOING GREEN IS NOT EVIDENCE.** Repricing skill trees
    moved nothing in the diversity gate, and that is *structural*: shipped builds in
    `data/builds` author `learned` explicitly, so progression costs never reach a built
-   unit. The evidence for ADR-0025 decision 4 is the reachability probe, not the 703
-   passing tests. Expect the same blindness for any future progression-economy change.
+   unit. Expect the same blindness for any future progression-economy change.
 6. **`ReactionEffectSchema` IS `{kind}` WITH NO MAGNITUDE, AND THAT CONSTRAINS CONTENT.**
    Any cheap `counter` is byte-identical to the 240-AP capstone `counter` and strictly
-   dominates it. This is why no second cheap reaction was added anywhere. Same shape for
-   `MovementEffectSchema` (`{move}` only): a +1 move ability priced beside the thief's +2
-   just loses. **Before authoring a passive, check whether its effect schema can express
-   "weaker".** If it cannot, repricing the existing one is the only honest move.
-7. **A TEST THAT NAMES THE BUG IT CATCHES IS A CLAIM ABOUT CODE YOU HAVE NOT RUN.** Caught
-   again this slice: the cross-job purchase test's comment said it would fail if the panel
-   bought from `currentJob`. It did not — it passed the mutation, because it named the node
-   by literal id instead of taking it from `learnRows()`. Run the mutation.
-8. **`EXPECTED_TREE_SIZES` in `content-pack.test.ts` pins every job's node count.** Adding
+   dominates it. Same shape for `MovementEffectSchema` (`{move}` only). **Before authoring
+   a passive, check whether its effect schema can express "weaker".**
+7. **A TEST THAT NAMES THE BUG IT CATCHES IS A CLAIM ABOUT CODE YOU HAVE NOT RUN.** Run
+   the mutation. Caught twice now.
+8. **PROSE IN THE FUTURE TENSE ROTS SILENTLY, AND NOTHING GOES RED.** Found this session:
+   `ASSUMED_FUTURE_TURN_COST`'s docstring said the −80 guess "is currently harmless only
+   because `ai.ts` still emits single sub-phases" and named the move+act fold as a *future*
+   slice's problem. The fold landed months ago. Nothing failed — correctly, because the
+   code was fine — so the comment kept reading as pending work. **When you land the thing
+   a comment predicted, grep for the prediction.**
+9. **`EXPECTED_TREE_SIZES` in `content-pack.test.ts` pins every job's node count.** Adding
    a tree node fails there by design. Move it in the same slice.
-9. **`AP_TIERS` is 60/120/240.** A node priced anywhere else fails the pack integrity test.
-10. **The help panel is NOT on the story seam, deliberately.** It is UI chrome; swapping the
-   story pack must never delete the manual. Do not "consolidate" the two.
-11. **The `?` lives in `game.html` only.** `play.spec.ts` asserts `index.html`'s tab order
-   exactly; `campaign.spec.ts` does not. Adding a control to the viewer page will break it.
-12. Everything the previous handoff listed still holds: **a screen the state machine skips
-   has content nobody can reach** (`concludeBattle` branches on status; the FINAL victory
-   never passes through `AFTER_BATTLE`); **a sim docstring that delegates a rule to "the
-   caller" is an obligation nobody is told about**; **the prep panel is mounted ONCE and
-   re-pointed** (`setRecords` no-ops deliberately — panel state must live in `PrepModel`,
-   not the DOM); **`onChange` → `updateParty` → `renderBriefingText()`, not `refresh()`**;
+10. **`AP_TIERS` is 60/120/240.** A node priced anywhere else fails the pack integrity test.
+11. **The help panel is NOT on the story seam, deliberately.** It is UI chrome; swapping
+   the story pack must never delete the manual. Do not "consolidate" the two.
+12. **The `?` lives in `game.html` only.** `play.spec.ts` asserts `index.html`'s tab order
+   exactly; `campaign.spec.ts` does not. Adding a control to the viewer page breaks it.
+13. Everything the previous handoff listed still holds: **a screen the state machine skips
+   has content nobody can reach**; **a sim docstring that delegates a rule to "the caller"
+   is an obligation nobody is told about**; **the prep panel is mounted ONCE and
+   re-pointed** (`setRecords` no-ops deliberately — panel state lives in `PrepModel`, not
+   the DOM); **`onChange` → `updateParty` → `renderBriefingText()`, not `refresh()`**;
    **the story pack's coverage is checked at BOOT, both directions**; **story text is
    rendered with `textContent`, never `innerHTML`**; **an A/B between two callers of the
    same helper cannot see a bug in the helper**; **the shell's `rules` CAPS are
@@ -129,11 +193,12 @@ browser specs' navigation).
    status tables nothing derives**; **`gen-state.mts` fails on an unresolved `{token}`**;
    **the browser tests are NOT in `npm run check` — run `npm run test:visual` separately.**
 
+---
+
 ## Measured facts (re-derive rather than trust, but these were probed)
 
 > **These costs are MVP-PROVISIONAL** (user, 2026-08-22). They were set to make the
 > chassis reachable inside a 5-battle campaign, not because 120/180 is the right price.
-> Expect to re-tune them when the campaign gets longer or the AP grant is revisited.
 > **Do not treat them as settled balance** — but do keep `docs/11` AC-M5 satisfied, which
 > is the rule underneath them and is NOT provisional.
 
@@ -150,7 +215,7 @@ Campaign AP budget: **~280** for the best-earning member, **~184** for the worst
 (Ottoline, who banks nothing from a battle she lands no action in). Every 240-AP capstone
 stays out of reach in one playthrough — intended, and asserted.
 
-### Still-live engine facts (unchanged by this slice)
+### Still-live engine facts
 
 - **AC-E6 is REACHABILITY, not balance.** All five *benchmark* encounters end in defeat for
   team 0 as authored; that is why the campaign is purpose-built content.
@@ -160,12 +225,18 @@ stays out of reach in one playthrough — intended, and asserted.
   has TWO carriers; `bld-cutpurse` sits EXACTLY at `VIABLE_MIN_MAPS` (4/6).
 - **Hamedo draws the hit roll it then discards** (ADR-0019 decision 5) — deliberate.
 - **The MP contingency is live:** `white-magic.holy` and `summon.*` ride unenforced MP.
-- **`battle-skill` is still excluded by user decision** (2026-08-16). ADR-0025 softened the
-  symptom without touching the decision: Vance's Knight *actions* are all still inert, but
-  `battle-skill.hp-boost` gives him one live thing to buy. **He still has no live action
-  in the whole campaign** — that remains a content problem the label only discloses.
+- **`battle-skill` is still excluded by user decision** (2026-08-16). Vance's Knight
+  *actions* are all still inert; he has no live Knight action in the whole campaign. The
+  Geomancer switch made that stop mattering — it did not fix it.
 - **`compareCandidate` is the most load-bearing function in the repo.**
+- **The forecast's −80 future-turn guess is now wrong for every AI turn** (they fold at
+  −100), and that is fine: the exact/projected boundary is derived at the cheapest turn
+  (−60) and does not depend on the guess. Whether −80 is still the best *projection* is
+  open **tuning**, not correctness — a player who only moves or only acts still realises
+  −80. `forecast.test.ts` asserts the boundary under both cost models.
 - **The frozen golden is a tripwire, not a maintenance item.**
+
+---
 
 ## Environment facts that cost real time to learn
 
@@ -186,6 +257,8 @@ stays out of reach in one playthrough — intended, and asserted.
 - **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` and all
   `*.github.io` egress**, but a runner can reach them with `${{ github.token }}`.
 - **GitHub auto-merge is NOT enabled** on this repo — watch the checks and merge.
+
+---
 
 ## Pages — RESOLVED 2026-08-12 (first successful deploy on run #23)
 
