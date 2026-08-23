@@ -19,8 +19,9 @@
     "state": "vite-node scripts/gen-state.mts",
     "test:visual": "npm run build && playwright test",
     "gallery": "node scripts/build-gallery.mjs",
-    "check": "npm run typecheck && npm run lint && npm run check:rng && npm run check:handoff && npm run test",
-    "check:handoff": "bash scripts/check-handoff.sh"
+    "check": "npm run typecheck && npm run lint && npm run check:rng && npm run check:handoff && npm run check:story && npm run test",
+    "check:handoff": "bash scripts/check-handoff.sh",
+    "check:story": "bash scripts/check-story-literals.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

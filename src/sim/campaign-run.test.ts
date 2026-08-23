@@ -309,3 +309,56 @@ describe("the player chooses WHO deploys, never how many (playtest, 2026-08-22)"
     expect(after.deployment).toEqual([]);
   });
 });
+
+describe("every starting party member can actually build (playtest, 2026-08-23)", () => {
+  it("DISCRIMINATING: each member starts with a LIVE command, not just a command", () => {
+    // Vance shipped as a Knight, whose whole tree is `battle-skill` — excluded by user
+    // decision (2026-08-16) — with `learned: []`. He therefore had `basic.attack` and
+    // nothing else, all campaign long, while the other three each started with a real
+    // ability. Counting commands would not catch that: he HAD one. The check has to be
+    // that the command RESOLVES something.
+    for (const rec of def.party) {
+      const u = buildBattleUnit(rec, registry);
+      const live = u.abilities.filter(
+        (a) => a.id !== "basic.attack" && a.formula !== "none",
+      );
+      expect(live.length, `${rec.name} starts with no live ability of their own`).toBeGreaterThan(0);
+    }
+  });
+
+  it("DISCRIMINATING: no member's own job tree is mostly dead", () => {
+    // The deeper failure, and the one that made Vance's seat unplayable: he could bank
+    // 208 AP and have nothing worth buying. A "has a live ability" check passes on a
+    // member whose ENTIRE remaining tree is inert, so the tree is measured too.
+    //
+    // The bar is HALF, set from the measured spread rather than from a round number I
+    // liked: Geomancer 7/9, Monk 7/8, Archer 7/9, Priest **5/9** — Ottoline is the
+    // weakest and is left as-is, because five live nodes is a real progression (Cure →
+    // Cura → Holy, plus a support) and her four dead ones are all deferred capstones.
+    // Vance's Knight tree scored **2 of 9**, which is what this catches.
+    //
+    // Guessing 2/3 here would have been calibrating to the number I wanted rather than
+    // to the content: it failed on Ottoline, who is fine.
+    for (const rec of def.party) {
+      const tree = registry.job(rec.currentJob).tree;
+      const live = tree.filter((n) => {
+        const a = registry.ability(n.ability);
+        if (a.type === "action") return a.formula !== undefined && a.formula !== "none";
+        return (
+          a.supportEffect !== undefined ||
+          a.reactionEffect !== undefined ||
+          a.movementEffect !== undefined
+        );
+      });
+      expect(
+        live.length / tree.length,
+        `${rec.name}'s ${rec.currentJob} tree is ${live.length}/${tree.length} live`,
+      ).toBeGreaterThan(0.5);
+    }
+  });
+
+  it("the party's four jobs are all different, so the roster shows four ways to play", () => {
+    const jobs = def.party.map((r) => r.currentJob);
+    expect(new Set(jobs).size).toBe(jobs.length);
+  });
+});

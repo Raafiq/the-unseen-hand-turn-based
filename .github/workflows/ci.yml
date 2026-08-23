@@ -37,6 +37,12 @@ jobs:
         if: github.event_name == 'push'
         run: npm run check:handoff
 
+      # The story pack is swappable by contract (docs/11 AC-M4); a test pinning its
+      # prose makes exercising that seam a build failure. Four did, and the first two
+      # only surfaced when a one-line content fix broke the suite.
+      - name: No test pins story-pack prose
+        run: npm run check:story
+
       - name: Typecheck
         run: npm run typecheck
 

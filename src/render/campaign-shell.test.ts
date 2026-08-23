@@ -334,10 +334,21 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
   });
 
   it("the shell reports the pending battle's PRE beat and its authored title", () => {
+    // Read out of the PACK rather than written down here. This used to assert the
+    // literal "Four of us, one road" — which is prose the story repo owns and which
+    // this slice had to change (it named a party size the battle does not field). A
+    // test that pins a story literal makes swapping the pack — the entire point of the
+    // seam — into a test failure. The claim is that the shell returns what the pack
+    // holds for THIS battle, and that it is not returning some other battle's beat.
     const s = shell();
     s.newGame();
-    expect(s.sceneTitle()).toBe("The Toll Road");
-    expect(s.preBeat()?.lines[0]).toContain("Four of us, one road");
+    const entry = story.entries.find((e) => e.battleId === "b1")!;
+    expect(s.sceneTitle()).toBe(entry.title);
+    expect(s.preBeat()?.lines).toEqual(entry.pre?.lines);
+    // …and it really is battle one's, not whatever happened to be first.
+    expect(s.preBeat()?.lines).not.toEqual(
+      story.entries.find((e) => e.battleId === "b2")!.pre?.lines,
+    );
   });
 
   it("DISCRIMINATING (AC-M4's A/B): swapping the DATA changes what the player reads", () => {
@@ -394,7 +405,10 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
 
     expect(won.lastOutcome()).toBe("victory");
     expect(lost.lastOutcome()).not.toBe("victory");
-    expect(won.outcomeBeat()?.lines[0]).toContain("They ran before the last of them fell");
+    // Read out of the pack, not written down — see the PRE-beat test above.
+    expect(won.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b1")!.victory?.lines,
+    );
     expect(lost.outcomeBeat()?.lines[0]).toContain("Back to the treeline");
     expect(won.outcomeBeat()).not.toEqual(lost.outcomeBeat());
   });
@@ -412,7 +426,9 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
       if (s.screen === "AFTER_BATTLE") s.nextBattle();
     }
     expect(s.screen).toBe("COMPLETED");
-    expect(s.outcomeBeat()?.lines[0]).toContain("It is over, and it is not finished");
+    expect(s.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b5")!.victory?.lines,
+    );
   });
 });
 
