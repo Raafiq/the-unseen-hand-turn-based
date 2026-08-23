@@ -229,18 +229,27 @@ export interface FutureTurn {
  * IT IS THE MODEL ADR-0015 EXISTS TO DISPROVE. A real turn costs −100 when both
  * sub-phases are used (the fold), −80 for one, −60 for a Wait; and a KO'd unit's
  * turn is a crystal tick, which `tickCrystal` prices at −60. So this guess is
- * wrong for any of those. It is *currently* harmless only because `ai.ts` still
- * emits single sub-phases — the moment the follow-up slice teaches `ai.ts` the
- * fold, every turn on the field costs −100 and the guess is wrong for **all** of
- * them (ADR-0015 Consequences).
+ * wrong for any of those.
  *
- * THE FIX FOR THAT SLICE IS NOT "GUESS BETTER" — guessing harder only moves the
- * lie around. The fix is the boundary this module already computes and the UI
- * already labels: {@link Forecast.assumedFrom}. What the follow-up slice owes is
- * a re-run of `forecast.test.ts` (the forecast-vs-replay oracle), which asserts
- * the realized order matches the forecast over `[0, assumedFrom)` under BOTH
- * cost models — so it goes green when the fold lands and red if the boundary
- * ever stops holding.
+ * THE FOLD HAS SINCE LANDED (`ai.ts` emits `act` with a `move` clause), so every
+ * AI turn on the field now costs −100 and the guess is wrong for all of them —
+ * the case this comment used to describe in the future tense. Nothing broke,
+ * because the answer was never "guess better": guessing harder only moves the
+ * lie around. The answer is the boundary this module computes and the UI labels,
+ * {@link Forecast.assumedFrom}, which is derived at the CHEAPEST turn (−60) and
+ * is therefore independent of this constant.
+ *
+ * `forecast.test.ts` is the oracle that says so rather than this comment: it
+ * asserts the realized actor order matches the forecast over `[0, assumedFrom)`
+ * under BOTH cost models, on a purpose-built speed ladder where −80 and −100
+ * genuinely disagree (the shipped demo state does not — measured, and asserted
+ * there, so nobody re-derives this fixture back to the demo map).
+ *
+ * WHAT IS STILL OPEN, and is a tuning question rather than a correctness one:
+ * whether −80 is the best guess now that AI turns fold. A player who only moves
+ * OR acts still realizes −80, so the honest answer depends on whose turn is
+ * being projected, and both are asserted today. Changing it would move only the
+ * PROJECTED slots' accuracy — never `assumedFrom`, never the exact prefix.
  * =============================================================================
  */
 export const ASSUMED_FUTURE_TURN: FutureTurn = { didMove: false, didAct: true };
