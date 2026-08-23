@@ -9,7 +9,7 @@ import {
   type Ability,
   type ContentRegistry,
 } from "../sim/index.js";
-import { abilitySummary } from "./ability-text.js";
+import { abilitySummary, equipmentSummary } from "./ability-text.js";
 
 /**
  * The derived ability description (playtest, 2026-08-22 — "there is no description for
@@ -110,5 +110,51 @@ describe("the description is DERIVED, not written down", () => {
     expect(fire).toContain("fire magic damage");
     expect(fire).toContain("6 mp");
     expect(fire).toContain("charges before it lands");
+  });
+});
+
+describe("equipment describes itself too (playtest follow-up: same gap as the skills)", () => {
+  const WEAPONS = [...registry.equipmentById.values()].filter((e) => e.slot === "weapon");
+
+  it("every shipped weapon has a description — none is a bare name", () => {
+    expect(WEAPONS.length).toBeGreaterThan(0);
+    for (const w of WEAPONS) {
+      expect(equipmentSummary(w), `${w.name} has no description`).not.toBeNull();
+    }
+  });
+
+  it("DISCRIMINATING: weapons of EQUAL damage still read differently", () => {
+    // The failure this prevents, seen in the real dropdown: a Knight swings 72 with the
+    // Arming Sword and 72 unarmed, so a label carrying only damage made the sword look
+    // pointless. Its whole value is +5 evade. Any two weapons that a player might see
+    // tie on damage must still be told apart by what the label shows.
+    // Lower-cased: these assertions are about the CONTENT, not about sentence case.
+    const sword = equipmentSummary(registry.equipment("wpn-arming-sword"), { scaling: false })?.toLowerCase();
+    const flame = equipmentSummary(registry.equipment("wpn-flamebrand"), { scaling: false })?.toLowerCase();
+    expect(sword).not.toBe(flame);
+    expect(sword).toContain("evade");
+    expect(flame).toContain("fire");
+  });
+
+  it("names the SCALING in a player's terms, never the formula id", () => {
+    // `wpWp` is the engine's name for "damage ignores the wielder's stats" — the single
+    // most decision-relevant fact about the Warhammer, and meaningless as an id.
+    const hammer = equipmentSummary(registry.equipment("wpn-warhammer"))?.toLowerCase();
+    expect(hammer).toContain("ignores this unit's stats");
+    expect(hammer).not.toContain("wpwp");
+    expect(equipmentSummary(registry.equipment("wpn-rapier"))).toContain("Speed");
+  });
+
+  it("mentions accuracy only when it is a real cost", () => {
+    // "100% accuracy" on seven weapons would bury the one where accuracy IS the trade.
+    expect(equipmentSummary(registry.equipment("wpn-warhammer"))).toContain("95% accuracy");
+    expect(equipmentSummary(registry.equipment("wpn-arming-sword"))).not.toContain("accuracy");
+  });
+
+  it("DISCRIMINATING: the text moves when the item data moves", () => {
+    const base = registry.equipment("wpn-rapier");
+    const nerfed = { ...base, weaponEv: 1 };
+    expect(equipmentSummary(nerfed)).not.toBe(equipmentSummary(base));
+    expect(equipmentSummary(nerfed)).toContain("+1% evade");
   });
 });

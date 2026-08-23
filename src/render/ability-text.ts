@@ -23,7 +23,7 @@
  * PURE, DOM-free, no registry lookups beyond the ability handed in.
  */
 
-import type { Ability } from "../sim/index.js";
+import type { Ability, Equipment } from "../sim/index.js";
 
 /** "3" for a 3×1 box, "3 (±2 height)" when the vertical reach is worth naming. */
 function reachText(box: { h: number; v: number }): string {
@@ -110,6 +110,67 @@ export function abilitySummary(a: Ability): string | null {
     }
   }
 
+  if (bits.length === 0) return null;
+  const text = bits.join(" · ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+
+/**
+ * How a weapon's damage is derived, in the terms a player has — never the formula id.
+ *
+ * `paWp` / `braveWp` / `speedWp` / `wpWp` / `bareHands` are engine names for WHICH STAT
+ * multiplies the weapon. That distinction is the whole point of a horizontal catalog
+ * (ADR-0021: gear differs in kind, not tier), so it has to reach the player — but as
+ * "scales with Attack", not as "paWp".
+ */
+const SCALING_TEXT: Readonly<Record<string, string>> = {
+  paWp: "scales with Attack",
+  braveWp: "scales with Attack and Brave",
+  speedWp: "scales with Attack and Speed",
+  wpWp: "ignores this unit's stats",
+  bareHands: "unarmed strikes, scale with Attack and Brave",
+};
+
+/**
+ * One line describing a piece of equipment, or `null` when it declares nothing.
+ *
+ * Same contract and same reason as {@link abilitySummary}: derived from the item's own
+ * fields so a re-tune cannot falsify it. The weapon dropdown listed eight NAMES —
+ * "Flamebrand", "Warhammer" — with nothing to choose between them, which is the same
+ * gap the learn list had.
+ *
+ * It deliberately does NOT state damage: that depends on the unit holding it, so the
+ * number belongs beside the unit (the option labels carry it), not in a catalog line
+ * that would be wrong for three of the four party members.
+ *
+ * `opts.scaling: false` drops the "scales with…" clause, for the dropdown label where
+ * the damage figure beside it already answers that question and the space is tight.
+ * The rest — evade, Brave, Faith, element, accuracy — must stay, because those are
+ * exactly what makes two weapons of EQUAL damage different: a Knight sees "Unarmed —
+ * 72" and "Arming Sword — 72" and would otherwise have no reason to equip the sword.
+ */
+export function equipmentSummary(
+  item: Equipment,
+  opts: { scaling?: boolean } = {},
+): string | null {
+  const bits: string[] = [];
+  const w = item.weapon;
+  if (w) {
+    const scaling = opts.scaling === false ? undefined : SCALING_TEXT[w.formula];
+    if (scaling !== undefined) bits.push(scaling);
+    if (w.element !== "none") bits.push(`${w.element} damage`);
+    // Only when it is a REAL cost. "100% accuracy" on every other weapon would be noise
+    // that hides the one weapon where accuracy is the trade.
+    if (w.accuracy < 100) bits.push(`${w.accuracy}% accuracy`);
+  }
+  if (item.weaponEv !== undefined && item.weaponEv > 0) bits.push(`+${item.weaponEv}% evade`);
+  if (item.brave !== undefined && item.brave !== 0) {
+    bits.push(`Brave ${item.brave > 0 ? `+${item.brave}` : item.brave}`);
+  }
+  if (item.faith !== undefined && item.faith !== 0) {
+    bits.push(`Faith ${item.faith > 0 ? `+${item.faith}` : item.faith}`);
+  }
   if (bits.length === 0) return null;
   const text = bits.join(" · ");
   return text.charAt(0).toUpperCase() + text.slice(1);

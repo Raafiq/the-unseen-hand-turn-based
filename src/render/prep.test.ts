@@ -412,3 +412,45 @@ describe("the panel discloses what is FREE and what a purchase actually is (play
     expect(row?.kind).toBe("support");
   });
 });
+
+describe("the weapon picker shows damage for THIS unit (playtest follow-up)", () => {
+  /** A party member holding two weapons, so the picker has something to compare. */
+  function armed(job: string, raw: { pa: number; ma: number; speed: number; hp: number; mp: number }) {
+    return new PrepModel({
+      registry,
+      records: [defaultUnitRecord("u1", job, { raw, brave: 70, faith: 50 })],
+      inventory: ["wpn-arming-sword", "wpn-warhammer", "wpn-cestus"],
+    });
+  }
+
+  it("DISCRIMINATING: the same weapon shows DIFFERENT damage on different units", () => {
+    // A catalog number would be identical for both — and would be a lie for at least one
+    // of them, because the catalog is horizontal (ADR-0021): the Warhammer ignores the
+    // wielder's stats, so it is the best swing a low-Attack unit has and among the worst
+    // for a Knight. That inversion is the whole reason the figure has to be per-unit.
+    const strong = armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 });
+    const weak = armed("wizard", { pa: 4, ma: 8, speed: 8, hp: 192, mp: 24 });
+    const sword = (m: PrepModel) => m.weaponOptions().find((w) => w.id === "wpn-arming-sword")!.damage;
+    expect(sword(strong)).not.toBe(sword(weak));
+    expect(sword(strong)!).toBeGreaterThan(sword(weak)!);
+  });
+
+  it("DISCRIMINATING: the ranking REORDERS across units", () => {
+    // Stronger than "the numbers differ": if one weapon simply won on every body, the
+    // picker would be a ladder and the per-unit figure would be decoration.
+    const best = (m: PrepModel) =>
+      m.weaponOptions().reduce((a, b) => ((b.damage ?? -1) > (a.damage ?? -1) ? b : a)).id;
+    expect(best(armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 }))).not.toBe(
+      best(armed("wizard", { pa: 4, ma: 8, speed: 8, hp: 192, mp: 24 })),
+    );
+  });
+
+  it("the figure matches what the unit would actually swing for", () => {
+    // Reaches through to the same one-way build a battle uses, so the picker cannot
+    // quote a number the fight disagrees with.
+    const m = armed("knight", { pa: 12, ma: 8, speed: 8, hp: 255, mp: 24 });
+    const shown = m.weaponOptions().find((w) => w.id === "wpn-cestus")!.damage;
+    m.setWeapon("wpn-cestus");
+    expect(m.currentWeaponDamage()).toBe(shown);
+  });
+});

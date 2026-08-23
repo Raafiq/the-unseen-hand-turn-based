@@ -394,3 +394,11 @@ export {
   type StoryMoment,
   type StoryMigration,
 } from "./story.js";
+
+export {
+  EquipSlotSchema,
+  EquipmentSchema,
+  LIVE_EQUIP_SLOTS,
+  type EquipSlot,
+  type Equipment,
+} from "./equipment.js";

@@ -32,7 +32,7 @@
  * Deterministic: no RNG, no wall-clock, no timers.
  */
 
-import { abilitySummary } from "./ability-text.js";
+import { abilitySummary, equipmentSummary } from "./ability-text.js";
 import pack from "../../data/base-pack.json";
 import {
   DEFERRED_ACTIONS,
@@ -40,6 +40,7 @@ import {
   DEFERRED_REACTION_EFFECTS,
   DEFERRED_SUPPORT_EFFECTS,
   buildBattleUnit,
+  weaponBaseDamage,
   canLearn,
   changeJob,
   checkMastery,
@@ -402,12 +403,38 @@ export class PrepModel {
     return true;
   }
 
-  /** Owned items that fit the weapon slot, as `{id, name}` for the selector. */
-  weaponOptions(): { id: string; name: string }[] {
+  /**
+   * Owned weapons, each with the basic-attack damage THIS unit would swing for.
+   *
+   * The damage is the point. Eight weapon NAMES are not a choice a player can make —
+   * and a catalog line cannot carry the number, because the whole design is horizontal
+   * (ADR-0021): a Warhammer ignores the wielder's stats and so is the best swing a
+   * low-Attack caster has and among the worst for a Knight. Only a per-unit figure says
+   * that, and it is computed from the same one-way build a battle uses, so it cannot
+   * disagree with what the swing actually does.
+   *
+   * `null` damage for a weapon whose swing this unit cannot derive — never 0, which
+   * would read as "this weapon does nothing".
+   */
+  weaponOptions(): { id: string; name: string; damage: number | null }[] {
+    const rec = this.record();
     return this.inv
       .map((id) => this.registry.equipment(id))
       .filter((item) => item.slot === "weapon")
-      .map((item) => ({ id: item.id, name: item.name }));
+      .map((item) => {
+        let damage: number | null = null;
+        try {
+          damage = weaponBaseDamage(buildBattleUnit({ ...rec, weapon: item.id }, this.registry));
+        } catch {
+          damage = null;
+        }
+        return { id: item.id, name: item.name, damage };
+      });
+  }
+
+  /** The damage this unit swings for with what it currently holds. */
+  currentWeaponDamage(): number {
+    return weaponBaseDamage(buildBattleUnit(this.record(), this.registry));
   }
 
   /**
@@ -651,10 +678,25 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
   function weaponSlotHtml(): string {
     const owned = model.weaponOptions();
     if (owned.length === 0) return "";
+    // The damage rides in the OPTION LABEL, so weapons are comparable in the dropdown
+    // itself rather than one-at-a-time by equipping each and reading a stat line.
+    const bare = model.currentWeaponDamage();
+    const label = (name: string, dmg: number | null, perks?: string | null): string => {
+      const head = dmg === null ? name : `${name} — ${dmg} damage`;
+      return perks === null || perks === undefined ? head : `${head}, ${perks.toLowerCase()}`;
+    };
     const opts = optionList(
-      [{ value: "", label: "Unarmed" }, ...owned.map((w) => ({ value: w.id, label: w.name }))],
+      [
+        { value: "", label: label("Unarmed", model.record().weapon === null ? bare : null) },
+        ...owned.map((w) => ({
+          value: w.id,
+          label: label(w.name, w.damage, equipmentSummary(registry.equipment(w.id), { scaling: false })),
+        })),
+      ],
       model.record().weapon ?? "",
     );
+    const equipped = model.record().weapon;
+    const desc = equipped === null ? null : equipmentSummary(registry.equipment(equipped));
     // A nudge only while something free is going unused, and only then — a hint that
     // is always on is wallpaper, and a player who has deliberately chosen Unarmed does
     // not need telling twice.
@@ -666,6 +708,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       <div class="slot">
         <h3>Weapon <span class="lock">swaps are free</span></h3>
         <select data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
+        ${desc === null ? "" : `<p class="hint" data-testid="prep-weapon-desc">${esc(desc)}</p>`}
         ${unused}
       </div>`;
   }
