@@ -384,3 +384,31 @@ describe("every chassis slot is reachable inside one campaign (M0 item 7)", () =
     expect(cheapestLive("reaction")).toBeGreaterThan(60); // never a first-purchase freebie
   });
 });
+
+describe("the panel discloses what is FREE and what a purchase actually is (playtest, 2026-08-22)", () => {
+  it("DISCRIMINATING: a learn row says whether it is a command or a passive", () => {
+    // Found by screenshot: "Hp Boost" (a Support) sat in the same list as "Weapon Break"
+    // (an action) with nothing distinguishing them. A player who buys the passive and
+    // then looks for it in their command list finds nothing.
+    //
+    // The Knight tree is the fixture precisely because it holds BOTH kinds — a tree of
+    // one kind could not tell "the field is populated" from "the field is right".
+    const m = new PrepModel({ registry, records: [knightish()] });
+    const byAbility = new Map(m.learnRows().map((r) => [r.ability, r.kind]));
+    expect(byAbility.get("battle-skill.weapon-break")).toBe("action");
+    expect(byAbility.get("battle-skill.hp-boost")).toBe("support");
+    expect(byAbility.get("battle-skill.equip-heavy-armor")).toBe("support");
+    // Both kinds are present, so the assertion above is not vacuous.
+    expect(new Set(byAbility.values()).size).toBeGreaterThan(1);
+  });
+
+  it("kind is reported for a known row too, not only a buyable one", () => {
+    // The row a player has ALREADY bought is the one they go looking for when they
+    // cannot find their new ability in the command list.
+    const bought = learnAbility(knightish(), "knight", "hp-boost", registry);
+    const m = new PrepModel({ registry, records: [{ ...bought, ap: 0 }] });
+    const row = m.learnRows().find((r) => r.ability === "battle-skill.hp-boost");
+    expect(row?.known).toBe(true);
+    expect(row?.kind).toBe("support");
+  });
+});

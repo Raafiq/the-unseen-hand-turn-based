@@ -205,6 +205,16 @@ export interface LearnRow {
    */
   reason: string | null;
   /**
+   * What the node grants: an `action` (a command in battle) or a passive that must
+   * then be EQUIPPED in its chassis slot.
+   *
+   * The learn list showed neither, so "Hp Boost" sat in the same list as Weapon Break
+   * with nothing saying one is a command and the other is a Support you still have to
+   * equip. A player who buys a passive and then looks for it in their command list
+   * finds nothing and reasonably concludes the 60 AP did nothing.
+   */
+  kind: "action" | "reaction" | "support" | "movement";
+  /**
    * Why the ability this node grants currently does NOTHING, or `null` when it is live.
    *
    * The command list has marked deferred abilities since ADR-0019, but a learn list is
@@ -445,6 +455,7 @@ export class PrepModel {
     const jobId = this.browseJob();
     return this.registry.job(jobId).tree.map((node) => {
       const deferred = deferredBlocker(node.ability);
+      const kind = this.registry.ability(node.ability).type;
       if (known.has(node.ability)) {
         return {
           node: node.node,
@@ -454,6 +465,7 @@ export class PrepModel {
           buyable: false,
           reason: null,
           deferred,
+          kind,
         };
       }
       const check = canLearn(r, jobId, node.node, this.registry);
@@ -465,6 +477,7 @@ export class PrepModel {
         buyable: check.ok,
         reason: check.ok ? null : check.reason,
         deferred,
+        kind,
       };
     });
   }
@@ -613,10 +626,18 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       [{ value: "", label: "Unarmed" }, ...owned.map((w) => ({ value: w.id, label: w.name }))],
       model.record().weapon ?? "",
     );
+    // A nudge only while something free is going unused, and only then — a hint that
+    // is always on is wallpaper, and a player who has deliberately chosen Unarmed does
+    // not need telling twice.
+    const unused =
+      model.record().weapon === null
+        ? `<p class="hint" data-testid="prep-weapon-hint">You own ${owned.length} weapon${owned.length === 1 ? "" : "s"} and have none equipped.</p>`
+        : "";
     return `
       <div class="slot">
         <h3>Weapon <span class="lock">swaps are free</span></h3>
         <select data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
+        ${unused}
       </div>`;
   }
 
@@ -644,7 +665,12 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
           row.deferred === null
             ? ""
             : ` <span class="tag" title="No effect yet — ${esc(row.deferred)}">no effect yet</span>`;
-        const label = `${esc(abilityLabel(row.ability))}${tag}`;
+        // Passives get their slot named on the row; actions do not, because "it is a
+        // command" is what a learn list already implies. Naming only the exception
+        // keeps the list quiet and still closes the gap.
+        const kindTag =
+          row.kind === "action" ? "" : ` <span class="kind">${esc(row.kind)}</span>`;
+        const label = `${esc(abilityLabel(row.ability))}${kindTag}${tag}`;
         const cls = [row.known ? "known" : "", row.buyable ? "" : "locked", row.deferred === null ? "" : "deferred"]
           .filter(Boolean)
           .join(" ");
@@ -791,6 +817,11 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       <div class="slot" data-testid="prep-traits">
         <h3>Traits <span class="lock">max 2</span></h3>
         ${traitsBody}
+        ${
+          traits.length > 0 && record.loadout.traits.length === 0
+            ? `<p class="hint" data-testid="prep-traits-hint">Earned and not equipped — traits cost no AP.</p>`
+            : ""
+        }
       </div>
     </div>
     ${progressionHtml()}

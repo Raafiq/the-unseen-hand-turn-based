@@ -248,3 +248,28 @@ test("equipment: a granted weapon can be equipped, and it survives a reload", as
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await expect(page.getByTestId("prep-weapon")).toHaveValue("wpn-cestus");
 });
+
+test("prep: free things that are going unused SAY so, and stop saying it once used", async ({ page }) => {
+  // A playtest found the final battle's prep screen with nine weapons owned, none
+  // equipped, and a free trait unchecked — with nothing on screen pointing at either.
+  //
+  // The A/B is the point: a hint that is always present is wallpaper and would pass a
+  // mere "is it visible" check. Both halves are asserted — it appears while the free
+  // thing is unused, and it is GONE once the player uses it.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  const weaponHint = page.getByTestId("prep-weapon-hint");
+  const traitHint = page.getByTestId("prep-traits-hint");
+
+  await expect(weaponHint).toBeVisible();
+  await expect(weaponHint).toContainText("none equipped");
+  await expect(traitHint).toBeVisible();
+
+  await page.getByTestId("prep-weapon").selectOption("wpn-arming-sword");
+  await expect(weaponHint).toHaveCount(0);
+
+  await page.locator('[data-testid="prep-traits"] input[type="checkbox"]').first().check();
+  await expect(traitHint).toHaveCount(0);
+});
