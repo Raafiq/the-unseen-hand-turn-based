@@ -11,7 +11,7 @@
  * does, so nothing derived from elapsed time can reach `BattleState`.
  */
 
-import type { Position, StoryBeat } from "../sim/index.js";
+import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
 import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
@@ -20,6 +20,7 @@ import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
+import { LOG_KEY, Recorder, type LoggedAction } from "./telemetry.js";
 import type { Phase, Session } from "./session.js";
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -41,6 +42,22 @@ const shell = new CampaignShell({
   slot: storageAvailable ? browserSlot(localStorage) : memorySlot(),
   story,
 });
+
+/**
+ * The playtest log (Part B of the synthetic-playtest slice).
+ *
+ * OBSERVES ONLY. Nothing below reads it back into the shell or the session — every call
+ * is one-way, which is what makes wall-clock legal here at all (`docs/05` §3 bans it from
+ * anything that can reach `BattleState`). It shares the page's storage but never the
+ * save's key: erasing a run keeps the log, because the run that was erased is data.
+ */
+const recorder = new Recorder({ storage: storageAvailable ? localStorage : undefined });
+
+/** Record an action, then do the thing. Never the reverse — a throw must still be seen. */
+const noted = (kind: LoggedAction, fn: () => void): (() => void) => () => {
+  recorder.action(kind);
+  fn();
+};
 
 const SCREENS: Screen[] = ["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
 const SCREEN_EL: Record<Screen, string> = {
@@ -87,6 +104,7 @@ function renderScreens(): void {
 }
 
 function renderTitle(): void {
+  renderLogNote("log-note");
   const continueBtn = el<HTMLButtonElement>("btn-continue");
   continueBtn.disabled = !shell.canContinue();
   el<HTMLButtonElement>("btn-erase").disabled = shell.slotState.kind === "empty";
@@ -155,6 +173,28 @@ function renderStory(id: string, beat: StoryBeat | null): void {
  */
 let prep: PrepHandle | null = null;
 
+/**
+ * What changed between two versions of one party member, as log actions.
+ *
+ * A LIST rather than one verdict: a single purchase can complete a mastery and a single
+ * job change can clear a colliding secondary, so one `onChange` legitimately carries two
+ * edits. Collapsing them to "something changed" would make the counts undercount exactly
+ * the players who used the panel most.
+ */
+function classifyEdit(before: UnitRecord, after: UnitRecord): LoggedAction[] {
+  const kinds: LoggedAction[] = [];
+  if (after.learned.length > before.learned.length) kinds.push("buy");
+  if (after.currentJob !== before.currentJob) kinds.push("change-job");
+  if (after.weapon !== before.weapon) kinds.push("change-weapon");
+  for (const slot of ["secondary", "reaction", "support", "movement"] as const) {
+    if (before.loadout[slot] !== after.loadout[slot]) {
+      kinds.push("equip");
+      break;
+    }
+  }
+  return kinds;
+}
+
 function renderPrep(): void {
   const party = shell.save?.party;
   if (!party || party.length === 0) return;
@@ -165,7 +205,13 @@ function renderPrep(): void {
       inventory: shell.save?.inventory ?? [],
       progression: true,
       onChange: (record) => {
+        // CLASSIFIED BY DIFFING THE RECORD, not by wiring each control. Every edit the
+        // panel makes bottoms out in one `commit` and arrives here — the panel's own
+        // clicks and the `window.tuhGame.prep` seam alike — so recording at this one
+        // point cannot miss a control, and a control added later is covered for free.
+        const before = shell.save?.party.find((r) => r.id === record.id);
         shell.updateParty(record);
+        if (before) for (const kind of classifyEdit(before, record)) recorder.action(kind);
         // Repaint the screens that show party state (the roster list, the save note).
         // The panel has already redrawn itself.
         renderBriefingText();
@@ -225,7 +271,9 @@ function renderBriefingText(): void {
 
   // Rebound on every repaint because the list is rewritten wholesale.
   for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-deploy]")) {
-    btn.addEventListener("click", () => guard(() => toggleDeploy(btn.dataset["deploy"] as string)));
+    btn.addEventListener("click", () =>
+      guard(noted("change-deployment", () => toggleDeploy(btn.dataset["deploy"] as string))),
+    );
   }
 }
 
@@ -314,6 +362,7 @@ function renderAfter(): void {
 }
 
 function renderCompleted(): void {
+  renderLogNote("done-log-note");
   // The FINAL victory never passes through the after-battle screen — winning the last
   // battle goes straight to `COMPLETED` — so the last battle's victory scene would be
   // the one beat in the pack a player could never read. It belongs here.
@@ -336,6 +385,11 @@ function renderSaveError(): void {
 function refresh(): void {
   renderScreens();
   renderSaveError();
+  // Every repaint, not every transition. The recorder ignores a repeat of the screen it
+  // is already on, and driving it from the ONE function that always runs means a new
+  // transition cannot be added without the log seeing it — the "a screen the state
+  // machine skips has content nobody can reach" trap, pointed the other way.
+  recorder.screen(shell.screen, shell.briefing()?.battleId ?? shell.lastBattle?.battleId ?? null);
   switch (shell.screen) {
     case "TITLE":
       renderTitle();
@@ -463,6 +517,9 @@ const helpDialog = el<HTMLDialogElement>("help");
 // `showModal` gives focus trapping and Escape-to-close for free; the fallback keeps the
 // panel usable where <dialog> is unsupported rather than silently doing nothing.
 el("btn-help").addEventListener("click", () => {
+  // Recorded because ZERO is the finding: a player who never opens the manual and then
+  // loses the finale is evidence about the game, not about them.
+  recorder.action("help");
   if (typeof helpDialog.showModal === "function") helpDialog.showModal();
   else helpDialog.setAttribute("open", "");
 });
@@ -471,22 +528,111 @@ el("btn-help-close").addEventListener("click", () => {
   else helpDialog.removeAttribute("open");
 });
 
+/**
+ * Deploy, and start the battle's wall-clock.
+ *
+ * ONE function, called by the button AND by `window.tuhGame.deploy` — not two paths that
+ * happen to agree. A seam that skipped the timing would let a browser spec drive a
+ * battle the log never saw, and the spec would still pass (docs/10 §7).
+ */
+function deployAndTime(): void {
+  shell.deploy();
+  recorder.battleStarted();
+}
+
+/** Bank the battle, and record what it cost — read off the report the shell just banked. */
+function concludeAndTime(): void {
+  shell.concludeBattle();
+  const banked = shell.lastBattle;
+  if (banked) {
+    recorder.battleEnded(banked.battleId, banked.report.outcome, banked.report.turns);
+  }
+}
+
+/**
+ * The result of the last log action, shown until something else happens.
+ *
+ * A VARIABLE RATHER THAN A DIRECT WRITE, because every click runs through `guard`, which
+ * repaints — a handler that set the text itself had it overwritten by the repaint a
+ * microsecond later, and the message only appeared at all when it happened to arrive
+ * after the paint. One writer (`renderLogNote`), one source.
+ */
+let logNotice: string | null = null;
+
+const MANUAL_COPY = `Open the console and run: copy(localStorage['${LOG_KEY}'])`;
+
+/**
+ * Put the log on the clipboard, and SAY what happened either way.
+ *
+ * The clipboard API is refused outside a secure context and in some embeddings, and a
+ * button that silently did nothing would cost a playtester their whole session — so a
+ * refusal names the manual way out rather than failing quietly.
+ */
+function copyLog(): void {
+  const json = recorder.serialize();
+  const say = (text: string): void => {
+    logNotice = text;
+    refresh();
+  };
+  const clip = navigator.clipboard;
+  if (!clip || typeof clip.writeText !== "function") {
+    logNotice = `This browser will not let the page use the clipboard. ${MANUAL_COPY}`;
+    return;
+  }
+  clip.writeText(json).then(
+    () => say(`Copied — ${json.length} characters. Paste it back to whoever asked for it.`),
+    (err: unknown) => say(`Could not copy (${String(err)}). ${MANUAL_COPY}`),
+  );
+}
+
+/** What the page says about the log. Both screens that offer the control render it. */
+function renderLogNote(id: string): void {
+  const note = el(id);
+  const log = recorder.log();
+  if (logNotice !== null) {
+    note.className = "hint";
+    note.textContent = logNotice;
+    return;
+  }
+  if (recorder.writeError !== null) {
+    note.className = "hint warn";
+    note.textContent = `The playtest log is NOT being saved: ${recorder.writeError}`;
+    return;
+  }
+  note.className = "hint";
+  note.textContent = recorder.persisting
+    ? `Playtest log: ${log.battles.length} battle${log.battles.length === 1 ? "" : "s"} recorded. No personal data, nothing sent anywhere.`
+    : "This browser is not letting the game store data, so the playtest log lasts only until you close the tab.";
+}
+
 const on = (id: string, fn: () => void): void =>
   el(id).addEventListener("click", () => guard(fn));
 
-on("btn-new-game", () => shell.newGame());
-on("btn-continue", () => shell.continueGame());
+/** Any run action clears the log notice — it describes a click, not a state. */
+const clearNotice = (fn: () => void): (() => void) => () => {
+  logNotice = null;
+  fn();
+};
+
+on("btn-new-game", noted("start", clearNotice(() => shell.newGame())));
+on("btn-continue", noted("start", () => shell.continueGame()));
 on("btn-erase", () => shell.eraseSave());
-on("btn-deploy", () => shell.deploy());
+on("btn-deploy", noted("deploy", () => deployAndTime()));
 on("btn-brief-quit", () => shell.quitToTitle());
-on("btn-conclude", () => shell.concludeBattle());
-on("btn-next", () => shell.nextBattle());
-on("btn-retry", () => shell.retry());
+on("btn-conclude", noted("conclude", () => concludeAndTime()));
+on("btn-next", noted("next", () => shell.nextBattle()));
+on("btn-retry", noted("retry", () => shell.retry()));
 on("btn-after-quit", () => shell.quitToTitle());
 on("btn-done-title", () => shell.quitToTitle());
-on("btn-end-turn", () => shell.session?.endTurn());
-on("btn-cancel", () => shell.session?.cancel());
-on("btn-step", () => shell.session?.step());
+on("btn-end-turn", noted("battle-input", () => shell.session?.endTurn()));
+on("btn-cancel", noted("battle-input", () => shell.session?.cancel()));
+on("btn-step", noted("battle-input", () => shell.session?.step()));
+on("btn-copy-log", () => copyLog());
+on("btn-done-copy-log", () => copyLog());
+on("btn-clear-log", () => {
+  recorder.clear();
+  logNotice = "Playtest log cleared.";
+});
 
 /**
  * The shipped seam. Every entry routes through the SAME shell/session method a button
@@ -499,7 +645,7 @@ const api: GameApi = {
   newGame: () => guard(() => shell.newGame()),
   continueGame: () => guard(() => shell.continueGame()),
   eraseSave: () => guard(() => shell.eraseSave()),
-  deploy: () => guard(() => shell.deploy()),
+  deploy: () => guard(() => deployAndTime()),
   step: () => guard(() => shell.session?.step()),
   autoplay: () =>
     guard(() => {
@@ -512,11 +658,13 @@ const api: GameApi = {
       }
     }),
   battleOver: () => shell.battleOver(),
-  conclude: () => guard(() => shell.concludeBattle()),
+  conclude: () => guard(() => concludeAndTime()),
   next: () => guard(() => shell.nextBattle()),
   retry: () => guard(() => shell.retry()),
   quitToTitle: () => guard(() => shell.quitToTitle()),
   storedSave: () => (storageAvailable ? localStorage.getItem(SAVE_KEY) : null),
+  playtestLog: () => recorder.log(),
+  storedLog: () => (storageAvailable ? localStorage.getItem(LOG_KEY) : null),
   prep: (): PrepSeam | null => {
     const h = prep;
     if (!h) return null;

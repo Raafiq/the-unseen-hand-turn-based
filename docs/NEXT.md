@@ -127,8 +127,13 @@ agrees with the real command projection.
 player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,
 and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that profile.
 
-Still open in the slice: **Part B, the browser telemetry.** A4's gate was reported and the
-user chose to retune first.
+**Part B landed the same day.** `src/render/telemetry.ts` records a per-session funnel in
+`localStorage` — screen dwell, time to first action, per-battle outcome/attempt/turns, what
+was bought and equipped, and **where they stopped** — with a "Copy playtest log" control on
+the title and ending screens. No backend, no network, no personal data.
+
+**The slice is complete. What it was built FOR has not happened: nobody has played this.**
+The funnel is worth exactly one real playtester and nothing until then.
 
 ---
 

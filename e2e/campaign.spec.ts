@@ -306,6 +306,78 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   await expect(page.getByTestId("prep-spend-hint")).toContainText("job this unit is in");
 });
 
+test("playtest log: it records a real session and survives a reload", async ({ page }) => {
+  // The half only a browser can prove. Every assertion in `telemetry.test.ts` passes
+  // against an in-memory map whether or not the page calls in at all, so what is owed
+  // here is that the page IS wired and that `localStorage` really keeps the log.
+  await page.goto("/game.html");
+  await page.evaluate(() => localStorage.removeItem("tuh.playtest.v1"));
+  await page.reload();
+
+  // Nothing has happened yet, and the page says the log is being kept.
+  await expect(page.getByTestId("log-note")).toContainText("0 battles recorded");
+
+  await page.getByTestId("new-game").click();
+  await prepEveryMember(page);
+  await playCurrentBattle(page);
+
+  // On to battle 2's briefing and make two edits through the real controls.
+  //
+  // A WEAPON AND A DEPLOYMENT, not a purchase: battle 1 pays at most 56 AP and the
+  // cheapest node costs 60, so nobody can buy anything this early. Asserting `bought`
+  // here would have been asserting that nothing happened — which is what the first draft
+  // of this test did, and it failed for the right reason.
+  await page.getByTestId("next").click();
+  const weapons = await page
+    .getByTestId("prep-weapon")
+    .locator("option")
+    .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+  const current = await page.getByTestId("prep-weapon").inputValue();
+  const other = weapons.find((v) => v !== current);
+  expect(other, "battle 1 grants weapons, so there must be one to switch to").toBeDefined();
+  await page.getByTestId("prep-weapon").selectOption(other!);
+  await page.locator('[data-testid="brief-party"] button[data-deploy]').first().click();
+
+  const afterOne = await page.evaluate(() => window.tuhGame.playtestLog());
+  expect(afterOne.battles).toHaveLength(1);
+  expect(afterOne.battles[0]?.outcome).toBe("victory");
+  expect(afterOne.battles[0]?.attempt).toBe(1);
+  expect(afterOne.battles[0]?.turns).toBeGreaterThan(0);
+  // The edit counters are wired to the real panel, not decoration.
+  expect(afterOne.edits.weaponChanged).toBeGreaterThan(0);
+  expect(afterOne.edits.deploymentChanged).toBeGreaterThan(0);
+  // The one row that matters: where they are right now.
+  expect(afterOne.stoppedOn?.screen).toBe("BRIEFING");
+  // A screen the player passed through, timed.
+  const briefing = afterOne.screens.find((v) => v.screen === "BRIEFING");
+  expect(briefing?.toFirstActionMs).not.toBeNull();
+
+  // THE RELOAD. A log the browser did not really keep would come back empty here while
+  // every headless test stayed green.
+  await page.reload();
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+  const afterReload = await page.evaluate(() => window.tuhGame.playtestLog());
+  expect(afterReload.battles).toHaveLength(1);
+  expect(afterReload.edits.weaponChanged).toBe(afterOne.edits.weaponChanged);
+  expect(afterReload.totalMs).toBeGreaterThanOrEqual(afterOne.totalMs);
+  await expect(page.getByTestId("log-note")).toContainText("1 battle recorded");
+
+  // And the raw cell is what the page reports, rather than a second in-memory copy.
+  const stored = await page.evaluate(() => window.tuhGame.storedLog());
+  expect(JSON.parse(stored ?? "null").battles).toHaveLength(1);
+
+  // Clearing empties it, so a playtester can hand over one clean session.
+  await page.getByTestId("clear-log").click();
+  await expect(page.getByTestId("log-note")).toContainText("cleared");
+  expect(await page.evaluate(() => window.tuhGame.playtestLog().battles)).toHaveLength(0);
+  // The stored cell comes BACK, empty — clearing empties the log, it does not stop the
+  // recorder. The next repaint writes the fresh one through, which is what should happen:
+  // a playtester who clears and keeps playing is still being recorded.
+  const cleared = await page.evaluate(() => window.tuhGame.storedLog());
+  expect(JSON.parse(cleared ?? "null").battles).toHaveLength(0);
+  expect(JSON.parse(cleared ?? "null").edits.weaponChanged).toBe(0);
+});
+
 test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {
   // The `?` is the whole of M0 item 7 (user decision, 2026-08-22): nothing is TAUGHT on
   // rails, so this control is the only route to an explanation. A panel that exists in

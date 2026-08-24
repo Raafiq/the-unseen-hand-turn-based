@@ -121,6 +121,10 @@
       .learn-list li.deferred .tag { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 5px; }
       /* "needs Secondary" sits on rows that are otherwise perfectly buyable, so unlike
          the deferred tag it must read as a caution rather than as greyed-out text. */
+      /* The playtest controls are research plumbing, not part of the game: quieter than
+         the run controls beside them, and never the thing a player reaches for first. */
+      .log-controls { margin-top: 10px; }
+      .log-controls button { font-size: .8rem; padding: 7px 14px; }
       .learn-list .tag.reach { font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; opacity: .85; }
       .receipt { margin: 10px 0 0; font-size: .8rem; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(226,169,72,.08); color: var(--ink-soft); }
       .receipt b { color: var(--ink); }
@@ -168,6 +172,11 @@
             <button id="btn-erase" class="ghost" data-testid="erase">Erase save</button>
           </div>
           <div id="title-slot" class="reason info" data-testid="title-slot" role="status" aria-live="polite"></div>
+          <div class="controls log-controls">
+            <button id="btn-copy-log" class="ghost" data-testid="copy-log">Copy playtest log</button>
+            <button id="btn-clear-log" class="ghost" data-testid="clear-log">Clear log</button>
+          </div>
+          <p class="hint" id="log-note" data-testid="log-note" role="status" aria-live="polite"></p>
         </div>
         <footer>Also here: the <a href="./index.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
       </section>
@@ -260,7 +269,9 @@
           <p id="done-note" class="lede" data-testid="done-note"></p>
           <div class="controls">
             <button id="btn-done-title" data-testid="done-title">Back to title</button>
+            <button id="btn-done-copy-log" class="ghost" data-testid="done-copy-log">Copy playtest log</button>
           </div>
+          <p class="hint" id="done-log-note" data-testid="done-log-note" role="status" aria-live="polite"></p>
         </div>
       </section>
     </div>
