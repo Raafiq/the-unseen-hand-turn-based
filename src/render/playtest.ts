@@ -29,8 +29,17 @@
  * It does not make it PROVEN: step A3's A/B on the built object still owes that.
  */
 
-import type { ApReward, ContentRegistry, LoadoutSlot, UnitRecord } from "../sim/index.js";
-import type { LearnRow, PrepModel } from "./prep.js";
+import type {
+  ApReward,
+  CampaignDef,
+  ContentRegistry,
+  EncounterMap,
+  LoadoutSlot,
+  UnitRecord,
+} from "../sim/index.js";
+import { CampaignShell } from "./campaign-shell.js";
+import { PrepModel, type LearnRow } from "./prep.js";
+import { memorySlot } from "./storage.js";
 
 /** The three policies the slice compares. */
 export type PersonaId = "naive" | "default" | "optimizer";
@@ -345,4 +354,320 @@ export function persona(id: PersonaId): Persona {
   const found = PERSONAS.find((p) => p.id === id);
   if (!found) throw new Error(`playtest: no persona "${id}"`);
   return found;
+}
+
+// ── the runner (A2) ──────────────────────────────────────────────────────────
+
+/**
+ * One battle as the playtest saw it.
+ *
+ * `attempts` and `playerHpFraction` are the two difficulty signals: a battle cleared on
+ * the first go with 90% of the party's HP intact is not the same battle as one cleared
+ * at 15%, and an outcome column alone cannot tell them apart.
+ */
+export interface PlaytestBattle {
+  battleId: string;
+  encounterId: string;
+  /** 1-based position in the campaign — "battle 3 of 5". */
+  step: number;
+  outcome: string;
+  /** Attempts spent here. 1 = cleared (or lost) first go. */
+  attempts: number;
+  turns: number;
+  ticks: number;
+  /** Σhp / Σmaxhp for the player team at the end. How close it was. */
+  playerHpFraction: number;
+  /** The same for the opposition — a low number on a loss means it was nearly won. */
+  enemyHpFraction: number;
+  /** Edits the persona made at the prep screen before this battle (see `decisions`). */
+  prepDecisions: number;
+}
+
+/** What one member looked like when the run ended. */
+export interface PlaytestMember {
+  id: string;
+  job: string;
+  /** AP still banked — a high number means the economy went unused. */
+  ap: number;
+  learned: number;
+  /** Of the four chassis slots, how many carry something. */
+  slotsFilled: number;
+  weapon: string | null;
+}
+
+/** One persona's whole playthrough at one seed. */
+export interface PlaytestReport {
+  persona: PersonaId;
+  /** The offset applied to every encounter's authored seed. 0 = the shipped campaign. */
+  seedOffset: number;
+  /**
+   * How the run ended.
+   *   `completed` — reached the ending.
+   *   `stalled`   — lost, and ran out of attempts. WHERE a run stops is the finding.
+   *   `capped`    — hit the battle cap without resolving, which is a harness bug, not a
+   *                 result: a campaign that neither ends nor stalls means the loop below
+   *                 stopped believing the shell, and the number is not reportable.
+   */
+  ending: "completed" | "stalled" | "capped";
+  battles: PlaytestBattle[];
+  /**
+   * Between-battle edits that REACHED THE SAVE, summed over the run — the session-length
+   * proxy, and the same number that proves the persona is not computing a plan it never
+   * applies.
+   *
+   * Counted by diffing the stored record before and after each prep screen, never by
+   * asking the persona what it did. A policy that decided on twelve purchases and applied
+   * none scores 0 here, which is the dead-support-slot failure showing up as a number
+   * instead of as silence.
+   *
+   * NOT MINUTES. Converting this to wall-clock needs a seconds-per-decision constant that
+   * nothing here measures; Part B's telemetry is what eventually supplies it.
+   */
+  decisions: number;
+  /** Every party member at the end, in save order. */
+  party: PlaytestMember[];
+  /** Σ AP left unspent across the party. High = the progression economy went untouched. */
+  apUnspent: number;
+  /** Issued-command histogram summed over every battle. */
+  abilityUsage: Record<string, number>;
+}
+
+export interface PlaytestOptions {
+  persona: Persona;
+  def: CampaignDef;
+  encounters: EncounterMap;
+  registry: ContentRegistry;
+  /** Added to every encounter's authored seed. 0 reproduces the shipped campaign. */
+  seedOffset?: number;
+  /**
+   * Attempts allowed per battle before the run is called `stalled`. Default 1.
+   *
+   * ONE, NOT THREE, AND THAT IS A FINDING RATHER THAN A SHORTCUT. A loss banks nothing —
+   * `applyBattleResult` returns `gameOver` before it awards AP — and `retryBattle`
+   * restores the party exactly. With a fixed seed and an unchanged party, attempt two is
+   * bit-identical to attempt one, so retrying can only ever burn wall-clock. The default
+   * is 1 because a higher one buys nothing; the option exists so `playtest.test.ts` can
+   * DEMONSTRATE the repeat rather than leave that claim as prose.
+   */
+  maxAttempts?: number;
+  /**
+   * Skip the persona's prep entirely — deployment, purchases, equipment, all of it.
+   *
+   * The A3 lever: the same run with the persona's choices applied and withheld must
+   * produce different reports, or the policy never reached the built unit. An option
+   * that was quietly ignored would give two identical runs and read as a null result,
+   * so the runner records `prepDecisions: 0` on every battle when it is set and the
+   * test asserts that too — a lever has to be shown to be honored.
+   */
+  withholdPrep?: boolean;
+  /** Halting guard. Defaults to the campaign's length plus a small margin. */
+  maxBattles?: number;
+}
+
+/**
+ * A copy of the encounter map with every authored seed shifted by `offset`.
+ *
+ * A battle's seed lives in its ENCOUNTER FILE, not in the save and not in the shell, so
+ * there is no seed parameter to sweep — and adding one to `CampaignShell` would put a
+ * test affordance in the production path. `ShellOptions.encounters` takes raw defs and
+ * parses them itself, so overriding the field before handing them over is the whole
+ * mechanism.
+ *
+ * OFFSET rather than an absolute seed, so `0` is exactly the shipped campaign and every
+ * other value is a stated distance from it.
+ */
+export function withSeedOffset(encounters: EncounterMap, offset: number): EncounterMap {
+  if (offset === 0) return encounters;
+  const out: Record<string, unknown> = {};
+  for (const [id, def] of Object.entries(encounters)) {
+    const raw = def as { seed?: number };
+    if (typeof raw.seed !== "number") {
+      // Never silently pass an un-reseeded encounter through: the sweep would then
+      // report several "different seeds" that were all the same battle.
+      throw new Error(`playtest: encounter "${id}" has no numeric seed to offset`);
+    }
+    out[id] = { ...(def as object), seed: raw.seed + offset };
+  }
+  return Object.freeze(out);
+}
+
+/** Play the live battle out with the balance probe on both seats. */
+function autoplay(shell: CampaignShell): void {
+  const session = shell.session;
+  if (!session) throw new Error("playtest: no battle in progress");
+  let guard = 0;
+  while (session.phase !== "ENDED") {
+    session.step();
+    if (++guard > 2000) throw new Error("playtest: the battle never ended");
+  }
+}
+
+/** How many of the four chassis slots carry something. */
+function slotsFilled(record: UnitRecord): number {
+  const l = record.loadout;
+  return [l.secondary, l.reaction, l.support, l.movement].filter((v) => v !== null).length;
+}
+
+/**
+ * Edits that reached the SAVE, counted by diffing the stored record.
+ *
+ * Deliberately counts state, not intent: an ability learned, a slot changed, a job
+ * changed, a weapon swapped. Each is one thing a player would have clicked.
+ */
+function editCount(before: UnitRecord, after: UnitRecord): number {
+  let n = after.learned.length - before.learned.length;
+  for (const slot of ["secondary", "reaction", "support", "movement"] as const) {
+    if (before.loadout[slot] !== after.loadout[slot]) n += 1;
+  }
+  if (before.currentJob !== after.currentJob) n += 1;
+  if (before.weapon !== after.weapon) n += 1;
+  return n;
+}
+
+/**
+ * Play one campaign end to end with one persona at one seed.
+ *
+ * Drives `CampaignShell` over an in-memory save — the same seam `campaign-shell.test.ts`
+ * uses — so the harness plays the game the page plays. Tactics inside each battle are
+ * `ai.ts`'s, unchanged: the ONLY thing a persona varies is what walks onto the field.
+ */
+export function runPlaytest(opts: PlaytestOptions): PlaytestReport {
+  const seedOffset = opts.seedOffset ?? 0;
+  const maxAttempts = opts.maxAttempts ?? 1;
+  const maxBattles = opts.maxBattles ?? opts.def.battles.length + 2;
+
+  const shell = new CampaignShell({
+    def: opts.def,
+    encounters: withSeedOffset(opts.encounters, seedOffset),
+    registry: opts.registry,
+    slot: memorySlot(),
+  });
+  shell.newGame();
+
+  const battles: PlaytestBattle[] = [];
+  const abilityUsage: Record<string, number> = {};
+  let decisions = 0;
+  let lastRewards: Readonly<Record<string, ApReward>> | null = null;
+  let attempts = 1;
+  let ending: PlaytestReport["ending"] = "capped";
+
+  while (battles.length < maxBattles) {
+    const save = shell.save;
+    if (!save) throw new Error("playtest: the shell lost its save mid-run");
+    if (shell.screen !== "BRIEFING") throw new Error(`playtest: stuck on ${shell.screen}`);
+
+    const deployment = shell.deployment();
+    if (!deployment) throw new Error("playtest: no battle to deploy into");
+    const ctx: PrepContext = {
+      battleIndex: save.battleIndex,
+      slots: deployment.slots,
+      party: save.party,
+      inventory: save.inventory,
+      registry: opts.registry,
+      lastRewards,
+    };
+
+    let prepDecisions = 0;
+    if (opts.withholdPrep !== true) {
+      const chosen = opts.persona.chooseDeployment(ctx);
+      // Checked HERE rather than left to the shell: a policy that returned the wrong
+      // count would otherwise surface as an exception several frames later, reading
+      // like a shell bug.
+      if (chosen.length !== deployment.slots) {
+        throw new Error(
+          `playtest: ${opts.persona.id} chose ${chosen.length} to deploy, not ${deployment.slots}`,
+        );
+      }
+      for (const id of chosen) {
+        if (!save.party.some((r) => r.id === id)) {
+          throw new Error(`playtest: ${opts.persona.id} deployed "${id}", who is not in the party`);
+        }
+      }
+      shell.setDeployment(chosen);
+      prepDecisions += 1;
+
+      const before = new Map((shell.save?.party ?? []).map((r) => [r.id, r] as const));
+      const prep = new PrepModel({
+        registry: opts.registry,
+        records: shell.save?.party ?? [],
+        inventory: save.inventory,
+        onChange: (record) => shell.updateParty(record),
+      });
+      for (const member of before.keys()) {
+        prep.select(member);
+        opts.persona.prepare(prep, ctx);
+      }
+      for (const after of shell.save?.party ?? []) {
+        const was = before.get(after.id);
+        if (was) prepDecisions += editCount(was, after);
+      }
+    }
+    decisions += prepDecisions;
+
+    shell.deploy();
+    autoplay(shell);
+    shell.concludeBattle();
+
+    const resolved = shell.lastBattle;
+    if (!resolved) throw new Error("playtest: the battle banked no report");
+    lastRewards = resolved.rewards;
+    for (const [id, n] of Object.entries(resolved.report.abilityUsage)) {
+      abilityUsage[id] = (abilityUsage[id] ?? 0) + n;
+    }
+    const team = (id: number): number =>
+      resolved.report.teams.find((t) => t.teamId === id)?.hpFraction ?? 0;
+    battles.push({
+      battleId: resolved.battleId,
+      encounterId: resolved.encounterId,
+      step: save.battleIndex + 1,
+      outcome: resolved.report.outcome,
+      attempts,
+      turns: resolved.report.turns,
+      ticks: resolved.report.ticks,
+      playerHpFraction: team(opts.def.playerTeam),
+      enemyHpFraction:
+        resolved.report.teams.find((t) => t.teamId !== opts.def.playerTeam)?.hpFraction ?? 0,
+      prepDecisions,
+    });
+
+    // Read the SAVE's status, not the screen: `concludeBattle` derives the screen from
+    // exactly this field, and narrowing the screen union above would make TypeScript
+    // believe it cannot have changed.
+    const status = shell.save?.status;
+    if (status === "completed") {
+      ending = "completed";
+      break;
+    }
+    if (status === "gameOver") {
+      if (attempts >= maxAttempts) {
+        ending = "stalled";
+        break;
+      }
+      attempts += 1;
+      shell.retry();
+      continue;
+    }
+    attempts = 1;
+    shell.nextBattle();
+  }
+
+  const party = (shell.save?.party ?? []).map((r) => ({
+    id: r.id,
+    job: r.currentJob,
+    ap: r.ap,
+    learned: r.learned.length,
+    slotsFilled: slotsFilled(r),
+    weapon: r.weapon,
+  }));
+
+  return {
+    persona: opts.persona.id,
+    seedOffset,
+    ending,
+    battles,
+    decisions,
+    party,
+    apUnspent: party.reduce((sum, m) => sum + m.ap, 0),
+    abilityUsage,
+  };
 }

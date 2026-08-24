@@ -12,10 +12,21 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { registry } from "./campaign-data.js";
+import { ENCOUNTERS, campaign, registry } from "./campaign-data.js";
 import { PrepModel } from "./prep.js";
-import { DEFAULT, NAIVE, OPTIMIZER, PERSONAS, persona, type PrepContext } from "./playtest.js";
-import type { ApReward, UnitRecord } from "../sim/index.js";
+import {
+  DEFAULT,
+  NAIVE,
+  OPTIMIZER,
+  PERSONAS,
+  persona,
+  runPlaytest,
+  withSeedOffset,
+  type Persona,
+  type PlaytestReport,
+  type PrepContext,
+} from "./playtest.js";
+import type { ApReward, CampaignDef, UnitRecord } from "../sim/index.js";
 import campaignJson from "../../data/campaign/camp-the-first-march.json" with { type: "json" };
 
 /** The shipped starting party, as authored — 0 AP, one ability each, empty chassis. */
@@ -213,5 +224,154 @@ describe("optimizer — reading the numbers", () => {
       return prep.record();
     };
     expect(run()).toEqual(run());
+  });
+});
+
+// ── A2/A3 — the runner, the seed sweep, and the two assertions ───────────────
+
+/** A campaign whose party cannot survive contact — for testing the LOSING path. */
+function doomedCampaign(): CampaignDef {
+  const def = structuredClone(campaign);
+  for (const r of def.party) r.raw = { ...r.raw, hp: 1, pa: 0, ma: 0 };
+  return def;
+}
+
+describe("withSeedOffset", () => {
+  it("returns the map untouched at offset 0, and shifts every seed otherwise", () => {
+    expect(withSeedOffset(ENCOUNTERS, 0)).toBe(ENCOUNTERS);
+    const moved = withSeedOffset(ENCOUNTERS, 7);
+    for (const [id, def] of Object.entries(ENCOUNTERS)) {
+      const before = (def as { seed: number }).seed;
+      expect((moved[id] as { seed: number }).seed).toBe(before + 7);
+    }
+  });
+
+  it("refuses an encounter with no seed rather than passing it through unreseeded", () => {
+    // Silently skipping one would make a sweep report several "different seeds" that
+    // were the same battle — the failure mode the whole sweep exists to avoid.
+    expect(() => withSeedOffset({ bad: { id: "bad" } }, 1)).toThrow(/no numeric seed/);
+  });
+});
+
+describe("the runner", () => {
+  const run = (p: Persona, seedOffset = 0): PlaytestReport =>
+    runPlaytest({ persona: p, def: campaign, encounters: ENCOUNTERS, registry, seedOffset });
+
+  it("plays the whole shipped campaign and reports one row per battle", () => {
+    const report = run(DEFAULT);
+    expect(report.ending).toBe("completed");
+    expect(report.battles).toHaveLength(campaign.battles.length);
+    expect(report.battles.map((b) => b.step)).toEqual([1, 2, 3, 4, 5]);
+    expect(report.party.map((m) => m.id)).toEqual(campaign.party.map((r) => r.id));
+  });
+
+  it("is deterministic: the same persona at the same seed gives an identical report", () => {
+    expect(run(OPTIMIZER)).toEqual(run(OPTIMIZER));
+  });
+
+  it("actually reseeds: two offsets give different battles", () => {
+    // Without this the sweep would be N copies of one run wearing different labels.
+    const a = run(NAIVE, 0);
+    const b = run(NAIVE, 21);
+    expect(b.battles.map((x) => x.turns)).not.toEqual(a.battles.map((x) => x.turns));
+  });
+});
+
+describe("A3 — do the personas separate?", () => {
+  const sweep = (p: Persona, offsets: number[]): PlaytestReport[] =>
+    offsets.map((seedOffset) =>
+      runPlaytest({ persona: p, def: campaign, encounters: ENCOUNTERS, registry, seedOffset }),
+    );
+  const OFFSETS = [0, 1, 2, 3];
+
+  it("separates on how the BATTLES go, not merely on how much was clicked", () => {
+    // The distinction is the whole assertion. `decisions` is an INPUT — naive makes none
+    // by construction, so "the reports differ" is trivially true and proves nothing about
+    // whether the choices mattered. Turn counts are an OUTPUT of the battles themselves,
+    // so a difference there is the meta systems reaching the field.
+    const turnsOf = (rs: PlaytestReport[]): number[] => rs.flatMap((r) => r.battles.map((b) => b.turns));
+    const naive = turnsOf(sweep(NAIVE, OFFSETS));
+    const dflt = turnsOf(sweep(DEFAULT, OFFSETS));
+    const opt = turnsOf(sweep(OPTIMIZER, OFFSETS));
+
+    expect(dflt).not.toEqual(naive);
+    expect(opt).not.toEqual(naive);
+    expect(opt).not.toEqual(dflt);
+  });
+
+  it("does NOT separate on winning or losing — every persona clears the campaign", () => {
+    // RECORDED AS A TEST BECAUSE IT IS THE HEADLINE FINDING, not because it is desirable.
+    // A player who ignores the prep screen entirely still wins all five battles, so the
+    // progression and equipment systems currently change HOW a run goes and never WHETHER
+    // it is won. If content is retuned so this goes red, that is the finding changing —
+    // read it, do not delete it.
+    for (const persona of PERSONAS) {
+      for (const report of sweep(persona, OFFSETS)) {
+        expect(report.ending).toBe("completed");
+        expect(report.battles.every((b) => b.outcome === "victory")).toBe(true);
+      }
+    }
+  });
+
+  it("leaves the whole AP economy unspent for a player who never opens the prep screen", () => {
+    // The same finding from the economy side, and the number that says how much room
+    // there is: naive banks AP all campaign and spends none of it.
+    const naive = sweep(NAIVE, [0])[0]!;
+    const engaged = sweep(DEFAULT, [0])[0]!;
+    expect(naive.apUnspent).toBeGreaterThan(engaged.apUnspent * 2);
+    expect(naive.party.every((m) => m.slotsFilled === 0)).toBe(true);
+    expect(engaged.party.some((m) => m.slotsFilled > 0)).toBe(true);
+  });
+});
+
+describe("A3 — do the choices reach the built unit?", () => {
+  const run = (p: Persona, withholdPrep: boolean): PlaytestReport =>
+    runPlaytest({ persona: p, def: campaign, encounters: ENCOUNTERS, registry, withholdPrep });
+
+  it("the same persona with its prep WITHHELD produces a different run", () => {
+    // The A/B on the built object. A policy that computed a plan and never applied it
+    // would give two identical reports here and read exactly like one that works.
+    const applied = run(OPTIMIZER, false);
+    const withheld = run(OPTIMIZER, true);
+    expect(withheld.battles.map((b) => b.turns)).not.toEqual(applied.battles.map((b) => b.turns));
+    expect(withheld.apUnspent).toBeGreaterThan(applied.apUnspent);
+  });
+
+  it("honors the lever: withheld means zero edits reached the save", () => {
+    // A lever the runner quietly ignored would give two identical runs and read as a
+    // null result, so the lever itself is asserted, not assumed.
+    const withheld = run(DEFAULT, true);
+    expect(withheld.decisions).toBe(0);
+    expect(withheld.battles.every((b) => b.prepDecisions === 0)).toBe(true);
+    expect(withheld.party.every((m) => m.slotsFilled === 0 && m.weapon === null)).toBe(true);
+  });
+});
+
+describe("retrying a lost battle", () => {
+  const doomed = (maxAttempts: number): PlaytestReport =>
+    runPlaytest({
+      persona: NAIVE,
+      def: doomedCampaign(),
+      encounters: ENCOUNTERS,
+      registry,
+      maxAttempts,
+    });
+
+  it("stalls where the party loses, and a second attempt reproduces the first exactly", () => {
+    // The claim in `maxAttempts`' docstring, asserted rather than left as prose: a loss
+    // banks no AP and `retryBattle` restores the party, so with a fixed seed attempt two
+    // is the same battle. A purpose-built party (1 HP, no offence) is used because no
+    // persona loses on the shipped content — which is itself the finding above.
+    const once = doomed(1);
+    expect(once.ending).toBe("stalled");
+    expect(once.battles).toHaveLength(1);
+    expect(once.battles[0]?.outcome).not.toBe("victory");
+
+    const twice = doomed(2);
+    expect(twice.ending).toBe("stalled");
+    expect(twice.battles).toHaveLength(2);
+    const [first, second] = twice.battles;
+    expect(second?.attempts).toBe(2);
+    expect({ ...second, attempts: 1 }).toEqual(first);
   });
 });

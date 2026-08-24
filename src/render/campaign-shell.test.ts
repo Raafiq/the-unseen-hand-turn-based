@@ -512,3 +512,30 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     expect(s.save!.party.find((r) => r.id === "pc-vance")!.ap).toBe(500);
   });
 });
+
+describe("lastBattle — the live detail of the battle just banked", () => {
+  it("carries the report and the AP grants, and is cleared when the run is left", () => {
+    const s = shell();
+    expect(s.lastBattle).toBeNull();
+
+    s.newGame();
+    s.deploy();
+    autoplay(s);
+    s.concludeBattle();
+
+    const banked = s.lastBattle;
+    expect(banked).not.toBeNull();
+    expect(banked!.battleId).toBe(campaign.battles[0]!.id);
+    expect(banked!.report.outcome).toBe(s.lastOutcome());
+    // The grants are the ones actually applied, not a recomputation: every member who
+    // earned AP shows up in `rewards`, and the party's AP moved by that much.
+    const earned = s.save!.party.filter((r) => r.ap > 0).map((r) => r.id);
+    expect(earned.length).toBeGreaterThan(0);
+    for (const id of earned) expect(banked!.rewards[id]?.participated).toBe(true);
+
+    // A receipt from a run you have left is worse than none — it would describe a
+    // battle the player can no longer see, on a screen with no run in progress.
+    s.quitToTitle();
+    expect(s.lastBattle).toBeNull();
+  });
+});

@@ -29,6 +29,7 @@ import {
   updatePartyMember,
   storyBeat,
   storyEntry,
+  type CampaignBattleRun,
   type CampaignDef,
   type CampaignSave,
   type ContentRegistry,
@@ -132,6 +133,7 @@ export class CampaignShell {
     this.persist();
     this.session = null;
     this.encounter = null;
+    this.lastBattle = null;
     this.screen = "BRIEFING";
   }
 
@@ -145,6 +147,7 @@ export class CampaignShell {
     this.save = this.slotState.save;
     this.session = null;
     this.encounter = null;
+    this.lastBattle = null;
     this.screen =
       this.save.status === "completed"
         ? "COMPLETED"
@@ -159,6 +162,7 @@ export class CampaignShell {
     this.save = null;
     this.session = null;
     this.encounter = null;
+    this.lastBattle = null;
     this.screen = "TITLE";
     this.refreshSlot();
   }
@@ -299,11 +303,26 @@ export class CampaignShell {
     if (!report) throw new Error("concludeBattle: the battle produced no report");
     const step = resolveCampaignBattle(this.def, this.save, this.encounter, report);
     this.save = step.save;
+    this.lastBattle = step.battle;
     this.persist();
     this.session = null;
     this.encounter = null;
     this.screen = this.save.status === "completed" ? "COMPLETED" : "AFTER_BATTLE";
   }
+
+  /**
+   * The most recent resolved battle, in full: its report and the AP grants it earned,
+   * exactly as {@link resolveCampaignBattle} produced them. `null` before the first
+   * battle is banked.
+   *
+   * KEPT RATHER THAN RECOMPUTED. `concludeBattle` already receives this object and used
+   * to discard everything but the next save, so anything downstream that wanted "how did
+   * that battle go" had to re-derive it from the encounter and the report — a second copy
+   * of a fold the sim already owns, and one that would drift. `lastOutcome()` below still
+   * reads `history`, because that is the durable record; this is the live detail, and it
+   * is deliberately NOT persisted.
+   */
+  lastBattle: CampaignBattleRun | null = null;
 
   /** The outcome of the most recent resolved battle, for the after-battle screen. */
   lastOutcome(): string | null {
