@@ -1,6 +1,10 @@
 # Slice — the synthetic playtest
 
-**Status:** scoped, A1 in progress. **Written:** 2026-08-23.
+**Status:** Part A (A1–A4) landed 2026-08-24. **Part B not started.** **Written:** 2026-08-23.
+
+**A4's gate was reported and acted on.** All three personas cleared the campaign at every
+seed, so the funnel in Part B would have instrumented systems that did not decide anything.
+The user chose to retune difficulty first — **ADR-0027**.
 **Amended 2026-08-24** — four corrections, marked `[AMENDED]` below, all found by reading
 the code rather than the docs. The headline one: `CampaignShell` lives in **`src/render`**,
 not `src/sim`, so Part A cannot go where this plan first put it.

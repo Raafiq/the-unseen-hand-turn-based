@@ -55,20 +55,46 @@ const def = loadShippedCampaign();
 const encounters = loadCampaignEncounters();
 const resolver = { registry };
 
-describe("AC-M1: the M0 campaign is finishable, headlessly, start to ending", () => {
+/**
+ * WHAT THIS FILE CAN AND CANNOT ASSERT SINCE ADR-0027.
+ *
+ * `runCampaign` fights with the party exactly as authored — it has no prep concept, never
+ * spends a point of AP and never fills a chassis slot. It IS the zero-engagement path, and
+ * since ADR-0027 that path deliberately loses the finale. `docs/11` AC-M1 now names the
+ * player it assumes, and "an ending is reachable" is asserted where a real player policy
+ * can be driven (`src/render/playtest.test.ts`).
+ *
+ * What stays here is what this runner is genuinely evidence for: the sequence is the one
+ * the def names, every battle resolves by its own objective rather than a halting cap, the
+ * fights get longer, and the whole run is reproducible. Those are properties of the
+ * campaign's SHAPE, and none of them needs the run to be won.
+ */
+describe("AC-M1: the M0 campaign runs end to end, headlessly", () => {
   const run = runCampaign(def, encounters, resolver);
 
-  it("reaches `completed` — the specific ending, not merely 'an ending'", () => {
-    expect(run.save.status).toBe("completed");
-    expect(run.save.battleIndex).toBe(def.battles.length);
-    expect(currentBattle(def, run.save)).toBeNull();
+  it("fights the authored sequence, in order, once each", () => {
+    // Naming the ids catches a def whose sequence silently changed. The run stops at the
+    // battle it loses, so this also pins WHERE the unprepped party's run ends.
+    expect(run.battles.map((b) => b.battleId)).toEqual(
+      def.battles.slice(0, run.battles.length).map((b) => b.id),
+    );
   });
 
-  it("fights every authored battle exactly once, and wins each", () => {
-    // `runCampaign` never retries, so one entry per battle IS the claim that no battle
-    // was lost — and naming the ids catches a def whose sequence silently changed.
-    expect(run.battles.map((b) => b.battleId)).toEqual(def.battles.map((b) => b.id));
-    expect(run.battles.map((b) => b.report.outcome)).toEqual(def.battles.map(() => "victory"));
+  it("the unprepped party wins every battle but the finale — ADR-0027, deliberately", () => {
+    // THE ASSERTION THAT KEEPS THE PRODUCT HONEST. A party that never opens the prep
+    // screen must not be able to finish, or the customization spine `docs/00` is built on
+    // is optional decoration. Written as an exact profile rather than "does not complete"
+    // so that a campaign which became unwinnable EARLIER — punishing rather than
+    // demanding — fails here too.
+    expect(run.battles.map((b) => b.report.outcome)).toEqual([
+      "victory",
+      "victory",
+      "victory",
+      "victory",
+      "defeat",
+    ]);
+    expect(run.save.status).toBe("gameOver");
+    expect(currentBattle(def, run.save)?.id).toBe("b5");
   });
 
   it("every battle resolves by its OBJECTIVE, never by the halting caps", () => {

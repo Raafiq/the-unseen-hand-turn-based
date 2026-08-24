@@ -258,7 +258,10 @@ describe("the runner", () => {
     runPlaytest({ persona: p, def: campaign, encounters: ENCOUNTERS, registry, seedOffset });
 
   it("plays the whole shipped campaign and reports one row per battle", () => {
-    const report = run(DEFAULT);
+    // OPTIMIZER, not DEFAULT: since ADR-0027 only a player who deploys and spends by
+    // measured contribution clears every seed, and this test is about the RUNNER
+    // reporting a full campaign — not about how hard the campaign is.
+    const report = run(OPTIMIZER);
     expect(report.ending).toBe("completed");
     expect(report.battles).toHaveLength(campaign.battles.length);
     expect(report.battles.map((b) => b.step)).toEqual([1, 2, 3, 4, 5]);
@@ -299,17 +302,37 @@ describe("A3 — do the personas separate?", () => {
     expect(opt).not.toEqual(dflt);
   });
 
-  it("does NOT separate on winning or losing — every persona clears the campaign", () => {
-    // RECORDED AS A TEST BECAUSE IT IS THE HEADLINE FINDING, not because it is desirable.
-    // A player who ignores the prep screen entirely still wins all five battles, so the
-    // progression and equipment systems currently change HOW a run goes and never WHETHER
-    // it is won. If content is retuned so this goes red, that is the finding changing —
-    // read it, do not delete it.
-    for (const persona of PERSONAS) {
-      for (const report of sweep(persona, OFFSETS)) {
-        expect(report.ending).toBe("completed");
-        expect(report.battles.every((b) => b.outcome === "victory")).toBe(true);
-      }
+  it("separates on WINNING: engaging clears the campaign, ignoring the prep screen does not", () => {
+    // AC-M1's "an ending is reachable" lives HERE since ADR-0027, because this is the only
+    // harness that can drive a real player policy. Both halves are asserted together on
+    // purpose: "the optimizer wins" alone would still pass on a campaign anyone can win,
+    // and "the naive player loses" alone would pass on one nobody can.
+    const cleared = (p: Persona): number =>
+      sweep(p, OFFSETS).filter((r) => r.ending === "completed").length;
+
+    expect(cleared(OPTIMIZER)).toBe(OFFSETS.length);
+    expect(cleared(NAIVE)).toBeLessThanOrEqual(1);
+  });
+
+  it("spending at HOME wins where spending cheapest-anywhere does not (ADR-0027)", () => {
+    // The design claim ADR-0027 rests on. `optimizer` buys into the member's own job
+    // tree; `default` buys the cheapest live node anywhere in the pack. Nothing else
+    // about the two policies is doing the work — both fill every slot and both equip a
+    // weapon — so the gap between them IS the trap the campaign now punishes.
+    const cleared = (p: Persona): number =>
+      sweep(p, OFFSETS).filter((r) => r.ending === "completed").length;
+    expect(cleared(OPTIMIZER)).toBeGreaterThan(cleared(DEFAULT));
+  });
+
+  it("the unprepped party loses the FINALE, not an early battle", () => {
+    // Where it stops is the design claim. A campaign that turned unwinnable at battle 3 —
+    // before the party has earned enough AP to do anything about it — would satisfy
+    // "naive loses" while being punishing rather than demanding.
+    for (const report of sweep(NAIVE, OFFSETS)) {
+      if (report.ending === "completed") continue;
+      expect(report.battles).toHaveLength(campaign.battles.length);
+      expect(report.battles.at(-1)?.battleId).toBe(campaign.battles.at(-1)?.id);
+      expect(report.battles.slice(0, -1).every((b) => b.outcome === "victory")).toBe(true);
     }
   });
 

@@ -94,6 +94,38 @@ would win this"), or fun. Do not cite a green suite as if it had.
 
 ---
 
+## LANDED 2026-08-24 — the playtest harness, and what it found
+
+`src/render/playtest.ts` + `scripts/playtest.mts` (A1–A4 of the slice below). Three
+deterministic player policies driven through the real shell over a seed sweep.
+
+**It found the campaign was winnable with zero engagement** — a party that never opened the
+prep screen cleared all five battles at every seed with 966 AP unspent and every chassis
+slot empty. Fixed by **ADR-0027**: `foe-warchief`'s Physical Attack 8 → 11, one field, one
+record, the finale only. Measured at 16 seeds afterwards:
+
+| player policy | clears |
+|---|---|
+| never opens the prep screen | 2/16 |
+| buys the cheapest node anywhere in the pack | 8/16 |
+| buys into the member's **own job tree** | 16/16 |
+
+**The headline is the third row, not the first.** Spending at home wins; scattering AP
+across whatever is cheapest loses. That is a real trap with teeth now — and **nothing in
+the game says so.** A player learns it by losing the finale, and a lost finale cannot be
+recovered (a loss banks no AP, the retry is bit-identical). **That is the most likely thing
+to wreck a real playtest, and it is unfixed.** It is an onboarding/economy problem, not a
+boss-stat one.
+
+`docs/11` AC-M1 was amended to name the player it assumes: an ending is reachable **by a
+player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,
+and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that profile.
+
+Still open in the slice: **Part B, the browser telemetry.** A4's gate was reported and the
+user chose to retune first.
+
+---
+
 ## Where things stand
 
 **M0 IS BUILT — all seven items (`docs/11` §3).** 752 tests / 39 files, 23 Playwright

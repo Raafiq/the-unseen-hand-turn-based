@@ -65,10 +65,10 @@ for (let i = 0; i < campaign.battles.length; i += 1) {
 }
 
 console.log("\nOUTCOMES BY SEED");
-console.log("persona    " + OFFSETS.map((o) => pad(`+${o}`, 8)).join(""));
+console.log("persona    " + OFFSETS.map((o) => pad(`+${o}`, 12)).join(""));
 for (const persona of PERSONAS) {
   const cells = (runs.get(persona.id) ?? []).map((r) =>
-    pad(r.ending === "completed" ? "win" : `${r.ending}@${r.battles.length}`, 8),
+    pad(r.ending === "completed" ? "win" : `${r.ending}@${r.battles.length}`, 12),
   );
   console.log(persona.id.padEnd(11) + cells.join(""));
 }
