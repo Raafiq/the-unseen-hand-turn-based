@@ -54,7 +54,19 @@ Nothing else about those policies differs — same deployment, same slot filling
 
 It also explains the `default` persona's 8/16 without excusing it: `default` buys cheapest-anywhere by construction. The number is a measurement of the trap, not of the boss.
 
-**Left open, and it is the real weakness:** nothing in the game says this. A player who scatters their AP learns it only by losing the finale, and a lost finale cannot be recovered from (see Consequences). The fix is onboarding or economy, not boss stats, and it is not attempted here.
+**4. The panel now warns before the click, not after (added 2026-08-24).**
+
+The gap above was that nothing in the game said any of this. `learnRows()` gains `reach` — where an ability would land *for this unit as currently built*: `command` (usable the moment it is bought), `secondary` (another job's action, dead until that job fills the one Secondary slot), or the passive's own slot. A row whose reach is `secondary` renders a **needs Secondary** tag.
+
+The panel already told the player where a purchase went; `learnReceipt` is that receipt. A receipt arrives after AP that is never refunded is gone. This is the same fact, before the money moves — and both go through one helper, so the warning and the receipt cannot disagree.
+
+Three supporting text changes:
+
+- The learn list's hint used to read "AP is one pool — you can buy from any job's tree without changing job", which is true and reads as an invitation to do the losing thing. It now leads with spending at home.
+- A new help topic, **Where to spend AP**, states the one-Secondary constraint plainly: "buying cheap actions from three different jobs leaves you able to use one of them."
+- **Losing a battle** said losing costs nothing and you go back with the same party. True, and it implied a retry is a fresh chance — it is not: the retry is the same fight, a loss banks no AP, so going straight back in changes nothing on its own. That now says so.
+
+**Still not fixed, and it is a real limit:** whether a newcomer *reads* any of this is exactly the question no agent can answer (`docs/11` AC-M6, `docs/NEXT.md` trap 4). What is asserted is that the warning is produced by the shipped content, that it names the right rows, and that it agrees with the real command projection — not that it lands.
 
 ## Consequences
 

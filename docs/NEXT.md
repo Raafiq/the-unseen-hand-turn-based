@@ -111,11 +111,17 @@ record, the finale only. Measured at 16 seeds afterwards:
 | buys into the member's **own job tree** | 16/16 |
 
 **The headline is the third row, not the first.** Spending at home wins; scattering AP
-across whatever is cheapest loses. That is a real trap with teeth now — and **nothing in
-the game says so.** A player learns it by losing the finale, and a lost finale cannot be
-recovered (a loss banks no AP, the retry is bit-identical). **That is the most likely thing
-to wreck a real playtest, and it is unfixed.** It is an onboarding/economy problem, not a
-boss-stat one.
+across whatever is cheapest loses.
+
+**The panel now warns about it before the click** (same ADR): `LearnRow.reach` says where an
+ability would land for this unit, and a row that needs the one Secondary slot renders a
+**needs Secondary** tag. Plus a "Where to spend AP" help topic, a rewritten learn-list hint
+(the old one read as an invitation to do the losing thing), and a correction to "Losing a
+battle", which implied a retry was a fresh chance — it is not, the retry is bit-identical.
+
+**What is still open: whether a newcomer READS it.** Only a person can settle that. What is
+asserted is that the warning is produced by the shipped content, names the right rows, and
+agrees with the real command projection.
 
 `docs/11` AC-M1 was amended to name the player it assumes: an ending is reachable **by a
 player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,

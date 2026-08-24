@@ -533,3 +533,80 @@ describe("the player sees that their action WORKED (learnability walkthrough, 20
     expect(m.learnReceipt()).toBeNull();
   });
 });
+
+describe("LearnRow.reach — telling the player where AP goes BEFORE they spend it", () => {
+  /** All rows of one job's tree, keyed by the ability they grant. */
+  function rowsOf(model: PrepModel, job: string): Map<string, LearnRow> {
+    model.setBrowseJob(job);
+    return new Map(model.learnRows().map((r) => [r.ability, r]));
+  }
+
+  it("marks the unit's OWN tree usable and another job's actions as needing the Secondary", () => {
+    // DISCRIMINATING: both rows below are actions, both are 60 AP, both are buyable. The
+    // only thing separating them is whose command list they would land in — which is
+    // exactly the distinction the panel used to leave invisible.
+    const model = new PrepModel({ registry, records: [monkish("u1", 600)] });
+
+    const own = rowsOf(model, "monk").get("punch-art.wave-fist");
+    expect(own?.kind).toBe("action");
+    expect(own?.reach).toBe("command");
+
+    const foreign = rowsOf(model, "wizard").get("black-magic.fire");
+    expect(foreign?.kind).toBe("action");
+    expect(foreign?.reach).toBe("secondary");
+  });
+
+  it("flips to `command` once that job IS the Secondary — the same row, the same unit", () => {
+    // The flip is the assertion. A field hard-coded to "secondary" for every foreign
+    // action would pass the test above and fail here.
+    const model = new PrepModel({ registry, records: [monkish("u1", 600)] });
+    model.setBrowseJob("wizard");
+    const node = model.learnRows().find((r) => r.ability === "black-magic.fire")!;
+    model.learn("wizard", node.node);
+    expect(rowsOf(model, "wizard").get("black-magic.fire")?.reach).toBe("secondary");
+
+    model.setSlot("secondary", "wizard");
+    expect(rowsOf(model, "wizard").get("black-magic.fire")?.reach).toBe("command");
+  });
+
+  it("agrees with the REAL command projection for every action already learned", () => {
+    // Reaching through to `commands()` rather than comparing two callers of the same
+    // skillset lookup: `reach` is a promise about what a battle will offer, so it is
+    // checked against what a battle actually compiles.
+    const model = new PrepModel({ registry, records: [monkish("u1", 600)] });
+    model.setBrowseJob("wizard");
+    model.learn("wizard", model.learnRows().find((r) => r.ability === "black-magic.fire")!.node);
+    for (const secondary of [null, "wizard"] as const) {
+      model.setSlot("secondary", secondary);
+      const live = new Set(model.commands());
+      for (const job of model.jobIds()) {
+        for (const row of rowsOf(model, job).values()) {
+          if (!row.known || row.kind !== "action") continue;
+          expect(row.reach === "command", `${row.ability} @ secondary=${secondary}`).toBe(
+            live.has(row.ability),
+          );
+        }
+      }
+    }
+  });
+
+  it("names its own slot for a passive, which needs no Secondary at all", () => {
+    const model = new PrepModel({ registry, records: [monkish("u1", 600)] });
+    const rows = [...rowsOf(model, "thief").values()];
+    const passive = rows.find((r) => r.kind === "movement");
+    expect(passive, "the thief tree must ship a movement passive for this to assert anything")
+      .toBeDefined();
+    expect(passive?.reach).toBe("movement");
+  });
+
+  it("the shipped content actually PRODUCES the warning it advertises", () => {
+    // The help panel promises the learn list marks these rows. A promise about content
+    // that content does not contain is worse than no promise.
+    const model = new PrepModel({ registry, records: [monkish("u1", 600)] });
+    const flagged = model
+      .jobIds()
+      .flatMap((job) => [...rowsOf(model, job).values()])
+      .filter((r) => r.kind === "action" && r.reach === "secondary" && r.buyable);
+    expect(flagged.length).toBeGreaterThan(0);
+  });
+});

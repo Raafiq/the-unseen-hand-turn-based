@@ -270,6 +270,42 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   await expect(live.first()).not.toContainText("no effect yet");
 });
 
+test("prep: an action from another job is marked BEFORE it is bought", async ({ page }) => {
+  // The expensive mistake the campaign now punishes (ADR-0027): AP is one pool and the
+  // panel browses any tree, so buying cheap actions from several jobs leaves a unit able
+  // to use one of them. Measured, a player who spends at home clears the campaign at 8 of
+  // 8 seeds and one who buys the cheapest node anywhere clears 1 of 8.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+
+  // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
+  const own = page.locator('[data-testid="prep-learn"] li');
+  expect(await own.count()).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="prep-learn"] [data-testid="reach-secondary"]')).toHaveCount(0);
+
+  // Browse to a tree the unit is NOT in. Discovered, not named: a hard-coded job id here
+  // would rot the next time a starting character is re-jobbed, which has already happened
+  // four times in this file.
+  const current = await page.getByTestId("prep-job").inputValue();
+  const other = await page
+    .getByTestId("prep-tree")
+    .locator("option")
+    .evaluateAll((os, cur) =>
+      os.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== cur),
+      current,
+    );
+  expect(other.length).toBeGreaterThan(0);
+  await page.getByTestId("prep-tree").selectOption(other[0]!);
+
+  const flagged = page.locator('[data-testid="prep-learn"] [data-testid="reach-secondary"]');
+  expect(await flagged.count()).toBeGreaterThan(0);
+  await expect(flagged.first()).toContainText("needs Secondary");
+
+  // And the panel says what to do about it, on the screen where the money is spent —
+  // the help panel is a click away and a player who never opens it still gets this.
+  await expect(page.getByTestId("prep-spend-hint")).toContainText("job this unit is in");
+});
+
 test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {
   // The `?` is the whole of M0 item 7 (user decision, 2026-08-22): nothing is TAUGHT on
   // rails, so this control is the only route to an explanation. A panel that exists in
