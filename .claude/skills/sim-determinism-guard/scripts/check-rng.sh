@@ -12,6 +12,16 @@ if [ -z "$TARGET" ]; then
 fi
 
 if [ ! -e "$TARGET" ]; then
+  if [ -n "${1:-}" ]; then
+    # A target NAMED BY THE CALLER that does not exist is a broken guard, not an
+    # empty repo. `check:rng` pins one path per scanned file, so renaming or
+    # splitting a scanned file would otherwise un-guard it in total silence —
+    # the scan would keep printing a green tick for a file it never opened.
+    echo "❌ check-rng: target '$TARGET' does not exist."
+    echo "   It was named explicitly, so this is a guard pointing at nothing:"
+    echo "   fix the path in package.json's check:rng, or drop the argument."
+    exit 1
+  fi
   echo "check-rng: target '$TARGET' does not exist"
   exit 0   # nothing to check yet (docs-only repo) — not a failure
 fi

@@ -1,4 +1,4 @@
-<!-- written-against: 025dd73aaaff9e394b3e188d5895dc927bcf2e65 -->
+<!-- written-against: 4635b44f871221b1a5fbf2c8052c334d008fe3e9 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -12,7 +12,7 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ---
 
-## THE NEXT SLICE — the synthetic playtest
+## DONE — the synthetic playtest (landed 2026-08-24)
 
 **Green-lit by the user, 2026-08-23. Full scope: `docs/plans/slice-m1-synthetic-playtest.md`.**
 Start there; this section is the why and the shape, the plan file is the work.
@@ -127,8 +127,13 @@ agrees with the real command projection.
 player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,
 and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that profile.
 
-Still open in the slice: **Part B, the browser telemetry.** A4's gate was reported and the
-user chose to retune first.
+**Part B landed the same day.** `src/render/telemetry.ts` records a per-session funnel in
+`localStorage` — screen dwell, time to first action, per-battle outcome/attempt/turns, what
+was bought and equipped, and **where they stopped** — with a "Copy playtest log" control on
+the title and ending screens. No backend, no network, no personal data.
+
+**The slice is complete. What it was built FOR has not happened: nobody has played this.**
+The funnel is worth exactly one real playtester and nothing until then.
 
 ---
 
@@ -167,6 +172,42 @@ four dead nodes are deferred capstones behind a real Cure → Cura → Holy prog
 two subtree files restructured). Every rule survives; the war stories were cut to one
 identifying clause each. If a rule now reads too terse to act on, the full incident is in
 the git history of that file — do not re-expand it in place.
+
+---
+
+## THE NEXT SLICE — a person plays it
+
+**Everything the harness can settle is settled. The next thing this project needs is not
+a slice: it is one human being playing the game for forty minutes.**
+
+Two open bets, and only one of them is still measurable by anything here:
+
+| Bet | Status |
+|---|---|
+| Difficulty and length | **Measured** (ADR-0027). A player who ignores the prep screen loses the finale 14 times in 16; one who spends on their own job's tree clears every seed. |
+| Legibility — does a newcomer understand any of it | **Untouched, and no agent can touch it.** |
+
+What to do with the next playtester, in order:
+
+1. Send them to `/game.html` cold. Say nothing. Do not explain the prep screen.
+2. Let them finish or quit — **quitting is the result**, not a failed session.
+3. Ask them to click **Copy playtest log** on the title or ending screen and paste it back.
+4. Read `stoppedOn` first, then `screens[].toFirstActionMs` for any screen that is `null`.
+
+**The three things most likely to go wrong, all unfixed:**
+
+1. **A lost finale cannot be recovered.** A loss banks no AP and the retry is bit-identical,
+   so the only way to win is to have played the earlier battles differently — and nothing
+   in the game says so. This is the single most likely thing to end a playtest badly.
+2. **Nothing teaches "spend on your own job".** The panel now marks another job's actions
+   `needs Secondary` and the help panel has a topic, but whether anyone reads either is
+   exactly the question.
+3. **Nobody has ever seen the deployed page render.** The sandbox cannot load
+   `*.github.io`; only the deployment API's success is confirmed.
+
+**Not green-lit:** more balance tuning off agent numbers. ADR-0027 moved one field on
+measured evidence and stopped there deliberately. The next tuning decision should follow a
+person, not another sweep.
 
 ---
 

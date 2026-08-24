@@ -8,6 +8,7 @@
  */
 
 import type { Screen } from "./campaign-shell.js";
+import type { PlaytestLog } from "./telemetry.js";
 import type { CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
 
 export interface GameApi {
@@ -30,6 +31,15 @@ export interface GameApi {
   quitToTitle: () => void;
   /** The raw string in the save slot, so a test can assert persistence, not just UI. */
   storedSave: () => string | null;
+  /**
+   * The playtest log as the page holds it (Part B).
+   *
+   * Read-only, like everything else about telemetry: there is no setter here and none on
+   * the recorder either, because a log the page could be told what to say is not evidence.
+   */
+  playtestLog: () => PlaytestLog;
+  /** The raw string in the LOG slot — the reload assertion, same reason `storedSave` exists. */
+  storedLog: () => string | null;
   /**
    * The between-battle prep panel (docs/11 M0 item 3), or `null` before it is mounted
    * (it needs a party, so there is none on the title screen).

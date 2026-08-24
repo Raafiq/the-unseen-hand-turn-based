@@ -1,6 +1,6 @@
 # Slice — the synthetic playtest
 
-**Status:** Part A (A1–A4) landed 2026-08-24. **Part B not started.** **Written:** 2026-08-23.
+**Status:** COMPLETE. Part A (A1–A4) and Part B (B1–B2) landed 2026-08-24. **Written:** 2026-08-23.
 
 **A4's gate was reported and acted on.** All three personas cleared the campaign at every
 seed, so the funnel in Part B would have instrumented systems that did not decide anything.
@@ -159,6 +159,17 @@ than "it was fine, I think":
 Stored in `localStorage` under its own key. A **"copy playtest log"** button puts JSON on
 the clipboard — no backend, no network, no personal data. The playtester clicks once and
 pastes it back.
+
+**[BUILT 2026-08-24]** `src/render/telemetry.ts` + a "Copy playtest log" control on the
+title and ending screens. Two things the plan did not anticipate, both found by building it:
+
+1. **The recorder RESUMES a stored log rather than starting fresh.** A new recorder
+   overwrites on its first write, and the log it would destroy is the most valuable one
+   there is — the session that ended by the tab being closed, which is the whole "where
+   did they stop" question. A playtest that spans a reload is one playtest.
+2. **Edits are classified by DIFFING the record inside `onChange`**, not by wiring each
+   control. Every panel edit bottoms out in one `commit`, so recording at that single
+   point cannot miss a control, and a control added later is covered for free.
 
 **Constraints.** Wall-clock is legal in `src/render` (the `iso.ts` animation precedent) but
 **nothing derived from it may enter `BattleState`**, and telemetry is strictly read-only
