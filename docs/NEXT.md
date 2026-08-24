@@ -37,7 +37,8 @@ and got four real fixes. Nothing is left there that is not a person.
 
 ### The shape
 
-- **Part A — `src/sim/playtest.ts`.** A `Persona` is a deterministic policy over the
+- **Part A — `src/render/playtest.ts`** (moved from `src/sim` 2026-08-24; the shell it
+  drives is render-layer)**.** A `Persona` is a deterministic policy over the
   decisions a *player* makes **between fights**: who deploys, what to buy, which job and
   slots, which owned weapon. **Not tactics** — `ai.ts` owns those and keeps owning them.
   Three personas (`naive` / `default` / `optimizer`), driven through the real
@@ -79,7 +80,10 @@ would win this"), or fun. Do not cite a green suite as if it had.
 2. **A flat result is a FINDING.** If difficulty does not rise across the five battles,
    that is the answer. Do not tune the harness until it produces a curve — that is
    calibrating to the metric.
-3. **Determinism covers this file.** `src/sim/playtest.ts` is inside `check:rng`'s scan.
+3. **Determinism does NOT cover this file for free** (corrected 2026-08-24). The harness
+   lives at **`src/render/playtest.ts`**, not `src/sim` — `CampaignShell` and `PrepModel`
+   are render-layer, and sim must not import render. `check:rng` scans `src/sim` only, so
+   add a second scan of the file itself (see the plan's Determinism section).
    Persona choices must be pure functions of save state or draw from the seeded PRNG.
    `src/render/telemetry.ts` may use wall-clock (the `iso.ts` animation precedent) but
    **nothing derived from it may enter `BattleState`**, and telemetry must stay read-only

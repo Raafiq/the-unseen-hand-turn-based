@@ -1,6 +1,9 @@
 # Slice — the synthetic playtest
 
-**Status:** scoped, not started. **Written:** 2026-08-23.
+**Status:** scoped, A1 in progress. **Written:** 2026-08-23.
+**Amended 2026-08-24** — four corrections, marked `[AMENDED]` below, all found by reading
+the code rather than the docs. The headline one: `CampaignShell` lives in **`src/render`**,
+not `src/sim`, so Part A cannot go where this plan first put it.
 
 **One line.** Build a deterministic agent playtest that settles *difficulty and length*,
 and instrument the real page so the first human playtest produces data instead of an
@@ -27,7 +30,20 @@ So: take the half that is measurable, and stop treating the whole question as bl
 
 ## Part A — the campaign playtest harness
 
-**New:** `src/sim/playtest.ts`, `src/sim/playtest.test.ts`, `scripts/playtest.mts`.
+**New:** `src/render/playtest.ts`, `src/render/playtest.test.ts`, `scripts/playtest.mts`.
+
+**[AMENDED 2026-08-24 — the file moved from `src/sim` to `src/render`.]** `CampaignShell`
+and `PrepModel` both live in `src/render`. Both are DOM-free (checked: no `document`, no
+`window`, no `HTMLElement` in either), so the harness runs headless either way — but a
+file in `src/sim` importing them would be the first sim→render import in the repo and
+breaks the locked "sim core is pure and headless" rule. The layering is convention, not
+lint-enforced, which is exactly why it is easy to break by accident.
+
+The cost of the move is that **`npm run check:rng` only scans `src/sim`**, so the new file
+would sit outside every determinism check. See Determinism below — the fix is one extra
+scan, not a weakened rule. The alternative (move `campaign-shell.ts` and `session.ts` into
+`src/sim`) is a rename that must land in docs, code and tests together; it is a slice of
+its own, not a bolt-on to this one.
 
 ### What it is
 
@@ -56,6 +72,23 @@ A persona decides, at each prep screen:
 Through `CampaignShell` over a memory `SaveSlot` — **the same seam
 `campaign-shell.test.ts` already uses**. Not a parallel runner. Battles resolve with
 `session.step()`, exactly as the shell's own autoplay helper does today.
+
+**[AMENDED 2026-08-24 — personas drive `PrepModel`, not the sim directly.]** `PrepModel`
+(`src/render/prep.ts`) is the DOM-free class the human prep panel drives, and it already
+exposes everything a persona needs to decide: `learnRows()` (with `apCost`, `buyable`,
+`reason`, `kind`, `deferred`), `weaponOptions()` (with `damage`), `stats()`, `setSlot`,
+`setJob`, `setWeapon`, `learn`. A persona that calls `canLearn`/`learnAbility` itself
+would be a **second copy of the prep screen's rules**, and the two would drift — and worse,
+it would make the harness measure a path no player takes. Driving `PrepModel` makes
+"a persona's choices reach the built unit" structurally true instead of separately
+asserted. The assertion below stays anyway: structural arguments are not evidence.
+
+**[AMENDED 2026-08-24 — how the seed sweep actually works.]** A battle's seed comes from
+its **encounter file** (`data/campaign/encounters/*.json`, currently 20260901–20260905),
+not from the save or the shell, so there is no seed parameter to sweep. `ShellOptions.encounters`
+is `Readonly<Record<string, unknown>>` — raw defs, parsed inside — so the runner sweeps by
+handing the shell a **copy of the encounter map with `seed` overridden per run**. No
+production change needed. Do not add a seed argument to the shell for this.
 
 ### What it reports
 
@@ -86,9 +119,23 @@ exactly like one that works.
 ### Determinism
 
 Persona choices are pure functions of save state, or draw from the seeded PRNG. **No
-`Math.random`, no wall-clock** — `npm run check:rng` covers `src/sim`, and this file is
-squarely in it. A persona that broke determinism would make every number here
-unreproducible.
+`Math.random`, no wall-clock.** A persona that broke determinism would make every number
+here unreproducible.
+
+**[AMENDED 2026-08-24 — the guard does not cover this file for free.]** `npm run check:rng`
+runs `check-rng.sh src/sim` and takes **one** path. With `playtest.ts` in `src/render`, it
+is scanned by nothing. Add a second scan of the file itself in the same commit that creates
+it:
+
+```
+"check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/playtest.ts"
+```
+
+Scanning the whole of `src/render` is wrong — `iso.ts` legitimately uses wall-clock for
+animation. The narrow scan says exactly what is meant: *this* file is sim-grade.
+Consequence to accept: the scan is pinned to a path, so **renaming or splitting
+`playtest.ts` silently un-guards it**. Keep the harness in one file, or update the script
+in the same slice.
 
 ---
 
@@ -162,8 +209,8 @@ systems that do not matter is the wrong next move.
 
 | Step | Deliverable |
 |---|---|
-| A1 | `Persona` type + the three policies, pure and seeded |
-| A2 | The runner over `CampaignShell`, seed sweep, `PlaytestReport` |
+| A1 | `Persona` type + the three policies, pure and seeded, driving `PrepModel` |
+| A2 | The runner over `CampaignShell`, seed sweep by encounter-def override, `PlaytestReport` |
 | A3 | The two assertions above (personas separate; choices reach the unit) |
 | A4 | `scripts/playtest.mts` → a readable table; numbers reported to the user |
 | B1 | `telemetry.ts` recorder, read-only over the session |
