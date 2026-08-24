@@ -20,6 +20,46 @@ const screen = (page: Page): Promise<string> => page.evaluate(() => window.tuhGa
 const stored = (page: Page): Promise<string | null> =>
   page.evaluate(() => window.tuhGame.storedSave());
 
+/**
+ * Use the prep screen the way an engaged player does — through the real controls
+ * (ADR-0027).
+ *
+ * Since ADR-0027 the finale is tuned so a party that never spends AP loses it, so a
+ * browser walkthrough that skipped this would be asserting the zero-engagement path,
+ * which the campaign deliberately no longer grants an ending to.
+ *
+ * IT ONLY EVER TOUCHES THE MEMBER'S OWN TREE, and that is the whole policy rather than an
+ * incidental simplification: the tree selector defaults to the current job, so clicking
+ * every enabled buy button without changing it spends on the job the unit is in. Measured
+ * headlessly, that clears the campaign at 8 of 8 seeds — while buying the cheapest node
+ * anywhere in the pack clears 1 of 8. Spending at home is the thing the game now asks a
+ * player to work out.
+ */
+async function prepEveryMember(page: Page): Promise<void> {
+  const members = await page.locator('[data-testid="prep-roster"] button.ptab').all();
+  for (let i = 0; i < members.length; i += 1) {
+    // Re-resolve each pass: the panel re-renders after every purchase, so a handle taken
+    // before the click is detached by the time the next one is needed.
+    await page.locator('[data-testid="prep-roster"] button.ptab').nth(i).click();
+    for (let guard = 0; guard < 20; guard += 1) {
+      const buy = page.locator('[data-testid="prep-learn"] button.buy:not([disabled])').first();
+      if ((await buy.count()) === 0) break;
+      await buy.click();
+    }
+    // Equip what was just bought. A passive that is learned and never equipped does
+    // nothing at all, which is exactly what an untouched slot looks like from outside.
+    for (const slot of ["support", "movement", "reaction", "secondary"]) {
+      const select = page.getByTestId(`prep-${slot}`);
+      if ((await select.count()) === 0) continue;
+      const values = await select.locator("option").evaluateAll((os) =>
+        os.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== ""),
+      );
+      const current = await select.inputValue();
+      if (current === "" && values.length > 0) await select.selectOption(values[0]!);
+    }
+  }
+}
+
 async function playCurrentBattle(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
@@ -101,6 +141,7 @@ test("campaign shell: the five-battle run reaches its ending in the browser", as
 
   for (let i = 0; i < 5; i++) {
     await expect(page.getByTestId("brief-step")).toContainText(`Battle ${i + 1} of 5`);
+    await prepEveryMember(page);
     await playCurrentBattle(page);
     if (i < 4) {
       await expect(page.getByTestId("screen-after")).toBeVisible();
@@ -227,6 +268,42 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   const live = page.locator('[data-testid="prep-learn"] li:not(.deferred)');
   expect(await live.count()).toBeGreaterThan(0);
   await expect(live.first()).not.toContainText("no effect yet");
+});
+
+test("prep: an action from another job is marked BEFORE it is bought", async ({ page }) => {
+  // The expensive mistake the campaign now punishes (ADR-0027): AP is one pool and the
+  // panel browses any tree, so buying cheap actions from several jobs leaves a unit able
+  // to use one of them. Measured, a player who spends at home clears the campaign at 8 of
+  // 8 seeds and one who buys the cheapest node anywhere clears 1 of 8.
+  await page.goto("/game.html");
+  await page.getByTestId("new-game").click();
+
+  // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
+  const own = page.locator('[data-testid="prep-learn"] li');
+  expect(await own.count()).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="prep-learn"] [data-testid="reach-secondary"]')).toHaveCount(0);
+
+  // Browse to a tree the unit is NOT in. Discovered, not named: a hard-coded job id here
+  // would rot the next time a starting character is re-jobbed, which has already happened
+  // four times in this file.
+  const current = await page.getByTestId("prep-job").inputValue();
+  const other = await page
+    .getByTestId("prep-tree")
+    .locator("option")
+    .evaluateAll((os, cur) =>
+      os.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== cur),
+      current,
+    );
+  expect(other.length).toBeGreaterThan(0);
+  await page.getByTestId("prep-tree").selectOption(other[0]!);
+
+  const flagged = page.locator('[data-testid="prep-learn"] [data-testid="reach-secondary"]');
+  expect(await flagged.count()).toBeGreaterThan(0);
+  await expect(flagged.first()).toContainText("needs Secondary");
+
+  // And the panel says what to do about it, on the screen where the money is spent —
+  // the help panel is a click away and a player who never opens it still gets this.
+  await expect(page.getByTestId("prep-spend-hint")).toContainText("job this unit is in");
 });
 
 test("help: the ? panel opens from any screen and explains the mechanics", async ({ page }) => {

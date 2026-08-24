@@ -128,6 +128,16 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 
 ## Acceptance Criteria (SDD-ready)
 
+> **AC status 2026-08-24 (ADR-0027).** AC-M1 now names the player it assumes, and the
+> "reachability, not difficulty" caveat below is no longer the whole story: difficulty has
+> been **measured**, over three deterministic player policies at sixteen seeds. A player who
+> never opens the prep screen loses the finale 14 times in 16; one who buys the cheapest
+> option in every slot clears about half; one who deploys and spends by measured
+> contribution clears every seed. That is RELATIVE difficulty from agent play — the probe
+> plays the player's units too, so a persona reaches the outcome through its build and never
+> through better positioning. It is not "87% of humans would lose this", and it is still not
+> legibility or fun.
+>
 > **AC status 2026-08-22.** **AC-M1, AC-M2, AC-M3 and AC-M4 are met on both halves** —
 > headless (`campaign.test.ts`, `campaign-run.test.ts`) and played, through the shell the
 > browser drives (`campaign-shell.test.ts`, `e2e/campaign.spec.ts`). AC-M4's A/B is
@@ -141,10 +151,21 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 > conditionless demo battle on `/` still uses the team-wipe read, because that is all a
 > battle with no `Condition` can honestly support (ADR-0023 decision 2).
 
-- **AC-M1 (the slice is finishable):** A single playthrough of the M0 campaign SHALL be
-  driveable from title screen to ending, and that path SHALL be asserted headlessly the way
-  `docs/06` AC-E6 asserts a single encounter. *Discriminator:* a campaign that can start but
-  cannot reach an ending passes any per-battle test.
+- **AC-M1 (the slice is finishable *by a player who plays*):** A single playthrough of the
+  M0 campaign SHALL be driveable from title screen to ending **by a player who uses the prep
+  screen**, and that path SHALL be asserted headlessly the way `docs/06` AC-E6 asserts a
+  single encounter. *Discriminator:* a campaign that can start but cannot reach an ending
+  passes any per-battle test.
+  **Amended 2026-08-24 (ADR-0027) to name the player it assumes.** "Finishable" is a family
+  of claims, and the criterion used to be satisfied by its weakest member: the campaign was
+  winnable by a party that never spent a point of AP and never filled a chassis slot, which
+  made the customization spine `docs/00` is built on optional decoration. **The
+  zero-engagement path deliberately no longer reaches the ending** — it loses the finale in
+  14 of 16 measured seeds. The headless `runCampaign` in `src/sim` has no prep concept, so
+  it IS that path; the "reaches an ending" assertion lives in the playtest harness, which
+  can drive a real player policy, and `campaign-run.test.ts` keeps what it is genuinely
+  evidence for (every battle resolves by its objective, the sequence ramps, the run is
+  deterministic).
 - **AC-M2 (progress survives):** Party state SHALL persist across every battle boundary and
   across a save/load cycle, byte-identically. *Discriminator:* assert the round-trip, not
   that a save file was written — a save that writes and reloads wrong looks identical to one

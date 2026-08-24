@@ -25,6 +25,7 @@ import {
 } from "../sim/index.js";
 import { ENCOUNTERS, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell } from "./campaign-shell.js";
+import { OPTIMIZER } from "./playtest.js";
 import { PrepModel } from "./prep.js";
 import { memorySlot, readSave, writeSave, type SaveSlot } from "./storage.js";
 
@@ -74,6 +75,39 @@ describe("the bundled campaign data covers exactly the battles the campaign name
   });
 });
 
+/**
+ * Use the prep screen the way a player who reads the numbers would (ADR-0027).
+ *
+ * AC-M1 asserts an ending is reachable BY A PLAYER WHO PLAYS. Since ADR-0027 the finale
+ * is tuned so a party that never spends AP loses it, so a walkthrough that skipped this
+ * step would be asserting the zero-engagement path — the one the campaign deliberately
+ * no longer grants an ending to.
+ */
+function prepAsOptimizer(s: CampaignShell): void {
+  const save = s.save;
+  const deployment = s.deployment();
+  if (!save || !deployment) throw new Error("prepAsOptimizer: no battle to prepare for");
+  const ctx = {
+    battleIndex: save.battleIndex,
+    slots: deployment.slots,
+    party: save.party,
+    inventory: save.inventory,
+    registry,
+    lastRewards: s.lastBattle?.rewards ?? null,
+  };
+  s.setDeployment(OPTIMIZER.chooseDeployment(ctx));
+  const prep = new PrepModel({
+    registry,
+    records: s.save!.party,
+    inventory: save.inventory,
+    onChange: (record) => s.updateParty(record),
+  });
+  for (const member of save.party) {
+    prep.select(member.id);
+    OPTIMIZER.prepare(prep, ctx);
+  }
+}
+
 describe("AC-M1: the campaign is driveable from the title screen to an ending", () => {
   it("New Game → five battles → COMPLETED, through the player's own path", () => {
     const s = shell();
@@ -88,6 +122,7 @@ describe("AC-M1: the campaign is driveable from the title screen to an ending", 
       const brief = s.briefing();
       expect(brief).not.toBeNull();
       played.push(brief!.battleId);
+      prepAsOptimizer(s);
       s.deploy();
       expect(s.screen).toBe("BATTLE");
       autoplay(s);
@@ -420,6 +455,9 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     const s = shell();
     s.newGame();
     for (let i = 0; i < campaign.battles.length; i++) {
+      // Prepped, for the same reason AC-M1's walkthrough is (ADR-0027): reaching the
+      // ending screen at all now requires a party that used the prep screen.
+      prepAsOptimizer(s);
       s.deploy();
       autoplay(s);
       s.concludeBattle();
@@ -510,5 +548,32 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     expect(s.save!.status).toBe("gameOver");
     s.retry();
     expect(s.save!.party.find((r) => r.id === "pc-vance")!.ap).toBe(500);
+  });
+});
+
+describe("lastBattle — the live detail of the battle just banked", () => {
+  it("carries the report and the AP grants, and is cleared when the run is left", () => {
+    const s = shell();
+    expect(s.lastBattle).toBeNull();
+
+    s.newGame();
+    s.deploy();
+    autoplay(s);
+    s.concludeBattle();
+
+    const banked = s.lastBattle;
+    expect(banked).not.toBeNull();
+    expect(banked!.battleId).toBe(campaign.battles[0]!.id);
+    expect(banked!.report.outcome).toBe(s.lastOutcome());
+    // The grants are the ones actually applied, not a recomputation: every member who
+    // earned AP shows up in `rewards`, and the party's AP moved by that much.
+    const earned = s.save!.party.filter((r) => r.ap > 0).map((r) => r.id);
+    expect(earned.length).toBeGreaterThan(0);
+    for (const id of earned) expect(banked!.rewards[id]?.participated).toBe(true);
+
+    // A receipt from a run you have left is worse than none — it would describe a
+    // battle the player can no longer see, on a screen with no run in progress.
+    s.quitToTitle();
+    expect(s.lastBattle).toBeNull();
   });
 });

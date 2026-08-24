@@ -13,7 +13,7 @@
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim",
+    "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/playtest.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "state": "vite-node scripts/gen-state.mts",

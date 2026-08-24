@@ -76,6 +76,16 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     ],
   },
   {
+    id: "spending",
+    title: "Where to spend AP",
+    lines: [
+      "Spend on the job the unit is in. Those commands work the moment you buy them, and there is no slot to give up.",
+      "You can buy from any job's tree, but an action from another job does nothing until you equip that job as this unit's Secondary — and there is only one Secondary slot. Buying cheap actions from three different jobs leaves you able to use one of them.",
+      "The learn list marks those rows \u201cneeds Secondary\u201d before you spend. AP is never refunded, so read the tag first.",
+      "Passives are different: a Reaction, Support or Movement ability can come from any tree and only needs its own slot.",
+    ],
+  },
+  {
     id: "slots-secondary",
     title: "Secondary command",
     lines: [
@@ -128,6 +138,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     title: "Losing a battle",
     lines: [
       "Losing is not the end of the run. You go back to the same battle with exactly the party you had before it — nothing spent, nobody lost.",
+      "But the retry is the same fight, and a lost battle earns no AP — so going straight back in changes nothing on its own. What changes a losing battle is what you bought and equipped before it.",
       "Progress saves automatically between battles, in this browser.",
     ],
   },

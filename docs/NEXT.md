@@ -37,7 +37,8 @@ and got four real fixes. Nothing is left there that is not a person.
 
 ### The shape
 
-- **Part A — `src/sim/playtest.ts`.** A `Persona` is a deterministic policy over the
+- **Part A — `src/render/playtest.ts`** (moved from `src/sim` 2026-08-24; the shell it
+  drives is render-layer)**.** A `Persona` is a deterministic policy over the
   decisions a *player* makes **between fights**: who deploys, what to buy, which job and
   slots, which owned weapon. **Not tactics** — `ai.ts` owns those and keeps owning them.
   Three personas (`naive` / `default` / `optimizer`), driven through the real
@@ -79,7 +80,10 @@ would win this"), or fun. Do not cite a green suite as if it had.
 2. **A flat result is a FINDING.** If difficulty does not rise across the five battles,
    that is the answer. Do not tune the harness until it produces a curve — that is
    calibrating to the metric.
-3. **Determinism covers this file.** `src/sim/playtest.ts` is inside `check:rng`'s scan.
+3. **Determinism does NOT cover this file for free** (corrected 2026-08-24). The harness
+   lives at **`src/render/playtest.ts`**, not `src/sim` — `CampaignShell` and `PrepModel`
+   are render-layer, and sim must not import render. `check:rng` scans `src/sim` only, so
+   add a second scan of the file itself (see the plan's Determinism section).
    Persona choices must be pure functions of save state or draw from the seeded PRNG.
    `src/render/telemetry.ts` may use wall-clock (the `iso.ts` animation precedent) but
    **nothing derived from it may enter `BattleState`**, and telemetry must stay read-only
@@ -87,6 +91,44 @@ would win this"), or fun. Do not cite a green suite as if it had.
 4. **Session length is a PROXY.** Decision count → minutes needs a seconds-per-decision
    constant. Mark it MVP-provisional like every other number in ADR-0025/0026, and let
    Part B's wall-clock replace it later.
+
+---
+
+## LANDED 2026-08-24 — the playtest harness, and what it found
+
+`src/render/playtest.ts` + `scripts/playtest.mts` (A1–A4 of the slice below). Three
+deterministic player policies driven through the real shell over a seed sweep.
+
+**It found the campaign was winnable with zero engagement** — a party that never opened the
+prep screen cleared all five battles at every seed with 966 AP unspent and every chassis
+slot empty. Fixed by **ADR-0027**: `foe-warchief`'s Physical Attack 8 → 11, one field, one
+record, the finale only. Measured at 16 seeds afterwards:
+
+| player policy | clears |
+|---|---|
+| never opens the prep screen | 2/16 |
+| buys the cheapest node anywhere in the pack | 8/16 |
+| buys into the member's **own job tree** | 16/16 |
+
+**The headline is the third row, not the first.** Spending at home wins; scattering AP
+across whatever is cheapest loses.
+
+**The panel now warns about it before the click** (same ADR): `LearnRow.reach` says where an
+ability would land for this unit, and a row that needs the one Secondary slot renders a
+**needs Secondary** tag. Plus a "Where to spend AP" help topic, a rewritten learn-list hint
+(the old one read as an invitation to do the losing thing), and a correction to "Losing a
+battle", which implied a retry was a fresh chance — it is not, the retry is bit-identical.
+
+**What is still open: whether a newcomer READS it.** Only a person can settle that. What is
+asserted is that the warning is produced by the shipped content, names the right rows, and
+agrees with the real command projection.
+
+`docs/11` AC-M1 was amended to name the player it assumes: an ending is reachable **by a
+player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,
+and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that profile.
+
+Still open in the slice: **Part B, the browser telemetry.** A4's gate was reported and the
+user chose to retune first.
 
 ---
 

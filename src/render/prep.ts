@@ -50,6 +50,7 @@ import {
   primaryCommand,
   setLoadoutSlot,
   setLoadoutTraits,
+  type Ability,
   type ContentRegistry,
   type Loadout,
   type LoadoutSlot,
@@ -243,6 +244,23 @@ export interface LearnRow {
    * That is asserted, because it is the property the whole design leans on.
    */
   summary: string | null;
+  /**
+   * WHERE this ability would land if bought — read before spending, not after.
+   *
+   *   `command`   — usable the moment it is bought (this unit's own command list).
+   *   `secondary` — an action from ANOTHER job: dead until that job is equipped in the
+   *                 one Secondary slot, and equipping it evicts whatever is there.
+   *   `reaction` / `support` / `movement` — a passive that must then be equipped.
+   *
+   * WHY THIS EXISTS. AP is one pool and the panel browses any tree, so buying a
+   * scattering of other jobs' cheap actions is easy and plausible — and measured, it is
+   * how a run loses: a policy that buys the member's own tree clears the campaign at 8
+   * of 8 seeds, one that buys the cheapest node anywhere clears 1 of 8 (ADR-0027). The
+   * panel already told the player where a purchase went; {@link learnReceipt} is that
+   * receipt. A receipt arrives after the AP is gone and never refunded. This is the same
+   * fact, before the click.
+   */
+  reach: "command" | "secondary" | "reaction" | "support" | "movement";
   /**
    * Why the ability this node grants currently does NOTHING, or `null` when it is live.
    *
@@ -536,6 +554,7 @@ export class PrepModel {
       const deferred = deferredBlocker(node.ability);
       const ability = this.registry.ability(node.ability);
       const kind = ability.type;
+      const reach = this.reachOf(ability);
       const summary = abilitySummary(ability);
       if (known.has(node.ability)) {
         return {
@@ -547,6 +566,7 @@ export class PrepModel {
           reason: null,
           deferred,
           kind,
+          reach,
           summary,
         };
       }
@@ -560,6 +580,7 @@ export class PrepModel {
         reason: check.ok ? null : check.reason,
         deferred,
         kind,
+        reach,
         summary,
       };
     });
@@ -616,6 +637,26 @@ export class PrepModel {
    * message that is false — so membership is READ OFF the real projection rather than
    * inferred from the ability's type.
    */
+  /**
+   * Where an ability would land for THIS unit as it is currently built.
+   *
+   * The skillset comparison is the same one `build.ts` makes when it compiles a unit's
+   * command list — primary command plus the equipped Secondary's — so this cannot say
+   * "command" about something a battle would not offer. `learnRows` and
+   * {@link learnReceipt} both go through here, so the warning before the purchase and
+   * the receipt after it cannot disagree.
+   */
+  private reachOf(ability: Ability): LearnRow["reach"] {
+    if (ability.type !== "action") return ability.type;
+    const r = this.record();
+    if (ability.skillset === primaryCommand(r, this.registry)) return "command";
+    const sec = r.loadout.secondary;
+    if (sec !== null && ability.skillset === this.registry.job(sec).primarySkillset) {
+      return "command";
+    }
+    return "secondary";
+  }
+
   learnReceipt(): {
     ability: string;
     slot: "command" | "secondary" | "reaction" | "support" | "movement";
@@ -829,7 +870,16 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         // keeps the list quiet and still closes the gap.
         const kindTag =
           row.kind === "action" ? "" : ` <span class="kind">${esc(row.kind)}</span>`;
-        const label = `${esc(abilityLabel(row.ability))}${kindTag}${tag}`;
+        // AN ACTION THIS UNIT COULD NOT USE IS THE EXPENSIVE MISTAKE, so it is the one
+        // thing marked before the click. A learn list makes every row look equivalent,
+        // and the panel browses any job's tree, so "60 AP for a command" and "60 AP for
+        // a command that does nothing until you also give up your Secondary slot" read
+        // identically. Measured, that difference is how a run is lost (ADR-0027).
+        const reachTag =
+          row.kind === "action" && row.reach === "secondary"
+            ? ` <span class="tag reach" data-testid="reach-secondary" title="This is another job's command. It stays unusable until you equip that job in the Secondary slot — and you only have one.">needs Secondary</span>`
+            : "";
+        const label = `${esc(abilityLabel(row.ability))}${kindTag}${reachTag}${tag}`;
         const cls = [row.known ? "known" : "", row.buyable ? "" : "locked", row.deferred === null ? "" : "deferred"]
           .filter(Boolean)
           .join(" ");
@@ -863,7 +913,7 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       <div class="learn">
         <h3>Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
         <select data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
-        <p class="hint">AP is one pool — you can buy from any job's tree without changing job. Learning one action from another job unlocks it as a Secondary command.</p>
+        <p class="hint" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>
         <ul class="learn-list" data-testid="prep-learn">${rows}</ul>
         ${receiptHtml()}
       </div>
