@@ -43,6 +43,32 @@ export default tseslint.config(
     rules: DETERMINISM_RULES,
   },
   {
+    // LAYERING (ADR-0007, root CLAUDE.md): render imports sim, never the reverse.
+    // Locked from the start and enforced by nothing — a scoped plan put the synthetic
+    // playtest harness in `src/sim`, driving `CampaignShell` and `PrepModel`, which both
+    // live in `src/render`. It was caught by reading the code, which is exactly the check
+    // that does not run on every commit.
+    //
+    // Tests are INCLUDED here, unlike the determinism block above: a sim test reaching
+    // into the viewer drags the dependency in through the type graph just as effectively.
+    files: ["src/sim/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/render/*", "**/render/**"],
+              message:
+                "Sim is pure and headless (ADR-0007): src/sim must not import from src/render. " +
+                "If the code needs a viewer class, the code belongs in src/render.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Node tooling scripts (ESM): provide Node globals for no-undef.
     files: ["scripts/**/*.mjs"],
     languageOptions: {
