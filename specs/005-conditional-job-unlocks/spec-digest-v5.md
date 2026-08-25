@@ -115,12 +115,6 @@ The blocks carry the data shape and almost none of the rules:
 - the prep screen never names a job the unit has not unlocked, and shows only the counters some job gates on — §FR-006, §OI-7
 - a job whose tree is empty is instantly mastered and grants a free mastery trait — §OI-4 (undecided, see §OI-4)
 
-Questions the code below appears to settle, but has not:
-
-- the migration's `// zero, NOT back-filled` comment reads as a decision; back-fill vs zero is still open — §OI-2
-- the worked example's `"atLeast": 15` reads as a real value; it has been measured unreachable — §OI-3
-- the worked example's `"tree": []` reads as a stub; what fills it is still open, and an empty tree grants a free mastery trait — §OI-4
-
 Terms used in the blocks below and defined nowhere in the spec: **`NO_DEEDS`**, the zero
 value substituted for a unit with no entry; **`requires`**, a reserved field on a job that
 appears in no code here, only in the rejection rule at §FR-005.
@@ -193,7 +187,7 @@ export const JobUnlockSchema = z
 <details><summary>FR-003 — <code>isJobUnlocked</code> returns true when a job has no unlock or the count meets the minimum; <code>unlockedJobs</code> body not shown</summary>
 
 ```ts
-// CUT
+// CUT — rejected, not deferred; do not implement — see Status at top
 // src/sim/progression.ts — illustrative only.
 export function isJobUnlocked(record: UnitRecord, jobId: string, registry: ContentRegistry): boolean {
   const u = registry.job(jobId).unlock;
@@ -208,7 +202,7 @@ export function unlockedJobs(record: UnitRecord, registry: ContentRegistry): str
 <details><summary>FR-004 — the second snippet adds deeds in the same expression that awards AP, and substitutes <code>NO_DEEDS</code> for a unit with no entry; <code>deriveDeedDeltas</code> body not shown</summary>
 
 ```ts
-// CUT
+// CUT — rejected, not deferred; do not implement — see Status at top
 // src/sim/campaign-run.ts — deriveRewards gains a parallel deed delta.
 export function deriveDeedDeltas(
   def: CampaignDef, save: CampaignSave, encounter: Encounter,
@@ -225,7 +219,7 @@ const party = save.party.map((rec) =>
 <details><summary>FR-006 — replaces the prep screen's full job list with the selected unit's unlocked jobs</summary>
 
 ```ts
-// CUT
+// CUT — rejected, not deferred; do not implement — see Status at top
 // src/render/prep.ts — jobIds() currently returns EVERY pack job (the gate goes here).
 jobIds(): string[] {
   return unlockedJobs(this.selectedRecord(), this.registry);

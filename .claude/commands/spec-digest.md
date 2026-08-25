@@ -147,6 +147,11 @@ Rules — code:
   reader can park on the wrong meaning without ever scrolling up. Put the
   disambiguating words in the comment itself — `// CUT — rejected, not deferred; do
   not implement — see Status at top`.
+- **Full banner on the first three blocks, then short.** From the fourth on, use
+  `// <STATUS>` alone. Repeated verbatim past that point it stops being read and
+  starts training the reader to skip the first line of every block — which is also
+  where the file path lives, so the cost is a line they did need. Three carries a
+  reader who entered anywhere; eight teaches a habit that loses them something.
 - If any value in a code block is contradicted elsewhere in the spec — a number the
   spec later says is wrong, a placeholder it flags as unfilled — append
   `— see §<anchor>` to that block's summary line. Point, do not explain.
@@ -156,6 +161,13 @@ Rules — code:
   rules, anything a reader could implement backwards — is named at the top of the Code
   section: `Not shown in any code below: <one clause each> — §<anchor>`. Name the rule,
   not just the anchor; a bare pointer gets skipped.
+- **The list carries the unanswered questions the code hides, not only the rules.**
+  Working code with a confident comment is the strongest signal a document can send,
+  and it is wrong whenever a value or a decision in a block is still open. For every
+  block, ask which open items it silently answers — a placeholder that looks like a
+  real value, a comment that states a choice nobody ratified — and add a line:
+  `<what the code appears to settle> is still open — §<anchor>`. A reader who never
+  scrolls up sees only the confidence.
 - **Build that list by walking the code, not the tables.** For each block, ask what a
   competent reader would have to assume to implement it, then check whether the spec
   decides that assumption somewhere the code does not show. Timing rules are the ones
