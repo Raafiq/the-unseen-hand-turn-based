@@ -30,6 +30,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/require-retro-before-pr.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-designated-branch.sh"
           }
         ]
       }
@@ -40,6 +44,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/record-designated-branch.sh"
           }
         ]
       }

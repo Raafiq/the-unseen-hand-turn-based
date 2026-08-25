@@ -186,6 +186,14 @@ the git history of that file — do not re-expand it in place.
 
 ## Traps waiting for you
 
+0. **PUBLISHING ANY BRANCH BUT THE SESSION'S DESIGNATED ONE IS NOW BLOCKED.**
+   `.claude/hooks/guard-designated-branch.sh` compares the target against the branch
+   recorded at SessionStart. If it fires, you have invented a branch name — use the
+   recorded one, including for follow-up after its PR merged (same name, reset from
+   `main`). Deletions pass; a missing record fails open. Fixtures live beside it in
+   `guard-designated-branch.test.sh` — **run them after any edit**, and note that the
+   two that matter are heredoc-shaped, because every single-line fixture passed while
+   the real command failed.
 0. **A CAPTURED FRAME'S FILENAME IS AN ASSERTION, AND IS NOW CHECKED.** `shot()` in
    `e2e/playtest-capture.spec.ts` takes the `data-testid` the frame must show and asserts
    it before the screenshot. That guard exists because the set shipped a `09-ending.png`

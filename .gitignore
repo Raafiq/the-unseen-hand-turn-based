@@ -42,3 +42,7 @@ Thumbs.db
 
 # Written by the retrospective skill; checked by the pre-PR hook (.claude/hooks/require-retro-before-pr.sh)
 .claude/.retro-done
+
+# Written at SessionStart by .claude/hooks/record-designated-branch.sh; read by
+# .claude/hooks/guard-designated-branch.sh. Per-session, never shared.
+.claude/.session-branch
