@@ -3,7 +3,7 @@
 [![CI](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/ci.yml)
 [![Pages](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml)
 
-**Play it:** [▶ the campaign](https://raafiq.github.io/the-unseen-hand-turn-based/game.html) ·
+**Play it:** [▶ the campaign](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
 [engine viewer](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
 [visual gallery](https://raafiq.github.io/the-unseen-hand-turn-based/visual/) ·
 [state of the engine](https://raafiq.github.io/the-unseen-hand-turn-based/state/)

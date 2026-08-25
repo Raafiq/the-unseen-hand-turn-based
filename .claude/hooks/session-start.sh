@@ -35,7 +35,8 @@ echo "[session-start] branch: ${BRANCH}"
 if git rev-parse --verify -q origin/main >/dev/null 2>&1; then
   if [ "$BRANCH" != "main" ] && git merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
     echo "[session-start] ⚠ this branch is ALREADY MERGED into last-known origin/main."
-    echo "[session-start]   Start fresh work from main: git fetch origin main && git checkout -B <new-branch> origin/main"
+    echo "[session-start]   Restart THIS branch from main — keep the name, never invent one:"
+    echo "[session-start]   git fetch origin main && git checkout -B ${BRANCH} origin/main"
   fi
   BEHIND="$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)"
   AHEAD="$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)"

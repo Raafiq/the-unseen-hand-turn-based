@@ -1,294 +1,40 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The Unseen Hand — The First March</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      The campaign moved to the site ROOT. This stub stays because the path was
+      public: README.md links it, docs/11 names it as where the game is played, and
+      the repo has been public since 2026-08-09. A 404 on the one URL that has been
+      shared costs more than deleting a nine-line file saves.
+
+      A meta-refresh, not a script: it redirects with scripting disabled, and there is
+      no server here to issue a 301. The link below is not decoration — it is what a
+      reader sees if the refresh is ignored or blocked, and it is what the browser
+      test follows when it asserts this page does not simply render blank.
+    -->
+    <meta http-equiv="refresh" content="0; url=./" />
+    <title>The First March — moved to the site root</title>
     <style>
-      :root {
-        --bg: #0e1220;
-        --surface: #151a2a;
-        --surface-2: #1b2133;
-        --border: #29314a;
-        --ink: #e8ecf5;
-        --ink-soft: #aab3c7;
-        --ink-faint: #6d7791;
-        --accent: #e2a948;
-        /* A caution that must stay legible on --surface-2 without reading as an error:
-           the "needs Secondary" tag marks a row that is buyable, just not yet usable. */
-        --warn: #d98a5c;
-        --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0e1117;
+        color: #cdd6e6;
+        font: 16px/1.6 ui-sans-serif, system-ui, sans-serif;
+        text-align: center;
+        padding: 24px;
       }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
-      .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 64px; }
-      .eyebrow { font-family: var(--mono); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
-      h1 { font-size: 1.85rem; margin: 0 0 8px; letter-spacing: -.01em; }
-      h2 { font-size: 1.25rem; margin: 0 0 8px; }
-      p.lede { margin: 0 0 18px; color: var(--ink-soft); max-width: 62ch; font-size: .95rem; }
-      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-      .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
-      button { font-family: var(--sans); font-size: .9rem; font-weight: 600; color: #10151f; background: var(--accent); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
-      button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
-      button[disabled] { opacity: .42; cursor: not-allowed; }
-      button[hidden] { display: none; }
-      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .party li.benched { opacity: .5; }
-      .party .pick { background: none; border: 1px solid var(--border); color: var(--accent); font-family: var(--mono); font-size: .8rem; padding: 0 6px; border-radius: 5px; margin-right: 4px; }
-      .party li.benched .pick { color: var(--ink-faint); }
-      #brief-deploy-note { margin: 10px 0 0; font-size: .8rem; color: var(--ink-faint); }
-      .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: .78rem; color: var(--ink-faint); }
-      .legend span { display: inline-flex; align-items: center; gap: 7px; }
-      .legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; display: inline-block; }
-      .legend .sw.ring { border: 2px solid var(--accent); background: rgba(226,169,72,.27); border-radius: 50%; }
-      .help-btn { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.2rem; line-height: 1; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
-      dialog#help { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); }
-      dialog#help::backdrop { background: rgba(6,9,16,.72); }
-      .help-head { display: flex; align-items: baseline; gap: 12px; padding: 20px 22px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
-      .help-head h2 { margin: 0; }
-      .help-head .close { margin-left: auto; }
-      .help-body { padding: 6px 22px 22px; overflow-y: auto; max-height: calc(min(80vh, 720px) - 66px); }
-      .help-body section { padding: 16px 0; border-bottom: 1px solid var(--border); }
-      .help-body section:last-child { border-bottom: none; }
-      .help-body h3 { margin: 0 0 6px; font-size: 1rem; }
-      .help-body p { margin: 0 0 8px; color: var(--ink-soft); font-size: .92rem; max-width: 62ch; }
-      .help-body p:last-child { margin-bottom: 0; }
-      canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border-radius: 10px; cursor: crosshair; }
-      canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-      .reason { margin-top: 12px; font-family: var(--mono); font-size: .82rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
-      .reason.warn { border-color: #e05563; color: #ffb3b8; }
-      .reason.fatal { border-color: #e05563; background: #3a1b21; color: #ffd7da; }
-      #status { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-left: auto; font-family: var(--mono); font-size: .82rem; color: var(--ink-soft); }
-      #status b { color: var(--ink-faint); font-weight: 500; }
-      .timeline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
-      .tl-label { font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); margin-right: 4px; }
-      .chip { display: inline-flex; align-items: center; gap: 7px; font-size: .84rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
-      .chip .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
-      .chip.lead { border-color: var(--c); color: var(--ink); box-shadow: 0 0 0 1px var(--c) inset; }
-      .chip.spell { border-style: dashed; }
-      .chip.proj { opacity: .5; background: transparent; border-style: dotted; }
-      .tl-split { font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); border-left: 1px dashed var(--border); padding-left: 10px; margin-left: 2px; }
-      .cols { display: grid; gap: 16px; margin-top: 22px; grid-template-columns: 1fr; }
-      @media (min-width: 720px) { .cols { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); } }
-      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
-      .panel h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); margin: 0 0 12px; font-family: var(--mono); }
-      .prow { display: flex; justify-content: space-between; gap: 14px; padding: 5px 0; border-bottom: 1px dashed var(--border); font-size: .86rem; }
-      .prow:last-of-type { border-bottom: none; }
-      .prow .pk { color: var(--ink-faint); font-family: var(--mono); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
-      .prow .pv { color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
-      .prow.lethal .pv { color: #ff8b8b; font-weight: 700; }
-      .phint { margin: 12px 0 0; font-size: .76rem; color: var(--ink-faint); }
-      ul.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-family: var(--mono); font-size: .84rem; color: var(--ink-soft); }
-      ul.log li { display: flex; align-items: center; gap: 9px; }
-      ul.log .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-      ul.log .muted, .muted { color: var(--ink-faint); }
-      ul.party { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 7px; font-size: .9rem; color: var(--ink-soft); }
-      footer { margin-top: 26px; color: var(--ink-faint); font-size: .8rem; font-family: var(--mono); }
-      footer a { color: var(--accent); }
-      #save-error { margin-bottom: 16px; border-color: #e05563; color: #ffb3b8; }
-      #save-error[hidden] { display: none; }
-      /* ── prep panel (shared with the engine viewer; see index.html) ────────── */
-      .prep-grid { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: 4px; }
-      @media (min-width: 760px) { .prep-grid { grid-template-columns: 1.25fr 1fr; align-items: start; } }
-      .roster { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
-      .ptab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--border); border-radius: 9px; padding: 7px 13px; font-weight: 500; }
-      .ptab .pname { font-size: .92rem; color: var(--ink); font-weight: 600; }
-      .ptab .pmeta { font-family: var(--mono); font-size: .68rem; color: var(--ink-faint); }
-      .ptab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-      .chassis { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
-      @media (min-width: 520px) { .chassis { grid-template-columns: repeat(3, 1fr); } }
-      .slot { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
-      .slot h3 { margin: 0 0 8px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; justify-content: space-between; gap: 6px; }
-      .slot h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
-      .slot .val { font-size: .92rem; color: var(--ink); }
-      .slot .sub { margin-top: 3px; font-size: .76rem; color: var(--ink-soft); }
-      .slot select { width: 100%; font-family: var(--sans); font-size: .86rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; text-overflow: ellipsis; }
-      .slot select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-      .slot .chk { display: flex; align-items: center; gap: 6px; font-size: .86rem; color: var(--ink-soft); }
-      .slot .empty { margin: 0; font-size: .76rem; color: var(--ink-faint); }
-      .slot .hint { margin: 7px 0 0; font-size: .72rem; color: var(--ink-faint); }
-      .prog { grid-column: 1 / -1; display: grid; gap: 12px; grid-template-columns: 1fr; }
-      @media (min-width: 620px) { .prog { grid-template-columns: minmax(180px, .8fr) 1.2fr; align-items: start; } }
-      .learn h3 { margin: 0 0 10px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
-      .learn h3 .count { background: var(--accent); color: #10151f; border-radius: 999px; padding: 1px 8px; font-size: .72rem; font-weight: 700; }
-      .learn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-      .learn-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .86rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
-      .learn-list li.known { color: var(--ink-faint); border-style: dashed; }
-      .learn-list li.known .s { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; }
-      .learn-list li.locked { color: var(--ink-faint); }
-      .learn-list li.deferred { border-style: dashed; }
-      .learn-list li.deferred .tag { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 5px; }
-      /* "needs Secondary" sits on rows that are otherwise perfectly buyable, so unlike
-         the deferred tag it must read as a caution rather than as greyed-out text. */
-      .learn-list .tag.reach { font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; opacity: .85; }
-      .receipt { margin: 10px 0 0; font-size: .8rem; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(226,169,72,.08); color: var(--ink-soft); }
-      .receipt b { color: var(--ink); }
-      .learn-list .kind { font-family: var(--mono); font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
-      .learn-list li { flex-wrap: wrap; }
-      .learn-list .desc, .cmd-list .desc { flex-basis: 100%; display: block; font-size: .72rem; color: var(--ink-faint); margin-top: 3px; line-height: 1.45; }
-      .learn-list .buy { font-family: var(--mono); font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
-      .cmds h3 { margin: 0 0 12px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
-      .cmds h3 .count { background: var(--accent); color: #10151f; border-radius: 999px; padding: 1px 8px; font-size: .72rem; font-weight: 700; }
-      .cmd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-      .cmd-list li { font-size: .84rem; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
-      .cmd-list li.deferred { opacity: .55; border-style: dashed; }
-      .cmd-list li.deferred .tag { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-left: 4px; }
-      .cmds .hint { margin: 14px 0 0; font-size: .82rem; color: var(--ink-soft); }
-      .stats { grid-column: 1 / -1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
-      .stats h3 { margin: 0 0 10px; font-size: .64rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
-      .stats h3 .lock { color: var(--ink-faint); opacity: .7; text-transform: none; letter-spacing: 0; font-weight: 400; }
-      .stat-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 22px; }
-      .stat-row li { display: flex; flex-direction: column; gap: 3px; }
-      .stat-row .k { font-size: .58rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-family: var(--mono); }
-      .stat-row .v { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-      .stat-row li.up .v { color: var(--accent); }
-      .stat-row li.up .v::after { content: " \25B2"; font-size: .62em; vertical-align: middle; }
-      /* ── story beats (docs/11 M0 item 4) ───────────────────────────────────── */
-      .story { margin: 0 0 18px; border-left: 2px solid var(--accent); padding: 2px 0 2px 16px; }
-      .story[hidden] { display: none; }
-      .story .who { margin: 0 0 6px; font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
-      .story p.line { margin: 0 0 8px; color: var(--ink); font-size: .98rem; max-width: 62ch; }
-      .story p.line:last-child { margin-bottom: 0; }
-      /* The playtest log control (docs/plans step B2). Deliberately quiet — it is for a
-         playtester, not part of the game, and it sits below the fold on two screens. */
-      .logbox { margin-top: 18px; }
-      .logbox h3 { margin: 0 0 6px; font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
-      .logbox p { margin: 0; font-size: .78rem; color: var(--ink-faint); line-height: 1.55; }
-      .logbox textarea { width: 100%; margin-top: 10px; min-height: 120px; background: var(--bg); color: var(--ink-soft);
-                         border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: .72rem; }
+      a { color: #e0a33e; }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div id="save-error" class="reason" data-testid="save-error" role="alert" hidden></div>
-
-      <!-- TITLE -->
-      <section id="screen-title" data-testid="screen-title">
-        <p class="eyebrow">The Unseen Hand</p>
-        <h1>The First March</h1>
-        <p class="lede">Five battles. A party of four that keeps everything it earns — banked AP, learned abilities, its full HP restored between fights. Lose one and you retry it with exactly the party you had. One save slot, written to this browser.</p>
-        <div class="card">
-          <div class="controls">
-            <button id="btn-new-game" data-testid="new-game">New Game</button>
-            <button id="btn-continue" class="ghost" data-testid="continue">Continue</button>
-            <button id="btn-erase" class="ghost" data-testid="erase">Erase save</button>
-          </div>
-          <div id="title-slot" class="reason info" data-testid="title-slot" role="status" aria-live="polite"></div>
-        </div>
-        <div class="card logbox" id="logbox-title" data-testid="logbox-title">
-          <h3>Playtesting this?</h3>
-          <p id="log-note-title" data-testid="log-note-title" role="status" aria-live="polite"></p>
-          <div class="controls">
-            <button id="btn-log-title" class="ghost" data-testid="copy-log-title">Copy playtest log</button>
-          </div>
-          <textarea id="log-text-title" data-testid="log-text-title" readonly hidden
-                    aria-label="Playtest log, ready to copy"></textarea>
-        </div>
-        <footer>Also here: the <a href="./index.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
-      </section>
-
-      <!-- BRIEFING -->
-      <section id="screen-briefing" data-testid="screen-briefing" hidden>
-        <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>
-        <h1 id="brief-title" data-testid="brief-title"></h1>
-        <div class="card">
-          <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
-          <p id="brief-note" class="lede" data-testid="brief-note"></p>
-          <ul class="party" id="brief-party" data-testid="brief-party"></ul>
-          <p class="hint" id="brief-deploy-note" data-testid="brief-deploy-note" hidden></p>
-          <div class="controls">
-            <button id="btn-deploy" data-testid="deploy">Deploy ▸</button>
-            <button id="btn-brief-quit" class="ghost" data-testid="brief-quit">Quit to title</button>
-          </div>
-        </div>
-        <div class="panel" style="margin-top:16px">
-          <h3>Prepare the party</h3>
-          <div id="prep-body" class="prep-grid" data-testid="prep"></div>
-        </div>
-      </section>
-
-      <!-- HELP (M0 item 7) — always reachable, never in the way. -->
-      <button id="btn-help" class="help-btn ghost" data-testid="help-open"
-              aria-haspopup="dialog" title="How to play" aria-label="How to play">?</button>
-      <dialog id="help" data-testid="help" aria-labelledby="help-title">
-        <div class="help-head">
-          <h2 id="help-title">How to play</h2>
-          <button class="ghost close" id="btn-help-close" data-testid="help-close">Close</button>
-        </div>
-        <div class="help-body" id="help-body" data-testid="help-body"></div>
-      </dialog>
-
-      <!-- BATTLE -->
-      <section id="screen-battle" data-testid="screen-battle" hidden>
-        <div class="card">
-          <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
-                  role="application"
-                  aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
-          <div class="controls">
-            <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
-            <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
-            <button id="btn-step" class="ghost" data-testid="step">Play enemy turn ▸</button>
-            <button id="btn-conclude" data-testid="conclude" hidden>Continue ▸</button>
-            <div id="status" data-testid="status"></div>
-          </div>
-          <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
-          <div id="timeline" class="timeline" data-testid="timeline"></div>
-          <div class="legend" data-testid="legend">
-            <span><i class="sw" style="background:#4f8cff"></i>Your party</span>
-            <span><i class="sw" style="background:#e2603c"></i>Enemies</span>
-            <span><i class="sw" style="background:#e2a948"></i>Where the active unit can walk</span>
-            <span><i class="sw ring"></i>Whose turn it is</span>
-          </div>
-        </div>
-        <div class="cols">
-          <div class="panel">
-            <h3>Resolution preview</h3>
-            <div id="preview" data-testid="preview"></div>
-          </div>
-          <div class="panel">
-            <h3>Turn log</h3>
-            <ul id="log" class="log"></ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- AFTER BATTLE -->
-      <section id="screen-after" data-testid="screen-after" hidden>
-        <h1 id="after-title" data-testid="after-title"></h1>
-        <div class="card">
-          <div id="after-story" class="story" data-testid="after-story" hidden></div>
-          <p id="after-note" class="lede" data-testid="after-note"></p>
-          <div class="controls">
-            <button id="btn-next" data-testid="next">Next battle ▸</button>
-            <button id="btn-retry" data-testid="retry">Retry this battle ▸</button>
-            <button id="btn-after-quit" class="ghost" data-testid="after-quit">Quit to title</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- COMPLETED -->
-      <section id="screen-completed" data-testid="screen-completed" hidden>
-        <p class="eyebrow">The First March</p>
-        <h1>The march is over</h1>
-        <div class="card">
-          <div id="done-story" class="story" data-testid="done-story" hidden></div>
-          <p id="done-note" class="lede" data-testid="done-note"></p>
-          <div class="controls">
-            <button id="btn-done-title" data-testid="done-title">Back to title</button>
-          </div>
-        </div>
-        <div class="card logbox" id="logbox-done" data-testid="logbox-done">
-          <h3>Playtesting this?</h3>
-          <p id="log-note-done" data-testid="log-note-done" role="status" aria-live="polite"></p>
-          <div class="controls">
-            <button id="btn-log-done" class="ghost" data-testid="copy-log-done">Copy playtest log</button>
-          </div>
-          <textarea id="log-text-done" data-testid="log-text-done" readonly hidden
-                    aria-label="Playtest log, ready to copy"></textarea>
-        </div>
-      </section>
-    </div>
-    <script type="module" src="/src/render/game.ts"></script>
+    <p data-testid="moved">
+      The First March now lives at the top of this site.<br />
+      <a href="./" data-testid="moved-link">▶ Play the campaign</a>
+    </p>
   </body>
 </html>

@@ -30,7 +30,7 @@ async function playCurrentBattle(page: Page): Promise<void> {
 
 test("campaign shell: title → battle → saved progress survives a reload", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
-  await page.goto("/game.html");
+  await page.goto("/");
 
   // A fresh browser: no save, so Continue is genuinely unavailable rather than a
   // button that quietly does nothing.
@@ -97,7 +97,7 @@ test("campaign shell: title → battle → saved progress survives a reload", as
 });
 
 test("campaign shell: the five-battle run reaches its ending in the browser", async ({ page }) => {
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
 
   for (let i = 0; i < 5; i++) {
@@ -139,7 +139,7 @@ test("campaign shell: an unreadable save is a message, and New Game still works"
   await page.addInitScript(() => {
     localStorage.setItem("tuh.campaign.v1", "{ not a save");
   });
-  await page.goto("/game.html");
+  await page.goto("/");
 
   await expect(page.getByTestId("screen-title")).toBeVisible();
   await expect(page.getByTestId("title-slot")).toContainText("could not be read");
@@ -153,7 +153,7 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   page,
 }) => {
   await mkdir(SHOTS, { recursive: true });
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
 
   // Two battles of banked AP — enough for one 60-AP tier-one node and not much else,
@@ -215,7 +215,7 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   // The first briefing has zero banked AP, so every purchase must be blocked — and the
   // panel must say WHY rather than just greying out, or a player cannot tell "save up"
   // from "learn something else first".
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("prep-ap")).toContainText("0 AP");
 
@@ -249,7 +249,7 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   // panel browses any tree, so buying cheap actions from several jobs leaves a unit able
   // to use one of them. Measured, a player who spends at home clears the campaign at 8 of
   // 8 seeds and one who buys the cheapest node anywhere clears 1 of 8.
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
 
   // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
@@ -285,7 +285,7 @@ test("help: the ? panel opens from any screen and explains the mechanics", async
   // rails, so this control is the only route to an explanation. A panel that exists in
   // the markup but cannot be opened is the same as no panel at all, and no headless test
   // can see the difference — `<dialog>.showModal()` only means anything in a browser.
-  await page.goto("/game.html");
+  await page.goto("/");
 
   const panel = page.getByTestId("help");
   await expect(panel).toBeHidden();
@@ -313,7 +313,7 @@ test("equipment: a granted weapon can be equipped, and it survives a reload", as
   // browser proves is the half outside those objects: the drip reaches the panel, the
   // selector writes through `updateParty` to the save, and the save is really in
   // localStorage. An in-memory slot passes every headless persistence test regardless.
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
@@ -335,7 +335,7 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   // The A/B is the point: a hint that is always present is wallpaper and would pass a
   // mere "is it visible" check. Both halves are asserted — it appears while the free
   // thing is unused, and it is GONE once the player uses it.
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
@@ -357,7 +357,7 @@ test("deployment: the briefing shows who fights, and a click swaps them into the
   // The gap: the briefing listed four names and then deployed two, which reads as a bug
   // rather than the authored ramp it is. What only a browser proves is that the click
   // reaches the SAVE and then the BOARD — the headless tests drive the shell directly.
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
 
   await expect(page.getByTestId("brief-deploy-note")).toContainText("fields 2 of 4");
@@ -394,7 +394,7 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   // The purchase receipt (finding 1) is asserted in `prep.test.ts`, where the model can
   // be handed AP directly — battle one pays none, so a browser test would have to walk
   // three battles to reach a purchase and would be testing the campaign, not the fix.
-  await page.goto("/game.html");
+  await page.goto("/");
   await page.getByTestId("new-game").click();
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
@@ -429,7 +429,7 @@ test("learnability: the board explains itself and the buttons drop engine jargon
  * certifying itself.
  */
 test("playtest log: the recorder observes the real page, not a test path", async ({ page }) => {
-  await page.goto("/game.html");
+  await page.goto("/");
   await expect(page.getByTestId("screen-title")).toBeVisible();
 
   const readLog = (): Promise<{
@@ -522,7 +522,7 @@ test("playtest log: it survives a reload, and one click hands it over", async ({
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/game.html");
+  await page.goto("/");
 
   const readLog = (): Promise<{ events: { kind: string; at: number }[] }> =>
     page.evaluate(() => window.tuhGame.playtestLog());

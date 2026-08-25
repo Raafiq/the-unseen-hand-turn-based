@@ -12,13 +12,18 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // TWO PAGES, both shipped. `index.html` is the engine viewer (every internal
-    // number on show); `game.html` is the playable campaign shell (docs/11 M0).
-    // Adding an entry here is what makes it exist in the built site at all — a page
-    // that only works under `npm run dev` is not shipped.
+    // THREE PAGES, all shipped. `index.html` is the playable campaign — the SITE
+    // ROOT, because that is what a stranger should land on (docs/10 §7a).
+    // `viewer.html` is the engine viewer, every internal number on show, a developer
+    // instrument. `game.html` is a redirect stub keeping the campaign's former
+    // public URL alive.
+    //
+    // Adding an entry here is what makes a page exist in the built site at all — one
+    // that only works under `npm run dev` is not shipped, and nothing else says so.
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
+        viewer: resolve(__dirname, "viewer.html"),
         game: resolve(__dirname, "game.html"),
       },
     },

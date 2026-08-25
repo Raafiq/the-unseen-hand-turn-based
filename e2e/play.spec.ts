@@ -61,7 +61,7 @@ import { serialize, type BattleState } from "../src/sim/index.js";
 
 const SHOTS = "visual-artifacts/screenshots";
 
-/** The canvas BACKING STORE size (index.html `<canvas width height>`). */
+/** The canvas BACKING STORE size (viewer.html `<canvas width height>`). */
 const CANVAS_W = 900;
 const CANVAS_H = 440;
 
@@ -82,7 +82,7 @@ const saveString = async (page: Page): Promise<string> => serialize(await state(
  * human would produce with the same clicks.
  */
 async function playToFlankDecision(page: Page): Promise<void> {
-  await page.goto("/");
+  await page.goto("/viewer.html");
   await expect(page.getByTestId("grid")).toBeVisible();
   await page.evaluate(() => {
     window.tuh.step(); // AI: the Mage declares its charged spell
@@ -195,7 +195,7 @@ test.describe("AC-V10 — the pointer→tile mapping", () => {
   test("docs/10 AC-V10: a real pointer event resolves to the drawn-on-top tile", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/viewer.html");
     const canvas = page.getByTestId("grid");
     await expect(canvas).toBeVisible();
     await canvas.scrollIntoViewIfNeeded();
@@ -460,7 +460,7 @@ test("playable: a viewer/sim fork paints the fatal chip instead of freezing the 
 test("accessibility: End Turn is keyboard-reachable and Escape cancels a staged draft", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/viewer.html");
   await expect(page.getByTestId("grid")).toBeVisible();
   await page.evaluate(() => window.tuh.step()); // → the Archer's first turn
   expect(await phase(page)).toBe("PLAYER_IDLE");
@@ -530,7 +530,7 @@ test("accessibility: End Turn is keyboard-reachable and Escape cancels a staged 
 // CLAUDE.md's verified on-device finding: the GitHub mobile app displays NO motion
 // format for a private repo (no inline images, no video player, GIFs do not
 // animate); static images via tap-through are the only medium it shows. So these
-// are shot in a NARROW, single-column layout (index.html collapses `.cols` below
+// are shot in a NARROW, single-column layout (viewer.html collapses `.cols` below
 // 720px) at deviceScaleFactor 2 — the transparency panel then spans the full frame
 // width at 2× pixel density instead of sitting in a third of a 1000px desktop
 // shot, which is the difference between legible and not on a phone.

@@ -247,6 +247,7 @@ degenerate fixture where all orderings coincide).
 - **AC-V10 (screen→tile picking respects height):** A canvas click SHALL resolve to the tile actually drawn on top at that point. *Discriminator:* on a map with a raised plateau, a height-ignoring inverse projection returns a different tile than the one the player sees — the test asserts the drawn-on-top tile and fails against the naive inverse.
 - **AC-V12 (a reaction is surfaced before the player commits):** When the hovered target carries a reaction that can trigger from the staged tile, the preview SHALL surface it with its trigger odds and the **exact** damage the counter-swing deals the actor; when it cannot trigger, the field SHALL be **absent**, never zeroed. *Discriminator:* the previewed number must equal the HP the actor actually loses on commit (a warning without the number is not transparency), and the same fixture **without** the reaction must show no row and cost the actor nothing — plus one out-of-reach and one lethal-act fixture that differ from the firing case in exactly one respect.
 - **AC-V13 (the battle ends, and the banner is team-relative):** When a team is wiped, the session SHALL enter `ENDED` on the **same commit** that lands the killing blow — not one turn later — with `activeUnitId` null, a Victory/Defeat banner, and every subsequent pick and End Turn refused. The banner SHALL name the outcome **relative to `playerTeam`**. *Discriminator:* one fixture, one killing blow, run twice with `playerTeam: 0` and `playerTeam: 1` — byte-identical sim events, opposite banners. A viewer that hard-codes team 0 as the player passes a one-sided test and fails this one. A second discriminator covers the KO that lands **during the advance** rather than inside a commit — a charge maturing on the last survivor, where nobody has committed anything, so only a post-advance check can catch it. **Measured, not assumed:** deleting the post-advance check leaves every other AC-V13 case green and fails exactly that one; asserting `phase === "ENDED"` right after a killing *click* does **not** discriminate here, because the pre-advance check already sees that wipe. The shipped demo battle SHALL additionally be driven to a decided end **both ways** — watch mode to whichever outcome it reaches, and a player who waits every turn to **Defeat** — so "the game can be finished" is asserted on the content a player actually loads, not only on a fixture.
+- **AC-V14 (the site's three routes):** `/` SHALL serve the campaign, `/viewer.html` SHALL serve the engine viewer, and `/game.html` SHALL reach the campaign. *Discriminator:* asserted against the BUILT site (Playwright serves `dist`), because a page missing from `rollupOptions.input` works under `npm run dev` and is simply absent from the build — nothing in the unit suite can see that. "Both pages loaded" is degenerate: two rollup entries pointed at one file serve identical HTML at both paths and satisfy it, so the test asserts the two install **different seams** (`window.tuhGame` vs `window.tuh`). The redirect is asserted in two halves — the fetched document is not blank and carries a link (a typo'd `<meta http-equiv="refresh">` renders a perfectly ordinary empty page, and that is all a reader with scripting disabled gets), and following it lands on the title screen.
 - **AC-V11 (the forecast declares where it stops being a fact):** `forecast()` SHALL return the index `assumedFrom` from which its entries depend on `ASSUMED_FUTURE_TURN_COST`, and a **forecast-vs-replay oracle** SHALL assert that driving the sim with real commands realizes the forecast order over `[0, assumedFrom)` under **both** the −80 and the −100 cost model. The viewer SHALL mark slots `≥ assumedFrom` as projected, and the preview's "next slot" row SHALL be labelled projected **iff** its slot falls outside the prefix. *Discriminator:* the fixture must be one where the two cost models give a **different actor order** — measured, the shipped demo state does **not** (its first eight slots are identical under −80 and −100), so the oracle uses a purpose-built speed ladder in which one folded −100 command flips slot 3 from `hasty` to `slow`. A test that passes under both cost models certifies nothing here; a boundary computed from the *assumed* walk instead of the cheapest one overclaims by a slot and must fail.
 
 ## 7. Required module shape
@@ -302,12 +303,17 @@ makes the compiler enforce §4's honesty rule.
 **`turn()` counts COMMANDS COMMITTED**, not Step clicks — a matured charge or a crystal
 tick is absorbed inside `advanceToDecision` and consumes no command.
 
-### 7a. Two pages, one set of panels (ADR-0023)
+### 7a. Three routes, one set of panels (ADR-0023)
 
-`[BASELINE]` The site ships **two** entry points: `index.html`, the engine viewer (one
-demo battle, every internal number on show), and `game.html`, the campaign shell
-(`docs/11` M0 item 1). Both are declared in `vite.config.ts`'s `rollupOptions.input` — a
-page that only works under `npm run dev` is not shipped.
+`[BASELINE]` **The site ROOT is the game.** `index.html` is the campaign shell (`docs/11`
+M0 item 1) — a stranger handed the bare site URL must land on something playable, not on
+an instrument. `viewer.html` is the engine viewer (one demo battle, every internal number
+on show), a developer tool reached from a link in the campaign's footer. `game.html` is a
+**redirect stub** to the root, kept because that path was public: `README.md` links it and
+`docs/11` names it as where the game is played.
+
+All three are declared in `vite.config.ts`'s `rollupOptions.input` — a page that only works
+under `npm run dev` is not shipped, and nothing else says so.
 
 They share **`src/render/panels.ts`**: the timeline, status line, resolution preview and
 turn log as pure `state → HTML` functions, injected with per-page presentation metadata

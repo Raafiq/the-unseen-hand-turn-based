@@ -34,7 +34,7 @@ const totalHp = (page: Page): Promise<number> =>
 test("engine viewer: renders the grid and steps the CT clock deterministically", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
 
-  await page.goto("/");
+  await page.goto("/viewer.html");
 
   const canvas = page.getByTestId("grid");
   await expect(canvas).toBeVisible();

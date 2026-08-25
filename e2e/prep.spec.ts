@@ -17,7 +17,7 @@ const INTRO_MS = 1200;
 test("prep viewer: equipping a Secondary command grows the castable command list", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
 
-  await page.goto("/");
+  await page.goto("/viewer.html");
 
   const prep = page.getByTestId("prep");
   await expect(prep).toBeVisible();
@@ -78,7 +78,7 @@ test("prep viewer: equipping a Secondary command grows the castable command list
 test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
 
-  await page.goto("/");
+  await page.goto("/viewer.html");
 
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
@@ -129,7 +129,7 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
  */
 test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
-  await page.goto("/");
+  await page.goto("/viewer.html");
 
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
@@ -188,7 +188,7 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
  * everything, or nothing, fails one half or the other.
  */
 test("prep viewer: an equip that does nothing SAYS it does nothing", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/viewer.html");
   await page.getByTestId("prep-stats").scrollIntoViewIfNeeded();
 
   const optionText = async (testId: string, value: string): Promise<string> =>
