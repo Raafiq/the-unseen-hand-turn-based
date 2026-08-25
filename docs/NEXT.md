@@ -29,7 +29,7 @@ half an agent can do. The other half is a human being, once.
 
 ### What to actually do
 
-Give one person who has never seen this a link to `/game.html` and say nothing else.
+Give one person who has never seen this a link to the site root and say nothing else.
 When they finish or give up, ask them to press **Copy playtest log** on the title or
 ending screen and paste it back. That log is `docs/plans/slice-m1-synthetic-playtest.md`
 step B2, and it exists precisely so this conversation produces data.
@@ -54,6 +54,28 @@ reads the log.
 
 ---
 
+## LANDED 2026-08-25 — the game is the landing page
+
+`/` is now the campaign. The engine viewer moved to `/viewer.html`, and `/game.html` is a
+redirect stub kept alive because that path was public (`README.md` linked it). Three
+routes, all three declared in `vite.config.ts` — **a page missing from `rollupOptions.input`
+works under `npm run dev` and does not exist in `dist`.**
+
+New **AC-V14** in `docs/10` and `e2e/routes.spec.ts`. The load-bearing part is not "both
+pages load": two rollup entries pointed at one file would serve identical HTML at both
+paths and pass that. The test asserts the two install **different seams**
+(`window.tuhGame` vs `window.tuh`), and checks the redirect in two halves — the fetched
+document is not blank and carries a link (all a reader with scripting off gets), and
+following it lands on the title screen. Four mutations run, all caught.
+
+The viewer's exact tab-order assertion survived — its first stop is still the "Play the
+campaign" link, only the `href` moved. **Verified, not assumed.**
+
+Dated plan files under `docs/plans/` still name the old paths. Those are records of what
+was true when written and were deliberately left alone.
+
+---
+
 ## LANDED 2026-08-25 — the playtest log (slice Part B)
 
 `src/render/telemetry.ts` + the wiring in `game.ts` + a "Copy playtest log" control on the
@@ -70,7 +92,7 @@ since the log started, never absolute.
    makes "read-only over the session" a fact about the build, not a docstring promise, and
    it is why wall-clock provably cannot reach `BattleState`. `telemetry.test.ts` asserts
    it — and mutation-tests its own regex first.
-2. **The wiring is proved by an A/B in the browser.** One visit to `/game.html` that does
+2. **The wiring is proved by an A/B in the browser.** One visit to the game page that does
    nothing, against one that plays a battle, asserting rows present only in the second. A
    perfect unreferenced module reads exactly like a working one.
 
@@ -159,8 +181,6 @@ the git history of that file — do not re-expand it in place.
    15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
    gate has never used. Expect a plateau, not a peak.
 2. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
-3. Cheap filler: make `game.html` the landing page (still a rewrite of twelve browser
-   specs' navigation).
 
 ---
 
@@ -211,8 +231,10 @@ the git history of that file — do not re-expand it in place.
 10. **`AP_TIERS` is 60/120/240.** A node priced anywhere else fails the pack integrity test.
 11. **The help panel is NOT on the story seam, deliberately.** It is UI chrome; swapping
    the story pack must never delete the manual. Do not "consolidate" the two.
-12. **The `?` lives in `game.html` only.** `play.spec.ts` asserts `index.html`'s tab order
-   exactly; `campaign.spec.ts` does not. Adding a control to the viewer page breaks it.
+12. **`play.spec.ts` ASSERTS THE VIEWER'S TAB ORDER EXACTLY**, and its first stop is the
+   "Play the campaign" link. `campaign.spec.ts` asserts no tab order. Adding a focusable
+   control to `viewer.html` before the board breaks it; adding one to the game page does
+   not. The `?` help button lives on the game page only.
 13. Everything the previous handoff listed still holds: **a screen the state machine skips
    has content nobody can reach**; **a sim docstring that delegates a rule to "the caller"
    is an obligation nobody is told about**; **the prep panel is mounted ONCE and

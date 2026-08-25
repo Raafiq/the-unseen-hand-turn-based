@@ -92,13 +92,14 @@ the determinism rules in §7). Its ACs outrank any ADR or sub-detail here.
   caller that does. It checks the story pack against the campaign in BOTH
   directions at module load, so a battle with no scene, or a scene for a battle
   that no longer exists, fails at boot rather than on the briefing screen.
-- `game.ts` / `game-api.ts` — DOM wiring for `game.html`, and the
+- `game.ts` / `game-api.ts` — DOM wiring for `index.html` (the site root), and the
   `window.tuhGame` seam's type (shared with `e2e/campaign.spec.ts`).
 
 ## Two pages
 
-`index.html` (`main.ts`) is the **engine viewer**: one demo battle, every internal
-number on show, and the prep panel. `game.html` (`game.ts`) is **the game**: the
+`viewer.html` (`main.ts`) is the **engine viewer**: one demo battle, every internal
+number on show, and the prep panel. `index.html` (`game.ts`) is **the game**, and it is
+the site ROOT: the
 campaign shell. Both are entries in `vite.config.ts` — a page missing from
 `rollupOptions.input` builds under `npm run dev` and does not exist in `dist`.
 
@@ -142,7 +143,8 @@ beat rather than a wall-clock timer (nothing derived from wall-clock may reach
 `BattleState`). AI turns therefore wait for Step rather than auto-resolving.
 
 Run it: `npm run dev` (Vite dev server) or `npm run preview` (built app). The
-entry HTML is `index.html` at the repo root. Visual tests live in `e2e/` and the
+entry HTML is `index.html` (the campaign) and `viewer.html` (the engine viewer) at the
+repo root; `game.html` is a redirect stub keeping the campaign's former public URL alive. Visual tests live in `e2e/` and the
 Pages deploy publishes this viewer plus a screenshot/video gallery.
 
 ## Known limitations, stated rather than hidden

@@ -24,7 +24,7 @@ Real and tested, not aspirational:
 
 | Missing | Notes |
 |---|---|
-| ~~**A shell**~~ | **Built** (ADR-0023): `game.html` — title, New Game, Continue, quit, one save slot. |
+| ~~**A shell**~~ | **Built** (ADR-0023): the site root `index.html` — title, New Game, Continue, quit, one save slot. |
 | ~~**A campaign container**~~ | **Built** (ADR-0022): `src/sim/campaign.ts` sequences the battles and carries the party. |
 | ~~**Persistence**~~ | **Built** (ADR-0023): `src/render/storage.ts` writes one `localStorage` slot. |
 | ~~**Story delivery**~~ | **Seam built** (ADR-0024): `src/sim/story.ts` + `data/campaign/story/`. Placeholder prose ships; the story repo still does not exist. |
@@ -64,7 +64,7 @@ anything, and reaches a real ending — win or lose.**
 > another slice.
 >
 > **STATUS 2026-08-22 — the between-battle loop and the story seam have landed
-> (ADR-0024).** The campaign is playable by a person, end to end, at **`/game.html`**:
+> (ADR-0024).** The campaign is playable by a person, end to end, at the **site root** (`/`; the old `/game.html` redirects there):
 > title screen → New Game / Continue → briefing (**scene text + prepare the party**) →
 > the real battle → win or lose (**with different text for each**) → next or retry →
 > ending. One save slot in `localStorage`. `/` stays the engine viewer and links to it.
@@ -72,13 +72,13 @@ anything, and reaches a real ending — win or lose.**
 >
 > | M0 item | State |
 > |---|---|
-> | 1. Shell | **done** — `game.html` + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
+> | 1. Shell | **done** — `index.html` (the site root) + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
 > | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
 > | 4. Story stubs | **done** (ADR-0024) — `src/sim/story.ts` (schema, no prose) + `data/campaign/story/camp-the-first-march.story.json` (pre / victory / defeat per battle). `mid` hooks are deliberately out — see the ADR |
 > | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
-> | 7. Onboarding | **done** (ADR-0025) — a `?` panel on `game.html`, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |
+> | 7. Onboarding | **done** (ADR-0025) — a `?` panel on the game page, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |
 >
 > Persistence is now real: `src/render/storage.ts` is the only IO in the project, and
 > `src/sim/campaign.ts` stays pure by contract. An unreadable slot (corrupt, another

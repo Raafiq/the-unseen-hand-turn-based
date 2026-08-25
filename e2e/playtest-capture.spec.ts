@@ -25,7 +25,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
     console.log(`captured ${name}`);
   };
 
-  await page.goto("/game.html");
+  await page.goto("/");
   await shot("01-title", "screen-title");
 
   await page.getByTestId("new-game").click();

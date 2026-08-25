@@ -8,7 +8,7 @@
  *   - `/` (the engine viewer) mounts {@link mountPrepDemo}: one fixed demo Knight, no
  *     progression controls, `onChange` discarded. It is a SHOWCASE — a deterministic
  *     fixed learn/equip sequence whose screenshots are a regression baseline.
- *   - `/game.html` (the campaign) mounts {@link mountPrep} on the briefing screen with
+ *   - `/` (the campaign) mounts {@link mountPrep} on the briefing screen with
  *     the save's party and `progression: true`, and writes each edit back into the save
  *     (docs/11 M0 item 3).
  *

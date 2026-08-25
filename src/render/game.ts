@@ -1,5 +1,5 @@
 /**
- * The game page's bootstrap — a THIN adapter over {@link CampaignShell}, the same way
+ * The game page's bootstrap — `index.html`, the SITE ROOT (docs/10 §7a) — a THIN adapter over {@link CampaignShell}, the same way
  * `main.ts` is a thin adapter over {@link Session}.
  *
  * Everything with a rule in it lives elsewhere: the campaign transitions in
@@ -80,7 +80,7 @@ const PHASE_TEXT: Record<Phase, string> = {
  * title and the ending, the places a player is done rather than mid-run.
  *
  * TWO BLOCKS OF MARKUP, ONE RENDERER. A DOM node lives in exactly one place, so the
- * control is authored twice in `game.html` and driven from here over this list — the
+ * control is authored twice in `index.html` and driven from here over this list — the
  * same shape `renderStory(id, beat)` uses. Rendering only one of them is what a screen
  * the state machine skips looks like, and the ending screen is precisely the one this
  * repo has already shipped unreachable content on once.
