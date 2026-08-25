@@ -439,3 +439,97 @@ test("learnability: the board explains itself and the buttons drop engine jargon
     await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
   }
 });
+
+/**
+ * The playtest log is WIRED (docs/plans step B1) — the A/B that separates a live
+ * recorder from a dead one.
+ *
+ * `telemetry.test.ts` proves the recorder records. It cannot prove `game.ts` ever calls
+ * it, and a module that is perfect and unreferenced reads exactly like one that works —
+ * the dead-support-slot shape. So this drives the real page twice over: once doing
+ * nothing, once playing a battle, and asserts the two logs differ in named rows. An
+ * aggregate ("the log is non-empty") would pass on a page that logged only its own boot.
+ *
+ * It runs in a browser because that is the only place the wiring exists: `game.ts` needs
+ * a document, and a headless copy of the wiring would be a second implementation
+ * certifying itself.
+ */
+test("playtest log: the recorder observes the real page, not a test path", async ({ page }) => {
+  await page.goto("/game.html");
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+
+  const readLog = (): Promise<{
+    events: { kind: string; screen?: string; action?: string; outcome?: string; turns?: number }[];
+  }> => page.evaluate(() => window.tuhGame.playtestLog());
+
+  // ── A: arrive and do nothing ────────────────────────────────────────────────
+  const idle = await readLog();
+  expect(idle.events.map((e) => e.kind)).toEqual(["screen"]);
+  expect(idle.events[0]).toMatchObject({ kind: "screen", screen: "TITLE" });
+
+  // ── B: play the opening battle through the real controls ───────────────────
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  // A between-battle EDIT, so the prep diff is exercised too. Discovered rather than
+  // hard-coded: the member is whoever has mastered a job they are not currently in,
+  // which is the only re-job the opening briefing can legally offer. Asserted to have
+  // been found — a discovery that silently returned nothing would make the prep row
+  // below vacuous rather than red.
+  const rejob = await page.evaluate(() => {
+    const prep = window.tuhGame.prep();
+    if (!prep) return null;
+    for (const r of prep.records()) {
+      const target = r.mastered.find((j) => j !== r.currentJob);
+      if (target === undefined) continue;
+      prep.select(r.id);
+      prep.setJob(target);
+      return { id: r.id, from: r.currentJob, to: target };
+    }
+    return null;
+  });
+  expect(rejob).not.toBeNull();
+
+  await playCurrentBattle(page);
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+
+  const played = await readLog();
+  const kinds = new Set(played.events.map((e) => e.kind));
+  const actions = played.events.filter((e) => e.kind === "action").map((e) => e.action);
+  const screens = played.events.filter((e) => e.kind === "screen").map((e) => e.screen);
+  const battles = played.events.filter((e) => e.kind === "battle");
+
+  // Each of these is absent from the idle log above, so the pair says the rows come
+  // from what the player DID, not from the page merely loading.
+  expect(kinds.has("prep")).toBe(true);
+  expect(kinds.has("battle")).toBe(true);
+  expect(actions).toContain("btn-new-game");
+  expect(actions).toContain("btn-deploy");
+  expect(actions).toContain("btn-conclude");
+  expect(screens).toEqual(["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE"]);
+
+  // The battle row is read off the SAME `RunReport` the campaign banked, so the log and
+  // the save cannot disagree about how the fight went.
+  expect(battles).toHaveLength(1);
+  const banked = await page.evaluate(() => window.tuhGame.save()?.history.at(-1) ?? null);
+  expect(battles[0]).toMatchObject({ step: 1, attempt: 1, outcome: banked?.outcome });
+  expect(battles[0]?.turns).toBeGreaterThan(0);
+
+  // The re-job reached the log as a diff of the SAVED record — not as "a control was
+  // clicked". An edit the sim refused would leave this empty.
+  const prepRows = played.events.filter((e) => e.kind === "prep");
+  expect(prepRows).toContainEqual(
+    expect.objectContaining({
+      kind: "prep",
+      recordId: rejob?.id,
+      change: { field: "job", from: rejob?.from, to: rejob?.to },
+    }),
+  );
+
+  // Separate keys, deliberately: a playtester who restarts is exactly the session worth
+  // reading, so erasing the save must not erase the log.
+  await page.evaluate(() => window.tuhGame.quitToTitle());
+  await page.evaluate(() => window.tuhGame.eraseSave());
+  expect(await stored(page)).toBeNull();
+  expect((await readLog()).events.filter((e) => e.kind === "battle")).toHaveLength(1);
+});

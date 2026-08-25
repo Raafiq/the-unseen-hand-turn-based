@@ -7,11 +7,13 @@
  * honesty-critical panels in `panels.ts`. This file maps clicks onto shell methods,
  * shows one screen at a time, and exposes `window.tuhGame`.
  *
- * Wall-clock: none. Battles advance on an explicit click, exactly as the engine viewer
- * does, so nothing derived from elapsed time can reach `BattleState`.
+ * Wall-clock: the PLAYTEST LOG reads it, and nothing else does. Battles still advance on
+ * an explicit click, exactly as the engine viewer does, and `Recorder` is a pure sink —
+ * it is handed scalars, returns `void`, and holds no reference to the shell or the
+ * session. So elapsed time is measured here and cannot reach `BattleState`.
  */
 
-import type { Position, StoryBeat } from "../sim/index.js";
+import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
 import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
@@ -20,6 +22,7 @@ import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
+import { PLAYTEST_LOG_KEY, Recorder, diffRecord } from "./telemetry.js";
 import type { Phase, Session } from "./session.js";
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -40,6 +43,19 @@ const shell = new CampaignShell({
   registry,
   slot: storageAvailable ? browserSlot(localStorage) : memorySlot(),
   story,
+});
+
+/**
+ * The playtest log (docs/plans step B1). Its own storage key, never the save's — see
+ * `telemetry.ts`. In-memory when the browser refuses storage, for the same reason the
+ * save falls back: an unrecordable session is still a playable one.
+ *
+ * WALL-CLOCK ENTERS HERE AND GOES NOWHERE ELSE. `Recorder` is fed scalars and copies,
+ * holds no reference to the shell or the session, and returns `void` from every
+ * observation — so nothing it measures can reach `BattleState`.
+ */
+const telemetry = new Recorder({
+  slot: storageAvailable ? browserSlot(localStorage, PLAYTEST_LOG_KEY) : memorySlot(),
 });
 
 const SCREENS: Screen[] = ["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
@@ -155,6 +171,18 @@ function renderStory(id: string, beat: StoryBeat | null): void {
  */
 let prep: PrepHandle | null = null;
 
+/**
+ * The last record the log saw for each member, so an edit can be DIFFED rather than
+ * declared. The panel reports "this record changed" and nothing finer, and a recorder
+ * that logged the click instead of the delta would credit an edit the sim refused —
+ * the same discipline `playtest.ts` uses for its decision count.
+ *
+ * Re-seeded on every `renderPrep`, which runs AFTER an edit has been diffed and BEFORE
+ * the next one can arrive: `onChange` repaints through `renderBriefingText`, and only
+ * the enclosing `guard`'s `refresh` comes back through here.
+ */
+const prepSeen = new Map<string, UnitRecord>();
+
 function renderPrep(): void {
   const party = shell.save?.party;
   if (!party || party.length === 0) return;
@@ -165,12 +193,15 @@ function renderPrep(): void {
       inventory: shell.save?.inventory ?? [],
       progression: true,
       onChange: (record) => {
+        const before = prepSeen.get(record.id);
+        if (before) telemetry.prep(record.id, diffRecord(before, record));
         shell.updateParty(record);
         // Repaint the screens that show party state (the roster list, the save note).
         // The panel has already redrawn itself.
         renderBriefingText();
       },
     });
+    seedPrepSeen(party);
     return;
   }
   // Both no-op when nothing changed, so this cannot steal focus mid-edit. The
@@ -178,6 +209,13 @@ function renderPrep(): void {
   // that only re-read the party would show the new weapon nowhere until a reload.
   prep.setInventory(shell.save?.inventory ?? []);
   prep.setRecords(party);
+  seedPrepSeen(party);
+}
+
+/** Point the diff baseline at the party as it now stands in the save. */
+function seedPrepSeen(party: readonly UnitRecord[]): void {
+  prepSeen.clear();
+  for (const r of party) prepSeen.set(r.id, r);
 }
 
 /** Everything on the briefing EXCEPT the prep panel, which owns its own repaint. */
@@ -253,6 +291,7 @@ function toggleDeploy(id: string): void {
     chosen[0] = id;
   }
   shell.setDeployment(chosen);
+  telemetry.deploy(chosen);
   refresh();
 }
 
@@ -333,7 +372,23 @@ function renderSaveError(): void {
     : "";
 }
 
+/**
+ * The battle the player is on, for the log — supplied ONLY where it is unambiguous.
+ *
+ * `briefing()` reads the save's PENDING battle, which has already moved past the one
+ * just fought by the time the after-battle screen renders. Reporting it there would
+ * label the wrong fight, so those screens carry no step and `summarize` holds the last
+ * one it saw. `undefined`, not 0 — absent, never a modeled zero.
+ */
+function loggedStep(): number | undefined {
+  if (shell.screen !== "BRIEFING" && shell.screen !== "BATTLE") return undefined;
+  return shell.briefing()?.step;
+}
+
 function refresh(): void {
+  // Before painting, so the log's screen order matches the player's, and `Recorder`
+  // drops the repeats: `refresh` runs on every repaint, a screen change does not.
+  telemetry.screen(shell.screen, loggedStep());
   renderScreens();
   renderSaveError();
   switch (shell.screen) {
@@ -369,6 +424,47 @@ function guard(mutate: () => void): void {
   }
 }
 
+/**
+ * A named player action: log it, then run it under {@link guard}.
+ *
+ * The screen is read BEFORE the mutation — an action belongs to the screen it was taken
+ * on, not the one it led to. Every button and every `window.tuhGame` entry goes through
+ * here, so the log cannot tell a click from the test seam; that is deliberate, and it is
+ * what lets a browser spec assert against the same rows a human generates.
+ */
+/**
+ * Bank the finished battle AND log how it went.
+ *
+ * The reads happen BEFORE `concludeBattle`, which nulls the session and advances the
+ * save's battle index — afterwards there is no report to read and `briefing()` names
+ * the NEXT fight. `attempt` is counted off `history` after banking, where this run's
+ * own row is the last of however many this battle has now taken.
+ *
+ * Nothing here re-derives an outcome: `outcome` and `turns` come from the same
+ * `RunReport` the campaign banked, so the log and the save cannot disagree.
+ */
+function concludeAndLog(): void {
+  const step = shell.briefing()?.step ?? null;
+  const report = shell.session?.report() ?? null;
+  shell.concludeBattle();
+  const history = shell.save?.history ?? [];
+  const last = history.at(-1);
+  if (step === null || report === null || last === undefined) return;
+  telemetry.battle({
+    battleId: last.battleId,
+    step,
+    attempt: history.filter((h) => h.battleId === last.battleId).length,
+    outcome: last.outcome,
+    turns: report.turns,
+    ticks: report.ticks,
+  });
+}
+
+function act(action: string, mutate: () => void): void {
+  telemetry.action(shell.screen, action);
+  guard(mutate);
+}
+
 // ─── input ──────────────────────────────────────────────────────────────────
 
 function withSession(fn: (s: Session) => void): void {
@@ -388,6 +484,7 @@ function toCanvasPoint(ev: { clientX: number; clientY: number }): Position {
 canvas.addEventListener("pointerdown", (ev) => {
   if (ev.button === 2) return;
   canvas.focus();
+  telemetry.action(shell.screen, "pick");
   const p = toCanvasPoint(ev);
   withSession((s) => s.onPick(pickTile(s.state, p.x, p.y, canvas.width, canvas.height)));
 });
@@ -425,6 +522,7 @@ canvas.addEventListener("keydown", (ev) => {
   }
   if (ev.key === "Enter" || ev.key === " ") {
     ev.preventDefault();
+    telemetry.action(shell.screen, "pick");
     withSession((s) => s.onPick(s.cursor));
     return;
   }
@@ -463,6 +561,9 @@ const helpDialog = el<HTMLDialogElement>("help");
 // `showModal` gives focus trapping and Escape-to-close for free; the fallback keeps the
 // panel usable where <dialog> is unsupported rather than silently doing nothing.
 el("btn-help").addEventListener("click", () => {
+  // Logged because "did the player ever open the manual, and when" is one of the few
+  // onboarding questions the page can answer on its own (docs/11 M0 item 7).
+  telemetry.action(shell.screen, "btn-help");
   if (typeof helpDialog.showModal === "function") helpDialog.showModal();
   else helpDialog.setAttribute("open", "");
 });
@@ -471,15 +572,16 @@ el("btn-help-close").addEventListener("click", () => {
   else helpDialog.removeAttribute("open");
 });
 
+/** Bind a button. The id doubles as the log's action name — one name, one source. */
 const on = (id: string, fn: () => void): void =>
-  el(id).addEventListener("click", () => guard(fn));
+  el(id).addEventListener("click", () => act(id, fn));
 
 on("btn-new-game", () => shell.newGame());
 on("btn-continue", () => shell.continueGame());
 on("btn-erase", () => shell.eraseSave());
 on("btn-deploy", () => shell.deploy());
 on("btn-brief-quit", () => shell.quitToTitle());
-on("btn-conclude", () => shell.concludeBattle());
+on("btn-conclude", () => concludeAndLog());
 on("btn-next", () => shell.nextBattle());
 on("btn-retry", () => shell.retry());
 on("btn-after-quit", () => shell.quitToTitle());
@@ -496,13 +598,13 @@ const api: GameApi = {
   screen: () => shell.screen,
   save: () => shell.save,
   canContinue: () => shell.canContinue(),
-  newGame: () => guard(() => shell.newGame()),
-  continueGame: () => guard(() => shell.continueGame()),
-  eraseSave: () => guard(() => shell.eraseSave()),
-  deploy: () => guard(() => shell.deploy()),
-  step: () => guard(() => shell.session?.step()),
+  newGame: () => act("btn-new-game", () => shell.newGame()),
+  continueGame: () => act("btn-continue", () => shell.continueGame()),
+  eraseSave: () => act("btn-erase", () => shell.eraseSave()),
+  deploy: () => act("btn-deploy", () => shell.deploy()),
+  step: () => act("btn-step", () => shell.session?.step()),
   autoplay: () =>
-    guard(() => {
+    act("autoplay", () => {
       const s = shell.session;
       if (!s) return;
       let steps = 0;
@@ -512,11 +614,15 @@ const api: GameApi = {
       }
     }),
   battleOver: () => shell.battleOver(),
-  conclude: () => guard(() => shell.concludeBattle()),
-  next: () => guard(() => shell.nextBattle()),
-  retry: () => guard(() => shell.retry()),
-  quitToTitle: () => guard(() => shell.quitToTitle()),
+  conclude: () => act("btn-conclude", () => concludeAndLog()),
+  next: () => act("btn-next", () => shell.nextBattle()),
+  retry: () => act("btn-retry", () => shell.retry()),
+  // "quit", not a button id: three different buttons reach this, so naming one of
+  // them would put a click in the log that nobody made.
+  quitToTitle: () => act("quit", () => shell.quitToTitle()),
   storedSave: () => (storageAvailable ? localStorage.getItem(SAVE_KEY) : null),
+  playtestLog: () => telemetry.snapshot(),
+  clearPlaytestLog: () => telemetry.clear(),
   prep: (): PrepSeam | null => {
     const h = prep;
     if (!h) return null;

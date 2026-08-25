@@ -8,6 +8,7 @@
  */
 
 import type { Screen } from "./campaign-shell.js";
+import type { PlaytestLog } from "./telemetry.js";
 import type { CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
 
 export interface GameApi {
@@ -39,6 +40,15 @@ export interface GameApi {
    * `onChange` that pushes the edit into the save.
    */
   prep: () => PrepSeam | null;
+  /**
+   * The playtest log (`docs/plans/slice-m1-synthetic-playtest.md` step B1) as stored —
+   * a READ, exposed so a browser spec can assert the recorder survived a real reload.
+   * Everything in it was produced by the paths a player's clicks take; there is no
+   * recording path that only tests reach.
+   */
+  playtestLog: () => PlaytestLog;
+  /** Throw the log away. The campaign save is untouched — they are separate keys. */
+  clearPlaytestLog: () => void;
 }
 
 /** The prep methods the page exposes; a subset of `PrepHandle`, by value where it can be. */
