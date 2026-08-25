@@ -1,6 +1,6 @@
 # Slice — the synthetic playtest
 
-**Status:** Part A (A1–A4) landed 2026-08-24. **B1 landed 2026-08-25 — B2 not started.**
+**Status:** COMPLETE. Part A (A1–A4) landed 2026-08-24; Part B (B1–B2) 2026-08-25.
 **Written:** 2026-08-23.
 
 **B1** is `src/render/telemetry.ts` plus its wiring in `game.ts`: screens, named actions,
@@ -13,8 +13,17 @@ one visit that does nothing against one that plays a battle, asserting named row
 appear only in the second. A recorder nobody calls is the dead-support-slot shape, and
 an aggregate "the log is non-empty" would pass on a page that logged only its own boot.
 
-**Still owed by B2:** the "copy playtest log" control, and a test that the log survives a
-real reload (the resume logic is asserted headlessly; the browser half is not).
+**B2** is the "copy playtest log" control on the title and ending screens, and the reload
+test. The control puts the JSON into a textarea FIRST and the clipboard second: a browser
+can refuse `navigator.clipboard` outright, and a control that only tried the clipboard
+would look like it worked and hand the playtester nothing. The note above the button
+discloses what is collected — a page that records a session and mentions it only in a
+button label is collecting quietly.
+
+**What the slice does NOT establish is unchanged** — see below. Part A gives RELATIVE
+difficulty and a decision-count length proxy. Part B gives a real session's funnel *once
+somebody plays it*. Neither is legibility, absolute difficulty, or fun, and no green
+suite here should be cited as if it were.
 
 **A4's gate was reported and acted on.** All three personas cleared the campaign at every
 seed, so the funnel in Part B would have instrumented systems that did not decide anything.

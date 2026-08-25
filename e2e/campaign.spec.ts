@@ -156,6 +156,19 @@ test("campaign shell: the five-battle run reaches its ending in the browser", as
   await expect(page.getByTestId("done-note")).toContainText("5 battles won");
   expect(await screen(page)).toBe("COMPLETED");
   expect(await stored(page)).toContain('"status":"completed"');
+
+  // The copy-log control on the ENDING screen (docs/plans step B2). Asserted here and
+  // not only on the title because this repo has already shipped one piece of content
+  // only the ending screen can reach, and nothing noticed: the final victory skips
+  // AFTER_BATTLE, so a renderer wired to one screen looks correct from every other.
+  await expect(page.getByTestId("logbox-done")).toBeVisible();
+  await expect(page.getByTestId("log-note-done")).toContainText("up to the ending");
+  await page.getByTestId("copy-log-done").click();
+  const payload = await page.evaluate(
+    () => (document.getElementById("log-text-done") as HTMLTextAreaElement).value,
+  );
+  expect(JSON.parse(payload).events.filter((e: { kind: string }) => e.kind === "battle")).toHaveLength(5);
+
   await page.screenshot({ path: `${SHOTS}/24-completed.png`, fullPage: true });
 });
 
@@ -532,4 +545,64 @@ test("playtest log: the recorder observes the real page, not a test path", async
   await page.evaluate(() => window.tuhGame.eraseSave());
   expect(await stored(page)).toBeNull();
   expect((await readLog()).events.filter((e) => e.kind === "battle")).toHaveLength(1);
+});
+
+/**
+ * The playtest log survives a real RELOAD, and the copy control hands it over
+ * (docs/plans step B2).
+ *
+ * `telemetry.test.ts` asserts the resume logic against a memory-backed slot, and that
+ * passes whether or not the `localStorage` wiring works — the same reason this file
+ * exists for the save. The reload is the load-bearing half, and it is the one a
+ * playtester actually performs: they close the tab and come back.
+ */
+test("playtest log: it survives a reload, and one click hands it over", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/game.html");
+
+  const readLog = (): Promise<{ events: { kind: string; at: number }[] }> =>
+    page.evaluate(() => window.tuhGame.playtestLog());
+
+  await page.getByTestId("new-game").click();
+  await playCurrentBattle(page);
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+
+  const before = await readLog();
+  expect(before.events.filter((e) => e.kind === "battle")).toHaveLength(1);
+
+  await page.reload();
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+
+  const after = await readLog();
+  // Every earlier event is still there, byte for byte — not merely "a log exists".
+  expect(after.events.slice(0, before.events.length)).toEqual(before.events);
+  // A `resume` row, because the clock cannot measure a closed tab: without it a reader
+  // would take the two halves for one continuous stretch of play.
+  expect(after.events[before.events.length]).toMatchObject({ kind: "resume" });
+  // And the timeline CONTINUED. A recorder that restarted its clock would put the
+  // post-reload events back near zero, folding the second session onto the first.
+  expect(after.events.at(-1)!.at).toBeGreaterThanOrEqual(before.events.at(-1)!.at);
+
+  // The control on the title screen reports the resumed log, not a fresh one.
+  await expect(page.getByTestId("logbox-title")).toBeVisible();
+  await expect(page.getByTestId("log-note-title")).toContainText("up to the title screen");
+  await expect(page.getByTestId("log-note-title")).toContainText("Nothing is sent anywhere");
+
+  await page.getByTestId("copy-log-title").click();
+  // The textarea is the payload and the clipboard is a convenience on top of it — a
+  // control that only tried the clipboard would look like it worked on a browser that
+  // refuses it, and hand the playtester nothing.
+  const payload = await page.evaluate(
+    () => (document.getElementById("log-text-title") as HTMLTextAreaElement).value,
+  );
+  const parsed = JSON.parse(payload) as { events: { kind: string; action?: string }[] };
+  expect(parsed.events.filter((e) => e.kind === "battle")).toHaveLength(1);
+  // The copy itself is in the payload, so "did the playtester actually click it" is
+  // answerable from the log they hand back.
+  expect(parsed.events.at(-1)).toMatchObject({ kind: "action", action: "btn-log-title" });
+
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(payload);
 });

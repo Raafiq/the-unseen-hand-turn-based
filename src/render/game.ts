@@ -22,7 +22,7 @@ import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
-import { PLAYTEST_LOG_KEY, Recorder, diffRecord } from "./telemetry.js";
+import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
 import type { Phase, Session } from "./session.js";
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -73,6 +73,27 @@ const PHASE_TEXT: Record<Phase, string> = {
   MOVE_STAGED: "Move staged — click an enemy to strike from there, or End Turn",
   AI_TURN: "Enemy turn — press Play enemy turn to watch it resolve",
   ENDED: "Battle over",
+};
+
+/**
+ * The two screens that carry the "copy playtest log" control (docs/plans step B2) — the
+ * title and the ending, the places a player is done rather than mid-run.
+ *
+ * TWO BLOCKS OF MARKUP, ONE RENDERER. A DOM node lives in exactly one place, so the
+ * control is authored twice in `game.html` and driven from here over this list — the
+ * same shape `renderStory(id, beat)` uses. Rendering only one of them is what a screen
+ * the state machine skips looks like, and the ending screen is precisely the one this
+ * repo has already shipped unreachable content on once.
+ */
+const LOG_SCREENS = ["title", "done"] as const;
+
+/** Plain names for the screens, for a sentence a playtester reads. */
+const SCREEN_LABEL: Record<Screen, string> = {
+  TITLE: "the title screen",
+  BRIEFING: "a briefing",
+  BATTLE: "a battle",
+  AFTER_BATTLE: "the after-battle screen",
+  COMPLETED: "the ending",
 };
 
 /** Team colours match the engine viewer's legend: team 0 blue, everyone else red. */
@@ -128,6 +149,7 @@ function renderTitle(): void {
       ? "No saved run yet. New Game starts the campaign."
       : "This browser is not letting the game store data, so progress will NOT be saved.";
   }
+  renderLogControl();
 }
 
 /**
@@ -362,6 +384,76 @@ function renderCompleted(): void {
   el("done-note").textContent =
     `The First March is over — ${wins} battles won` +
     (losses > 0 ? `, ${losses} lost along the way.` : ", start to finish.");
+  renderLogControl();
+}
+
+/**
+ * What the log control says before it is clicked.
+ *
+ * IT DISCLOSES WHAT IS COLLECTED. A page that records a session and mentions it only in
+ * a button label is collecting quietly, and the honest version costs two sentences. It
+ * also reports when the log is known to be incomplete, because a reader who cannot see
+ * that would take a truncated funnel for a whole one.
+ */
+function logNote(): string {
+  const log = telemetry.snapshot();
+  if (log.events.length === 0) {
+    return "Nothing recorded yet. Play, then come back here to copy a record of the session.";
+  }
+  const s = summarize(log);
+  const where = s.stoppedAt
+    ? `${SCREEN_LABEL[s.stoppedAt.screen]}${s.stoppedAt.battleStep === null ? "" : ` (battle ${s.stoppedAt.battleStep})`}`
+    : "nowhere yet";
+  const n = log.events.length;
+  return (
+    `${n} moment${n === 1 ? "" : "s"} recorded, up to ${where}. ` +
+    "The log holds which screens you saw, how long each took, what you bought and equipped, " +
+    "and how each battle went — no name, no typing, and no date or time of day. " +
+    "Nothing is sent anywhere: copying puts it on your clipboard and that is all." +
+    (s.incomplete ? " Some of it was dropped, so the timings are a lower bound." : "")
+  );
+}
+
+function renderLogControl(): void {
+  for (const k of LOG_SCREENS) el(`log-note-${k}`).textContent = logNote();
+}
+
+/**
+ * Put the log on the clipboard, and ALWAYS into the textarea first.
+ *
+ * The textarea is the payload; the clipboard is a convenience on top of it. A browser
+ * can refuse `navigator.clipboard` outright (an insecure context, a denied permission),
+ * and a control that only tried the clipboard would then look like it worked and hand
+ * the playtester nothing. Same rule as `storage.ts`: failure is a state, not a crash.
+ */
+function copyLog(k: (typeof LOG_SCREENS)[number]): void {
+  // Recorded BEFORE serializing, so the copied payload contains the copy itself —
+  // "did the playtester actually click it" is otherwise unanswerable.
+  telemetry.action(shell.screen, `btn-log-${k}`);
+  const json = telemetry.serialize();
+  const box = el<HTMLTextAreaElement>(`log-text-${k}`);
+  const note = el(`log-note-${k}`);
+  box.value = json;
+
+  const fallback = (): void => {
+    box.hidden = false;
+    box.select();
+    note.textContent =
+      "This browser would not let the page use the clipboard. Select the text below and copy it.";
+  };
+
+  const clip = navigator.clipboard as Clipboard | undefined;
+  if (!clip || typeof clip.writeText !== "function") {
+    fallback();
+    return;
+  }
+  void clip.writeText(json).then(() => {
+    note.textContent = `Copied — ${json.length} characters on your clipboard. Paste it wherever you were asked to.`;
+  }, fallback);
+}
+
+for (const k of LOG_SCREENS) {
+  el(`btn-log-${k}`).addEventListener("click", () => copyLog(k));
 }
 
 function renderSaveError(): void {

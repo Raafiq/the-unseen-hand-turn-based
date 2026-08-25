@@ -150,6 +150,13 @@
       .story .who { margin: 0 0 6px; font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
       .story p.line { margin: 0 0 8px; color: var(--ink); font-size: .98rem; max-width: 62ch; }
       .story p.line:last-child { margin-bottom: 0; }
+      /* The playtest log control (docs/plans step B2). Deliberately quiet — it is for a
+         playtester, not part of the game, and it sits below the fold on two screens. */
+      .logbox { margin-top: 18px; }
+      .logbox h3 { margin: 0 0 6px; font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+      .logbox p { margin: 0; font-size: .78rem; color: var(--ink-faint); line-height: 1.55; }
+      .logbox textarea { width: 100%; margin-top: 10px; min-height: 120px; background: var(--bg); color: var(--ink-soft);
+                         border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: .72rem; }
     </style>
   </head>
   <body>
@@ -168,6 +175,15 @@
             <button id="btn-erase" class="ghost" data-testid="erase">Erase save</button>
           </div>
           <div id="title-slot" class="reason info" data-testid="title-slot" role="status" aria-live="polite"></div>
+        </div>
+        <div class="card logbox" id="logbox-title" data-testid="logbox-title">
+          <h3>Playtesting this?</h3>
+          <p id="log-note-title" data-testid="log-note-title" role="status" aria-live="polite"></p>
+          <div class="controls">
+            <button id="btn-log-title" class="ghost" data-testid="copy-log-title">Copy playtest log</button>
+          </div>
+          <textarea id="log-text-title" data-testid="log-text-title" readonly hidden
+                    aria-label="Playtest log, ready to copy"></textarea>
         </div>
         <footer>Also here: the <a href="./index.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
       </section>
@@ -261,6 +277,15 @@
           <div class="controls">
             <button id="btn-done-title" data-testid="done-title">Back to title</button>
           </div>
+        </div>
+        <div class="card logbox" id="logbox-done" data-testid="logbox-done">
+          <h3>Playtesting this?</h3>
+          <p id="log-note-done" data-testid="log-note-done" role="status" aria-live="polite"></p>
+          <div class="controls">
+            <button id="btn-log-done" class="ghost" data-testid="copy-log-done">Copy playtest log</button>
+          </div>
+          <textarea id="log-text-done" data-testid="log-text-done" readonly hidden
+                    aria-label="Playtest log, ready to copy"></textarea>
         </div>
       </section>
     </div>
