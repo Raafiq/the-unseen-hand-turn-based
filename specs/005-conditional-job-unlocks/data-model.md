@@ -18,11 +18,14 @@ one-way: records compile *into* battle units at deploy, never the reverse.
 | `kos` | int ≥ 0 | Foes dropped to 0 HP by this unit |
 | `healingDone` | int ≥ 0 | Σ HP restored to allies |
 | `statusesInflicted` | int ≥ 0 | Σ statuses newly applied to others (a refresh does not count) |
-| `battles` | int ≥ 0 | Battles this unit deployed in |
 
 **The field set is deliberately the intersection with `UnitContribution`.** Every key here
 must already exist on the contribution object, or it is a number with no source.
 `landedActions` is available and deliberately excluded — see `contracts/deed-unlock.md`.
+
+A `battles` counter was drafted and **cut**: nothing gated on it, nothing populated it, and
+no test asserted it. A save field with no consumer is a future migration bought for
+nothing — the same rule the "not modeled" table below states.
 
 ### Invariants
 
@@ -50,11 +53,15 @@ all 8 shipped jobs keep working with no pack edit.
 
 | Field | Type | Rule |
 |---|---|---|
-| `deed` | enum of the 4 `Deeds` keys | Must name a real counter; validated at pack load |
+| `deed` | enum of the 3 `Deeds` keys | Must name a real counter; validated at pack load |
 | `atLeast` | int ≥ 1 | `0` is rejected — it means "always", which the absent field already means |
 | `earnedLabel` | non-empty string | Shown **after** the unlock only (FR-006) |
 
 **Owner**: `JobSchema` (`src/sim/job.ts`), as `unlock?`.
+
+All three load-time rules below are stated in **spec.md FR-005**. They are repeated, not
+invented, here — a rule that exists only in a downstream artifact is a requirement the spec
+never authorized.
 
 ### Zod ordering hazard
 
@@ -79,7 +86,7 @@ by an older build instead of silently loading with its unlock ignored.
 
 `loadContentPack` throws `ContentIntegrityError` — **at load, not at unlock** — when:
 
-- `unlock.deed` is not one of the four keys
+- `unlock.deed` is not one of the three keys (FR-005)
 - `unlock.atLeast < 1`
 - a job declares both `unlock` and `requires`
 
@@ -94,15 +101,14 @@ The per-battle increment. **Transient**: derived, folded, discarded. Never persi
 | `kos` | int ≥ 0 |
 | `healingDone` | int ≥ 0 |
 | `statusesInflicted` | int ≥ 0 |
-| `battles` | 0 or 1 |
 
 **Keyed by record id**, not battle unit id — the conversion happens inside
 `deriveDeedDeltas`, reusing the placement walk `deriveRewards` owns (research.md R-2).
 
-`battles` is `1` for a deployed unit and `0` otherwise — the same participated/absent
-distinction `ApReward.participated` already draws. A member with no entry folds as all-zero,
-so **absence and non-participation agree**, the property `applyBattleResult`'s AP comment
-already relies on.
+A member with no entry folds as all-zero, so **absence and non-participation agree** — the
+property `applyBattleResult`'s AP comment already relies on. That is why `DeedDelta` needs
+no `participated` flag of its own: `ApReward` carries one because a participating unit earns
+a nonzero base grant, whereas a participating unit that did nothing earns no deed.
 
 ---
 

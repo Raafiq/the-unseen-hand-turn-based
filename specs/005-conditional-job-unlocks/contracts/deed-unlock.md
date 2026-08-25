@@ -103,6 +103,7 @@ That is the P2 assertion, and it is a negative one — the test has to check for
 
 | Excluded | Why |
 |---|---|
+| A `battles` deed key | Drafted and cut. Nothing gated on it, nothing populated it, no test asserted it — a counter that only a future feature might read. |
 | `landedActions` as a deed key | It is the AP grant's own signal (`campaign-run.ts` reads it for `meaningfulActions`). Gating a job on the same number that funds AP couples two currencies that `docs/02` §B0 requires be tellable apart. |
 | A deed key for damage dealt | It scales with weapon and level, so the "threshold" would really be a gear check wearing a behaviour label. |
 | Any mutator that lowers a deed | Invariant D1. |

@@ -114,8 +114,6 @@ the abstraction is real — but the game ships fine with one deed job, so it is 
       healingDone: IntSchema.min(0),
       /** Σ statuses newly applied to others. */
       statusesInflicted: IntSchema.min(0),
-      /** Battles this unit deployed in, won or lost. */
-      battles: IntSchema.min(0),
     })
     .strict();
 
@@ -138,7 +136,7 @@ the abstraction is real — but the game ships fine with one deed job, so it is 
 
   ```ts
   // src/sim/job.ts — illustrative only.
-  export const DeedKeySchema = z.enum(["kos", "healingDone", "statusesInflicted", "battles"]);
+  export const DeedKeySchema = z.enum(["kos", "healingDone", "statusesInflicted"]);
 
   export const JobUnlockSchema = z
     .object({
@@ -203,8 +201,11 @@ the abstraction is real — but the game ships fine with one deed job, so it is 
   );
   ```
 
-- **FR-005**: `loadContentPack` MUST reject a pack whose job declares an unknown deed key
-  or a non-positive threshold, at load time. Bumps `CONTENT_SCHEMA_VERSION` 2 → 3.
+- **FR-005**: `loadContentPack` MUST reject a pack, **at load time**, whose job declares
+  an unknown deed key, a threshold below 1, or **both `unlock` and the reserved `requires`
+  field** (deed-gating and hybrid-recipe gating are separate axes and combining them is
+  untested — the loader refuses rather than silently picking one). Bumps
+  `CONTENT_SCHEMA_VERSION` 2 → 3.
 
 - **FR-006**: The prep screen MUST list only unlocked jobs, MUST show the unit's deed
   counters, and MUST NOT name or describe a job that is still locked.
@@ -222,15 +223,24 @@ the abstraction is real — but the game ships fine with one deed job, so it is 
   loadout. It widens the choice set and does nothing else — free respec (AC-J4) means the
   player decides, always.
 
-- **FR-008**: Deeds MUST NOT be earned against allies or summons the player controls,
-  and MUST NOT be earned from a battle the player lost and retried. Retrying a lost
-  battle already leaves the party untouched (`campaign.ts:retryBattle`); deeds inherit
-  that, so a player cannot farm a losable fight.
+- **FR-008**: A deed MUST be credited by **team allegiance at the moment of the action**,
+  which is exactly what the resolvers already record. A unit on the opposing team when it
+  was felled counts, including a charmed ally (EC-3); a unit on your own team does not.
+  The resolver's accounting is the single source of truth and MUST NOT be re-litigated
+  downstream — a second allegiance judgement in the deed layer could disagree with the one
+  that paid the AP.
+
+- **FR-009**: Deeds MUST NOT be earned from a battle the player lost and retried. Retrying
+  a lost battle already leaves the party untouched (`campaign.ts:retryBattle`), and
+  `applyBattleResult` returns on defeat before the party is touched; deeds inherit both, so
+  a player cannot farm a losable fight.
 
 ### Key Entities
 
-- **Deeds**: a per-unit, permanent, monotonic counter block on `UnitRecord`. Career
-  totals, not per-battle. Never decremented, never reset by job change or death.
+- **Deeds**: a per-unit, permanent, monotonic counter block on `UnitRecord` — `kos`,
+  `healingDone`, `statusesInflicted`. Career totals, not per-battle. Never decremented,
+  never reset by job change or death. **Every key must already exist on
+  `UnitContribution`**, or it is a number with no source.
 - **JobUnlock**: an optional per-job condition in the content pack — one deed key, one
   minimum, one player-facing label shown only after the fact.
 - **DeedDelta**: the per-battle increment derived from `UnitContribution`, keyed by
@@ -280,7 +290,7 @@ All paths below were verified to exist at `ba9f7be` except those marked NEW.
 | `src/sim/gauntlet.ts` | The build-variety gate is at 7 of a target 8 and carried into M1. A new job that credited a new identity would move the score for a reason unrelated to build diversity. Bounty Hunter is EXCLUDED from the gate manifest in this slice. |
 | `src/sim/rng.ts` | No randomness is introduced. Deeds are counted from outcomes that already happened. |
 | `src/sim/state.ts` | `BattleState` is untouched — deeds are campaign-layer, compiled INTO a battle unit at deploy, never back. |
-| `data/campaign/encounters/*` | The five shipped battles are not re-authored. Whether 15 KOs is even reachable in them is OI-3. |
+| `data/campaign/encounters/*` | The five shipped battles are not re-authored — but they field only **12 enemies total**, which is what makes OI-3 blocking. Re-scoping them is the alternative to lowering the threshold. |
 
 ## Edge Cases & Open Items *(mandatory)*
 
@@ -291,7 +301,7 @@ All paths below were verified to exist at `ba9f7be` except those marked NEW.
 | EC-1 | Unit is in Bounty Hunter, and a future pack raises the threshold to 20 | Stays. Unlock is latched by the deed counter, and the counter never falls. Re-locking a job would violate AC-J3. |
 | EC-2 | Unit crosses the threshold mid-battle | Nothing happens until the battle is folded into the save. Battle state has no job list. |
 | EC-3 | Unit KOs a charmed ally | Counts. It was an enemy-team unit at the moment of the KO — the resolver's own accounting is the ground truth and it does not re-litigate allegiance. |
-| EC-4 | Unit lands the KO via a reaction, not its own turn | Counts. `UnitContribution.kos` already credits the reacting unit. |
+| EC-4 | Unit lands the KO via a reaction, not its own turn | Counts — **verified**. `driver.ts:181` (`reactionEvents`) emits a `ResolutionEvent` with `sourceUnitId: r.reactorId` and `kos: r.ko ? 1 : 0`, so `accountEvents` credits the reactor. |
 | EC-5 | Two units damage the same foe; one lands the killing blow | Only the killer scores. No assist credit. |
 | EC-6 | Player enters Bounty Hunter while holding a Secondary that IS Bounty Hunter | Impossible — the schema `refine` in `roster.ts` rejects it. The prep screen must clear the secondary on the job change, as it already does. |
 | EC-7 | A v3 save is loaded | Migrates to v4 with all deeds at zero. See OI-2 — this is a decision, not a fallback. |
@@ -303,11 +313,11 @@ All paths below were verified to exist at `ba9f7be` except those marked NEW.
 |---|---|---|---|---|
 | OI-1 | **`docs/02` B4 is titled "Kill the grind, kill the exploits" and says no action rewards more AP for being degenerate. A kill-count unlock is an explicit incentive to farm kills — the exact shape B4 designs out.** Does a Deed earn a B0 currency row, or is this feature cut by the project's own gate? B0's rule: two rows a player cannot tell apart, one is cut. Deed vs Mastery is arguably distinguishable (behaviour vs completion); Deed vs a grind is not. | BLOCKING | none — must be answered | user + `systems-designer` |
 | OI-2 | Back-fill deeds on the v3→v4 migration, or zero them? Zeroing means an existing save's veteran unit starts from 0 and the player's history is invisible. Back-filling is impossible — no per-unit KO history is stored, only `history[].outcome`. | BLOCKING | zero, and say so in the release note | user |
-| OI-3 | **Is 15 KOs even reachable in the five shipped battles?** Unmeasured. If the whole campaign fields fewer than ~15 foes per deployable unit, the job unlocks for nobody and the feature ships dead — the "capability that validates its input and then discards it" failure in `CLAUDE.md`. Must be measured against `data/campaign/encounters/` before a threshold is chosen. | BLOCKING | none — measure first, then pick the number | `qe-tester` |
+| OI-3 | **Is 15 KOs reachable? MEASURED — no.** The five shipped battles field **12 enemy units in total**, so 15 is unreachable even by a unit that solo-kills the entire game (research.md R-3). The threshold must change, or the campaign must. Every test in this spec would have passed at 15 while no player ever saw the job. | **STILL BLOCKING** — the measurement resolves the question, not the design | none — pick a reachable number, a different deed key, or re-scope the campaign | user |
 | OI-4 | Bounty Hunter's actual content: skillset, tree, growth curve, mastery trait. A job with `"tree": []` is instantly mastered by `isMastered` (`every` on an empty array is true), which would hand out a free mastery trait. | BLOCKING | none | `systems-designer` + `content-author` |
 | OI-5 | Does Bounty Hunter enter the build-variety gate manifest? Excluded in this slice (above), but `src/sim/CLAUDE.md` requires an N-bump to move the manifest, ADR-0014, `docs/06` AC-E2, `docs/08` §1a, `docs/11` §3 and `npm run state` together. | DECIDE | excluded, recorded in the manifest as an explicit exclusion | user |
 | OI-6 | Do deeds accrue in the balance-probe gauntlet runs, or only in campaign saves? The gauntlet builds records directly and never folds a battle result. | DECIDE | campaign only — the gauntlet never calls `applyBattleResult` | `combat-engineer` |
-| OI-7 | Should any deed counter be visible before its first unlock, given no job is gated on `battles` or `healingDone` yet? Showing four counters when one matters is a spoiler by elimination. | DECIDE | show only counters that at least one pack job gates on | user |
+| OI-7 | Should any deed counter be visible before its first unlock, given no shipped job is gated on `healingDone` or `statusesInflicted`? Showing three counters when one matters is a spoiler by elimination. | **RESOLVED** (research.md R-6) | show only counters some pack job gates on | user |
 | OI-8 | `docs/` outranks code in this repo, so a spec with no source doc has nothing authoritative behind it. Does this become `docs/12-conditional-jobs.md` before implementation, or stay spike-only? | TRACK | spike-only; do not implement from this file | user |
 
 ## Success Criteria *(mandatory)*

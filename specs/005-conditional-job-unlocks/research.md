@@ -68,9 +68,12 @@ single-counter kill threshold above ~6 is defensible against the shipped campaig
 personally landed *every kill in the game* would finish on 12. 15 is not merely unlikely —
 it is **unreachable by construction**.
 
-A realistic ceiling is far lower. The party is 4 and deployment is capped below roster size,
-so kills spread across deployed units: a striker that deploys every battle and takes a
-generous share lands roughly **3–5** across a full playthrough.
+A realistic ceiling is lower still. **The following is an ESTIMATE, not a measurement** —
+it sits next to a measured fact and must not borrow its credibility. The party is 4 and
+deployment is capped below roster size, so kills spread across deployed units; a striker
+that deploys in every battle and takes a generous share plausibly lands **3–5** across a
+full playthrough. Nobody has run this. Before a threshold is set, measure it the way the
+12 was measured — with an actual campaign run, per SC-007.
 
 **Why this matters more than the number**: this is exactly the failure mode `CLAUDE.md`
 names — *"a capability that validates its input and then discards it reads as working."*
@@ -131,9 +134,9 @@ cannot move because of deeds. SC-005 asserts it. Without that assertion the clai
 
 **Decision**: Show only counters that at least one job in the loaded pack gates on.
 
-**Rationale**: `docs/02` §B3's hint-don't-enumerate rule. Showing all four counters when
+**Rationale**: `docs/02` §B3's hint-don't-enumerate rule. Showing all three counters when
 only one matters is a spoiler by elimination — a player who sees "Felled / Healed /
-Afflicted / Battles" and knows one is load-bearing has three-quarters of the answer.
+Afflicted" and knows one is load-bearing has two-thirds of the answer.
 Deriving the visible set from the pack also means a designer adding a deed job automatically
 gets its counter surfaced, with no viewer change.
 

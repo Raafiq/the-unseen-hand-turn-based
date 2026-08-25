@@ -78,9 +78,28 @@ a reason to farm kills.
 | **V1** | Adds a fourth customization-spine axis. Requires a new ADR superseding/amending ADR-0001. None exists. |
 | **V2** | `docs/02` §B0 rule: no feature is real until it earns a currency row. A "Deed" row does not exist, and §B4 ("Kill the grind") argues against it. |
 
-Unresolved: **OI-1, OI-2, OI-3, OI-4** are marked BLOCKING in the spec. Phase 0 resolves
-OI-3 with a measurement and proposes answers for OI-2, OI-6, OI-7; **OI-1 and OI-4 remain
-open and are the user's and the systems designer's calls.**
+Unresolved: **OI-1, OI-2, OI-3, OI-4** were marked BLOCKING in the spec. Phase 0 answers
+OI-2, OI-6 and OI-7, and **measures** OI-3 — but the measurement makes OI-3 worse, not
+better: it proves the stated threshold is unreachable, which is a design problem the plan
+cannot solve. **OI-1, OI-3 and OI-4 remain open** and are the user's and the systems
+designer's calls.
+
+### Post-analysis amendments
+
+`/speckit-analyze` found six defects in this artifact chain, now fixed:
+
+| Finding | Fix |
+|---|---|
+| FR-008 ("no deeds against allies") contradicted EC-3 ("KOing a charmed ally counts") | FR-008 rewritten to credit by **allegiance at the moment of the action**; the retry rule split out as FR-009 |
+| FR-007 had zero task coverage — nothing asserted an unlock leaves job/AP/loadout alone | T024a added |
+| A `battles` deed key was defined with no consumer, no populator, no test | Cut |
+| `data-model.md` grew a load rule (`unlock` + `requires` rejected) that the spec never stated | Promoted into FR-005 |
+| The threshold is chosen in Phase 1 but only validated in Phase 6 | T004a added — measure before committing |
+| `research.md`'s "3–5 kills per unit" sat beside a measured fact without being marked an estimate | Labelled, with an instruction to measure it |
+
+EC-4 was also **verified** rather than left as an assertion: `driver.ts:181`
+(`reactionEvents`) emits an event with `sourceUnitId: r.reactorId` and `kos: r.ko ? 1 : 0`,
+so a reaction KO does credit the reactor.
 
 ## Project Structure
 
