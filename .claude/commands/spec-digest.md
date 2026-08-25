@@ -46,6 +46,12 @@ understand the row — which is not help.
 Omit the block if there are no such terms, and say so: `All terms are defined in the
 spec.`
 
+**Put it in both entry paths.** Readers arrive top-down or by scrolling straight to the
+code, and a block above the tables is off the second path entirely. Keep the full list
+here, and repeat the entries for terms that appear *inside a code block* in the Code
+section's opening list. Two or three repeated lines cost less than a reader stalling on
+an identifier that has a gloss forty lines above where they entered.
+
 | § | In plain words | From |
 |---|---|---|
 
@@ -80,6 +86,16 @@ Rules — the tables:
 - **Copy the spec's undefined terms, then mark them.** If the spec uses a term it
   never defines, keep the term and append `[undefined in spec]` once, on first use.
   Do not invent a definition and do not quietly drop the row.
+- **A rule stated more than once carries its exceptions every time.** If the spec
+  qualifies a rule anywhere — an edge case that contradicts it, a condition that
+  suspends it — every restatement must carry the qualifier or point at it. Repetition
+  reads as emphasis, and an unqualified rule stated three times becomes an invariant
+  in the reader's head that the spec never claimed. The third statement is the one
+  they will remember.
+- **An edge-case row anchored to an undecided item says so.** If a behaviour row's
+  anchor is an open item still marked blocking or undecided, append the state to the
+  behaviour cell. A row in the behaviour table reads as settled; one sourced from an
+  unanswered question is not, and the table is where a reader goes for facts.
 - **Record contradictions as two rows, not one.** If the spec says opposite things
   in two places, give each its own row with its own `§`. Do not reconcile them, do
   not pick a winner, do not comment on it. Two rows that disagree is an accurate
@@ -146,10 +162,14 @@ Rules — code:
   most often missed — when a value commits, what happens between the change and the
   save — because they constrain code that looks complete without them. A list assembled
   by copying the rules that felt important is the list that omits them.
-- **Label the list for the reader who did not need it.** Head it
-  `Not shown in any code below (skip if you read the tables) —`. Someone arriving
-  top-down has just read every one of these rows, and an unlabelled restatement trains
-  them to skim exactly where a code-first reader must not.
+- **Head the list with an instruction, never a permission.** Use
+  `Behaviour the code below does not show — read this or you will implement it wrong:`.
+  Never invite a skip. A header offering an exemption ("skip if you read the tables")
+  is taken by exactly the reader who must not take it: someone scrolling to the code
+  has not read the tables, and a bulleted preamble between them and the first block
+  already reads as front matter. The readers who find this list redundant have
+  finished with it in three seconds; the reader it exists for loses the semantics the
+  code omits. Cost the skip in the header — say what goes wrong.
 - If every rule is visible in some block, say `Every behaviour rule below appears in
   code.`
 

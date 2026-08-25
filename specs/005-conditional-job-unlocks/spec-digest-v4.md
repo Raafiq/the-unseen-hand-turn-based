@@ -57,7 +57,7 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | FR-006 | The prep screen never names or describes a job that is still locked. | prose |
 | FR-006 | Show only the deed counters some job in the pack gates on — decided in §OI-7. | prose |
 | FR-006 | `jobIds()` today returns every job in the pack; the filter replaces it. | code |
-| FR-007 | Unlocking a job changes nothing else — not the current job, AP, or loadout. Except §EC-6. | prose |
+| FR-007 | Unlocking a job changes nothing else — not the current job, AP, or loadout. | prose |
 | FR-008 | Credit follows which team the target was on at the moment of the action. | prose |
 | FR-008 | The battle engine's allegiance verdict is final and is not re-judged later. | prose |
 | FR-009 | A battle the player lost and retried earns no deeds. | prose |
@@ -84,8 +84,8 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | Save written before this change is loaded | Migrates with all three counts at 0. | EC-7 |
 | Content pack drops a job a save has unlocked | Load fails loudly. | EC-8 |
 | Unit was not deployed in the battle | No entry in the result; folds as zero. | FR-004 |
-| Unlocking a job | Changes nothing else about the unit — except the §EC-6 Secondary case. | FR-007 |
-| Unlocking a job whose tree is empty | Job is instantly mastered and grants a free mastery trait — **undecided, OI-4 is BLOCKING**. | OI-4 |
+| Unlocking a job | Changes nothing else about the unit. | FR-007 |
+| Unlocking a job whose tree is empty | Job is instantly mastered and grants a free mastery trait. | OI-4 |
 
 | Open item | State | § |
 |---|---|---|
@@ -100,8 +100,7 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 
 ## Code
 
-**Behaviour the code below does not show — read this or you will implement it wrong.**
-The blocks carry the data shape and almost none of the rules:
+Not shown in any code below (skip if you read the tables) —
 
 - a kill counts by which team the target was on at that moment, so killing a charmed ally counts — §FR-008, §EC-3
 - a kill landed by a reaction credits the reacting unit — §EC-4
@@ -111,13 +110,9 @@ The blocks carry the data shape and almost none of the rules:
 - a unit not deployed in the battle folds as zero — §FR-004
 - a content pack that raises a threshold above a unit's count does not re-lock the job — §EC-1
 - a content pack that drops a job a save has unlocked fails to load — §EC-8
-- unlocking a job changes nothing else about the unit, except the Secondary case — §FR-007, §EC-6
+- unlocking a job changes nothing else about the unit — §FR-007
 - the prep screen never names a job the unit has not unlocked, and shows only the counters some job gates on — §FR-006, §OI-7
-- a job whose tree is empty is instantly mastered and grants a free mastery trait — §OI-4 (undecided, see §OI-4)
-
-Terms used in the blocks below and defined nowhere in the spec: **`NO_DEEDS`**, the zero
-value substituted for a unit with no entry; **`requires`**, a reserved field on a job that
-appears in no code here, only in the rejection rule at §FR-005.
+- a job whose tree is empty is instantly mastered and grants a free mastery trait — §OI-4
 
 <details><summary>FR-001 — defines the three deed counts and migrates old saves to all-zero; <code>emptyDeeds</code> body not shown</summary>
 
