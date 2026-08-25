@@ -58,7 +58,7 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | Unit kills a charmed ally | Counts. It was on the enemy team at that moment. | EC-3 |
 | Kill lands through a reaction, not the unit's own turn | Counts. Credited to the reacting unit. | EC-4 |
 | Two units damage one foe, one lands the kill | Only the killer scores. No assist credit. | EC-5 |
-| Unlocked job is already the unit's Secondary [undefined in spec] | Save rules reject it; the prep screen clears the Secondary. | EC-6 |
+| Unlocked job is already the unit's Secondary | Save rules reject it; the prep screen clears the Secondary. | EC-6 |
 | Save written before this change is loaded | Migrates with all three counts at 0. | EC-7 |
 | Content pack drops a job a save has unlocked | Load fails loudly. | EC-8 |
 | Unit was not deployed in the battle | No entry in the result; folds as zero. | FR-004 |
@@ -68,25 +68,15 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | Open item | State | § |
 |---|---|---|
 | Does a Deed earn a B0 currency row [undefined in spec], or is this feature cut by the project's own gate? | BLOCKING | OI-1 |
-| Back-fill deeds on the v3→v4 migration, or zero them? | BLOCKING — code already picks one | OI-2 |
+| Back-fill deeds on the v3→v4 migration, or zero them? | BLOCKING | OI-2 |
 | Is 15 KOs reachable? MEASURED — no. The threshold must change, or the campaign must. | STILL BLOCKING | OI-3 |
 | Bounty Hunter's actual content: skillset, tree, growth curve, mastery trait. | BLOCKING | OI-4 |
 | Does Bounty Hunter enter the build-variety gate manifest [undefined in spec]? | DECIDE | OI-5 |
 | Do deeds accrue in the balance-probe gauntlet runs [undefined in spec], or only in campaign saves? | DECIDE | OI-6 |
-| Should any deed counter be visible before its first unlock? → show only counters some job in the pack gates on | RESOLVED | OI-7 |
+| Should any deed counter be visible before its first unlock? | RESOLVED | OI-7 |
 | Does this become `docs/12-conditional-jobs.md` before implementation, or stay spike-only? | TRACK | OI-8 |
 
 ## Code
-
-Not shown in any code below:
-
-- a kill counts by which team the target was on at that moment, so killing a charmed ally counts — §FR-008, §EC-3
-- a kill landed by a reaction credits the reacting unit — §EC-4
-- only the killing blow scores; there is no assist credit — §EC-5
-- a battle the player lost and retried earns no deeds — §FR-009
-- unlocking a job changes nothing else about the unit — §FR-007
-- the prep screen never names a job the unit has not unlocked — §FR-006
-- a job whose tree is empty is instantly mastered and grants a free mastery trait — §OI-4
 
 <details><summary>FR-001 — defines the three deed counts and migrates old saves to all-zero; <code>emptyDeeds</code> body not shown</summary>
 
