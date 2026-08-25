@@ -1,4 +1,4 @@
-<!-- written-against: 025dd73aaaff9e394b3e188d5895dc927bcf2e65 -->
+<!-- written-against: e949798c1402929bf0fb7c5f8f32ff6c8859f557-->
 
 # NEXT — the handoff a machine can't derive
 
@@ -12,92 +12,80 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ---
 
-## THE NEXT SLICE — the synthetic playtest
+## THE NEXT SLICE — a person plays it
 
-**Green-lit by the user, 2026-08-23. Full scope: `docs/plans/slice-m1-synthetic-playtest.md`.**
-Start there; this section is the why and the shape, the plan file is the work.
+**Nothing in this repo can settle what is now the top open question, and no code change
+should be started before it.** The synthetic playtest finished 2026-08-25. It did the
+half an agent can do. The other half is a human being, once.
 
-**In one line.** Build a deterministic agent playtest that settles *difficulty and length*,
-and instrument the page so the first human playtest produces data instead of an anecdote.
-**It does not settle legibility — nothing but a person can.**
+### What is now known, and by what
 
-### Why it is this and not "wait for a playtest"
-
-The previous handoff said the next thing this project needs is a playtest, not a slice.
-That is true for **one** of the two open M0 bets, not both — and treating the whole
-question as blocked cost us the half that is measurable:
-
-| Open bet | Agent-settleable? | Why |
+| Question | Settled? | By what |
 |---|---|---|
-| Session length + difficulty | **Largely yes** | Agent playthrough performance tracks human difficulty *ratings* even when raw skill differs; agent-driven QA is established for coverage and bug-finding. |
-| Legibility (does a newcomer understand the chassis) | **No** | Expert inspection yields hypotheses, not evidence. Reported cognitive-walkthrough false-positive rates span 5–82%. |
+| Is the campaign reachable start to finish | yes | `campaign-shell.test.ts`, `e2e/campaign.spec.ts` |
+| Does engaging with the prep screen matter | yes | player-policy sweep: never-prep 2/16 seeds, spend-at-home 16/16 |
+| Does a newcomer UNDERSTAND the 5-slot chassis | **no** | nothing can. Expert inspection gives hypotheses; reported false-positive rates for it span 5–82% |
+| Is 30–45 minutes right, is it too hard, is it fun | **no** | agent skill is not human skill. The numbers are RELATIVE only |
 
-We already spent a slice on the second (`docs/plans/learnability-walkthrough-2026-08-23.md`)
-and got four real fixes. Nothing is left there that is not a person.
+### What to actually do
 
-### The shape
+Give one person who has never seen this a link to `/game.html` and say nothing else.
+When they finish or give up, ask them to press **Copy playtest log** on the title or
+ending screen and paste it back. That log is `docs/plans/slice-m1-synthetic-playtest.md`
+step B2, and it exists precisely so this conversation produces data.
 
-- **Part A — `src/render/playtest.ts`** (moved from `src/sim` 2026-08-24; the shell it
-  drives is render-layer)**.** A `Persona` is a deterministic policy over the
-  decisions a *player* makes **between fights**: who deploys, what to buy, which job and
-  slots, which owned weapon. **Not tactics** — `ai.ts` owns those and keeps owning them.
-  Three personas (`naive` / `default` / `optimizer`), driven through the real
-  `CampaignShell` over a memory slot, swept over seeds.
-- **Part B — `src/render/telemetry.ts`.** A per-session funnel (time to first action,
-  per-battle outcome and retries, what was bought/equipped, **where they stopped**) in
-  `localStorage`, plus a "copy playtest log" button. No backend, no network, no PII.
+**Read `stoppedAt` first.** Then `timeToFirstActionMs` for `BRIEFING` — a large number
+there is the chassis being illegible, which is the open bet. Then `prepChanges`: an empty
+object means they never touched the progression systems at all, which the campaign is now
+tuned to punish (ADR-0027).
 
-### The two assertions that make Part A evidence rather than a number
+`summarize()` in `src/render/telemetry.ts` folds a pasted log into those numbers. It is
+exported and tested; nothing on the page calls it yet, which is fine — it is for whoever
+reads the log.
 
-1. **The three personas must be shown to SEPARATE.** If `naive` and `optimizer` clear the
-   campaign identically, the meta systems do not matter — and that is the headline
-   finding, not a broken harness.
-2. **A persona's choices must reach the BUILT UNIT.** Run with the purchases applied and
-   withheld; assert the reports differ. A policy that computes a plan and never applies it
-   reads exactly like one that works — the dead-support-slot shape.
+### Do not, before that happens
 
-### Order, and the gate in the middle
+- Do not tune difficulty. The only difficulty evidence is relative, and one real session
+  can invalidate a slice's worth of guessing.
+- Do not add telemetry rows on speculation. The funnel is untested against a real human;
+  what is missing will be obvious after one paste and is guesswork before it.
+- Do not treat the green suite as onboarding evidence. `docs/11` AC-M6 asserts the help
+  panel's CLAIMS are deliverable. It says nothing about whether the game reads on its own.
 
-`A1` personas → `A2` runner + seed sweep → `A3` the two assertions → **`A4` report the
-numbers to the user before starting Part B** → `B1` recorder → `B2` copy-log control +
-a reload test → retrospective, this file re-stamped, `npm run state` last.
+---
 
-**A4 is a real gate, not a formality.** If the personas do not separate, instrumenting a
-funnel through systems that do not matter is the wrong next move.
+## LANDED 2026-08-25 — the playtest log (slice Part B)
 
-### What the slice may NOT claim when it lands
+`src/render/telemetry.ts` + the wiring in `game.ts` + a "Copy playtest log" control on the
+title and ending screens. A per-session funnel in `localStorage` under `tuh.playtest.v1`:
+screens with dwell and time-to-first-action, every named action, per-battle
+outcome/attempt/turns read off the banked `RunReport`, between-battle record edits, and
+where the player stopped. No backend, no network, no personal data; times are milliseconds
+since the log started, never absolute.
 
-Write this into the PR body, not just the code: it establishes **relative** difficulty and
-a length proxy. It does **not** establish legibility, absolute difficulty ("60% of humans
-would win this"), or fun. Do not cite a green suite as if it had.
+**Two things carry the claims, and both are the reason to trust the file:**
 
-### Landmines specific to this slice
+1. **`telemetry.ts` holds NO VALUE IMPORTS.** Every import is `import type`, erased at
+   build, so after compilation there is nothing in the game it is *able* to call. That
+   makes "read-only over the session" a fact about the build, not a docstring promise, and
+   it is why wall-clock provably cannot reach `BattleState`. `telemetry.test.ts` asserts
+   it — and mutation-tests its own regex first.
+2. **The wiring is proved by an A/B in the browser.** One visit to `/game.html` that does
+   nothing, against one that plays a battle, asserting rows present only in the second. A
+   perfect unreferenced module reads exactly like a working one.
 
-1. **The probe plays the PLAYER's units too.** Persona differences reach the outcome only
-   through the **build**, never through tactics. A player who would have positioned more
-   carefully cannot be modelled. This bounds what Part A can ever say — state it in the
-   report, do not let a reader infer otherwise.
-2. **A flat result is a FINDING.** If difficulty does not rise across the five battles,
-   that is the answer. Do not tune the harness until it produces a curve — that is
-   calibrating to the metric.
-3. **Determinism does NOT cover this file for free** (corrected 2026-08-24). The harness
-   lives at **`src/render/playtest.ts`**, not `src/sim` — `CampaignShell` and `PrepModel`
-   are render-layer, and sim must not import render. `check:rng` scans `src/sim` only, so
-   add a second scan of the file itself (see the plan's Determinism section).
-   Persona choices must be pure functions of save state or draw from the seeded PRNG.
-   `src/render/telemetry.ts` may use wall-clock (the `iso.ts` animation precedent) but
-   **nothing derived from it may enter `BattleState`**, and telemetry must stay read-only
-   over the session — it observes, it never feeds back.
-4. **Session length is a PROXY.** Decision count → minutes needs a seconds-per-decision
-   constant. Mark it MVP-provisional like every other number in ADR-0025/0026, and let
-   Part B's wall-clock replace it later.
+Eleven mutations were run across the two commits and all were caught. One is worth
+carrying forward as a lesson and is already in the root `CLAUDE.md`'s spirit: **the first
+version of the "last screen gets no dwell" mutation stayed GREEN**, because the fixture
+ended on that screen with nothing after it — 0 under the right rule and the wrong one
+alike. The fixture now ends 9 seconds *after* arriving there.
 
 ---
 
 ## LANDED 2026-08-24 — the playtest harness, and what it found
 
-`src/render/playtest.ts` + `scripts/playtest.mts` (A1–A4 of the slice below). Three
-deterministic player policies driven through the real shell over a seed sweep.
+`src/render/playtest.ts` + `scripts/playtest.mts` (A1–A4). Three deterministic player
+policies driven through the real shell over a seed sweep.
 
 **It found the campaign was winnable with zero engagement** — a party that never opened the
 prep screen cleared all five battles at every seed with 966 AP unspent and every chassis
@@ -113,35 +101,30 @@ record, the finale only. Measured at 16 seeds afterwards:
 **The headline is the third row, not the first.** Spending at home wins; scattering AP
 across whatever is cheapest loses.
 
-**The panel now warns about it before the click** (same ADR): `LearnRow.reach` says where an
+**The panel warns about it before the click** (same ADR): `LearnRow.reach` says where an
 ability would land for this unit, and a row that needs the one Secondary slot renders a
-**needs Secondary** tag. Plus a "Where to spend AP" help topic, a rewritten learn-list hint
-(the old one read as an invitation to do the losing thing), and a correction to "Losing a
-battle", which implied a retry was a fresh chance — it is not, the retry is bit-identical.
-
-**What is still open: whether a newcomer READS it.** Only a person can settle that. What is
-asserted is that the warning is produced by the shipped content, names the right rows, and
-agrees with the real command projection.
+**needs Secondary** tag. Plus a "Where to spend AP" help topic, a rewritten learn-list
+hint, and a correction to "Losing a battle", which implied a retry was a fresh chance — it
+is not, the retry is bit-identical.
 
 `docs/11` AC-M1 was amended to name the player it assumes: an ending is reachable **by a
-player who uses the prep screen**. The zero-engagement path deliberately no longer finishes,
-and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that profile.
-
-Still open in the slice: **Part B, the browser telemetry.** A4's gate was reported and the
-user chose to retune first.
+player who uses the prep screen**. The zero-engagement path deliberately no longer
+finishes, and `campaign-run.test.ts` (which has no prep concept) now asserts exactly that
+profile.
 
 ---
 
 ## Where things stand
 
-**M0 IS BUILT — all seven items (`docs/11` §3).** 752 tests / 39 files, 23 Playwright
+**M0 IS BUILT — all seven items (`docs/11` §3).** 809 tests / 41 files, 26 Playwright
 specs. Variety score (distinct viable build identities) still **7** against a release bar
 of **8**, carried into M1 by user decision.
 
 **What "built" does and does not mean.** Every M0 ITEM is shipped and tested. M0's
 definition of done is "a stranger plays 30–45 minutes without being told anything and
-reaches a real ending" — and **that is untested. No stranger has played this.** The slice
-above takes the measurable half of that; the other half still needs a person.
+reaches a real ending" — and **that is untested. No stranger has played this.** The
+measurable half is now taken (see the two LANDED sections). The instrument for the other
+half is shipped and waiting; what it needs is a person.
 
 **Equipment landed 2026-08-22 (ADR-0026)**, the last item:
 
@@ -170,7 +153,7 @@ the git history of that file — do not re-expand it in place.
 
 ---
 
-## Other candidates, if the slice above is finished or rejected
+## Other candidates — AFTER the playtest, or if the user rejects waiting for one
 
 1. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is **gear**: all
    15 reference builds still carry `weapon: null`, so equipment is a diversity axis the
@@ -183,6 +166,17 @@ the git history of that file — do not re-expand it in place.
 
 ## Traps waiting for you
 
+0. **A CAPTURED FRAME'S FILENAME IS AN ASSERTION, AND IS NOW CHECKED.** `shot()` in
+   `e2e/playtest-capture.spec.ts` takes the `data-testid` the frame must show and asserts
+   it before the screenshot. That guard exists because the set shipped a `09-ending.png`
+   showing "Battle lost" for as long as ADR-0027 had been making an unprepped party lose
+   the finale, with nothing red. When you add a frame, name the state it must be in.
+0. **`telemetry.ts` MUST KEEP ITS TYPE-ONLY IMPORTS.** That single property is the whole
+   "the playtest log cannot touch the game" guarantee — after erasure there is nothing in
+   it that is *able* to call the shell, the session or the sim. Adding one value import,
+   even a helper from `storage.ts`, turns `telemetry.test.ts` red, and that red is the
+   file telling you the claim just stopped being true. Feed the recorder scalars and
+   copies; never hand it a live object it could keep.
 1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE.** `npx playwright test`
    does NOT rebuild; `npm run test:visual` does. Rebuild before believing a browser
    failure.

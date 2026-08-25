@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { prepEveryMember } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/screenshots";
@@ -19,46 +20,6 @@ const SHOTS = "visual-artifacts/screenshots";
 const screen = (page: Page): Promise<string> => page.evaluate(() => window.tuhGame.screen());
 const stored = (page: Page): Promise<string | null> =>
   page.evaluate(() => window.tuhGame.storedSave());
-
-/**
- * Use the prep screen the way an engaged player does — through the real controls
- * (ADR-0027).
- *
- * Since ADR-0027 the finale is tuned so a party that never spends AP loses it, so a
- * browser walkthrough that skipped this would be asserting the zero-engagement path,
- * which the campaign deliberately no longer grants an ending to.
- *
- * IT ONLY EVER TOUCHES THE MEMBER'S OWN TREE, and that is the whole policy rather than an
- * incidental simplification: the tree selector defaults to the current job, so clicking
- * every enabled buy button without changing it spends on the job the unit is in. Measured
- * headlessly, that clears the campaign at 8 of 8 seeds — while buying the cheapest node
- * anywhere in the pack clears 1 of 8. Spending at home is the thing the game now asks a
- * player to work out.
- */
-async function prepEveryMember(page: Page): Promise<void> {
-  const members = await page.locator('[data-testid="prep-roster"] button.ptab').all();
-  for (let i = 0; i < members.length; i += 1) {
-    // Re-resolve each pass: the panel re-renders after every purchase, so a handle taken
-    // before the click is detached by the time the next one is needed.
-    await page.locator('[data-testid="prep-roster"] button.ptab').nth(i).click();
-    for (let guard = 0; guard < 20; guard += 1) {
-      const buy = page.locator('[data-testid="prep-learn"] button.buy:not([disabled])').first();
-      if ((await buy.count()) === 0) break;
-      await buy.click();
-    }
-    // Equip what was just bought. A passive that is learned and never equipped does
-    // nothing at all, which is exactly what an untouched slot looks like from outside.
-    for (const slot of ["support", "movement", "reaction", "secondary"]) {
-      const select = page.getByTestId(`prep-${slot}`);
-      if ((await select.count()) === 0) continue;
-      const values = await select.locator("option").evaluateAll((os) =>
-        os.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== ""),
-      );
-      const current = await select.inputValue();
-      if (current === "" && values.length > 0) await select.selectOption(values[0]!);
-    }
-  }
-}
 
 async function playCurrentBattle(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
@@ -156,6 +117,19 @@ test("campaign shell: the five-battle run reaches its ending in the browser", as
   await expect(page.getByTestId("done-note")).toContainText("5 battles won");
   expect(await screen(page)).toBe("COMPLETED");
   expect(await stored(page)).toContain('"status":"completed"');
+
+  // The copy-log control on the ENDING screen (docs/plans step B2). Asserted here and
+  // not only on the title because this repo has already shipped one piece of content
+  // only the ending screen can reach, and nothing noticed: the final victory skips
+  // AFTER_BATTLE, so a renderer wired to one screen looks correct from every other.
+  await expect(page.getByTestId("logbox-done")).toBeVisible();
+  await expect(page.getByTestId("log-note-done")).toContainText("up to the ending");
+  await page.getByTestId("copy-log-done").click();
+  const payload = await page.evaluate(
+    () => (document.getElementById("log-text-done") as HTMLTextAreaElement).value,
+  );
+  expect(JSON.parse(payload).events.filter((e: { kind: string }) => e.kind === "battle")).toHaveLength(5);
+
   await page.screenshot({ path: `${SHOTS}/24-completed.png`, fullPage: true });
 });
 
@@ -438,4 +412,158 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   for (const id of ["end-turn", "timeline", "preview", "status"]) {
     await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
   }
+});
+
+/**
+ * The playtest log is WIRED (docs/plans step B1) — the A/B that separates a live
+ * recorder from a dead one.
+ *
+ * `telemetry.test.ts` proves the recorder records. It cannot prove `game.ts` ever calls
+ * it, and a module that is perfect and unreferenced reads exactly like one that works —
+ * the dead-support-slot shape. So this drives the real page twice over: once doing
+ * nothing, once playing a battle, and asserts the two logs differ in named rows. An
+ * aggregate ("the log is non-empty") would pass on a page that logged only its own boot.
+ *
+ * It runs in a browser because that is the only place the wiring exists: `game.ts` needs
+ * a document, and a headless copy of the wiring would be a second implementation
+ * certifying itself.
+ */
+test("playtest log: the recorder observes the real page, not a test path", async ({ page }) => {
+  await page.goto("/game.html");
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+
+  const readLog = (): Promise<{
+    events: { kind: string; screen?: string; action?: string; outcome?: string; turns?: number }[];
+  }> => page.evaluate(() => window.tuhGame.playtestLog());
+
+  // ── A: arrive and do nothing ────────────────────────────────────────────────
+  const idle = await readLog();
+  expect(idle.events.map((e) => e.kind)).toEqual(["screen"]);
+  expect(idle.events[0]).toMatchObject({ kind: "screen", screen: "TITLE" });
+
+  // ── B: play the opening battle through the real controls ───────────────────
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  // A between-battle EDIT, so the prep diff is exercised too. Discovered rather than
+  // hard-coded: the member is whoever has mastered a job they are not currently in,
+  // which is the only re-job the opening briefing can legally offer. Asserted to have
+  // been found — a discovery that silently returned nothing would make the prep row
+  // below vacuous rather than red.
+  const rejob = await page.evaluate(() => {
+    const prep = window.tuhGame.prep();
+    if (!prep) return null;
+    for (const r of prep.records()) {
+      const target = r.mastered.find((j) => j !== r.currentJob);
+      if (target === undefined) continue;
+      prep.select(r.id);
+      prep.setJob(target);
+      return { id: r.id, from: r.currentJob, to: target };
+    }
+    return null;
+  });
+  expect(rejob).not.toBeNull();
+
+  await playCurrentBattle(page);
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+
+  const played = await readLog();
+  const kinds = new Set(played.events.map((e) => e.kind));
+  const actions = played.events.filter((e) => e.kind === "action").map((e) => e.action);
+  const screens = played.events.filter((e) => e.kind === "screen").map((e) => e.screen);
+  const battles = played.events.filter((e) => e.kind === "battle");
+
+  // Each of these is absent from the idle log above, so the pair says the rows come
+  // from what the player DID, not from the page merely loading.
+  expect(kinds.has("prep")).toBe(true);
+  expect(kinds.has("battle")).toBe(true);
+  expect(actions).toContain("btn-new-game");
+  expect(actions).toContain("btn-deploy");
+  expect(actions).toContain("btn-conclude");
+  expect(screens).toEqual(["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE"]);
+
+  // The battle row is read off the SAME `RunReport` the campaign banked, so the log and
+  // the save cannot disagree about how the fight went.
+  expect(battles).toHaveLength(1);
+  const banked = await page.evaluate(() => window.tuhGame.save()?.history.at(-1) ?? null);
+  expect(battles[0]).toMatchObject({ step: 1, attempt: 1, outcome: banked?.outcome });
+  expect(battles[0]?.turns).toBeGreaterThan(0);
+
+  // The re-job reached the log as a diff of the SAVED record — not as "a control was
+  // clicked". An edit the sim refused would leave this empty.
+  const prepRows = played.events.filter((e) => e.kind === "prep");
+  expect(prepRows).toContainEqual(
+    expect.objectContaining({
+      kind: "prep",
+      recordId: rejob?.id,
+      change: { field: "job", from: rejob?.from, to: rejob?.to },
+    }),
+  );
+
+  // Separate keys, deliberately: a playtester who restarts is exactly the session worth
+  // reading, so erasing the save must not erase the log.
+  await page.evaluate(() => window.tuhGame.quitToTitle());
+  await page.evaluate(() => window.tuhGame.eraseSave());
+  expect(await stored(page)).toBeNull();
+  expect((await readLog()).events.filter((e) => e.kind === "battle")).toHaveLength(1);
+});
+
+/**
+ * The playtest log survives a real RELOAD, and the copy control hands it over
+ * (docs/plans step B2).
+ *
+ * `telemetry.test.ts` asserts the resume logic against a memory-backed slot, and that
+ * passes whether or not the `localStorage` wiring works — the same reason this file
+ * exists for the save. The reload is the load-bearing half, and it is the one a
+ * playtester actually performs: they close the tab and come back.
+ */
+test("playtest log: it survives a reload, and one click hands it over", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/game.html");
+
+  const readLog = (): Promise<{ events: { kind: string; at: number }[] }> =>
+    page.evaluate(() => window.tuhGame.playtestLog());
+
+  await page.getByTestId("new-game").click();
+  await playCurrentBattle(page);
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+
+  const before = await readLog();
+  expect(before.events.filter((e) => e.kind === "battle")).toHaveLength(1);
+
+  await page.reload();
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+
+  const after = await readLog();
+  // Every earlier event is still there, byte for byte — not merely "a log exists".
+  expect(after.events.slice(0, before.events.length)).toEqual(before.events);
+  // A `resume` row, because the clock cannot measure a closed tab: without it a reader
+  // would take the two halves for one continuous stretch of play.
+  expect(after.events[before.events.length]).toMatchObject({ kind: "resume" });
+  // And the timeline CONTINUED. A recorder that restarted its clock would put the
+  // post-reload events back near zero, folding the second session onto the first.
+  expect(after.events.at(-1)!.at).toBeGreaterThanOrEqual(before.events.at(-1)!.at);
+
+  // The control on the title screen reports the resumed log, not a fresh one.
+  await expect(page.getByTestId("logbox-title")).toBeVisible();
+  await expect(page.getByTestId("log-note-title")).toContainText("up to the title screen");
+  await expect(page.getByTestId("log-note-title")).toContainText("Nothing is sent anywhere");
+
+  await page.getByTestId("copy-log-title").click();
+  // The textarea is the payload and the clipboard is a convenience on top of it — a
+  // control that only tried the clipboard would look like it worked on a browser that
+  // refuses it, and hand the playtester nothing.
+  const payload = await page.evaluate(
+    () => (document.getElementById("log-text-title") as HTMLTextAreaElement).value,
+  );
+  const parsed = JSON.parse(payload) as { events: { kind: string; action?: string }[] };
+  expect(parsed.events.filter((e) => e.kind === "battle")).toHaveLength(1);
+  // The copy itself is in the payload, so "did the playtester actually click it" is
+  // answerable from the log they hand back.
+  expect(parsed.events.at(-1)).toMatchObject({ kind: "action", action: "btn-log-title" });
+
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(payload);
 });
