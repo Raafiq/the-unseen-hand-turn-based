@@ -68,26 +68,30 @@
 
 [Add more user stories as needed, each with an assigned priority]
 
-### Edge Cases
-
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
--->
-
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
-
 ## Requirements *(mandatory)*
 
 <!--
   ACTION REQUIRED: The content in this section represents placeholders.
   Fill them out with the right functional requirements.
+
+  CODE SKETCH CONVENTION: where an FR names a concrete data shape, signature,
+  schema field, or algorithm, follow it with a fenced code block labelled
+  `Sketch:`. The sketch is ILLUSTRATIVE, NOT NORMATIVE - it exists so the
+  reviewer and the implementer argue about the same thing. Prose in the FR
+  wins on any conflict with its sketch. Omit the block for FRs that are purely
+  behavioural; a sketch invented to fill the slot is worse than no sketch.
 -->
 
 ### Functional Requirements
 
 - **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
+
+  Sketch:
+
+  ```ts
+  // Illustrative only - the prose above is normative.
+  ```
+
 - **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
@@ -102,6 +106,69 @@
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
+
+## Affected Files *(mandatory)*
+
+<!--
+  ACTION REQUIRED: enumerate every file the implementer will touch or must read.
+  Verify each path EXISTS before listing it (a path that does not exist reads as
+  a researched claim while proving nothing). Mark a file that does not yet exist
+  as NEW explicitly. Cite the FR each row serves so a reviewer can spot an
+  unserved requirement or an unjustified edit.
+
+  Change kinds: NEW | MODIFY | REFERENCE (read-only - schema, doc, or precedent)
+-->
+
+### To be changed
+
+| File | Change | Serves | Notes |
+|---|---|---|---|
+| `path/to/file.ts` | MODIFY | FR-001 | [what changes and why] |
+| `path/to/new-file.ts` | NEW | FR-002 | [what it will contain] |
+
+### To be referenced (read-only)
+
+| File | Why it matters |
+|---|---|
+| `path/to/spec-or-schema.ts` | [the contract or precedent this feature must not break] |
+
+### Deliberately NOT touched
+
+| File | Why it is out of scope |
+|---|---|
+| `path/to/file.ts` | [the reason a reviewer might expect this and it is excluded] |
+
+## Edge Cases & Open Items *(mandatory)*
+
+### Edge Cases
+
+<!--
+  ACTION REQUIRED: replace with the real boundary conditions. Each entry states
+  the condition AND the decided behaviour. An edge case with no decided
+  behaviour is not an edge case - it is an Open Item, so move it below.
+-->
+
+| # | Condition | Decided behaviour |
+|---|---|---|
+| EC-1 | [boundary condition] | [what the system does] |
+| EC-2 | [error scenario] | [what the system does] |
+
+### Open Items — resolve before implementing
+
+<!--
+  ACTION REQUIRED: every question whose answer would change the implementation.
+  This section is a BLOCKING gate: `/speckit-plan` should not run while an item
+  here is marked BLOCKING and unresolved. An empty table is a valid answer, but
+  say so explicitly rather than deleting the section.
+
+  Severity: BLOCKING (cannot implement) | DECIDE (a default exists, confirm it)
+  | TRACK (can ship without, must not be forgotten)
+-->
+
+| # | Question | Severity | Default if unanswered | Owner |
+|---|---|---|---|---|
+| OI-1 | [the question] | BLOCKING | [none - must be answered] | [who decides] |
+| OI-2 | [the question] | DECIDE | [the assumed default] | [who decides] |
 
 ## Success Criteria *(mandatory)*
 
