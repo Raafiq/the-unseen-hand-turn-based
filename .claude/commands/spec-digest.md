@@ -26,6 +26,26 @@ spec's own status word. If it is anything other than active work — cut, supers
 on hold, draft, blocked — say plainly that the rest describes a thing that is not
 being built. If the spec states no status, write `Status: not stated in the spec.`
 
+**Carry the reason.** If the spec says why it reached that status, add the reasons to
+the blockquote in the spec's own terms, one clause each. A status without its reason
+sends the reader hunting for it, and they will guess. If the spec gives no reason,
+write `Reason not stated in the spec.` — do not infer one.
+
+### Terms
+A short definition list, directly after the status, of every term the spec leans on
+but never defines — including the feature's own central noun, which specs routinely
+use from line one as if it were common knowledge. For each: the term, then where the
+spec shows what it means (`see §<anchor>`), or `not defined in the spec` when nothing
+does. Point at the spec's own words; never write a definition the spec did not.
+
+This block replaces scattered inline glosses: mark a term `[undefined in spec]` once,
+on first use in a table, and let this block carry it. Repeating the tag turns it into
+noise by the third sighting, and a tag on its own tells the reader they will not
+understand the row — which is not help.
+
+Omit the block if there are no such terms, and say so: `All terms are defined in the
+spec.`
+
 | § | In plain words | From |
 |---|---|---|
 
@@ -85,6 +105,11 @@ Rules — open items:
   item resolved without recording the resolution, write `→ resolution not recorded in
   spec`. A bare `RESOLVED` is worse than `open`: it reads as handled, so the reader
   stops looking and assumes the implementation got it right.
+- **A resolution that creates a requirement gets its own row in the first table.**
+  If a resolved item decides how something must behave, it is a requirement now, not
+  a footnote — put it in the requirements table anchored to the section it constrains,
+  as well as in the open-item row. A reader who skims the open-item table would
+  otherwise miss a live rule, and the open-item table is the one most likely skimmed.
 - **Flag an item whose answer already appears in the spec's own code.** If a question
   is marked open or blocking but a code block already implements one side of it,
   append `— code already picks one` to the `State` cell. Point, do not say which side
@@ -99,20 +124,34 @@ Rules — code:
   more than writing nothing.
 - **Attribute to the right place.** If a block holds two snippets, make sure the
   behaviour you describe comes from the snippet you imply. Say which one.
-- **Carry the status into the code.** If the status line is anything other than
-  active work, put a matching comment as the first line inside every code block —
-  `// <STATUS> — see Status at top`. A reader who scrolls straight to the code must
-  not be able to finish believing this is live work.
+- **Carry the status into the code, and make the comment stand alone.** If the status
+  line is anything other than active work, the first line inside every code block is
+  `// <STATUS> — <the clause that removes the ambiguity> — see Status at top`. A bare
+  status word is not enough: "CUT" alone still reads as "cut from this release", and a
+  reader can park on the wrong meaning without ever scrolling up. Put the
+  disambiguating words in the comment itself — `// CUT — rejected, not deferred; do
+  not implement — see Status at top`.
 - If any value in a code block is contradicted elsewhere in the spec — a number the
   spec later says is wrong, a placeholder it flags as unfilled — append
   `— see §<anchor>` to that block's summary line. Point, do not explain.
 - **Route the prose-only rules to the code reader.** Some readers open the Code
   section first and never scroll up. Any behaviour rule that no code block shows —
-  who gets credited, which cases count, precedence between two rules, anything a
-  reader could implement backwards — must be named at the top of the Code section as
-  a plain list of anchors: `Not shown in any code below: <one clause each> — §<anchor>`.
-  Name the rule, not just the anchor; a bare pointer gets skipped. If every rule is
-  visible in some block, say `Every behaviour rule below appears in code.`
+  who gets credited, which cases count, when a change commits, precedence between two
+  rules, anything a reader could implement backwards — is named at the top of the Code
+  section: `Not shown in any code below: <one clause each> — §<anchor>`. Name the rule,
+  not just the anchor; a bare pointer gets skipped.
+- **Build that list by walking the code, not the tables.** For each block, ask what a
+  competent reader would have to assume to implement it, then check whether the spec
+  decides that assumption somewhere the code does not show. Timing rules are the ones
+  most often missed — when a value commits, what happens between the change and the
+  save — because they constrain code that looks complete without them. A list assembled
+  by copying the rules that felt important is the list that omits them.
+- **Label the list for the reader who did not need it.** Head it
+  `Not shown in any code below (skip if you read the tables) —`. Someone arriving
+  top-down has just read every one of these rows, and an unlabelled restatement trains
+  them to skim exactly where a code-first reader must not.
+- If every rule is visible in some block, say `Every behaviour rule below appears in
+  code.`
 
 Rules — everywhere:
 - Do NOT flag gaps, contradictions, risks, or missing coverage as findings.

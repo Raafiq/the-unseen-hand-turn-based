@@ -4,27 +4,6 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 > **Status: CUT — rejected on 2026-08-25, not deferred.** Everything below describes a
 > thing that is **not being built**; read it as a record of a rejected proposal, and do not
 > review or implement code against it.
->
-> **Reasons the spec gives, either sufficient alone:** it would add a fourth axis to a
-> customization spine locked at three, which needs a decision record it never earned; and
-> a kill-count threshold rewards the farming that `docs/02` §B4 designs out.
-
-### Terms
-
-- **deed** — not defined in the spec; used from the outset for the three counted actions
-  listed in §FR-001: `kos`, `healingDone`, `statusesInflicted`.
-- **Secondary** — a loadout slot holding another job's command. Not defined in the spec;
-  see §EC-6 for the only behaviour it states.
-- **`requires`** — a reserved field on a job. Not defined in the spec; appears only in the
-  rejection rule at §FR-005.
-- **B0 currency row** — the project's gate for whether a progression currency is real. Not
-  defined in the spec; see §OI-1.
-- **build-variety gate manifest** — the list the project's build-variety scoring reads. Not
-  defined in the spec; see §OI-5.
-- **balance-probe gauntlet runs** — automated battles the project runs outside a campaign
-  save. Not defined in the spec; see §OI-6.
-- **`NO_DEEDS`** — the zero value substituted for a unit with no entry. Not defined in the
-  spec; used in the §FR-004 code.
 
 | § | In plain words | From |
 |---|---|---|
@@ -55,7 +34,6 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | FR-006 | The prep screen lists only jobs the selected unit has unlocked. | prose |
 | FR-006 | The prep screen shows that unit's deed counts. | prose |
 | FR-006 | The prep screen never names or describes a job that is still locked. | prose |
-| FR-006 | Show only the deed counters some job in the pack gates on — decided in §OI-7. | prose |
 | FR-006 | `jobIds()` today returns every job in the pack; the filter replaces it. | code |
 | FR-007 | Unlocking a job changes nothing else — not the current job, AP, or loadout. | prose |
 | FR-008 | Credit follows which team the target was on at the moment of the action. | prose |
@@ -66,7 +44,7 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | Entities | `JobUnlock`: one deed name, one minimum, one label shown after the fact. | prose |
 | Entities | `DeedDelta`: one battle's increase, keyed by record id, then discarded. | prose |
 | Files | 9 source files change, 5 test files, 1 data file, 2 docs. | prose |
-| Files | Build-variety scoring is deliberately left untouched. | prose |
+| Files | Build-variety scoring [undefined in spec] is deliberately left untouched. | prose |
 | Files | The five shipped campaign battles are not re-authored. | prose |
 | Files | Those five battles field 12 enemy units in total. | prose |
 
@@ -80,7 +58,7 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 | Unit kills a charmed ally | Counts. It was on the enemy team at that moment. | EC-3 |
 | Kill lands through a reaction, not the unit's own turn | Counts. Credited to the reacting unit. | EC-4 |
 | Two units damage one foe, one lands the kill | Only the killer scores. No assist credit. | EC-5 |
-| Unlocked job is already the unit's Secondary | Save rules reject it; the prep screen clears the Secondary. | EC-6 |
+| Unlocked job is already the unit's Secondary [undefined in spec] | Save rules reject it; the prep screen clears the Secondary. | EC-6 |
 | Save written before this change is loaded | Migrates with all three counts at 0. | EC-7 |
 | Content pack drops a job a save has unlocked | Load fails loudly. | EC-8 |
 | Unit was not deployed in the battle | No entry in the result; folds as zero. | FR-004 |
@@ -89,35 +67,31 @@ Unlocks a job on a unit once its lifetime tally of battlefield deeds passes a th
 
 | Open item | State | § |
 |---|---|---|
-| Does a Deed earn a B0 currency row, or is this feature cut by the project's own gate? | BLOCKING | OI-1 |
+| Does a Deed earn a B0 currency row [undefined in spec], or is this feature cut by the project's own gate? | BLOCKING | OI-1 |
 | Back-fill deeds on the v3→v4 migration, or zero them? | BLOCKING — code already picks one | OI-2 |
 | Is 15 KOs reachable? MEASURED — no. The threshold must change, or the campaign must. | STILL BLOCKING | OI-3 |
 | Bounty Hunter's actual content: skillset, tree, growth curve, mastery trait. | BLOCKING | OI-4 |
-| Does Bounty Hunter enter the build-variety gate manifest? | DECIDE | OI-5 |
-| Do deeds accrue in the balance-probe gauntlet runs, or only in campaign saves? | DECIDE | OI-6 |
+| Does Bounty Hunter enter the build-variety gate manifest [undefined in spec]? | DECIDE | OI-5 |
+| Do deeds accrue in the balance-probe gauntlet runs [undefined in spec], or only in campaign saves? | DECIDE | OI-6 |
 | Should any deed counter be visible before its first unlock? → show only counters some job in the pack gates on | RESOLVED | OI-7 |
 | Does this become `docs/12-conditional-jobs.md` before implementation, or stay spike-only? | TRACK | OI-8 |
 
 ## Code
 
-Not shown in any code below (skip if you read the tables) —
+Not shown in any code below:
 
 - a kill counts by which team the target was on at that moment, so killing a charmed ally counts — §FR-008, §EC-3
 - a kill landed by a reaction credits the reacting unit — §EC-4
 - only the killing blow scores; there is no assist credit — §EC-5
-- a count crossing its threshold mid-battle does nothing until the battle is folded into the save — §EC-2
 - a battle the player lost and retried earns no deeds — §FR-009
-- a unit not deployed in the battle folds as zero — §FR-004
-- a content pack that raises a threshold above a unit's count does not re-lock the job — §EC-1
-- a content pack that drops a job a save has unlocked fails to load — §EC-8
 - unlocking a job changes nothing else about the unit — §FR-007
-- the prep screen never names a job the unit has not unlocked, and shows only the counters some job gates on — §FR-006, §OI-7
+- the prep screen never names a job the unit has not unlocked — §FR-006
 - a job whose tree is empty is instantly mastered and grants a free mastery trait — §OI-4
 
 <details><summary>FR-001 — defines the three deed counts and migrates old saves to all-zero; <code>emptyDeeds</code> body not shown</summary>
 
 ```ts
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // src/sim/roster.ts — illustrative only, the prose above is normative.
 export const DeedsSchema = z
   .object({
@@ -145,7 +119,7 @@ const migrate3to4: RosterMigration = (record) => ({
 <details><summary>FR-002 — restricts a job's unlock to one of three deed names, a minimum of 1 or more, and a non-empty label</summary>
 
 ```ts
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // src/sim/job.ts — illustrative only.
 export const DeedKeySchema = z.enum(["kos", "healingDone", "statusesInflicted"]);
 
@@ -165,7 +139,7 @@ export const JobUnlockSchema = z
 <details><summary>FR-002 — the worked example: <code>bounty-hunter</code> at 15 kills, with growth left unfilled — see §OI-3, §OI-4</summary>
 
 ```json
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // data/base-pack.json — the worked example.
 {
   "id": "bounty-hunter",
@@ -182,7 +156,7 @@ export const JobUnlockSchema = z
 <details><summary>FR-003 — <code>isJobUnlocked</code> returns true when a job has no unlock or the count meets the minimum; <code>unlockedJobs</code> body not shown</summary>
 
 ```ts
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // src/sim/progression.ts — illustrative only.
 export function isJobUnlocked(record: UnitRecord, jobId: string, registry: ContentRegistry): boolean {
   const u = registry.job(jobId).unlock;
@@ -197,7 +171,7 @@ export function unlockedJobs(record: UnitRecord, registry: ContentRegistry): str
 <details><summary>FR-004 — the second snippet adds deeds in the same expression that awards AP, and substitutes <code>NO_DEEDS</code> for a unit with no entry; <code>deriveDeedDeltas</code> body not shown</summary>
 
 ```ts
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // src/sim/campaign-run.ts — deriveRewards gains a parallel deed delta.
 export function deriveDeedDeltas(
   def: CampaignDef, save: CampaignSave, encounter: Encounter,
@@ -214,7 +188,7 @@ const party = save.party.map((rec) =>
 <details><summary>FR-006 — replaces the prep screen's full job list with the selected unit's unlocked jobs</summary>
 
 ```ts
-// CUT — rejected, not deferred; do not implement — see Status at top
+// CUT — see Status at top
 // src/render/prep.ts — jobIds() currently returns EVERY pack job (the gate goes here).
 jobIds(): string[] {
   return unlockedJobs(this.selectedRecord(), this.registry);
