@@ -80,6 +80,15 @@ Rules — open items:
   word in `State` — `open`, `resolved`, `blocking`, whatever it uses; `not stated`
   if it says nothing. Silently dropping a resolved item leaves a hole in the
   numbering that reads as a lost item.
+- **A resolved item must carry what was decided.** Append the decision to the
+  question in the same cell: `<question> → <what was decided>`. If the spec marks an
+  item resolved without recording the resolution, write `→ resolution not recorded in
+  spec`. A bare `RESOLVED` is worse than `open`: it reads as handled, so the reader
+  stops looking and assumes the implementation got it right.
+- **Flag an item whose answer already appears in the spec's own code.** If a question
+  is marked open or blocking but a code block already implements one side of it,
+  append `— code already picks one` to the `State` cell. Point, do not say which side
+  and do not say whether that is wrong.
 
 Rules — code:
 - Copy code verbatim. Never edit, shorten, or fix it.
@@ -97,6 +106,13 @@ Rules — code:
 - If any value in a code block is contradicted elsewhere in the spec — a number the
   spec later says is wrong, a placeholder it flags as unfilled — append
   `— see §<anchor>` to that block's summary line. Point, do not explain.
+- **Route the prose-only rules to the code reader.** Some readers open the Code
+  section first and never scroll up. Any behaviour rule that no code block shows —
+  who gets credited, which cases count, precedence between two rules, anything a
+  reader could implement backwards — must be named at the top of the Code section as
+  a plain list of anchors: `Not shown in any code below: <one clause each> — §<anchor>`.
+  Name the rule, not just the anchor; a bare pointer gets skipped. If every rule is
+  visible in some block, say `Every behaviour rule below appears in code.`
 
 Rules — everywhere:
 - Do NOT flag gaps, contradictions, risks, or missing coverage as findings.
