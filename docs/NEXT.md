@@ -1,4 +1,4 @@
-<!-- written-against: 4c52730ac361554540a701b2e61ac624e223e3e1 -->
+<!-- written-against: acef1770461ff9f80aa0b8af3a195b06fffc221e-->
 
 # NEXT — the handoff a machine can't derive
 
@@ -161,16 +161,16 @@ the git history of that file — do not re-expand it in place.
 2. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
 3. Cheap filler: make `game.html` the landing page (still a rewrite of twelve browser
    specs' navigation).
-4. **Small, real, and found while building the log:** `e2e/playtest-capture.spec.ts` names
-   its final shot `09-ending`, but its walkthrough does no prep and therefore **loses** the
-   finale under ADR-0027. The committed artifact shows "Battle lost" under a caption that
-   says ending — a caption asserting evidence it does not have. Either make the
-   walkthrough prep (it would then match `prepEveryMember`) or rename the shot.
 
 ---
 
 ## Traps waiting for you
 
+0. **A CAPTURED FRAME'S FILENAME IS AN ASSERTION, AND IS NOW CHECKED.** `shot()` in
+   `e2e/playtest-capture.spec.ts` takes the `data-testid` the frame must show and asserts
+   it before the screenshot. That guard exists because the set shipped a `09-ending.png`
+   showing "Battle lost" for as long as ADR-0027 had been making an unprepped party lose
+   the finale, with nothing red. When you add a frame, name the state it must be in.
 0. **`telemetry.ts` MUST KEEP ITS TYPE-ONLY IMPORTS.** That single property is the whole
    "the playtest log cannot touch the game" guarantee — after erasure there is nothing in
    it that is *able* to call the shell, the session or the sim. Adding one value import,
