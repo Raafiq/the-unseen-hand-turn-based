@@ -4,8 +4,9 @@
 
 **Input**: Feature specification from `/specs/005-conditional-job-unlocks/spec.md`
 
-> **SPIKE. The Constitution Check below FAILS. Do not implement from this plan.**
-> It was generated to exercise the Spec Kit tooling, not to authorize work.
+> ❌ **CUT — 2026-08-25, by user decision.** The Constitution Check below failed, and the
+> user's call was to cut rather than amend ADR-0001. See `spec.md` for the rationale.
+> Kept as the record of a considered rejection. **Do not implement any of it.**
 
 ## Summary
 

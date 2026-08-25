@@ -13,14 +13,15 @@ description: "Task list for 005-conditional-job-unlocks"
 unasserted numeric target is worse than an absent one. Every functional requirement here
 carries a test task.
 
-> ## ⛔ BLOCKED — do not start Phase 2
+> ## ❌ CUT — no task here will be done
 >
-> `plan.md`'s Constitution Check **failed** with two unjustified violations, and Phase 0
-> measured the spec's threshold as unreachable. **Phase 1 below is the unblocking work and
-> it is entirely non-code.** Every task from T005 on is written but must not be started.
+> The feature was **rejected on 2026-08-25** rather than unblocked: it would have added a
+> fourth axis to a customization spine locked at three, and rewarded exactly the farming
+> `docs/02` §B4 designs out. See `spec.md` for the full rationale.
 >
-> This task list is a spike artifact. It exists to show what the work would be, not to
-> authorize it.
+> All 44 tasks below are **void**. They are kept only so a future proposal can see what the
+> work would actually have cost — 9 source files, 5 test files, two save-format version
+> bumps and a migration, for one job.
 
 ## Format: `[ID] [P?] [Story] Description`
 

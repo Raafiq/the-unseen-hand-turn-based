@@ -4,9 +4,34 @@
 
 **Created**: 2026-08-25
 
-**Status**: Draft — SPIKE. Not merge-bound. Written from the stock Spec Kit template
-(modified), deliberately **skipping** the repo's house rule that a spec ports an
-existing `docs/` Acceptance-Criteria section verbatim. No source doc exists yet.
+**Status**: ❌ **CUT — 2026-08-25, by user decision.** Not deferred, not blocked: rejected.
+
+> ## Why this was cut
+>
+> It would have added a **fourth axis** to a customization spine locked at three
+> (ADR-0001: the 5-slot chassis, AP trees + mastery, hybrid/fusion jobs). The
+> constitution requires a new ADR to add one, and the feature did not earn it.
+>
+> Two independent reasons, either sufficient on its own:
+>
+> 1. **It breaks the spine.** A behaviour-gated unlock is a genuinely new progression
+>    concept. `docs/02` §B0's rule is that no feature is real until it earns a currency
+>    row, and a "Deed" row could not be told apart from a grind.
+> 2. **It rewards farming.** `docs/02` §B4 is titled *"Kill the grind, kill the
+>    exploits"*. A kill-count threshold is, by construction, a reason to farm kills —
+>    the exact shape §B4 designs out.
+>
+> A third finding made the cut easy rather than causing it: the shipped campaign fields
+> **12 enemy units in total**, so the worked example's 15-kill threshold was unreachable
+> by a unit that solo-killed the entire game (`research.md` R-3).
+>
+> **What survives.** If behaviour-gated content is wanted later, the existing
+> **hybrid/fusion** axis already expresses "you have to earn this" through job mastery
+> combinations, with no new concept and no farming incentive. That is where to put it.
+>
+> These files are kept as the record of a considered rejection, so the idea is not
+> re-proposed from scratch. **Do not implement any of it.**
+
 
 **Input**: User description: "introducing unique jobs if certain conditions are met.
 e.g bounty hunter if character has killed 15 enemies"
