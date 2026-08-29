@@ -27,6 +27,7 @@ import {
   startCampaign,
   currentBattle,
   updatePartyMember,
+  resolveBeat,
   storyBeat,
   storyEntry,
   type CampaignBattleRun,
@@ -35,6 +36,7 @@ import {
   type ContentRegistry,
   type EncounterMap,
   type Encounter,
+  type ResolvedLine,
   type StoryBeat,
   type StoryPack,
   type UnitRecord,
@@ -192,10 +194,22 @@ export class CampaignShell {
 
   // ─── the story seam (docs/11 M0 item 4, AC-M4) ────────────────────────────
   //
-  // Three lookups, no prose. Each one asks the PACK a question and hands back what it
-  // says, so swapping the data changes what a player reads with no change here — which
-  // is AC-M4's discriminator, and the only reason these are methods rather than the
-  // page reading strings out of a constant.
+  // Lookups, no prose. Each one asks the PACK a question and hands back what it says, so
+  // swapping the data changes what a player reads with no change here — which is AC-M4's
+  // discriminator, and the only reason these are methods rather than the page reading
+  // strings out of a constant.
+
+  /**
+   * A beat with its speakers and portraits already looked up (`docs/11` AC-M8).
+   *
+   * Here rather than in `game.ts` so the PAGE never holds a character table it could
+   * miss against — `src/render/CLAUDE.md`'s content-keyed-lookup rule. Returns `[]` with
+   * no pack, which is unreachable in practice (the caller only has a beat if a pack gave
+   * it one) and is still the honest answer rather than a throw.
+   */
+  resolve(beat: StoryBeat): ResolvedLine[] {
+    return this.storyPack ? resolveBeat(this.storyPack, beat) : [];
+  }
 
   /** The authored name of the pending battle's scene, or `null` if the pack has none. */
   sceneTitle(): string | null {

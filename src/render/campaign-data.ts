@@ -85,6 +85,15 @@ export const story: StoryPack = parseStoryPack(storyJson);
         `[${gaps.missing.join(", ")}], text for absent [${gaps.extra.join(", ")}]`,
     );
   }
+  // Standalone scenes are checked in ONE direction only, and that asymmetry is
+  // deliberate: a battle with no interlude is well-authored content, while a scene
+  // anchored to a battle the campaign does not play is a scene no player can ever reach.
+  if (gaps.orphanScenes.length > 0) {
+    throw new Error(
+      `story pack anchors scenes to battles this campaign does not play: ` +
+        `[${gaps.orphanScenes.join(", ")}]`,
+    );
+  }
 }
 
 /**

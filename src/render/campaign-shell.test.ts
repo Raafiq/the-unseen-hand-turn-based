@@ -19,6 +19,7 @@ import {
   serializeCampaign,
   startCampaign,
   storyCoverage,
+  STORY_SCHEMA_VERSION,
   updatePartyMember,
   type CampaignSave,
   type StoryPack,
@@ -365,6 +366,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     expect(storyCoverage(campaign.battles.map((b) => b.id), story)).toEqual({
       missing: [],
       extra: [],
+      orphanScenes: [],
     });
   });
 
@@ -391,15 +393,19 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     // path, same method calls — only the pack differs, and the text follows the pack.
     // A shell with the prose compiled in would return the shipped title for both.
     const swapped = parseStoryPack({
-      storySchemaVersion: 1,
+      // The VARIABLE, not a literal: a version bump must not silently turn this A/B into
+      // an "old packs are refused" test.
+      storySchemaVersion: STORY_SCHEMA_VERSION,
       campaignId: campaign.id,
+      characters: [{ id: "narrator", name: "Narrator" }],
       entries: campaign.battles.map((b) => ({
         battleId: b.id,
         title: `Chapter ${b.id.toUpperCase()}`,
-        pre: { speaker: "Narrator", lines: [`A different opening for ${b.id}.`] },
-        victory: { lines: [`A different ending for ${b.id}.`] },
-        defeat: { lines: [`A different failure for ${b.id}.`] },
+        pre: { lines: [{ speaker: "narrator", text: `A different opening for ${b.id}.` }] },
+        victory: { lines: [{ text: `A different ending for ${b.id}.` }] },
+        defeat: { lines: [{ text: `A different failure for ${b.id}.` }] },
       })),
+      scenes: [],
     });
 
     const shipped = shell();
@@ -417,8 +423,11 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     expect(typeof shippedTitle).toBe("string");
     expect(shipped.sceneTitle()).toBe(shippedTitle);
     expect(alternate.sceneTitle()).toBe("Chapter B1");
-    expect(alternate.preBeat()?.speaker).toBe("Narrator");
-    expect(alternate.preBeat()?.lines).toEqual(["A different opening for b1."]);
+    // Resolved THROUGH the shell, which is what proves the registry is consulted: a
+    // renderer reading the raw id would say "narrator", not "Narrator".
+    const alt = alternate.resolve(alternate.preBeat()!);
+    expect(alt.map((l) => l.who?.name)).toEqual(["Narrator"]);
+    expect(alt.map((l) => l.text)).toEqual(["A different opening for b1."]);
     // And it is the same shell class, not a second implementation.
     expect(alternate.constructor).toBe(shipped.constructor);
   });
@@ -452,7 +461,9 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     expect(won.outcomeBeat()?.lines).toEqual(
       story.entries.find((e) => e.battleId === "b1")!.victory?.lines,
     );
-    expect(lost.outcomeBeat()?.lines[0]).toContain("Back to the treeline");
+    expect(lost.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b1")!.defeat?.lines,
+    );
     expect(won.outcomeBeat()).not.toEqual(lost.outcomeBeat());
   });
 

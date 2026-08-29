@@ -34,7 +34,18 @@
 import { z } from "zod";
 
 /** Current on-disk story-pack schema version. Bump when a shape below changes. */
-export const STORY_SCHEMA_VERSION = 1;
+export const STORY_SCHEMA_VERSION = 2;
+
+/**
+ * Oldest `storySchemaVersion` this build still knows how to migrate forward.
+ *
+ * Honest on arrival: this equals the oldest version that has ever existed, so today it
+ * refuses nothing — exactly the state {@link MIN_SUPPORTED_CAMPAIGN_SCHEMA_VERSION}
+ * shipped in. It exists so the walk below has the same four branches as the roster and
+ * campaign codecs; a copy of that loop missing a branch is a copy that has silently
+ * diverged from the pattern the other three codecs teach.
+ */
+export const MIN_SUPPORTED_STORY_SCHEMA_VERSION = 1;
 
 /**
  * When a beat is shown. `pre` is the briefing, before deploy; `victory` and `defeat`
@@ -47,16 +58,87 @@ export type StoryMoment = z.infer<typeof StoryMomentSchema>;
 export const STORY_MOMENTS: readonly StoryMoment[] = ["pre", "victory", "defeat"];
 
 /**
+ * One expression of one character, as an ASSET KEY — never a path, never a URL.
+ *
+ * The engine does not know where art lives. A key is resolved by whoever owns the
+ * bundle (`src/render/campaign-data.ts`), which is what lets the Pages base path stay
+ * the bundler's problem instead of a convention every future author must remember.
+ */
+export const PortraitVariantSchema = z
+  .object({
+    expression: z.string().min(1),
+    asset: z.string().min(1),
+  })
+  .strict();
+export type PortraitVariant = z.infer<typeof PortraitVariantSchema>;
+
+/**
+ * A character's art. `asset` is what shows when a line names no expression — called
+ * `asset` and not `neutral` deliberately, because the engine does not get to imply a
+ * mood the pack did not author.
+ */
+export const PortraitSchema = z
+  .object({
+    asset: z.string().min(1),
+    variants: z.array(PortraitVariantSchema).min(1).optional(),
+  })
+  .strict()
+  .refine(
+    (p) => !p.variants || new Set(p.variants.map((v) => v.expression)).size === p.variants.length,
+    { message: "portrait expression ids must be unique", path: ["variants"] },
+  );
+export type Portrait = z.infer<typeof PortraitSchema>;
+
+/**
+ * Someone who can speak: an identity, a name plate, and optionally some art.
+ *
+ * THIS IS NOT A UNIT RECORD, and the distinction is load-bearing. `docs/08` §4 also
+ * mentions "unique-character references (which resolve to `docs/02` B6 premium chassis
+ * units)" — that is a different, unbuilt thing. `Character.id` lives in the PACK's
+ * namespace and is deliberately not joined to `pc-vance` (a campaign record id) or
+ * `blue-vance` (an encounter slot id). v1's docstring made the same promise about the
+ * old free-text `speaker` label, and it is kept: the story repo can name someone this
+ * build has never heard of, and nothing here will try to find them in a roster.
+ *
+ * No `bio` or `description`: prose with no screen to show it on is a spec with no test.
+ */
+export const CharacterSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    portrait: PortraitSchema.optional(),
+  })
+  .strict();
+export type Character = z.infer<typeof CharacterSchema>;
+
+/**
+ * One spoken or narrated line.
+ *
+ * `speaker` is a CHARACTER ID, resolved against the pack's registry at PARSE time (see
+ * {@link StoryPackSchema}). Absent means narration: no plate, no portrait. That is the
+ * whole reason attribution moved down here from the beat — one mechanism, not a
+ * `line → beat → nothing` chain whose middle rung no test can observe.
+ */
+export const StoryLineSchema = z
+  .object({
+    speaker: z.string().min(1).optional(),
+    expression: z.string().min(1).optional(),
+    text: z.string().min(1),
+  })
+  .strict();
+export type StoryLine = z.infer<typeof StoryLineSchema>;
+
+/**
  * One block of text. `lines` rather than one string because the shell renders
  * paragraphs and must not be in the business of splitting prose on newlines — a
- * presentation rule hiding in a parser. `speaker` is optional and is a plain label;
- * the engine never resolves it against a unit record, so the story repo can name
- * someone this build has never heard of.
+ * presentation rule hiding in a parser.
+ *
+ * Still an OBJECT wrapping `lines` rather than a bare array, so the next field this
+ * needs is an additive change instead of another version bump.
  */
 export const StoryBeatSchema = z
   .object({
-    speaker: z.string().min(1).optional(),
-    lines: z.array(z.string().min(1)).min(1),
+    lines: z.array(StoryLineSchema).min(1),
   })
   .strict();
 export type StoryBeat = z.infer<typeof StoryBeatSchema>;
@@ -89,22 +171,141 @@ export const StoryEntrySchema = z
 export type StoryEntry = z.infer<typeof StoryEntrySchema>;
 
 /**
+ * Where a standalone scene sits in a run.
+ *
+ * TWO anchors, and the omission is deliberate. `before-battle` covers the prologue
+ * (before the first battle) and every interlude; `campaign-end` covers the epilogue.
+ *
+ * There is no `after-battle`, for the reason `mid` is still absent below: that
+ * transition ALREADY carries an outcome-split beat (`victory`/`defeat`), so a scene
+ * there would have to branch on the outcome and on whether this was a retry, and for a
+ * player who simply continues, "after b3" and "before b4" are the same moment. The one
+ * case where they differ is quitting to the title in between. That is the stated cost,
+ * and it is smaller than a second anchor nobody can describe the rule for.
+ */
+export const SceneAnchorSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("before-battle"), battleId: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("campaign-end") }).strict(),
+]);
+export type SceneAnchor = z.infer<typeof SceneAnchorSchema>;
+
+/**
+ * A scene that belongs to no battle — a prologue, an interlude, an epilogue.
+ *
+ * Keyed by its own `id` rather than by its anchor, because the id is what the save
+ * records as seen, and an anchor can move while the scene stays the same scene.
+ */
+export const StorySceneSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1).optional(),
+    at: SceneAnchorSchema,
+    beat: StoryBeatSchema,
+  })
+  .strict();
+export type StoryScene = z.infer<typeof StorySceneSchema>;
+
+/** Every place a beat can hide in a pack. One walker, so a refinement cannot skip one. */
+function* eachBeat(p: {
+  entries: readonly StoryEntry[];
+  scenes: readonly StoryScene[];
+}): Generator<StoryBeat> {
+  for (const entry of p.entries) {
+    for (const moment of STORY_MOMENTS) {
+      const beat = entry[moment];
+      if (beat) yield beat;
+    }
+  }
+  for (const scene of p.scenes) yield scene.beat;
+}
+
+/** The anchor as a comparable string, so "one scene per anchor" is a set check. */
+function anchorKey(at: SceneAnchor): string {
+  return at.kind === "before-battle" ? `before-battle:${at.battleId}` : "campaign-end";
+}
+
+/**
  * A story pack: every beat for one campaign. `campaignId` is checked by the caller
  * against the campaign it is paired with, the same way a save is — a pack authored for
  * a different campaign whose battle ids happen to collide would otherwise load cleanly
  * and narrate the wrong story.
+ *
+ * EVERY REFERENCE RESOLVES HERE, AT PARSE TIME. A pack naming a speaker or an
+ * expression that does not exist does not parse. That is what lets the render layer
+ * hold no character lookup at all — and `src/render/CLAUDE.md` records why that
+ * matters: a content-keyed lookup with a fallback cannot tell "no entry" from "no
+ * match", and the last one painted every unit in the shipped game the same colour with
+ * 720 tests green. The fix is not a better fallback; it is having nothing to fall back
+ * from.
  */
 export const StoryPackSchema = z
   .object({
     storySchemaVersion: z.number().int(),
     campaignId: z.string().min(1),
+    /**
+     * An array, not a record. A duplicate id in an object literal silently keeps the
+     * last one; an array lets the check below say so out loud — the same reasoning
+     * `CampaignDefSchema` uses for its party/cast id uniqueness refinement.
+     */
+    characters: z.array(CharacterSchema),
     entries: z.array(StoryEntrySchema),
+    scenes: z.array(StorySceneSchema),
   })
   .strict()
-  .refine((p) => new Set(p.entries.map((e) => e.battleId)).size === p.entries.length, {
-    // A duplicate would shadow one entry in the lookup map and quietly drop a scene.
-    message: "story entry battleIds must be unique",
-    path: ["entries"],
+  .superRefine((p, ctx) => {
+    const dup = (n: string, path: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: n, path: [path] });
+
+    // A duplicate would shadow one entry in the lookup and quietly drop a scene.
+    if (new Set(p.entries.map((e) => e.battleId)).size !== p.entries.length) {
+      dup("story entry battleIds must be unique", "entries");
+    }
+    if (new Set(p.characters.map((c) => c.id)).size !== p.characters.length) {
+      dup("character ids must be unique", "characters");
+    }
+    if (new Set(p.scenes.map((s) => s.id)).size !== p.scenes.length) {
+      dup("scene ids must be unique", "scenes");
+    }
+    // At most one scene per anchor, so the shell never needs a scene QUEUE: one scene
+    // holds a whole conversation, and "which of the two plays first" is a rule nobody
+    // has written down.
+    if (new Set(p.scenes.map((s) => anchorKey(s.at))).size !== p.scenes.length) {
+      dup("at most one scene may be anchored at each point", "scenes");
+    }
+
+    const byId = new Map(p.characters.map((c) => [c.id, c]));
+    for (const beat of eachBeat(p)) {
+      for (const line of beat.lines) {
+        if (line.expression !== undefined && line.speaker === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `a line names expression '${line.expression}' with no speaker`,
+            path: ["entries"],
+          });
+          continue;
+        }
+        if (line.speaker === undefined) continue;
+        const who = byId.get(line.speaker);
+        if (!who) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `a line names speaker '${line.speaker}', which is not in characters`,
+            path: ["characters"],
+          });
+          continue;
+        }
+        if (line.expression === undefined) continue;
+        const has = who.portrait?.variants?.some((v) => v.expression === line.expression);
+        if (!has) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              `'${who.id}' has no portrait variant '${line.expression}'`,
+            path: ["characters"],
+          });
+        }
+      }
+    }
   });
 export type StoryPack = z.infer<typeof StoryPackSchema>;
 
@@ -120,31 +321,181 @@ export class StorySchemaVersionError extends Error {
 export type StoryMigration = (pack: Record<string, unknown>) => Record<string, unknown>;
 
 /**
- * Migration registry: `STORY_MIGRATIONS[v]` upgrades a pack from version `v` to `v + 1`.
- * Empty at v1 (no prior versions); every future bump registers here — the
- * migration-per-bump pattern the campaign, roster, content and battle codecs use.
+ * v1 → v2: attribution moves from the beat down onto each line, and the speaker labels
+ * v1 wrote as free text become the pack's character registry.
+ *
+ * Every choice here is the conservative one, and each is conservative for a reason:
+ *
+ * - **The id is the v1 label, VERBATIM.** No slugify, no case-folding. The identity
+ *   function cannot invent a naming convention the engine then owns forever, and it
+ *   introduces no collision failure mode ("Vance" vs "vance") that a migration would
+ *   have to resolve silently.
+ * - **The speaker is pushed onto EVERY line**, not kept as a beat-level default. One
+ *   attribution mechanism. The v1 *look* is preserved by the renderer collapsing
+ *   consecutive same-speaker lines into one plate — which is the property the migration
+ *   test asserts, rather than "the fields look similar".
+ * - **`scenes: []`**, not a back-filled scene. A v1 pack authored no standalone scenes,
+ *   and inventing one hands the reader content nobody wrote (the same reasoning
+ *   `migrateCampaign2to3` gives for an empty inventory).
+ * - **No `portrait` key.** A v1 pack has no art; asserting a placeholder would be the
+ *   engine authoring content. Absent, not zero.
+ *
+ * Defensive on shape throughout: an unrecognised value is passed through UNTOUCHED, so
+ * a malformed v1 pack fails as a Zod error naming the offending field rather than as a
+ * `TypeError` thrown from inside the migration, where the message would name this file
+ * instead of the data.
  */
-export const STORY_MIGRATIONS: Readonly<Record<number, StoryMigration>> = {};
+const migrateStory1to2: StoryMigration = (pack) => {
+  const labels: string[] = [];
+
+  const line = (raw: unknown, speaker: unknown): unknown => {
+    if (typeof raw !== "string") return raw;
+    return typeof speaker === "string" && speaker.length > 0 ? { speaker, text: raw } : { text: raw };
+  };
+
+  const beat = (raw: unknown): unknown => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+    const b = raw as Record<string, unknown>;
+    if (!Array.isArray(b["lines"])) return raw;
+    const speaker = b["speaker"];
+    if (typeof speaker === "string" && speaker.length > 0 && !labels.includes(speaker)) {
+      labels.push(speaker); // first-appearance order, so the registry reads like the story
+    }
+    return { lines: b["lines"].map((l) => line(l, speaker)) };
+  };
+
+  const entries = Array.isArray(pack["entries"])
+    ? pack["entries"].map((raw) => {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+        const e = { ...(raw as Record<string, unknown>) };
+        for (const moment of STORY_MOMENTS) {
+          if (e[moment] !== undefined) e[moment] = beat(e[moment]);
+        }
+        return e;
+      })
+    : pack["entries"];
+
+  return {
+    ...pack,
+    storySchemaVersion: 2,
+    entries,
+    characters: labels.map((l) => ({ id: l, name: l })),
+    scenes: [],
+  };
+};
 
 /**
- * Parse + validate an authored story pack. Loud fail on a missing or unsupported
- * version, mirroring {@link parseCampaign} — a story pack that loaded PARTIALLY would
+ * Migration registry: `STORY_MIGRATIONS[v]` upgrades a pack from version `v` to `v + 1`.
+ * The migration-per-bump pattern the campaign, roster, content and battle codecs use.
+ */
+export const STORY_MIGRATIONS: Readonly<Record<number, StoryMigration>> = {
+  1: migrateStory1to2,
+};
+
+/**
+ * Parse + validate an authored story pack, migrating an older one forward first. Loud
+ * fail on a missing or unsupported version — a story pack that loaded PARTIALLY would
  * put half a scene on screen and look like an authoring gap.
+ *
+ * DELIBERATE DIVERGENCE FROM `parseCampaign`, which is exact-match and leaves migration
+ * to `deserializeCampaign`. A campaign definition lives in THIS repo, so an old one is
+ * a mistake. A story pack is contracted to arrive from a separate repo on its own
+ * release cadence (`docs/08` §4, `docs/11` AC-M4), so refusing an older-but-migratable
+ * pack would break the "no engine change needed" promise in the other direction: the
+ * story repo would have to ship in lockstep with this one. Hence the walk lives here.
  */
 export function parseStoryPack(pack: unknown): StoryPack {
   if (typeof pack !== "object" || pack === null || Array.isArray(pack)) {
     throw new StorySchemaVersionError("a story pack must be a JSON object");
   }
-  const version = (pack as Record<string, unknown>)["storySchemaVersion"];
+  let obj = pack as Record<string, unknown>;
+  const version = obj["storySchemaVersion"];
   if (typeof version !== "number" || !Number.isInteger(version)) {
     throw new StorySchemaVersionError("story pack is missing an integer storySchemaVersion");
   }
-  if (version !== STORY_SCHEMA_VERSION) {
+  if (version > STORY_SCHEMA_VERSION) {
     throw new StorySchemaVersionError(
-      `story schemaVersion ${version} is not supported by this build (${STORY_SCHEMA_VERSION})`,
+      `story schemaVersion ${version} is newer than this build supports ` +
+        `(${STORY_SCHEMA_VERSION}); update the game`,
     );
   }
-  return StoryPackSchema.parse(pack);
+  if (version < MIN_SUPPORTED_STORY_SCHEMA_VERSION) {
+    throw new StorySchemaVersionError(
+      `story schemaVersion ${version} is older than the minimum supported ` +
+        `(${MIN_SUPPORTED_STORY_SCHEMA_VERSION})`,
+    );
+  }
+  for (let v = version; v < STORY_SCHEMA_VERSION; v++) {
+    const migrate = STORY_MIGRATIONS[v];
+    if (!migrate) {
+      // Unreachable while the registry is dense. It is the tripwire for the day someone
+      // bumps STORY_SCHEMA_VERSION and forgets to register the migration.
+      throw new StorySchemaVersionError(
+        `no story migration registered from schemaVersion ${v} to ${v + 1}`,
+      );
+    }
+    obj = migrate(obj);
+  }
+  // Validate AFTER migrating: a migration that produces a bad shape must fail here, not
+  // be trusted because its input parsed.
+  return StoryPackSchema.parse(obj);
+}
+
+/**
+ * One line, with everything the renderer needs already looked up.
+ *
+ * `who: Character | null` and `portrait: string | null` are NULLABLE, not optional, on
+ * purpose. `exactOptionalPropertyTypes` is on, and an absent key would let the render
+ * layer treat "narration" and "we could not find them" as the same shape — which is the
+ * ambiguity {@link StoryPackSchema} exists to make unrepresentable. `null` here means
+ * narration, and nothing else, because a missing character cannot survive the parse.
+ */
+export interface ResolvedLine {
+  text: string;
+  /** `null` = narration. Never "a character we failed to find". */
+  who: Character | null;
+  /** The asset key to show, already chosen. `null` = this character authored no art. */
+  portrait: string | null;
+}
+
+/**
+ * Resolve a beat's speakers and portraits against the pack.
+ *
+ * This is the ONLY place a character id is looked up, and it lives in the sim rather
+ * than the render layer so the page never holds a keyed table it could miss against.
+ * There is no fallback branch because there is no miss to fall back from: the parse
+ * already rejected any unresolvable reference.
+ */
+export function resolveBeat(pack: StoryPack, beat: StoryBeat): ResolvedLine[] {
+  const byId = new Map(pack.characters.map((c) => [c.id, c]));
+  return beat.lines.map((line) => {
+    const who = line.speaker === undefined ? null : (byId.get(line.speaker) ?? null);
+    const portrait =
+      who?.portrait === undefined
+        ? null
+        : line.expression === undefined
+          ? who.portrait.asset
+          : (who.portrait.variants?.find((v) => v.expression === line.expression)?.asset ??
+            who.portrait.asset);
+    return { text: line.text, who, portrait };
+  });
+}
+
+/** The scene anchored at a point, or `null`. At most one can exist (enforced at parse). */
+export function sceneAt(pack: StoryPack, at: SceneAnchor): StoryScene | null {
+  const key = anchorKey(at);
+  return pack.scenes.find((s) => anchorKey(s.at) === key) ?? null;
+}
+
+/** Every asset key the pack names, so a bundle can be checked against it. */
+export function portraitAssets(pack: StoryPack): string[] {
+  const keys = new Set<string>();
+  for (const c of pack.characters) {
+    if (!c.portrait) continue;
+    keys.add(c.portrait.asset);
+    for (const v of c.portrait.variants ?? []) keys.add(v.asset);
+  }
+  return [...keys].sort();
 }
 
 /**
@@ -182,11 +533,23 @@ export function storyEntry(pack: StoryPack, battleId: string): StoryEntry | null
 export function storyCoverage(
   battleIds: readonly string[],
   pack: StoryPack,
-): { missing: string[]; extra: string[] } {
+): { missing: string[]; extra: string[]; orphanScenes: string[] } {
   const authored = new Set(pack.entries.map((e) => e.battleId));
   const played = new Set(battleIds);
   return {
     missing: battleIds.filter((id) => !authored.has(id)),
     extra: pack.entries.map((e) => e.battleId).filter((id) => !played.has(id)),
+    // ASYMMETRIC, and the asymmetry is the point. An entry per battle is the pack's
+    // contract, so both directions are errors. An interlude per battle is NOT a
+    // contract — a campaign with scenes before only two of five battles is perfectly
+    // well authored — so only the orphan direction exists here. A battle with no scene
+    // is deliberately not reported.
+    //
+    // One function rather than a second `sceneCoverage()`, because a second function is
+    // one the boot check can forget to call, which is exactly the one-direction gap
+    // this partition was written against.
+    orphanScenes: pack.scenes
+      .filter((s) => s.at.kind === "before-battle" && !played.has(s.at.battleId))
+      .map((s) => s.id),
   };
 }

@@ -168,16 +168,24 @@ function renderStory(id: string, beat: StoryBeat | null): void {
   box.hidden = beat === null;
   box.textContent = "";
   if (!beat) return;
-  if (beat.speaker !== undefined) {
-    const who = document.createElement("p");
-    who.className = "who";
-    who.textContent = beat.speaker;
-    box.append(who);
-  }
-  for (const line of beat.lines) {
+  // Consecutive lines by the same speaker share ONE name plate. That is what makes a
+  // migrated v1 beat (one speaker, several lines) render byte-identically to what v1
+  // drew — the schema's attribution moved, the page's appearance did not.
+  let plated: string | null = null;
+  for (const line of shell.resolve(beat)) {
+    const name = line.who?.name ?? null;
+    if (name !== null && name !== plated) {
+      const who = document.createElement("p");
+      who.className = "who";
+      who.textContent = name;
+      box.append(who);
+    }
+    // Narration resets the plate, so the next line by the same character is re-attributed
+    // rather than reading as if the narrator said it.
+    plated = name;
     const p = document.createElement("p");
     p.className = "line";
-    p.textContent = line;
+    p.textContent = line.text;
     box.append(p);
   }
 }
