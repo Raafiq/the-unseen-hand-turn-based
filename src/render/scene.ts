@@ -149,6 +149,14 @@ export interface SceneHandle {
 
 export interface SceneOptions {
   /**
+   * Asset key → URL. Passed IN rather than imported, so this module holds no content
+   * table it could miss against — `src/render/CLAUDE.md`'s rule, learned from a
+   * content-keyed lookup with a fallback that painted every unit in the shipped game the
+   * same colour with 720 tests green. The page that owns the content owns the mapping,
+   * and `campaign-data.ts` asserts at boot that it agrees with the pack both ways.
+   */
+  portraits?: Readonly<Record<string, string>>;
+  /**
    * Called with a telemetry action name when the player advances or skips. Passed in
    * rather than read from a module, so this file keeps no dependency on the recorder.
    */
@@ -178,6 +186,14 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
 
   host.textContent = "";
 
+  const wrap = make("div", "scene-body");
+  // The portrait frame. Rendered per SPEAKER RUN — it follows the plate, so a scene
+  // where two people talk shows each of them in turn.
+  const figure = document.createElement("figure");
+  figure.className = "portrait";
+  figure.dataset["testid"] = `${id}-portrait`;
+  wrap.append(figure);
+
   const lineBox = make("div", "scene-lines", `${id}-lines`);
   // A REAL id, not just a test id: `aria-controls` below names it, and an
   // aria-controls pointing at nothing is a critical axe violation — which is how this
@@ -191,7 +207,8 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   lineBox.setAttribute("role", "log");
   lineBox.setAttribute("aria-live", "polite");
   lineBox.setAttribute("aria-relevant", "additions");
-  host.append(lineBox);
+  wrap.append(lineBox);
+  host.append(wrap);
 
   const controls = make("div", "scene-controls");
   const moreButton = make("button", "ghost", `${id}-more`);
@@ -209,6 +226,46 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   controls.append(moreButton, allButton, progress);
   host.append(controls);
 
+  /**
+   * Paint the portrait for the speaker currently holding the floor.
+   *
+   * THREE states, and the middle one is why this is not a boolean. A resolved asset
+   * draws an `<img>`; the shipped placeholder additionally draws a real `<figcaption>`
+   * saying so, because text inside an SVG is neither announced by a screen reader nor
+   * measurable by `contrast.spec.ts`. Narration, or a character the pack authored no
+   * art for, draws NOTHING and hides the frame — absent, never an empty box.
+   *
+   * The caption is keyed on the ASSET KEY, so it disappears by itself the day the pack
+   * names real art instead of `placeholder`. Nothing has to remember to remove it.
+   */
+  const paintPortrait = (key: string | null): void => {
+    const url = key === null ? undefined : opts.portraits?.[key];
+    figure.textContent = "";
+    if (url === undefined) {
+      // `state="none"` rather than the `hidden` attribute. Hiding the element outright
+      // collapsed the grid column, so the whole text block JUMPED LEFT the moment a
+      // scene reached a narration line — found by opening the captured frame, which no
+      // assertion in the suite could see. The frame now holds its space and only its
+      // contents go, so nothing reflows mid-read.
+      figure.dataset["state"] = "none";
+      return;
+    }
+    figure.dataset["state"] = key === "placeholder" ? "pending" : "art";
+    const img = document.createElement("img");
+    img.src = url;
+    // Empty alt + aria-hidden: the speaker's name is already announced by the plate
+    // inside the live region, and an alt repeating it would double-announce.
+    img.alt = "";
+    img.setAttribute("aria-hidden", "true");
+    figure.append(img);
+    if (key === "placeholder") {
+      const cap = document.createElement("figcaption");
+      cap.className = "pending";
+      cap.textContent = "Portrait pending";
+      figure.append(cap);
+    }
+  };
+
   let model: SceneModel | null = null;
   let key: string | null = null;
   /** The plate currently at the bottom of the box, so an APPEND knows whether to add one. */
@@ -224,6 +281,8 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
         lineBox.append(plate);
       }
       openPlate = who;
+      // The frame follows the floor: whoever spoke last is who is shown.
+      paintPortrait(line.who === null ? null : line.portrait);
       const p = document.createElement("p");
       p.className = "line";
       // `textContent`, never `innerHTML` — story text is CONTENT from a data file, and
@@ -279,6 +338,10 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
       model = new SceneModel(lines);
       lineBox.textContent = "";
       openPlate = null;
+      // A beat with no art anywhere gets no gutter at all — reserving a column for a
+      // portrait that can never appear is dead space, not stability.
+      wrap.dataset["art"] = lines.some((l) => l.portrait !== null) ? "yes" : "no";
+      paintPortrait(null);
       appendLines(lines.slice(0, model.revealed));
       paintControls();
     },

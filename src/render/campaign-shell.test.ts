@@ -19,12 +19,15 @@ import {
   serializeCampaign,
   startCampaign,
   storyCoverage,
+  portraitAssets,
+  portraitCoverage,
+  resolveBeat,
   STORY_SCHEMA_VERSION,
   updatePartyMember,
   type CampaignSave,
   type StoryPack,
 } from "../sim/index.js";
-import { ENCOUNTERS, campaign, registry, story } from "./campaign-data.js";
+import { ENCOUNTERS, PORTRAITS, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell } from "./campaign-shell.js";
 import { OPTIMIZER } from "./playtest.js";
 import { PrepModel } from "./prep.js";
@@ -752,5 +755,31 @@ describe("AC-V17: a standalone scene is a screen, and it is seen once", () => {
     forfeit(s);
     s.concludeBattle();
     expect(s.screen).toBe("AFTER_BATTLE");
+  });
+});
+
+describe("AC-M9: the shipped portraits are honest about not existing yet", () => {
+  it("TRIPWIRE — the shipped pack still uses the PLACEHOLDER. Delete this when real art lands.", () => {
+    // Deliberately fails the day a character names anything else, so the docs, ADR-0029
+    // and the "Portrait pending" caption are forced to move with the art instead of
+    // being left behind saying something that stopped being true.
+    expect(portraitAssets(story)).toEqual(["placeholder"]);
+    expect(Object.keys(PORTRAITS)).toEqual(["placeholder"]);
+  });
+
+  it("the bundle and the pack agree in BOTH directions", () => {
+    expect(portraitCoverage(story, Object.keys(PORTRAITS))).toEqual({ missing: [], extra: [] });
+  });
+
+  it("DISCRIMINATING: the pack ships BOTH portrait states, so the A/B is possible at all", () => {
+    // A page where every line has a portrait cannot demonstrate that an unauthored one
+    // reads as absent — both branches have to exist in shipped content or the browser
+    // A/B is measuring one case twice. The prologue is the fixture: characters speak,
+    // and it closes on a narration line that has no speaker and therefore no portrait.
+    const prologue = story.scenes.find((s) => s.id === "sc-prologue");
+    expect(prologue).toBeDefined();
+    const lines = resolveBeat(story, prologue!.beat);
+    expect(lines.some((l) => l.portrait !== null)).toBe(true);
+    expect(lines.some((l) => l.who === null && l.portrait === null)).toBe(true);
   });
 });

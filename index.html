@@ -343,6 +343,29 @@
          the controls below are new. NO motion here on purpose — the reveal is
          input-driven, so there is no transition, no keyframe and nothing for
          prefers-reduced-motion to turn off. See src/render/scene.ts. */
+      .scene-body { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
+      /* A beat with no art at all gets no gutter; a beat that HAS art keeps the column
+         even on its narration lines, so the text never jumps mid-read. */
+      .scene-body[data-art="no"] { grid-template-columns: 1fr; }
+      .scene-body[data-art="no"] > .portrait { display: none; }
+      .portrait[data-state="none"] { visibility: hidden; }
+      /* The frame is sized in the stylesheet, not by the asset, so real art dropped in
+         later inherits the layout instead of dictating it. */
+      .portrait { margin: 0; width: 96px; flex: none;
+                  border: 1px solid var(--border-strong);
+                  box-shadow: inset 0 0 0 2px rgba(234,218,174,.3); }
+      .portrait img { display: block; width: 100%; height: auto; }
+      /* Real DOM text, deliberately: the same words are drawn inside the SVG, but text
+         in an SVG is neither announced by a screen reader nor measurable by
+         contrast.spec.ts. This caption is keyed on the asset being the placeholder, so
+         it disappears by itself the day the pack names real art. */
+      .portrait figcaption.pending { font-family: var(--roman); font-size: .52rem;
+                  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+                  text-align: center; padding: 5px 3px; border-top: 1px solid var(--border); }
+      @media (max-width: 620px) {
+        .scene-body { grid-template-columns: 1fr; }
+        .portrait { width: 76px; }
+      }
       .scene-lines { border-left: 2px solid var(--accent); padding: 2px 0 2px 18px; }
       .scene-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
       .scene-controls button { font-size: .68rem; padding: 8px 14px 8px 24px; }

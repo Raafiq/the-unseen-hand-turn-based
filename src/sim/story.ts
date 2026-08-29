@@ -487,6 +487,30 @@ export function sceneAt(pack: StoryPack, at: SceneAnchor): StoryScene | null {
   return pack.scenes.find((s) => anchorKey(s.at) === key) ?? null;
 }
 
+/**
+ * Which asset keys the pack and the bundle disagree about.
+ *
+ * BOTH directions, and each catches a different real mistake. `missing` is a key the
+ * pack names with no bundled asset behind it — a typo, or a forgotten import line, which
+ * is exactly the failure mode the hand-written encounter imports already guard against.
+ * `extra` is art that shipped and is wired to nothing, which reads as done and is not.
+ *
+ * Returned rather than thrown, like {@link storyCoverage}: a half-wired pack is a
+ * reasonable thing to hold mid-authoring, and judging it belongs to the caller.
+ */
+export function portraitCoverage(
+  pack: StoryPack,
+  assetKeys: readonly string[],
+): { missing: string[]; extra: string[] } {
+  const named = portraitAssets(pack);
+  const bundled = new Set(assetKeys);
+  const namedSet = new Set(named);
+  return {
+    missing: named.filter((k) => !bundled.has(k)),
+    extra: [...assetKeys].filter((k) => !namedSet.has(k)).sort(),
+  };
+}
+
 /** Every asset key the pack names, so a bundle can be checked against it. */
 export function portraitAssets(pack: StoryPack): string[] {
   const keys = new Set<string>();

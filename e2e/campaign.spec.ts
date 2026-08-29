@@ -731,3 +731,43 @@ test("AC-V16: there is no motion to reduce", async ({ page }) => {
     await context.close();
   }
 });
+
+test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as absent", async ({
+  page,
+}) => {
+  // THE A/B IS ON THE BUILT OUTPUT, not on the input. This repo shipped a support slot
+  // that type-checked its ability, rejected unlearned ones, enforced the chassis rules —
+  // and was ignored by the builder, so nine of fourteen builds wore a dead slot for two
+  // slices. A model test showing `portrait: "placeholder"` comes back would read exactly
+  // the same whether or not anything draws it.
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-scene")).toBeVisible();
+
+  const figure = page.getByTestId("scene-story-portrait");
+  const img = figure.locator("img");
+
+  // Branch one — a character the pack gives art to.
+  await expect(figure).toBeVisible();
+  await expect(figure).toHaveAttribute("data-state", "pending");
+  await expect(img).toHaveCount(1);
+  // naturalWidth is the load-bearing assertion and the only one that can fail when the
+  // renderer puts the asset KEY in src, when the URL is wrong for the base path, or when
+  // the file never reached dist. "An img exists" is satisfied by a broken image.
+  expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+  // Either form is correct: the placeholder is 1.2 KB, under Vite's 4 KB inline limit,
+  // so it ships as a data: URI rather than a hashed file. Pinning one form would flake
+  // the day the art grows past the limit.
+  const src = await img.getAttribute("src");
+  expect(src === null ? "" : src).toMatch(/^(data:|\/|https?:)/);
+
+  // The caption is REAL DOM TEXT, not just words drawn inside the SVG — which is what
+  // makes it announceable and measurable for contrast.
+  await expect(figure.locator("figcaption")).toHaveText("Portrait pending");
+
+  // Branch two — the same page, same renderer, a line with no speaker. The prologue
+  // closes on narration, so reading to the end reaches it.
+  await page.getByTestId("scene-story-all").click();
+  await expect(figure).toBeHidden();
+  await expect(img).toHaveCount(0);
+});

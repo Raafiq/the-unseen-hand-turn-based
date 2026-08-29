@@ -4,19 +4,31 @@
   "characters": [
     {
       "id": "vance",
-      "name": "Vance"
+      "name": "Vance",
+      "portrait": {
+        "asset": "placeholder"
+      }
     },
     {
       "id": "kest",
-      "name": "Kest"
+      "name": "Kest",
+      "portrait": {
+        "asset": "placeholder"
+      }
     },
     {
       "id": "briar",
-      "name": "Briar"
+      "name": "Briar",
+      "portrait": {
+        "asset": "placeholder"
+      }
     },
     {
       "id": "ottoline",
-      "name": "Ottoline"
+      "name": "Ottoline",
+      "portrait": {
+        "asset": "placeholder"
+      }
     }
   ],
   "entries": [

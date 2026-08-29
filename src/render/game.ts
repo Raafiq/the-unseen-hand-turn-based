@@ -14,7 +14,7 @@
  */
 
 import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
-import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
+import { ENCOUNTERS, PORTRAITS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
@@ -178,6 +178,7 @@ function renderStory(id: string, key: string, beat: StoryBeat | null): void {
   let handle = scenes.get(id);
   if (!handle) {
     handle = mountScene(el(id), {
+      portraits: PORTRAITS,
       onAction: (action) => {
         telemetry.action(shell.screen, action);
       },

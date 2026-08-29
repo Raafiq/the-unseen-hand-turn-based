@@ -5,6 +5,7 @@ import {
   StorySchemaVersionError,
   parseStoryPack,
   portraitAssets,
+  portraitCoverage,
   resolveBeat,
   sceneAt,
   storyBeat,
@@ -416,5 +417,47 @@ describe("coverage is a TWO-direction partition, plus a ONE-direction scene chec
       }),
     );
     expect(storyCoverage(["b1", "b2"], ending).orphanScenes).toEqual([]);
+  });
+});
+
+describe("AC-M9: the pack and the bundle must agree about art, in both directions", () => {
+  const withArt = (variants?: unknown) =>
+    parseStoryPack(
+      pack({
+        characters: [
+          {
+            id: "kest",
+            name: "Kest",
+            portrait: { asset: "kest", ...(variants ? { variants } : {}) },
+          },
+        ],
+        entries: [{ battleId: "b1", pre: { lines: [{ speaker: "kest", text: "hm" }] } }],
+      }),
+    );
+
+  it("clean when every named key is bundled and nothing is spare", () => {
+    expect(portraitCoverage(withArt(), ["kest"])).toEqual({ missing: [], extra: [] });
+  });
+
+  it("DISCRIMINATING: reports a named key with NO asset — a typo or a forgotten import", () => {
+    expect(portraitCoverage(withArt(), []).missing).toEqual(["kest"]);
+  });
+
+  it("DISCRIMINATING: reports art that shipped and is WIRED TO NOTHING", () => {
+    // The direction a `missing`-only check cannot see. Art in the bundle that no
+    // character names reads as done and is not — the same failure a stale story entry is.
+    expect(portraitCoverage(withArt(), ["kest", "orphan"]).extra).toEqual(["orphan"]);
+  });
+
+  it("counts variant assets, not just the base one", () => {
+    // A coverage check reading only `portrait.asset` would let a whole expression sheet
+    // go unbundled while reporting clean.
+    const p = withArt([{ expression: "grim", asset: "kest-grim" }]);
+    expect(portraitCoverage(p, ["kest"]).missing).toEqual(["kest-grim"]);
+  });
+
+  it("a pack with no art at all names nothing", () => {
+    expect(portraitAssets(parseStoryPack(pack()))).toEqual([]);
+    expect(portraitCoverage(parseStoryPack(pack()), []).missing).toEqual([]);
   });
 });

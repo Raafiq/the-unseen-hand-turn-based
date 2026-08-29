@@ -399,6 +399,7 @@ export {
   resolveBeat,
   sceneAt,
   portraitAssets,
+  portraitCoverage,
   storyBeat,
   storyEntry,
   storyCoverage,
