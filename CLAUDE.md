@@ -6,7 +6,9 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 28 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026).
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 39 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+campaign page is set on **parchment** and its text contrast is measured, not eyeballed
+(ADR-0028, `docs/10` AC-V15).
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 
@@ -70,6 +72,13 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 
 - **Diff the ROWS, not the summary.** An invariant aggregate cannot tell "not wired" from "wired but not decisive". The reaction-slot A/B reported pass, variety count and in-band tallies **byte-identical** with effects stripped — which is exactly what a dead slot looks like — while 13 of 96 gauntlet rows had moved. Diff at the resolution the change acts on, then say which of the two answers you got.
 - **A loop over a PROXY set encodes an invariant nobody wrote down.** The gate's self-maintaining "dropping one build costs one identity" sweep silently assumed one credited build per identity, and went red the day a second carrier landed. Loop over **the quantity the assertion is about**, and assert the proxy set is the same size.
+- **A CHECKER THAT DECLINES TO CHECK STILL REPORTS PASS.** axe-core refuses to judge
+  contrast over a background it cannot flatten — and reports the refusal as
+  `incomplete`, not as a violation. On the parchment briefing screen it evaluated **2
+  nodes, filed 106 as incomplete, and returned zero violations**: a green identical to
+  the one an unreadable page produces. Reading a tool's summary is not reading its
+  coverage. **Ask any analyzer how many things it actually looked at**, assert that
+  number, and disable the rule it cannot honour rather than banking its green.
 - **A non-monotonic sweep is a SIGNAL, not noise — never read a value off one.** Counts of 5, 2, 4, 3 at adjacent steps meant the system was straddling a **discontinuity** (integer time-to-kill crossing 1), not that the best step was best. Picking the local maximum calibrates to the metric and freezes on a knife-edge. **Find the plateau** — the plateau is evidence you fixed a mechanism rather than moved a number. **Perturb the BASELINE too:** a build two handoffs called sub-viable was straddling a discontinuity, so the recorded diagnosis of why it failed was wrong, twice.
 - **When a metric collapses, check the REGIME before blaming the last change.** ADR-0015's move+act fold dropped the diversity count 6 → 1 and got blamed; it had merely removed the slack hiding the TTK violation above, and the follow-up slice scoped from that diagnosis was **unmeasurable as written**. The last thing that changed is the trigger, not necessarily the cause. **Trace one actual run before committing a diagnosis.**
 
@@ -147,6 +156,11 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
 - **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** The harness forbids opening a PR unasked, so the human often opens it — and GitHub fills the body from the head commit message: hard-wrapped, no headings, trailers leaked. If you did not open the PR, find it and **replace an auto-filled body** (auto-filled iff it equals the head commit message) with: lede, review-artifact link, a `Claim / the bug it hides / caught by` evidence table, what is deliberately **not** asserted, the checks (cf. PR #35, #36). Re-fetch the stored body to confirm nothing mangled. No hook can catch this.
 - **Visual proof in a PR.** Commit frames/video under `docs/visual/<slice>/` and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>`; re-fetch afterwards to check for mangling. Do **not** embed images in API-posted comments (that path corrupts URLs and comments cannot be edited by the tooling). For motion: a filmstrip contact-sheet PNG (ffmpeg `fps=N,scale,tile`) plus an H.264 `run.mp4` and GIF (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static`). Playable video lives on the Pages gallery after merge.
   - **[STALE — the repo has been PUBLIC since 2026-08-09]** The old mobile findings were private-repo-specific: `raw.githubusercontent.com` now returns **200**, and the claim that the GitHub mobile app inlines no image and plays no committed video is now an **unverified hypothesis**. Re-measure on-device before relying on it; don't delete it until something replaces it.
+- **For a TASTE change, get a reference before you build.** The parchment slice was
+  rebuilt twice from scratch — "too bright", then "too dark" — before the user sent one
+  image, which settled it in a single pass. Aesthetic direction is not derivable from a
+  description, and each blind iteration costs a full rebuild. Ask for a reference, or
+  put 2–3 real options in front of them, before writing the stylesheet.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.

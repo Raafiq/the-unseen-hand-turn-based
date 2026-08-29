@@ -1,4 +1,4 @@
-<!-- written-against: d957e068c07ae2c4b5c4d9d21fd110103c00a24e-->
+<!-- written-against: adf16eb709f0067f9098996ba3351f187fa48086-->
 
 # NEXT — the handoff a machine can't derive
 
@@ -13,6 +13,11 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 ---
 
 ## THE NEXT SLICE — a person plays it
+
+> **Unchanged by the 2026-08-29 restyle, and worth saying plainly: a prettier screen is
+> not onboarding evidence.** The parchment slice measured that the text is *legible*.
+> Whether the five-slot chassis is *understandable* is the same open question it was
+> before, and the same green suite would show either way.
 
 **Nothing in this repo can settle what is now the top open question, and no code change
 should be started before it.** The synthetic playtest finished 2026-08-25. It did the
@@ -51,6 +56,52 @@ reads the log.
   what is missing will be obvious after one paste and is guesswork before it.
 - Do not treat the green suite as onboarding evidence. `docs/11` AC-M6 asserts the help
   panel's CLAIMS are deliverable. It says nothing about whether the game reads on its own.
+
+---
+
+## LANDED 2026-08-29 — the campaign is on parchment, and contrast is measured
+
+`index.html` only. Aged parchment sheets on a dark table: golden-tan wash, fine grain,
+staining held to the margins, a scorched rim and a double gold rule inside it. Three
+faces — Grenze Gotisch for names, Cinzel small-caps for labels, EB Garamond for prose —
+**self-hosted**, five woff2 subsets, 104 KB in `public/fonts/`. Primary actions are a
+wax-seal red. **The battle board stays dark**; its two side panels are parchment.
+`viewer.html` keeps its instrument look. Full rationale in **ADR-0028**.
+
+**The load-bearing half is the instrument, not the look.** Two new browser specs:
+
+| Spec | Carries | Does NOT carry |
+|---|---|---|
+| `e2e/a11y.spec.ts` | axe-core over five screens: names, ARIA, labels, focus | contrast — the rule is **explicitly disabled** |
+| `e2e/contrast.spec.ts` | WCAG AA against both extreme stops of every sheet's gradient | anything about whether a screen is understandable |
+
+**Why axe cannot carry contrast here, and why that matters more than the palette.** On
+the briefing screen axe evaluated **2 nodes, returned 106 as "incomplete", and reported
+zero violations** — a pass indistinguishable from the one an unreadable page gives. It
+declines to judge a background it cannot flatten, and every parchment surface is a
+gradient under two noise layers. `a11y.spec.ts` now calls `.disableRules(["color-contrast"])`
+and says why in a comment; `contrast.spec.ts` computes the ratios itself. This is
+**AC-V15** in `docs/10` (authoritative).
+
+**It found three real defects in its first run, two of them pre-existing:**
+
+| Defect | Was |
+|---|---|
+| Gold small-caps labels on tan — my own new design | **1.55:1**. My design note had called them "near the accessibility floor" |
+| `viewer.html`'s faintest ink, 45 nodes, shipped since P1 | 3.87:1 → `--ink-faint` #6d7791 → #8b98b0 |
+| The help panel's scrolling region, since ADR-0025 | unreachable by keyboard → `tabindex="0"` |
+
+**Every ink token is now downstream of a measurement**, not of how it looked. Gold as
+*text* became `--accent-ink: #5f4210`; `--accent` is rules and borders only. Six mutations
+were run and all were caught, including one that reverts the palette and one that stales
+the declared grounds.
+
+**The trap this sets:** the scorch is sized in **pixels** (`--burn`, `--burn-spread`,
+`--burn-jitter`) precisely so "no text sits on burnt ground" is checkable. **Changing a
+sheet's padding without changing the burn breaks the design's contrast argument** — the
+test asserts padding clears the band, and the mobile breakpoint scales both together.
+
+Frames: `docs/visual/parchment/`. What they do not show is in that folder's README.
 
 ---
 
@@ -138,7 +189,7 @@ profile.
 
 ## Where things stand
 
-**M0 IS BUILT — all seven items (`docs/11` §3).** 809 tests / 41 files, 26 Playwright
+**M0 IS BUILT — all seven items (`docs/11` §3).** 809 tests / 41 files, 39 Playwright
 specs. Variety score (distinct viable build identities) still **7** against a release bar
 of **8**, carried into M1 by user decision.
 
@@ -186,6 +237,17 @@ the git history of that file — do not re-expand it in place.
 
 ## Traps waiting for you
 
+0. **AN ANALYZER THAT DECLINES TO CHECK STILL SAYS PASS.** axe-core files an
+   unflattenable background as `incomplete`, not as a violation, so it reported zero
+   problems while measuring 2 of 108 nodes. Before trusting any scanner, **assert how
+   many things it looked at**. `a11y.spec.ts` does (`results.passes.length`), and it
+   disables the one rule it cannot honour rather than banking that rule's green.
+0. **THE SHEET'S PADDING AND THE SCORCH ARE COUPLED.** `--burn + --burn-spread +
+   --burn-jitter` is the depth the burn reaches; `.card`/`.panel` padding must clear it,
+   and `contrast.spec.ts` asserts that. Shrink the padding for a layout tweak and you
+   put text on ground whose colour nothing modelled.
+0. **`--accent` IS RULES AND BORDERS ONLY.** Gold leaf as *text* on parchment measures
+   1.55:1. New gold text takes `--accent-ink`.
 0. **PUBLISHING ANY BRANCH BUT THE SESSION'S DESIGNATED ONE IS NOW BLOCKED.**
    `.claude/hooks/guard-designated-branch.sh` compares the target against the branch
    recorded at SessionStart. If it fires, you have invented a branch name — use the
@@ -205,9 +267,12 @@ the git history of that file — do not re-expand it in place.
    even a helper from `storage.ts`, turns `telemetry.test.ts` red, and that red is the
    file telling you the claim just stopped being true. Feed the recorder scalars and
    copies; never hand it a live object it could keep.
-1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE.** `npx playwright test`
-   does NOT rebuild; `npm run test:visual` does. Rebuild before believing a browser
-   failure.
+1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE — AND NOW SAYS SO.**
+   `npx playwright test` does NOT rebuild; `npm run test:visual` does. The variant that
+   cost this session real time is worse, because it does not look like a build problem:
+   a **failed** `npm run build` leaves the previous `dist` standing, so the suite measures
+   the OLD page and reports numbers that are plausible and wrong.
+   `e2e/fresh-build.spec.ts` now fails loudly when `dist` is older than any watched source.
 2. **GEAR IS A DIVERSITY AXIS THE GATE DOES NOT USE.** `data/builds/*` all carry
    `weapon: null`, so the 7 is measured with every build on the same placeholder weapon.
    "The gate did not move" is a statement about COVERAGE here, not quality.
@@ -319,6 +384,16 @@ stays out of reach in one playthrough — intended, and asserted.
   ESM loader, which requires `with { type: "json" }`.
 - **`vite.config.ts` now has two entries.** A page missing from `rollupOptions.input` works
   under `npm run dev` and does not exist in `dist` — i.e. it is not shipped.
+- **After a merge the remote branch is DELETED, so `--force-with-lease` fails with
+  "stale info" on the next slice.** The local remote-tracking ref still points at the
+  merged tip while the branch is gone. `git remote prune origin`, then push normally —
+  there is nothing to force. Do **not** reach for a bare `--force`.
+- **Google Fonts is reachable through the proxy; self-hosting a face is cheap.** Fetch
+  `https://fonts.googleapis.com/css2?family=...` with a **browser User-Agent** (the
+  default UA gets a TTF-era stylesheet with no woff2), then take the `@font-face` block
+  whose `unicode-range` contains `U+0000-00FF` — that is the latin subset. Five faces
+  came to 104 KB. They live in `public/fonts/`, referenced **relatively** (`./fonts/…`)
+  so they survive the Pages base path.
 - **Use the check-runs API for CI**; the legacy commit-status endpoint reports nothing.
 - **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` and all
   `*.github.io` egress**, but a runner can reach them with `${{ github.token }}`.
