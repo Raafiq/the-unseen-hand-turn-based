@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
+import { dismissScene } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -64,6 +65,7 @@ test("a11y: the title screen", async ({ page }) => {
 test("a11y: the briefing and prep screens", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   // Scan the panel as first rendered…
   expect(await scan(page)).toEqual([]);
@@ -86,6 +88,7 @@ test("a11y: the help panel", async ({ page }) => {
 test("a11y: the battle screen", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   // The board card is the one surface that stayed dark, so it is the one place the

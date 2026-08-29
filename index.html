@@ -417,6 +417,19 @@
         <footer>Also here: the <a href="./viewer.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
       </section>
 
+      <!-- SCENE — a prologue, an interlude or an epilogue (docs/10 AC-V17).
+           The whole screen is the scene, which is what makes a document-level key
+           handler safe here and not on the briefing. -->
+      <section id="screen-scene" data-testid="screen-scene" hidden>
+        <div class="card">
+          <h1 id="scene-title" data-testid="scene-title"></h1>
+          <div id="scene-story" class="story" data-testid="scene-story" hidden></div>
+          <div class="controls">
+            <button id="btn-scene-continue" data-testid="scene-continue">Continue &#9656;</button>
+          </div>
+        </div>
+      </section>
+
       <!-- BRIEFING -->
       <section id="screen-briefing" data-testid="screen-briefing" hidden>
         <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { prepEveryMember } from "./helpers.js";
+import { prepEveryMember, dismissScene } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
 // Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
@@ -43,6 +43,8 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   await page.screenshot({ path: `${SHOTS}/20-title.png`, fullPage: true });
 
   await page.getByTestId("new-game").click();
+
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 1 of 5");
   await expect(page.getByTestId("brief-party")).toContainText("Vance");
@@ -108,6 +110,7 @@ test("campaign shell: title → battle → saved progress survives a reload", as
 test("campaign shell: the five-battle run reaches its ending in the browser", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
 
   for (let i = 0; i < 5; i++) {
     await expect(page.getByTestId("brief-step")).toContainText(`Battle ${i + 1} of 5`);
@@ -116,9 +119,13 @@ test("campaign shell: the five-battle run reaches its ending in the browser", as
     if (i < 4) {
       await expect(page.getByTestId("screen-after")).toBeVisible();
       await page.getByTestId("next").click();
+      await dismissScene(page);
     }
   }
 
+  // The epilogue stands in front of the ending now (AC-V17), so the run passes through
+  // one more scene before COMPLETED.
+  await dismissScene(page);
   await expect(page.getByTestId("screen-completed")).toBeVisible();
   // The final victory skips the after-battle screen entirely, so the ending screen is the
   // only place its scene can be read.
@@ -155,6 +162,8 @@ test("campaign shell: an unreadable save is a message, and New Game still works"
   await expect(page.getByTestId("continue")).toBeDisabled();
 
   await page.getByTestId("new-game").click();
+
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 });
 
@@ -164,6 +173,7 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await mkdir(SHOTS, { recursive: true });
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
 
   // Two battles of banked AP — enough for one 60-AP tier-one node and not much else,
   // which is the whole decision. The FIGURE is read off the panel rather than written
@@ -173,6 +183,7 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   for (let i = 0; i < 2; i++) {
     await playCurrentBattle(page);
     await page.getByTestId("next").click();
+    await dismissScene(page);
   }
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
   const apBefore = Number(
@@ -226,6 +237,7 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   // from "learn something else first".
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("prep-ap")).toContainText("0 AP");
 
   // The first row a member ALREADY KNOWS renders no buy button at all, so `.first()`
@@ -260,6 +272,7 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   // 8 seeds and one who buys the cheapest node anywhere clears 1 of 8.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
 
   // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
   const own = page.locator('[data-testid="prep-learn"] li');
@@ -311,6 +324,7 @@ test("help: the ? panel opens from any screen and explains the mechanics", async
   // Reachable mid-battle too, not only from the title — a player asks "what is CT?"
   // while looking at the clock, not before they have seen one.
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await page.getByTestId("help-open").click();
@@ -324,6 +338,7 @@ test("equipment: a granted weapon can be equipped, and it survives a reload", as
   // localStorage. An in-memory slot passes every headless persistence test regardless.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
   // Battle one's grant is in hand before battle one is fought, so the row exists now.
@@ -346,6 +361,7 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   // thing is unused, and it is GONE once the player uses it.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
   const weaponHint = page.getByTestId("prep-weapon-hint");
@@ -368,6 +384,7 @@ test("deployment: the briefing shows who fights, and a click swaps them into the
   // reaches the SAVE and then the BOARD — the headless tests drive the shell directly.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
 
   await expect(page.getByTestId("brief-deploy-note")).toContainText("fields 2 of 4");
   const benched = page.locator('[data-testid="brief-party"] li.benched');
@@ -405,6 +422,7 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   // three battles to reach a purchase and would be testing the campaign, not the fix.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
 
@@ -452,6 +470,7 @@ test("playtest log: the recorder observes the real page, not a test path", async
 
   // ── B: play the opening battle through the real controls ───────────────────
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
   // A between-battle EDIT, so the prep diff is exercised too. Discovered rather than
@@ -489,7 +508,9 @@ test("playtest log: the recorder observes the real page, not a test path", async
   expect(actions).toContain("btn-new-game");
   expect(actions).toContain("btn-deploy");
   expect(actions).toContain("btn-conclude");
-  expect(screens).toEqual(["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE"]);
+  // Still an EXACT ordered array — it now also fails if the scene screen stops being
+  // reached, which is the failure mode a "contains" check could not see.
+  expect(screens).toEqual(["TITLE", "SCENE", "BRIEFING", "BATTLE", "AFTER_BATTLE"]);
 
   // The battle row is read off the SAME `RunReport` the campaign banked, so the log and
   // the save cannot disagree about how the fight went.
@@ -537,6 +558,8 @@ test("playtest log: it survives a reload, and one click hands it over", async ({
     page.evaluate(() => window.tuhGame.playtestLog());
 
   await page.getByTestId("new-game").click();
+
+  await dismissScene(page);
   await playCurrentBattle(page);
   await expect(page.getByTestId("screen-after")).toBeVisible();
 
@@ -597,6 +620,7 @@ test("AC-V16: a beat is revealed one line at a time, not hidden with CSS", async
 
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
   // ELEMENT COUNT, not visibility. A renderer that emitted every line and hid the tail
@@ -641,9 +665,11 @@ test("AC-V16: the read position survives a prep edit AND a deploy toggle", async
   // unexercised and the test would quietly assert only half of what it claims.
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await playCurrentBattle(page);
   await page.getByTestId("next").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 2 of 5");
 
@@ -691,6 +717,7 @@ test("AC-V16: there is no motion to reduce", async ({ page }) => {
     const p = await context.newPage();
     await p.goto("/");
     await p.getByTestId("new-game").click();
+    await dismissScene(p);
     await expect(p.getByTestId("screen-briefing")).toBeVisible();
     expect(await p.locator('[data-testid="brief-story"] p.line').count()).toBe(1);
     await p.getByTestId("brief-story-more").click();

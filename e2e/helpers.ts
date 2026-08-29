@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Helpers shared by the browser specs.
@@ -47,4 +47,20 @@ export async function prepEveryMember(page: Page): Promise<void> {
       if (current === "" && values.length > 0) await select.selectOption(values[0]!);
     }
   }
+}
+
+/**
+ * Walk past a standalone scene if one is standing on screen.
+ *
+ * TOLERANT about whether a scene exists here, STRICT about dismissal working. Scenes are
+ * optional content — the campaign authors one before battle 1 and battle 3 and none
+ * before battle 2 — so a helper demanding one at every landing would encode a rule
+ * nobody wrote. That the prologue actually exists is asserted separately, by AC-V17's
+ * own tests, where a vanished scene fails loudly instead of being shrugged past here.
+ */
+export async function dismissScene(page: Page): Promise<void> {
+  const screen = page.getByTestId("screen-scene");
+  if (!(await screen.isVisible())) return;
+  await page.getByTestId("scene-continue").click();
+  await expect(screen).toBeHidden();
 }

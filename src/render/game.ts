@@ -59,9 +59,10 @@ const telemetry = new Recorder({
   slot: storageAvailable ? browserSlot(localStorage, PLAYTEST_LOG_KEY) : memorySlot(),
 });
 
-const SCREENS: Screen[] = ["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
+const SCREENS: Screen[] = ["TITLE", "SCENE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
 const SCREEN_EL: Record<Screen, string> = {
   TITLE: "screen-title",
+  SCENE: "screen-scene",
   BRIEFING: "screen-briefing",
   BATTLE: "screen-battle",
   AFTER_BATTLE: "screen-after",
@@ -91,6 +92,7 @@ const LOG_SCREENS = ["title", "done"] as const;
 /** Plain names for the screens, for a sentence a playtester reads. */
 const SCREEN_LABEL: Record<Screen, string> = {
   TITLE: "the title screen",
+  SCENE: "a story scene",
   BRIEFING: "a briefing",
   BATTLE: "a battle",
   AFTER_BATTLE: "the after-battle screen",
@@ -389,6 +391,21 @@ function renderBattle(): void {
   reason.textContent = text;
 }
 
+/**
+ * A standalone scene — a prologue, an interlude, an epilogue (docs/10 AC-V17).
+ *
+ * The whole screen is the scene, which is why this is the one screen that takes a
+ * document-level key handler and moves focus. The briefing deliberately gets neither:
+ * it is full of selects and buttons where Space and Enter already mean something.
+ */
+function renderScene(): void {
+  const scene = shell.pendingScene();
+  if (!scene) return;
+  el("scene-title").textContent = scene.title ?? "";
+  el("scene-title").hidden = scene.title === undefined;
+  renderStory("scene-story", `scene:${scene.id}`, scene.beat);
+}
+
 function renderAfter(): void {
   const outcome = shell.lastOutcome();
   const won = outcome === "victory";
@@ -434,7 +451,12 @@ function logNote(): string {
   const n = log.events.length;
   return (
     `${n} moment${n === 1 ? "" : "s"} recorded, up to ${where}. ` +
-    "The log holds which screens you saw, how long each took, what you bought and equipped, " +
+    // Widened when the scene player landed: how much of a scene a player reads is a new
+    // CATEGORY of collected thing, and this sentence is the only place the page says
+    // what it keeps. Collection widening without this widening is what turns a complete
+    // disclosure into a partial one, silently.
+    "The log holds which screens you saw, how long each took, how much of each story " +
+    "scene you read, what you bought and equipped, " +
     "and how each battle went — no name, no typing, and no date or time of day. " +
     "Nothing is sent anywhere: copying puts it on your clipboard and that is all." +
     (s.incomplete ? " Some of it was dropped, so the timings are a lower bound." : "")
@@ -500,6 +522,8 @@ function renderSaveError(): void {
  * one it saw. `undefined`, not 0 — absent, never a modeled zero.
  */
 function loggedStep(): number | undefined {
+  // Deliberately NOT on SCENE. A scene sits between battles, so "which battle step is
+  // this" has two defensible answers there — absent, not a guess (absent-not-zero).
   if (shell.screen !== "BRIEFING" && shell.screen !== "BATTLE") return undefined;
   return shell.briefing()?.step;
 }
@@ -513,6 +537,9 @@ function refresh(): void {
   switch (shell.screen) {
     case "TITLE":
       renderTitle();
+      break;
+    case "SCENE":
+      renderScene();
       break;
     case "BRIEFING":
       renderBriefing();
@@ -696,6 +723,7 @@ const on = (id: string, fn: () => void): void =>
   el(id).addEventListener("click", () => act(id, fn));
 
 on("btn-new-game", () => shell.newGame());
+on("btn-scene-continue", () => shell.endScene());
 on("btn-continue", () => shell.continueGame());
 on("btn-erase", () => shell.eraseSave());
 on("btn-deploy", () => shell.deploy());
@@ -708,6 +736,35 @@ on("btn-done-title", () => shell.quitToTitle());
 on("btn-end-turn", () => shell.session?.endTurn());
 on("btn-cancel", () => shell.session?.cancel());
 on("btn-step", () => shell.session?.step());
+
+/**
+ * Keyboard on the SCENE screen, and ONLY there.
+ *
+ * A document-level handler is safe here because the whole screen is one scene with one
+ * command. It is deliberately NOT installed on the briefing: that screen is full of
+ * selects, checkboxes and buttons where Space and Enter already mean something, and a
+ * document handler would fight them.
+ *
+ * The scene's own More/Show all buttons keep working by being real buttons — this only
+ * adds the "press anything to continue" reflex a reader expects.
+ */
+document.addEventListener("keydown", (ev) => {
+  if (shell.screen !== "SCENE") return;
+  const handle = scenes.get("scene-story");
+  const target = ev.target as HTMLElement | null;
+  // Never swallow a key aimed at a control the player has actually focused.
+  if (target && (target.tagName === "BUTTON" || target.tagName === "SELECT")) return;
+  if (ev.key === "Enter" || ev.key === " " || ev.key === "ArrowRight") {
+    ev.preventDefault();
+    if (handle?.model && !handle.model.done) act("scene-key-advance", () => handle.advance());
+    else act("scene-key-continue", () => shell.endScene());
+    return;
+  }
+  if (ev.key === "End" || ev.key === "Escape") {
+    ev.preventDefault();
+    act("scene-key-all", () => handle?.showAll());
+  }
+});
 
 /**
  * The shipped seam. Every entry routes through the SAME shell/session method a button

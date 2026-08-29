@@ -41,6 +41,22 @@ function shell(slot: SaveSlot = memorySlot(), storyPack: StoryPack | null = stor
   });
 }
 
+/**
+ * Walk past a standalone scene if one is standing here.
+ *
+ * TOLERANT ON PURPOSE, and the split matters. Scenes are OPTIONAL content — the campaign
+ * authors one before b1 and b3 and none before b2 — so a helper that demanded a scene at
+ * every landing would be asserting a rule nobody wrote. What it IS strict about is that
+ * dismissing one works: if the shell was on SCENE, it must not still be. The claim that
+ * the prologue actually exists is carried separately, by AC-V17's own test, where a
+ * vanished scene fails loudly rather than being shrugged past here.
+ */
+function passScene(s: CampaignShell): void {
+  if (s.screen !== "SCENE") return;
+  s.endScene();
+  expect(s.screen).not.toBe("SCENE");
+}
+
 /** Play the live battle out with the balance probe on both seats. */
 function autoplay(s: CampaignShell): void {
   const session = s.session;
@@ -116,6 +132,8 @@ describe("AC-M1: the campaign is driveable from the title screen to an ending", 
     expect(s.canContinue()).toBe(false);
 
     s.newGame();
+
+    passScene(s);
     const played: string[] = [];
     let guard = 0;
     while (s.screen !== "COMPLETED") {
@@ -129,7 +147,11 @@ describe("AC-M1: the campaign is driveable from the title screen to an ending", 
       autoplay(s);
       expect(s.battleOver()).toBe(true);
       s.concludeBattle();
-      if (s.screen === "AFTER_BATTLE") s.nextBattle();
+      passScene(s);
+      if (s.screen === "AFTER_BATTLE") {
+        s.nextBattle();
+        passScene(s);
+      }
       if (++guard > 10) throw new Error("the shell never reached an ending");
     }
 
@@ -147,6 +169,7 @@ describe("AC-M1: the campaign is driveable from the title screen to an ending", 
     // here and nowhere else.
     const s = shell();
     s.newGame();
+    passScene(s);
     const before = s.save!;
     s.deploy();
     autoplay(s);
@@ -162,6 +185,7 @@ describe("AC-M1: the campaign is driveable from the title screen to an ending", 
   it("and that A/B is not vacuous — the battle banked real AP for real work", () => {
     const s = shell();
     s.newGame();
+    passScene(s);
     s.deploy();
     autoplay(s);
     s.concludeBattle();
@@ -175,6 +199,7 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
     const slot = memorySlot();
     const s = shell(slot);
     s.newGame();
+    passScene(s);
     for (let i = 0; i < 2; i++) {
       const stored = slot.read();
       expect(stored).not.toBeNull();
@@ -184,7 +209,11 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
       s.deploy();
       autoplay(s);
       s.concludeBattle();
-      if (s.screen === "AFTER_BATTLE") s.nextBattle();
+      passScene(s);
+      if (s.screen === "AFTER_BATTLE") {
+        s.nextBattle();
+        passScene(s);
+      }
     }
   });
 
@@ -196,10 +225,12 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
     const slot = memorySlot();
     const first = shell(slot);
     first.newGame();
+    passScene(first);
     first.deploy();
     autoplay(first);
     first.concludeBattle();
     first.nextBattle();
+    passScene(first);
     const banked = first.save!;
     expect(banked.party.some((p) => p.ap > 0)).toBe(true);
 
@@ -224,6 +255,7 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
     const slot = memorySlot();
     const s = shell(slot);
     s.newGame();
+    passScene(s);
     const vance = s.save!.party.find((r) => r.id === "pc-vance")!;
     s.save = updatePartyMember(s.save!, { ...vance, raw: { ...vance.raw, pa: vance.raw.pa + 7 } });
     writeSave(slot, s.save);
@@ -234,6 +266,7 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
     const deployed = reopened.session!.state.units.find((u) => u.id === "blue-vance")!;
     const fresh = shell(memorySlot());
     fresh.newGame();
+    passScene(fresh);
     fresh.deploy();
     const baseline = fresh.session!.state.units.find((u) => u.id === "blue-vance")!;
     // Strictly greater, not an exact figure: `buildBattleUnit` layers job growth and
@@ -247,6 +280,7 @@ describe("AC-M2: progress survives the slot, and survives being closed", () => {
     const slot = memorySlot();
     const s = shell(slot);
     s.newGame();
+    passScene(s);
     s.quitToTitle();
     expect(s.screen).toBe("TITLE");
     expect(s.canContinue()).toBe(true);
@@ -261,6 +295,7 @@ describe("AC-M3: losing is a state the player can act on", () => {
   function throwBattleOne(slot: SaveSlot = memorySlot()): CampaignShell {
     const s = shell(slot);
     s.newGame();
+    passScene(s);
     s.deploy();
     forfeit(s);
     s.concludeBattle();
@@ -281,6 +316,7 @@ describe("AC-M3: losing is a state the player can act on", () => {
     const s = throwBattleOne();
     const lost = s.save!;
     s.retry();
+    passScene(s);
     expect(s.screen).toBe("BRIEFING");
     expect(s.briefing()?.battleId).toBe("b1");
     expect(s.briefing()?.retrying).toBe(true);
@@ -313,6 +349,7 @@ describe("a slot that cannot be read is a message, never a crash", () => {
     expect(s.canContinue()).toBe(false);
     expect(s.continueGame()).toBe(false);
     s.newGame(); // still perfectly startable
+    passScene(s);
     expect(s.screen).toBe("BRIEFING");
   });
 
@@ -341,6 +378,7 @@ describe("a slot that cannot be read is a message, never a crash", () => {
     };
     const s = shell(refusing);
     s.newGame();
+    passScene(s);
     expect(s.saveError).not.toBeNull();
     expect(s.screen).toBe("BRIEFING"); // the run is still playable
     s.deploy();
@@ -379,6 +417,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     // holds for THIS battle, and that it is not returning some other battle's beat.
     const s = shell();
     s.newGame();
+    passScene(s);
     const entry = story.entries.find((e) => e.battleId === "b1")!;
     expect(s.sceneTitle()).toBe(entry.title);
     expect(s.preBeat()?.lines).toEqual(entry.pre?.lines);
@@ -410,10 +449,12 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
 
     const shipped = shell();
     shipped.newGame();
+    passScene(shipped);
     const alternate = shell(memorySlot(), swapped);
     alternate.newGame();
 
     // Read out of the pack, never pinned: `check:story` fails a test that names an
+    passScene(alternate);
     // authored title, for the same reason it fails one that names a line. The guard
     // window is six words and a title never reaches six, so titles are matched WHOLE —
     // which is how this literal survived here until 2026-08-29.
@@ -435,6 +476,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
   it("no pack at all is a campaign with no text — never a crash or an empty scene", () => {
     const s = shell(memorySlot(), null);
     s.newGame();
+    passScene(s);
     expect(s.sceneTitle()).toBeNull();
     expect(s.preBeat()).toBeNull();
     expect(s.outcomeBeat()).toBeNull();
@@ -445,12 +487,14 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     // Play the same battle both ways and assert the two beats differ.
     const won = shell();
     won.newGame();
+    passScene(won);
     won.deploy();
     autoplay(won);
     won.concludeBattle();
 
     const lost = shell();
     lost.newGame();
+    passScene(lost);
     lost.deploy();
     forfeit(lost);
     lost.concludeBattle();
@@ -473,6 +517,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     // did not show it. Nothing else in the suite visits that transition with a beat.
     const s = shell();
     s.newGame();
+    passScene(s);
     for (let i = 0; i < campaign.battles.length; i++) {
       // Prepped, for the same reason AC-M1's walkthrough is (ADR-0027): reaching the
       // ending screen at all now requires a party that used the prep screen.
@@ -480,7 +525,11 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
       s.deploy();
       autoplay(s);
       s.concludeBattle();
-      if (s.screen === "AFTER_BATTLE") s.nextBattle();
+      passScene(s);
+      if (s.screen === "AFTER_BATTLE") {
+        s.nextBattle();
+        passScene(s);
+      }
     }
     expect(s.screen).toBe("COMPLETED");
     expect(s.outcomeBeat()?.lines).toEqual(
@@ -503,6 +552,7 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     const s = shell(slot);
     s.newGame();
 
+    passScene(s);
     const model = new PrepModel({
       registry,
       records: s.save!.party,
@@ -524,6 +574,7 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     // the panel, deploy, and read the ability off the unit standing on the field.
     const s = shell();
     s.newGame();
+    passScene(s);
     const kest = s.save!.party.find((r) => r.id === "pc-kest")!;
     s.updateParty({ ...kest, ap: 200 });
 
@@ -545,6 +596,7 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     // make the assertion above pass with the whole prep path disconnected.
     const s = shell();
     s.newGame();
+    passScene(s);
     s.deploy();
     const unit = s.session!.state.units.find((u) => u.id === deployedUnitId(s, "Kest"))!;
     expect(unit.abilities.map((a) => a.id)).not.toContain("punch-art.chakra");
@@ -553,6 +605,7 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
   it("the party CANNOT be edited during a battle — the edit would apply to the next one", () => {
     const s = shell();
     s.newGame();
+    passScene(s);
     s.deploy();
     expect(() => s.updateParty({ ...s.save!.party[0]!, ap: 999 })).toThrow(/during a battle/);
   });
@@ -560,12 +613,14 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
   it("an edited party survives a retry exactly (AC-M3 still holds through prep)", () => {
     const s = shell();
     s.newGame();
+    passScene(s);
     s.updateParty({ ...s.save!.party.find((r) => r.id === "pc-vance")!, ap: 500 });
     s.deploy();
     forfeit(s);
     s.concludeBattle();
     expect(s.save!.status).toBe("gameOver");
     s.retry();
+    passScene(s);
     expect(s.save!.party.find((r) => r.id === "pc-vance")!.ap).toBe(500);
   });
 });
@@ -576,6 +631,8 @@ describe("lastBattle — the live detail of the battle just banked", () => {
     expect(s.lastBattle).toBeNull();
 
     s.newGame();
+
+    passScene(s);
     s.deploy();
     autoplay(s);
     s.concludeBattle();
@@ -594,5 +651,106 @@ describe("lastBattle — the live detail of the battle just banked", () => {
     // battle the player can no longer see, on a screen with no run in progress.
     s.quitToTitle();
     expect(s.lastBattle).toBeNull();
+  });
+});
+
+describe("AC-V17: a standalone scene is a screen, and it is seen once", () => {
+  it("DISCRIMINATING: the prologue stands in front of the first briefing", () => {
+    // The STRICT half `passScene` deliberately is not. If the prologue silently stopped
+    // being reachable, every walkthrough above would still be green — they shrug past a
+    // missing scene because scenes are optional content. This one does not.
+    const s = shell();
+    s.newGame();
+    expect(s.screen).toBe("SCENE");
+    expect(s.pendingScene()?.id).toBe("sc-prologue");
+    s.endScene();
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.pendingScene()).toBeNull();
+  });
+
+  it("DISCRIMINATING: a scene is not replayed, and erasing the save brings it back", () => {
+    // Three parts, all required. Part one: it is recorded, in the STORED save rather
+    // than only in memory.
+    const slot = memorySlot();
+    const s = shell(slot);
+    s.newGame();
+    s.endScene();
+    const stored = readSave(slot, campaign.id);
+    expect(stored.kind).toBe("save");
+    expect(stored.kind === "save" && stored.save.scenesSeen).toEqual(["sc-prologue"]);
+
+    // Part two: a fresh shell over the same slot does not replay it.
+    const resumed = shell(slot);
+    expect(resumed.continueGame()).toBe(true);
+    expect(resumed.screen).toBe("BRIEFING");
+
+    // Part three, and it is what stops a scene screen that NEVER RENDERS from passing
+    // the two above: erase, start again, and the prologue must be back.
+    resumed.eraseSave();
+    const after = shell(slot);
+    after.newGame();
+    expect(after.screen).toBe("SCENE");
+    expect(after.pendingScene()?.id).toBe("sc-prologue");
+  });
+
+  it("a battle with no authored scene goes straight to its briefing", () => {
+    // Scenes are optional, and this is the assertion that says so. Without it, an
+    // implementation that invented a scene at every anchor would pass everything above.
+    const s = shell();
+    s.newGame();
+    s.endScene();
+    prepAsOptimizer(s);
+    s.deploy();
+    autoplay(s);
+    s.concludeBattle();
+    s.nextBattle();
+    // b2 authors no scene.
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.pendingScene()).toBeNull();
+  });
+
+  it("DISCRIMINATING: the epilogue stands in front of the ENDING, not after it", () => {
+    // The final victory skips AFTER_BATTLE entirely and lands on COMPLETED, which is the
+    // transition this repo has already shipped unreachable content on once. A scene
+    // anchored at campaign-end that `arrive()` never consulted would leave the epilogue
+    // unreadable with every other test here green.
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    for (let i = 0; i < campaign.battles.length; i++) {
+      prepAsOptimizer(s);
+      s.deploy();
+      autoplay(s);
+      s.concludeBattle();
+      if (s.screen === "AFTER_BATTLE") {
+        s.nextBattle();
+        passScene(s);
+      }
+    }
+    expect(s.screen).toBe("SCENE");
+    expect(s.pendingScene()?.id).toBe("sc-epilogue");
+    s.endScene();
+    expect(s.screen).toBe("COMPLETED");
+  });
+
+  it("no story pack means no scenes — the campaign still runs end to end", () => {
+    const s = shell(memorySlot(), null);
+    s.newGame();
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.pendingScene()).toBeNull();
+    s.endScene(); // a no-op, never a crash
+    expect(s.screen).toBe("BRIEFING");
+  });
+
+  it("a LOSS goes to the retry screen, never behind a scene", () => {
+    // A defeat has to be somewhere the player can act (AC-M3). A scene standing in front
+    // of the retry screen would bury it.
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    forfeit(s);
+    s.concludeBattle();
+    expect(s.screen).toBe("AFTER_BATTLE");
   });
 });

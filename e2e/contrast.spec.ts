@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { dismissScene } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -231,6 +232,7 @@ test("contrast: title screen", async ({ page }) => {
 test("contrast: briefing and prep, before and after spending", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   // MEASURED 2026-08-29, not guessed: this screen paints 113 text-bearing elements on
   // first paint and 112 once the scene is read out (the progress readout and the two
@@ -262,6 +264,7 @@ test("contrast: the help panel", async ({ page }) => {
 test("contrast: the battle screen, which is the one dark sheet", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await screenPasses(page, 15);

@@ -221,5 +221,87 @@
       }
     }
   ],
-  "scenes": []
+  "scenes": [
+    {
+      "id": "sc-prologue",
+      "title": "Before the Road",
+      "at": {
+        "kind": "before-battle",
+        "battleId": "b1"
+      },
+      "beat": {
+        "lines": [
+          {
+            "speaker": "vance",
+            "text": "Four names on a contract and one road to walk. That is the whole of it."
+          },
+          {
+            "speaker": "kest",
+            "text": "You have said that about three other roads."
+          },
+          {
+            "speaker": "vance",
+            "text": "And I was wrong about two of them. Check what you carry before we go — nobody is coming out to bring us anything."
+          },
+          {
+            "text": "The company breaks camp before light. What each of them has learned by the end of the march is a thing they decide on the way."
+          }
+        ]
+      }
+    },
+    {
+      "id": "sc-interlude-ford",
+      "title": "What the Water Took",
+      "at": {
+        "kind": "before-battle",
+        "battleId": "b3"
+      },
+      "beat": {
+        "lines": [
+          {
+            "speaker": "briar",
+            "text": "Two fights in and somebody already knew where we would be standing."
+          },
+          {
+            "speaker": "ottoline",
+            "text": "Then we are not walking into a road. We are walking into a plan."
+          },
+          {
+            "speaker": "briar",
+            "text": "Plans have people in them. People can be found."
+          },
+          {
+            "speaker": "vance",
+            "text": "Later. Tonight, spend what you have earned — a skill you never bought is a skill you do not have."
+          }
+        ]
+      }
+    },
+    {
+      "id": "sc-epilogue",
+      "title": "The March Is Over",
+      "at": {
+        "kind": "campaign-end"
+      },
+      "beat": {
+        "lines": [
+          {
+            "speaker": "ottoline",
+            "text": "The warchief is down and the road is open, and neither of those was the question."
+          },
+          {
+            "speaker": "kest",
+            "text": "The question was who put him on it."
+          },
+          {
+            "speaker": "vance",
+            "text": "Then we are not finished. We are only paid."
+          },
+          {
+            "text": "The First March ends here. What the company became along it was never written down — only chosen, one purchase at a time."
+          }
+        ]
+      }
+    }
+  ]
 }
