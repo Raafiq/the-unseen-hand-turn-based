@@ -251,6 +251,38 @@ degenerate fixture where all orderings coincide).
 - **AC-V15 (text on the campaign's surfaces clears WCAG AA, measured):** Every element holding visible text on `/` SHALL clear **4.5:1** (3:1 for large text) against the worst ground it can be painted on, and the sheet's content padding SHALL clear the scorch band so no text sits on burnt ground. *Discriminator — and the reason this AC is worded around measurement:* **axe-core cannot make this claim here.** It declines to judge contrast it cannot flatten, and on the briefing screen it evaluated 2 nodes while returning 106 as "incomplete" **and reported zero violations** — a pass indistinguishable from the one an unreadable page would produce. `a11y.spec.ts` therefore disables the `color-contrast` rule explicitly rather than banking that green. The claim is carried by `contrast.spec.ts`, which computes ratios in the page against **both extreme stops** of each sheet's gradient (a single sampled pixel is degenerate: the failure mode is text near the dark end), composites translucent layers, and treats an element with its own opaque fill as its own ground. The declared stops are asserted to be ones the page actually paints, so a re-toned sheet cannot be silently measured against the old palette.
 - **AC-V11 (the forecast declares where it stops being a fact):** `forecast()` SHALL return the index `assumedFrom` from which its entries depend on `ASSUMED_FUTURE_TURN_COST`, and a **forecast-vs-replay oracle** SHALL assert that driving the sim with real commands realizes the forecast order over `[0, assumedFrom)` under **both** the −80 and the −100 cost model. The viewer SHALL mark slots `≥ assumedFrom` as projected, and the preview's "next slot" row SHALL be labelled projected **iff** its slot falls outside the prefix. *Discriminator:* the fixture must be one where the two cost models give a **different actor order** — measured, the shipped demo state does **not** (its first eight slots are identical under −80 and −100), so the oracle uses a purpose-built speed ladder in which one folded −100 command flips slot 3 from `hasty` to `slow`. A test that passes under both cost models certifies nothing here; a boundary computed from the *assumed* walk instead of the cheapest one overclaims by a slot and must fail.
 
+- **AC-V16 (the scene player advances one line at a time, and its position survives a
+  repaint):** A story beat SHALL open on ONE line with a control to reveal the next, and
+  the read position SHALL survive every repaint the screen inflicts on itself, while a
+  genuinely different beat SHALL start again from line one. *Discriminators:* assert the
+  **element count**, never visibility — a renderer that emits every line and hides the tail
+  with `visibility: hidden` passes a visibility check exactly as a correct one does — plus
+  `not.toContainText(lastLine)`, since `textContent` includes hidden text. Survival is
+  asserted against **two** entry points separately (a prep edit and a deploy toggle: they
+  are different code paths and fixing one does not imply the other), and the reset case is
+  **required**, or an implementation that never resets passes every survival assertion.
+  Advancing SHALL append rather than rebuild, proved by holding an `ElementHandle` for the
+  first line across an advance and asserting `isConnected` — no ARIA attribute check can
+  tell an appending renderer from a rebuilding one. **The reveal is untimed**, and that is
+  asserted (`animationName === "none"`, `transitionDuration === "0s"`, identical reveal
+  counts under `reducedMotion: "reduce"`) rather than stated in a comment: the claim is
+  "there is nothing to reduce". **Met** (ADR-0029), mutation-verified — including the
+  re-entrancy guard, whose first mutation reported SURVIVED only because it failed
+  typecheck, leaving a stale `dist` for the suite to measure.
+
+- **AC-V17 (a standalone scene is a screen, is seen once, and is reachable by keyboard):**
+  A scene not attached to a battle SHALL be its own screen, SHALL be recorded as seen in
+  the SAVE when dismissed, and SHALL NOT replay on reload. *Discriminators:* the
+  erase-and-replay **pair** — without the second half, a scene screen that never renders at
+  all passes "it was not replayed"; a battle with no authored scene going straight to its
+  briefing, without which an implementation inventing a scene at every anchor passes; and
+  the epilogue asserted in front of `COMPLETED`, the transition a final victory takes,
+  which is where this repo has already shipped unreachable story content once. A loss SHALL
+  still reach the retry screen with no scene in front of it (AC-M3). Test helpers that walk
+  past scenes are deliberately **tolerant** about whether a scene exists — scenes are
+  optional content — so the claim that the prologue exists is carried by its own assertion
+  rather than by a helper that would shrug past its disappearance. **Met** (ADR-0029).
+
 ## 7. Required module shape
 
 The turn state machine lives in a **DOM-free `src/render/session.ts`**; `main.ts` is
@@ -262,6 +294,22 @@ reasons, both load-bearing:
 2. **A session must be constructible over an ARBITRARY `BattleState`**, not only
    `makeDemoBattle()`. AC-V7 depends on this: the demo map cannot express a
    jump-exclusion, so the fixture has to be purpose-built.
+
+**The same split now governs three modules**, and it is the shape any new stateful piece
+of the page takes: a pure model plus a `mount…` that draws it.
+
+| Module | The model owns | The mount owns |
+|---|---|---|
+| `session.ts` | the turn state machine over an arbitrary `BattleState` | the canvas and the panels |
+| `prep.ts` | `PrepModel` — the panel's selection and browsing state | the DOM, mounted once and re-pointed |
+| `scene.ts` | `SceneModel` — how much of a beat has been read | the line box, the portrait frame, the controls |
+
+`scene.ts` is the one where the split is a bug fix rather than a convenience:
+`renderStory` is re-entered from `refresh()` on the very screen a scene is read, and it
+rebuilds its box, so a cursor kept in the DOM is destroyed by an ordinary party edit
+(AC-V16). `mountScene` takes the asset mapping as a **parameter** for the same reason
+`drawUnit` should have taken its colour table as one — a render module that imports a
+content table can miss against it silently.
 
 **Exactly one TILE-DRIVEN mutator.** Every path that turns a *tile selection* into draft
 state goes through a single entry point:

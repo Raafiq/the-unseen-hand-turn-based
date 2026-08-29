@@ -44,7 +44,11 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > final time on **2026-08-22** for the equipment slice (ADR-0026), which completes M0 item
 > 5 and therefore ALL of M0: still a game-roadmap item, still nothing below moved, and
 > P2's `N ≥ 8` is **still open at N = 7** — the reference builds keep the placeholder
-> weapon, so gear is a diversity axis the gate does not yet use.
+> weapon, so gear is a diversity axis the gate does not yet use. Reconciled again on
+> **2026-08-29** for the scene-player slice (ADR-0029): **nothing below moved for the
+> sixth time.** Story presentation is a *game*-roadmap concern — it deepens `docs/11` M0
+> item 4's seam rather than any P0–P4 engine deliverable — and P2's `N ≥ 8` is **still
+> open at N = 7**, untouched by a slice that changes no build, no ability and no encounter.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
@@ -144,7 +148,9 @@ Story and content come from a **separate, not-yet-started repo**. This engine st
 
 - `map` id + `deployZones` + enemy/guest `spawns` (with jobs, loadouts, levels)
 - `victory` / `defeat` conditions (defeatAll / defeatBoss / survive N / reach-tile / escort / protagonist-KO)
-- pre/mid/post-battle `events` hooks (dialogue triggers, reinforcements — dialogue itself lives in the story repo). **Partly built (ADR-0024):** `src/sim/story.ts` is the versioned schema and `data/campaign/story/*.story.json` the data, carrying **pre**, **victory** and **defeat** beats keyed by campaign battle id. `mid` is deliberately absent until an event system exists to fire it — a field nothing can deliver is a spec with no test.
+- pre/mid/post-battle `events` hooks (dialogue triggers, reinforcements — dialogue itself lives in the story repo). **Partly built (ADR-0024, extended by ADR-0029):** `src/sim/story.ts` is the versioned schema (now **v2**) and `data/campaign/story/*.story.json` the data, carrying **pre**, **victory** and **defeat** beats keyed by campaign battle id, plus **standalone scenes** anchored `before-battle` or `campaign-end` (a prologue, interludes, an epilogue). Each **line** carries its own speaker, referencing a pack-level `characters` registry that may name portrait art. `mid` is deliberately absent until an event system exists to fire it — a field nothing can deliver is a spec with no test — and there is no `after-battle` scene anchor, for the same reason.
+
+  > **The `characters` registry is NOT the unique-character reference below.** It is presentation identity only — a name plate and an asset key — and `Character.id` lives in the **pack's** namespace, deliberately unjoined to a campaign record id (`pc-vance`) or an encounter slot id (`blue-vance`). The engine never resolves a speaker against a unit record; that promise dates from v1 and is kept. The premium-chassis reference is a different, unbuilt thing.
 - `loot` / rewards and a `seed`
 - unique-character references (which resolve to `docs/02` B6 "premium chassis" units)
 

@@ -8,7 +8,10 @@ A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**,
 
 **Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 39 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
-(ADR-0028, `docs/10` AC-V15).
+(ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
+and one line at a time, with a prologue, an interlude and an epilogue that belong to no
+battle (ADR-0029, AC-M8/M9, AC-V16/V17). **No portrait art exists**: every frame holds one
+self-labelling placeholder.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 

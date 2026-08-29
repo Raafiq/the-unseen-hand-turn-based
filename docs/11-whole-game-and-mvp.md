@@ -128,6 +128,14 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
 
 ## Acceptance Criteria (SDD-ready)
 
+> **AC status 2026-08-29 (ADR-0029).** **AC-M8 and AC-M9 are new and met.** The story
+> seam is now v2 — per-line speakers, a character registry with portrait art, and
+> standalone scenes — and the campaign save carries `scenesSeen` (campaignSchemaVersion
+> 4). AC-M4 is unchanged in substance and still met: battle text is still loaded from
+> data satisfying `docs/08` §4, and the A/B that proves it now swaps a v2 pack. **What
+> did NOT change: AC-M6's onboarding bet.** A scene player is presentation, not
+> teaching, and no newcomer has still played this.
+>
 > **AC status 2026-08-24 (ADR-0027).** AC-M1 now names the player it assumes, and the
 > "reachability, not difficulty" caveat below is no longer the whole story: difficulty has
 > been **measured**, over three deterministic player policies at sixteen seeds. A player who
@@ -177,6 +185,13 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   *Discriminator:* an A/B — swapping the story data changes what the player reads, with no
   code change. **Met** (ADR-0024). The contract's `mid`-battle hook is explicitly deferred
   until an event system exists to fire it; `pre`, `victory` and `defeat` ship.
+  **Amended 2026-08-29 (ADR-0029):** the pack is now **v2** — beats carry per-LINE
+  speakers rather than one speaker per beat, reference a pack-level `characters` registry,
+  and the pack may hold **standalone scenes** anchored before a battle or before the
+  ending. The seam's claim is unchanged and the A/B still carries it; it now swaps a v2
+  pack, and asserts the name plate is resolved **through the registry** rather than
+  printed from the raw id. `mid` is still deferred, and there is deliberately no
+  `after-battle` scene anchor either.
 - **AC-M5 (the chassis is reachable, not just present):** Every chassis slot the game shows
   a player SHALL have at least one **live** option affordable within a single playthrough's
   AP. *Discriminator:* walk each job tree's prerequisites and compare the cheapest live
@@ -202,6 +217,34 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   still wants the same weapon; (c) granting the same item twice changes nothing, walked
   across a full playthrough rather than per call. **Met** (ADR-0026), all three
   mutation-verified.
+
+- **AC-M8 (the pack knows who speaks, and carries scenes that belong to no battle):** A
+  story pack SHALL attribute each LINE, hold a `characters` registry the lines reference,
+  and be able to author scenes anchored before a battle or before the ending. Every
+  speaker and expression reference SHALL be resolved when the pack is PARSED, so a pack
+  naming someone who does not exist fails to load rather than rendering a fallback.
+  *Discriminators:* a beat whose two lines name **different** characters renders two name
+  plates — a beat-level speaker cannot produce that, and a fixture where both lines name
+  the same character scores identically under v1 and v2; the unresolvable-speaker case is
+  a **pair**, the same pack with and without the character present, because an
+  implementation resolving at render with a fallback accepts both; and the v1 migration is
+  asserted on **both** halves — the rendered grouping *and* the registry size — since each
+  alone passes a different wrong migration. **Met** (ADR-0029).
+
+- **AC-M9 (the portrait slot is wired, and an unauthored portrait reads as absent):**
+  A character's portrait SHALL reach the screen as a loaded image, and a line with no
+  authored portrait SHALL render no image at all — never an empty framed box presented as
+  art. *Discriminator — and the reason this AC is worded around the built output:* a
+  capability that validates its input and discards it reads exactly like one that works.
+  This repo shipped a support slot that type-checked its ability, rejected unlearned ones
+  and enforced the chassis rules while `build.ts` ignored it entirely, and nine of fourteen
+  builds wore a dead slot for two slices. So the claim is carried by an **A/B on the same
+  built page**: a character with art against one without, asserting `naturalWidth > 0`
+  rather than "an `<img>` exists" — the latter is satisfied by a broken image, by the asset
+  KEY landing in `src`, and by a file that never reached `dist`. **Met** (ADR-0029).
+  **Not asserted:** that any real portrait art exists. It does not; every portrait on
+  screen is one self-labelling placeholder, and a tripwire test fails the day that changes.
+
 
 > **NOT an M0 criterion: `docs/08` §3's teaching ramp.** Staged unlocks and the scripted
 > "guided first build" are deliberately unbuilt (ADR-0025 decision 1, user decision

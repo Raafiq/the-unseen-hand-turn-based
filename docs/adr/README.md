@@ -28,3 +28,8 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0022](0022-campaign-container-and-save.md) | The campaign is a fourth codec: an authored battle sequence plus a party save | Accepted | 2026-08-20 |
 | [0023](0023-the-game-shell.md) | The shell is a second page, and a battle is judged by its encounter | Accepted | 2026-08-21 |
 | [0024](0024-the-story-seam-is-data-and-prep-is-a-model.md) | Story text is a versioned data pack; the prep panel is a model with a mount | Accepted | 2026-08-22 |
+| [0025](0025-onboarding-is-a-question-mark-and-every-slot-is-reachable.md) | Onboarding is a question mark, and every chassis slot is reachable in one run | Accepted | 2026-08-22 |
+| [0026](0026-the-equipment-layer.md) | Equipment is horizontal and authored; a replayed battle grants nothing new | Accepted | 2026-08-22 |
+| [0027](0027-the-campaign-demands-engagement.md) | The campaign demands engagement: an unprepped party loses the finale | Accepted | 2026-08-24 |
+| [0028](0028-parchment-and-the-contrast-instrument.md) | The campaign is set on parchment, and its legibility is measured | Accepted | 2026-08-29 |
+| [0029](0029-story-v2-who-speaks-is-data.md) | Story v2: who speaks is data, and a scene can belong to no battle | Accepted | 2026-08-29 |
