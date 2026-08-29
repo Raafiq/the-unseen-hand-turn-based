@@ -40,7 +40,7 @@ import { awardAp, type ApReward } from "./progression.js";
 import { UnitRecordSchema, type UnitRecord } from "./roster.js";
 
 /** Current on-disk campaign schema version. Bump when a shape below changes. */
-export const CAMPAIGN_SCHEMA_VERSION = 3;
+export const CAMPAIGN_SCHEMA_VERSION = 4;
 
 /** Oldest campaignSchemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_CAMPAIGN_SCHEMA_VERSION = 1;
@@ -162,6 +162,23 @@ export const CampaignSaveSchema = z
      * standing order, and battle three has two more slots than battle one.
      */
     deployment: z.array(z.string().min(1)),
+    /**
+     * Ids of the standalone scenes this run has already read (campaignSchemaVersion 4),
+     * so a reload does not replay the prologue.
+     *
+     * IN THE SAVE, not in a second `localStorage` key. Scene progress is campaign
+     * progress: `eraseSave` must forget it, or starting a New Game after an erase would
+     * silently skip the prologue the player just asked to see again.
+     *
+     * Ids, not indices or a count — a scene keeps its identity when the campaign
+     * inserts another one before it, and a count would silently re-point at a different
+     * scene the moment the pack grew.
+     *
+     * This holds SEEN scenes only. How far into a scene the player has read is
+     * presentation, lives in the render layer, and deliberately never reaches here:
+     * it is a field with no rule behind it.
+     */
+    scenesSeen: z.array(z.string().min(1)),
   })
   .strict();
 export type CampaignSave = z.infer<typeof CampaignSaveSchema>;
@@ -178,11 +195,6 @@ export class CampaignSchemaVersionError extends Error {
 export type CampaignMigration = (save: Record<string, unknown>) => Record<string, unknown>;
 
 /**
- * Migration registry: `CAMPAIGN_MIGRATIONS[v]` upgrades a save from version `v` to
- * `v + 1`. Empty at v1 (no prior versions); every future bump registers here, the
- * migration-per-bump pattern the other three codecs use.
- */
-/**
  * v2 → v3: an empty deployment, which resolves to the encounter's own placements —
  * byte-identical to how a v2 save played.
  */
@@ -190,6 +202,24 @@ const migrateCampaign2to3: CampaignMigration = (save) => ({
   ...save,
   campaignSchemaVersion: 3,
   deployment: [],
+});
+
+/**
+ * v3 → v4: no scenes seen yet (campaignSchemaVersion 4).
+ *
+ * Empty, not "every scene up to `battleIndex`". A v3 save was played by a build that
+ * had no standalone scenes at all, so a scene it never showed is genuinely unseen —
+ * the same reasoning `migrateCampaign1to2` gives for the inventory below.
+ *
+ * The consequence, stated rather than discovered later: a v3 save sitting at battle
+ * five leaves the prologue permanently unseen AND unreachable, because only the
+ * CURRENT anchor is ever consulted. That is correct — the player is past it — and it
+ * is not a leak.
+ */
+const migrateCampaign3to4: CampaignMigration = (save) => ({
+  ...save,
+  campaignSchemaVersion: 4,
+  scenesSeen: [],
 });
 
 const migrateCampaign1to2: CampaignMigration = (save) => ({
@@ -208,6 +238,7 @@ const migrateCampaign1to2: CampaignMigration = (save) => ({
 export const CAMPAIGN_MIGRATIONS: Readonly<Record<number, CampaignMigration>> = {
   1: migrateCampaign1to2,
   2: migrateCampaign2to3,
+  3: migrateCampaign3to4,
 };
 
 /** Parse + validate an authored campaign def (loud fail on an unsupported version). */
@@ -244,6 +275,7 @@ export function startCampaign(def: CampaignDef): CampaignSave {
     party: def.party.map((r) => UnitRecordSchema.parse(r)),
     history: [],
     deployment: [],
+    scenesSeen: [],
     // Battle one's own grant is applied here, not on arriving at battle two: a drip
     // that only paid out on ADVANCING would leave the first battle — the one a new
     // player meets — as the single fight with no gear in it.
