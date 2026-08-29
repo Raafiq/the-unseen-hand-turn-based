@@ -189,7 +189,7 @@ profile.
 
 ## Where things stand
 
-**M0 IS BUILT — all seven items (`docs/11` §3).** 809 tests / 41 files, 38 Playwright
+**M0 IS BUILT — all seven items (`docs/11` §3).** 809 tests / 41 files, 39 Playwright
 specs. Variety score (distinct viable build identities) still **7** against a release bar
 of **8**, carried into M1 by user decision.
 
@@ -267,9 +267,12 @@ the git history of that file — do not re-expand it in place.
    even a helper from `storage.ts`, turns `telemetry.test.ts` red, and that red is the
    file telling you the claim just stopped being true. Feed the recorder scalars and
    copies; never hand it a live object it could keep.
-1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE.** `npx playwright test`
-   does NOT rebuild; `npm run test:visual` does. Rebuild before believing a browser
-   failure.
+1. **A STALE `dist` FAILS A BROWSER TEST THAT IS ACTUALLY FINE — AND NOW SAYS SO.**
+   `npx playwright test` does NOT rebuild; `npm run test:visual` does. The variant that
+   cost this session real time is worse, because it does not look like a build problem:
+   a **failed** `npm run build` leaves the previous `dist` standing, so the suite measures
+   the OLD page and reports numbers that are plausible and wrong.
+   `e2e/fresh-build.spec.ts` now fails loudly when `dist` is older than any watched source.
 2. **GEAR IS A DIVERSITY AXIS THE GATE DOES NOT USE.** `data/builds/*` all carry
    `weapon: null`, so the 7 is measured with every build on the same placeholder weapon.
    "The gate did not move" is a statement about COVERAGE here, not quality.
@@ -381,6 +384,16 @@ stays out of reach in one playthrough — intended, and asserted.
   ESM loader, which requires `with { type: "json" }`.
 - **`vite.config.ts` now has two entries.** A page missing from `rollupOptions.input` works
   under `npm run dev` and does not exist in `dist` — i.e. it is not shipped.
+- **After a merge the remote branch is DELETED, so `--force-with-lease` fails with
+  "stale info" on the next slice.** The local remote-tracking ref still points at the
+  merged tip while the branch is gone. `git remote prune origin`, then push normally —
+  there is nothing to force. Do **not** reach for a bare `--force`.
+- **Google Fonts is reachable through the proxy; self-hosting a face is cheap.** Fetch
+  `https://fonts.googleapis.com/css2?family=...` with a **browser User-Agent** (the
+  default UA gets a TTF-era stylesheet with no woff2), then take the `@font-face` block
+  whose `unicode-range` contains `U+0000-00FF` — that is the latin subset. Five faces
+  came to 104 KB. They live in `public/fonts/`, referenced **relatively** (`./fonts/…`)
+  so they survive the Pages base path.
 - **Use the check-runs API for CI**; the legacy commit-status endpoint reports nothing.
 - **The sandbox proxy blocks `/repos/*/pages`, `/environments`, `/deployments` and all
   `*.github.io` egress**, but a runner can reach them with `${{ github.token }}`.

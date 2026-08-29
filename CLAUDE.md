@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 38 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 39 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15).
 
@@ -156,6 +156,11 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
 - **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** The harness forbids opening a PR unasked, so the human often opens it — and GitHub fills the body from the head commit message: hard-wrapped, no headings, trailers leaked. If you did not open the PR, find it and **replace an auto-filled body** (auto-filled iff it equals the head commit message) with: lede, review-artifact link, a `Claim / the bug it hides / caught by` evidence table, what is deliberately **not** asserted, the checks (cf. PR #35, #36). Re-fetch the stored body to confirm nothing mangled. No hook can catch this.
 - **Visual proof in a PR.** Commit frames/video under `docs/visual/<slice>/` and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>`; re-fetch afterwards to check for mangling. Do **not** embed images in API-posted comments (that path corrupts URLs and comments cannot be edited by the tooling). For motion: a filmstrip contact-sheet PNG (ffmpeg `fps=N,scale,tile`) plus an H.264 `run.mp4` and GIF (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static`). Playable video lives on the Pages gallery after merge.
   - **[STALE — the repo has been PUBLIC since 2026-08-09]** The old mobile findings were private-repo-specific: `raw.githubusercontent.com` now returns **200**, and the claim that the GitHub mobile app inlines no image and plays no committed video is now an **unverified hypothesis**. Re-measure on-device before relying on it; don't delete it until something replaces it.
+- **For a TASTE change, get a reference before you build.** The parchment slice was
+  rebuilt twice from scratch — "too bright", then "too dark" — before the user sent one
+  image, which settled it in a single pass. Aesthetic direction is not derivable from a
+  description, and each blind iteration costs a full rebuild. Ask for a reference, or
+  put 2–3 real options in front of them, before writing the stylesheet.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
