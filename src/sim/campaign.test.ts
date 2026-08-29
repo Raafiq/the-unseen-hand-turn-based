@@ -244,6 +244,33 @@ describe("the campaign save codec — AC-M2", () => {
     expect(() => deserializeCampaign(JSON.stringify(obj))).toThrow();
   });
 
+  it("DISCRIMINATING: a v3 save migrates to NO scenes seen, and keeps everything else", () => {
+    // The pair that matters. Half one: a v3 save loads at all — without the migration
+    // it is refused outright, so every existing player's campaign is gone.
+    const current = startCampaign(fixtureDef());
+    const v3 = JSON.parse(serializeCampaign(current)) as Record<string, unknown>;
+    v3["campaignSchemaVersion"] = 3;
+    delete v3["scenesSeen"];
+    const migrated = deserializeCampaign(JSON.stringify(v3));
+    expect(migrated.campaignSchemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
+
+    // Half two: EMPTY, not back-filled. A v3 save was played by a build with no scenes
+    // at all, so every scene is genuinely unseen. A migration that marked the scenes
+    // "up to battleIndex" as read would also load cleanly and would silently rob the
+    // player of the prologue — passing half one on its own.
+    expect(migrated.scenesSeen).toEqual([]);
+
+    // And the migration changed NOTHING else. Without this, a migration that rebuilt the
+    // save from defaults would satisfy both halves above while discarding the party.
+    const withoutNewFields = (s: CampaignSave): Record<string, unknown> => {
+      const copy = { ...s } as Record<string, unknown>;
+      delete copy["scenesSeen"];
+      delete copy["campaignSchemaVersion"];
+      return copy;
+    };
+    expect(withoutNewFields(migrated)).toEqual(withoutNewFields(current));
+  });
+
   it("has a migration registered for every version below the current one", () => {
     // The migration-per-bump pattern (roster.ts / state.ts): the day this file bumps to
     // v2 without registering 1→2, every existing save becomes unloadable. Asserted here

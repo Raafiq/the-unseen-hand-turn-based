@@ -25,10 +25,16 @@ import b3 from "../../data/campaign/encounters/camp-b3-the-hollow-watch.json" wi
 import b4 from "../../data/campaign/encounters/camp-b4-the-broken-span.json" with { type: "json" };
 import b5 from "../../data/campaign/encounters/camp-b5-the-warchiefs-camp.json" with { type: "json" };
 import pack from "../../data/base-pack.json" with { type: "json" };
+// Portrait art, imported so VITE resolves each to a URL with `base` applied — the Pages
+// sub-path is then the bundler's problem, as it already is for every JS chunk, rather
+// than a relative-path convention every future author has to remember. Spelled out one
+// per line for the same reason the five encounter imports are (see above).
+import placeholderPortrait from "../../data/campaign/story/portraits/placeholder.svg";
 import {
   loadContentPack,
   parseCampaign,
   parseStoryPack,
+  portraitCoverage,
   storyCoverage,
   type CampaignDef,
   type ContentRegistry,
@@ -64,6 +70,17 @@ export const ENCOUNTERS: EncounterMap = Object.freeze(
  */
 export const story: StoryPack = parseStoryPack(storyJson);
 
+/**
+ * Asset key → the URL the bundle serves it from.
+ *
+ * The engine never resolves an asset key (`story.ts` holds keys and nothing else); this
+ * is the one place that mapping exists, and the boot check below asserts it agrees with
+ * the pack in both directions.
+ */
+export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
+  placeholder: placeholderPortrait,
+});
+
 // Boot-time coverage, in BOTH directions, for the reason the encounter partition below
 // exists: `missing` catches a battle that ships with a blank screen where a scene should
 // be, and `extra` catches an entry left behind by a renamed battle, which resolves for
@@ -83,6 +100,24 @@ export const story: StoryPack = parseStoryPack(storyJson);
     throw new Error(
       `story pack does not match the campaign's battles — no text for ` +
         `[${gaps.missing.join(", ")}], text for absent [${gaps.extra.join(", ")}]`,
+    );
+  }
+  // Standalone scenes are checked in ONE direction only, and that asymmetry is
+  // deliberate: a battle with no interlude is well-authored content, while a scene
+  // anchored to a battle the campaign does not play is a scene no player can ever reach.
+  if (gaps.orphanScenes.length > 0) {
+    throw new Error(
+      `story pack anchors scenes to battles this campaign does not play: ` +
+        `[${gaps.orphanScenes.join(", ")}]`,
+    );
+  }
+  // Both directions again: a named-but-unbundled key would render a broken image, and a
+  // bundled-but-unnamed one is art that shipped wired to nothing and reads as done.
+  const art = portraitCoverage(story, Object.keys(PORTRAITS));
+  if (art.missing.length > 0 || art.extra.length > 0) {
+    throw new Error(
+      `story pack and bundled portraits disagree — no asset for ` +
+        `[${art.missing.join(", ")}], unused art [${art.extra.join(", ")}]`,
     );
   }
 }

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { prepEveryMember } from "./helpers.js";
+import { prepEveryMember, dismissScene } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/playtest";
@@ -29,7 +29,20 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await shot("01-title", "screen-title");
 
   await page.getByTestId("new-game").click();
-  await shot("02-briefing-battle-1", "screen-briefing");
+
+  // The prologue is a screen a player passes through, so it is a frame. Its caption is
+  // checkable the same way every other one is: `02a` must show the scene mid-read (the
+  // More control still on screen), `02b` must show it finished (More gone). Without the
+  // second assertion a half-revealed beat would sit under a caption saying "read".
+  await expect(page.getByTestId("screen-scene")).toBeVisible();
+  await expect(page.getByTestId("scene-story-more")).toBeVisible();
+  await shot("02a-prologue-first-line", "screen-scene");
+  await page.getByTestId("scene-story-all").click();
+  await expect(page.getByTestId("scene-story-more")).toBeHidden();
+  await shot("02b-prologue-read", "screen-scene");
+
+  await dismissScene(page);
+  await shot("02c-briefing-battle-1", "screen-briefing");
 
   await page.getByTestId("help-open").click();
   await shot("03-help-panel", "help");
@@ -50,11 +63,13 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   // Walk to the last briefing so the prep panel is shown fully stocked.
   for (let i = 0; i < 3; i++) {
     await page.getByTestId("next").click();
+    await dismissScene(page);
     await page.getByTestId("deploy").click();
     await page.evaluate(() => window.tuhGame.autoplay());
     await page.getByTestId("conclude").click();
   }
   await page.getByTestId("next").click();
+  await dismissScene(page);
   await shot("08-briefing-battle-5-full-prep", "screen-briefing");
 
   // ADR-0027: an unprepped party LOSES the finale, so without this the walkthrough ends
@@ -65,5 +80,8 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await page.getByTestId("deploy").click();
   await page.evaluate(() => window.tuhGame.autoplay());
   await page.getByTestId("conclude").click();
-  await shot("09-ending", "screen-completed");
+  // The epilogue stands in front of the ending (AC-V17).
+  await shot("09-epilogue", "screen-scene");
+  await dismissScene(page);
+  await shot("10-ending", "screen-completed");
 });

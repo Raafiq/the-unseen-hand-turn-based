@@ -338,6 +338,45 @@
       .story .who { margin: 0 0 7px; font-family: var(--roman); font-size: .66rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--warn); }
       .story p.line { margin: 0 0 8px; color: var(--ink); font-size: 1.12rem; max-width: 56ch; }
       .story p.line:last-child { margin-bottom: 0; }
+      /* ── the scene player (docs/10 AC-V16) ────────────────────────────────
+         The lines sit in the same ruled pull-quote the whole beat used to; only
+         the controls below are new. NO motion here on purpose — the reveal is
+         input-driven, so there is no transition, no keyframe and nothing for
+         prefers-reduced-motion to turn off. See src/render/scene.ts. */
+      .scene-body { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
+      /* A beat with no art at all gets no gutter; a beat that HAS art keeps the column
+         even on its narration lines, so the text never jumps mid-read. */
+      .scene-body[data-art="no"] { grid-template-columns: 1fr; }
+      .scene-body[data-art="no"] > .portrait { display: none; }
+      .portrait[data-state="none"] { visibility: hidden; }
+      /* The frame is sized in the stylesheet, not by the asset, so real art dropped in
+         later inherits the layout instead of dictating it. */
+      .portrait { margin: 0; width: 96px; flex: none;
+                  border: 1px solid var(--border-strong);
+                  box-shadow: inset 0 0 0 2px rgba(234,218,174,.3); }
+      .portrait img { display: block; width: 100%; height: auto; }
+      /* Real DOM text, deliberately: the same words are drawn inside the SVG, but text
+         in an SVG is neither announced by a screen reader nor measurable by
+         contrast.spec.ts. This caption is keyed on the asset being the placeholder, so
+         it disappears by itself the day the pack names real art. */
+      .portrait figcaption.pending { font-family: var(--roman); font-size: .52rem;
+                  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+                  text-align: center; padding: 5px 3px; border-top: 1px solid var(--border); }
+      @media (max-width: 620px) {
+        .scene-body { grid-template-columns: 1fr; }
+        .portrait { width: 76px; }
+      }
+      .scene-lines { border-left: 2px solid var(--accent); padding: 2px 0 2px 18px; }
+      .scene-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+      .scene-controls button { font-size: .68rem; padding: 8px 14px 8px 24px; }
+      .scene-controls button::before { left: 9px; font-size: .5rem; }
+      .scene-controls button[hidden] { display: none; }
+      /* Ink, not --ink-faint: this readout is the only thing telling a player there is
+         more to read, so it is measured as body text rather than as decoration. */
+      .scene-progress { margin: 0; font-family: var(--roman); font-size: .62rem;
+                        letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+                        font-variant-numeric: tabular-nums; }
+      .scene-progress:empty { display: none; }
       /* An illuminated initial on the opening line only. */
       .story p.line:first-of-type::first-letter { font-family: var(--display); font-size: 2.8rem; line-height: .82; float: left; margin: 5px 8px 0 0; color: var(--warn); }
 
@@ -399,6 +438,19 @@
                     aria-label="Playtest log, ready to copy"></textarea>
         </div>
         <footer>Also here: the <a href="./viewer.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
+      </section>
+
+      <!-- SCENE — a prologue, an interlude or an epilogue (docs/10 AC-V17).
+           The whole screen is the scene, which is what makes a document-level key
+           handler safe here and not on the briefing. -->
+      <section id="screen-scene" data-testid="screen-scene" hidden>
+        <div class="card">
+          <h1 id="scene-title" data-testid="scene-title"></h1>
+          <div id="scene-story" class="story" data-testid="scene-story" hidden></div>
+          <div class="controls">
+            <button id="btn-scene-continue" data-testid="scene-continue">Continue &#9656;</button>
+          </div>
+        </div>
       </section>
 
       <!-- BRIEFING -->

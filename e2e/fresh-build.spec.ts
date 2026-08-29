@@ -25,7 +25,12 @@ import { test, expect } from "@playwright/test";
 /** Sources whose edits must be reflected in `dist` before any browser spec is believed. */
 const WATCHED_FILES = ["index.html", "viewer.html", "game.html", "vite.config.ts"];
 const WATCHED_DIRS = ["src/render", "src/sim", "data", "public"];
-const CODE = new Set([".ts", ".tsx", ".js", ".mjs", ".html", ".css", ".json", ".woff2"]);
+// Images count as source. Without them an edit to a portrait does not invalidate
+// `dist`, and the browser suite measures the OLD asset while reporting on the new one.
+const CODE = new Set([
+  ".ts", ".tsx", ".js", ".mjs", ".html", ".css", ".json", ".woff2",
+  ".svg", ".png", ".webp", ".jpg",
+]);
 
 /** Newest mtime under a directory tree, recursively. Returns 0 for a missing path. */
 function newestUnder(path: string): { mtime: number; file: string } {

@@ -27,6 +27,8 @@ import {
   startCampaign,
   currentBattle,
   updatePartyMember,
+  resolveBeat,
+  sceneAt,
   storyBeat,
   storyEntry,
   type CampaignBattleRun,
@@ -35,7 +37,10 @@ import {
   type ContentRegistry,
   type EncounterMap,
   type Encounter,
+  type ResolvedLine,
+  type SceneAnchor,
   type StoryBeat,
+  type StoryScene,
   type StoryPack,
   type UnitRecord,
 } from "../sim/index.js";
@@ -47,7 +52,7 @@ import { readSave, writeSave, type SaveSlot } from "./storage.js";
  * a loss has to be somewhere the player can act — AC-M3's "losing is a state, not a
  * crash" is exactly this row existing.
  */
-export type Screen = "TITLE" | "BRIEFING" | "BATTLE" | "AFTER_BATTLE" | "COMPLETED";
+export type Screen = "TITLE" | "SCENE" | "BRIEFING" | "BATTLE" | "AFTER_BATTLE" | "COMPLETED";
 
 export interface ShellOptions {
   def: CampaignDef;
@@ -134,7 +139,7 @@ export class CampaignShell {
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
-    this.screen = "BRIEFING";
+    this.arrive();
   }
 
   /**
@@ -148,12 +153,10 @@ export class CampaignShell {
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
-    this.screen =
-      this.save.status === "completed"
-        ? "COMPLETED"
-        : this.save.status === "gameOver"
-          ? "AFTER_BATTLE"
-          : "BRIEFING";
+    // gameOver still lands on AFTER_BATTLE — the retry screen is where a loss is
+    // acknowledged, and a scene must never stand in front of that.
+    if (this.save.status === "gameOver") this.screen = "AFTER_BATTLE";
+    else this.arrive();
     return true;
   }
 
@@ -192,10 +195,80 @@ export class CampaignShell {
 
   // ─── the story seam (docs/11 M0 item 4, AC-M4) ────────────────────────────
   //
-  // Three lookups, no prose. Each one asks the PACK a question and hands back what it
-  // says, so swapping the data changes what a player reads with no change here — which
-  // is AC-M4's discriminator, and the only reason these are methods rather than the
-  // page reading strings out of a constant.
+  // Lookups, no prose. Each one asks the PACK a question and hands back what it says, so
+  // swapping the data changes what a player reads with no change here — which is AC-M4's
+  // discriminator, and the only reason these are methods rather than the page reading
+  // strings out of a constant.
+
+  /**
+   * The screen to show on ARRIVING somewhere — a pending scene, or the place it stands
+   * in front of.
+   *
+   * One resolver called from every transition that can land on a briefing or the ending,
+   * rather than five copies of the same ternary. `src/render/CLAUDE.md` names the trap
+   * this closes: a screen the state machine skips has content nobody can reach, and the
+   * transitions (not the states) are what has to be enumerated — this repo has already
+   * shipped an unreadable story beat exactly that way.
+   */
+  private arrive(): void {
+    this.screen =
+      this.pendingScene() !== null
+        ? "SCENE"
+        : this.save?.status === "completed"
+          ? "COMPLETED"
+          : "BRIEFING";
+  }
+
+  /**
+   * The standalone scene standing in front of the current moment, or `null`.
+   *
+   * Only the CURRENT anchor is consulted — the scene before the pending battle, or the
+   * one before the ending. A run that somehow skipped past an anchor does not accumulate
+   * a backlog to play through; the scene is simply missed, which is the same thing that
+   * happens to a player who is already past that point in the story.
+   */
+  pendingScene(): StoryScene | null {
+    if (!this.save || !this.storyPack) return null;
+    const seen = new Set(this.save.scenesSeen);
+    const at: SceneAnchor | null =
+      this.save.status === "completed"
+        ? { kind: "campaign-end" }
+        : (() => {
+            const battle = currentBattle(this.def, this.save);
+            return battle ? { kind: "before-battle" as const, battleId: battle.id } : null;
+          })();
+    if (!at) return null;
+    const scene = sceneAt(this.storyPack, at);
+    return scene && !seen.has(scene.id) ? scene : null;
+  }
+
+  /**
+   * Dismiss the pending scene: mark it read, persist, and go where it stood in front of.
+   *
+   * MARKED ON EXIT, not on entry. A reload part-way through a scene therefore replays it
+   * from the top, which is the friendlier answer and puts the write on the same boundary
+   * every other `persist()` sits on. How far the player had read is presentation and is
+   * deliberately not saved.
+   */
+  endScene(): void {
+    const scene = this.pendingScene();
+    if (!this.save || !scene) return;
+    this.save = { ...this.save, scenesSeen: [...this.save.scenesSeen, scene.id] };
+    this.persist();
+    this.arrive();
+  }
+
+  /**
+   * A beat with its speakers and portraits already looked up (`docs/11` AC-M8).
+   *
+   * Here rather than in `game.ts` so the PAGE never holds a character table it could
+   * miss against — `src/render/CLAUDE.md`'s content-keyed-lookup rule. Returns `[]` with
+   * no pack, which is unreachable in practice (the caller only has a beat if a pack gave
+   * it one) and is still the honest answer rather than a throw.
+   */
+  resolve(beat: StoryBeat): ResolvedLine[] {
+    return this.storyPack ? resolveBeat(this.storyPack, beat) : [];
+  }
 
   /** The authored name of the pending battle's scene, or `null` if the pack has none. */
   sceneTitle(): string | null {
@@ -307,7 +380,11 @@ export class CampaignShell {
     this.persist();
     this.session = null;
     this.encounter = null;
-    this.screen = this.save.status === "completed" ? "COMPLETED" : "AFTER_BATTLE";
+    // A win goes through `arrive`, so the epilogue can stand in front of the ending.
+    // A loss goes straight to AFTER_BATTLE: the retry screen is the one place a defeat
+    // is acknowledged, and no scene belongs in front of it.
+    if (this.save.status === "completed") this.arrive();
+    else this.screen = "AFTER_BATTLE";
   }
 
   /**
@@ -333,7 +410,7 @@ export class CampaignShell {
   /** After a WIN: on to the next briefing. */
   nextBattle(): void {
     if (!this.save || this.save.status !== "in-progress") return;
-    this.screen = "BRIEFING";
+    this.arrive();
   }
 
   /**
@@ -344,7 +421,10 @@ export class CampaignShell {
     if (!this.save || this.save.status !== "gameOver") return;
     this.save = retryBattle(this.save);
     this.persist();
-    this.screen = "BRIEFING";
+    // Through `arrive` like every other landing, and the seen-set is what makes this
+    // correct with no special case: an interlude already read is not replayed on a
+    // retry, and one somehow unread still plays.
+    this.arrive();
   }
 
   // ─── between-battle prep (docs/11 M0 item 3) ──────────────────────────────

@@ -14,13 +14,14 @@
  */
 
 import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
-import { ENCOUNTERS, battleTitle, campaign, registry, story } from "./campaign-data.js";
+import { ENCOUNTERS, PORTRAITS, battleTitle, campaign, registry, story } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
 import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
+import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
 import type { Phase, Session } from "./session.js";
@@ -58,9 +59,10 @@ const telemetry = new Recorder({
   slot: storageAvailable ? browserSlot(localStorage, PLAYTEST_LOG_KEY) : memorySlot(),
 });
 
-const SCREENS: Screen[] = ["TITLE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
+const SCREENS: Screen[] = ["TITLE", "SCENE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
 const SCREEN_EL: Record<Screen, string> = {
   TITLE: "screen-title",
+  SCENE: "screen-scene",
   BRIEFING: "screen-briefing",
   BATTLE: "screen-battle",
   AFTER_BATTLE: "screen-after",
@@ -90,6 +92,7 @@ const LOG_SCREENS = ["title", "done"] as const;
 /** Plain names for the screens, for a sentence a playtester reads. */
 const SCREEN_LABEL: Record<Screen, string> = {
   TITLE: "the title screen",
+  SCENE: "a story scene",
   BRIEFING: "a briefing",
   BATTLE: "a battle",
   AFTER_BATTLE: "the after-battle screen",
@@ -112,6 +115,12 @@ function look(): LookUp {
     };
   };
 }
+
+/**
+ * One mounted scene per story host, kept OUT of the DOM so a repaint cannot reset how
+ * much has been read. Lazily filled, exactly as the prep panel is.
+ */
+const scenes = new Map<string, SceneHandle>();
 
 let canvasFocused = false;
 
@@ -159,27 +168,48 @@ function renderTitle(): void {
  * `null` for it), and rendering an empty bordered box in its place would present an
  * authoring gap as a scene. Same rule as the preview panel's absent-not-zero.
  *
- * `textContent`, never `innerHTML` — story text is CONTENT from a data file, and the
- * seam exists so a separate repo can supply it. Interpolating it as markup would make
- * every future story author able to inject script into the page.
+ * The reveal state lives in the mounted {@link SceneHandle}, NOT in the DOM this
+ * function touches, because this function is reached from `refresh()` — which the prep
+ * panel's `onChange` and every deploy toggle also trigger, on the very screen a scene is
+ * being read. See `scene.ts`'s header. The KEY is what makes that safe: an unchanged key
+ * is a no-op all the way down.
  */
-function renderStory(id: string, beat: StoryBeat | null): void {
-  const box = el(id);
-  box.hidden = beat === null;
-  box.textContent = "";
-  if (!beat) return;
-  if (beat.speaker !== undefined) {
-    const who = document.createElement("p");
-    who.className = "who";
-    who.textContent = beat.speaker;
-    box.append(who);
+function renderStory(id: string, key: string, beat: StoryBeat | null): void {
+  let handle = scenes.get(id);
+  if (!handle) {
+    handle = mountScene(el(id), {
+      portraits: PORTRAITS,
+      onAction: (action) => {
+        telemetry.action(shell.screen, action);
+      },
+    });
+    scenes.set(id, handle);
   }
-  for (const line of beat.lines) {
-    const p = document.createElement("p");
-    p.className = "line";
-    p.textContent = line;
-    box.append(p);
-  }
+  handle.setBeat(key, beat === null ? null : shell.resolve(beat));
+}
+
+/**
+ * The key identifying WHICH beat a host is showing, so a repaint of the same beat is a
+ * no-op and a genuinely new beat starts from line one.
+ *
+ * Strings assembled from save state rather than object identity: a beat object is
+ * re-derived on every call, so identity would never match, and a `.map()` appearing
+ * anywhere in an accessor's path would break an identity check silently.
+ *
+ * `attempts` is in the briefing key on purpose — a retry is a fresh read of the same
+ * scene, and the player has been away to a battle in between.
+ */
+function preKey(): string {
+  const brief = shell.briefing();
+  if (!brief) return "brief:none";
+  const attempts = shell.save?.history.filter((h) => h.battleId === brief.battleId).length ?? 0;
+  return `brief:${brief.battleId}:${attempts}`;
+}
+
+function outcomeKey(): string {
+  const history = shell.save?.history ?? [];
+  const last = history.at(-1);
+  return last ? `outcome:${last.battleId}:${last.outcome}:${history.length}` : "outcome:none";
 }
 
 /**
@@ -249,7 +279,7 @@ function renderBriefingText(): void {
   // does not — the page prefers data over its own derivation, which is what makes the
   // title part of the story seam rather than a naming convention.
   el("brief-title").textContent = shell.sceneTitle() ?? battleTitle(brief.encounterId);
-  renderStory("brief-story", shell.preBeat());
+  renderStory("brief-story", preKey(), shell.preBeat());
   el("brief-note").textContent = brief.retrying
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
@@ -362,6 +392,21 @@ function renderBattle(): void {
   reason.textContent = text;
 }
 
+/**
+ * A standalone scene — a prologue, an interlude, an epilogue (docs/10 AC-V17).
+ *
+ * The whole screen is the scene, which is why this is the one screen that takes a
+ * document-level key handler and moves focus. The briefing deliberately gets neither:
+ * it is full of selects and buttons where Space and Enter already mean something.
+ */
+function renderScene(): void {
+  const scene = shell.pendingScene();
+  if (!scene) return;
+  el("scene-title").textContent = scene.title ?? "";
+  el("scene-title").hidden = scene.title === undefined;
+  renderStory("scene-story", `scene:${scene.id}`, scene.beat);
+}
+
 function renderAfter(): void {
   const outcome = shell.lastOutcome();
   const won = outcome === "victory";
@@ -369,7 +414,7 @@ function renderAfter(): void {
   el("after-note").textContent = won
     ? "AP is banked. The party redeploys at full HP — nobody is lost in this chapter."
     : "Nothing was spent. Retry the same battle with exactly the party you had.";
-  renderStory("after-story", shell.outcomeBeat());
+  renderStory("after-story", outcomeKey(), shell.outcomeBeat());
   el<HTMLButtonElement>("btn-next").hidden = !won;
   el<HTMLButtonElement>("btn-retry").hidden = won;
 }
@@ -378,7 +423,7 @@ function renderCompleted(): void {
   // The FINAL victory never passes through the after-battle screen — winning the last
   // battle goes straight to `COMPLETED` — so the last battle's victory scene would be
   // the one beat in the pack a player could never read. It belongs here.
-  renderStory("done-story", shell.outcomeBeat());
+  renderStory("done-story", outcomeKey(), shell.outcomeBeat());
   const wins = shell.save?.history.filter((h) => h.outcome === "victory").length ?? 0;
   const losses = (shell.save?.history.length ?? 0) - wins;
   el("done-note").textContent =
@@ -407,7 +452,12 @@ function logNote(): string {
   const n = log.events.length;
   return (
     `${n} moment${n === 1 ? "" : "s"} recorded, up to ${where}. ` +
-    "The log holds which screens you saw, how long each took, what you bought and equipped, " +
+    // Widened when the scene player landed: how much of a scene a player reads is a new
+    // CATEGORY of collected thing, and this sentence is the only place the page says
+    // what it keeps. Collection widening without this widening is what turns a complete
+    // disclosure into a partial one, silently.
+    "The log holds which screens you saw, how long each took, how much of each story " +
+    "scene you read, what you bought and equipped, " +
     "and how each battle went — no name, no typing, and no date or time of day. " +
     "Nothing is sent anywhere: copying puts it on your clipboard and that is all." +
     (s.incomplete ? " Some of it was dropped, so the timings are a lower bound." : "")
@@ -473,6 +523,8 @@ function renderSaveError(): void {
  * one it saw. `undefined`, not 0 — absent, never a modeled zero.
  */
 function loggedStep(): number | undefined {
+  // Deliberately NOT on SCENE. A scene sits between battles, so "which battle step is
+  // this" has two defensible answers there — absent, not a guess (absent-not-zero).
   if (shell.screen !== "BRIEFING" && shell.screen !== "BATTLE") return undefined;
   return shell.briefing()?.step;
 }
@@ -486,6 +538,9 @@ function refresh(): void {
   switch (shell.screen) {
     case "TITLE":
       renderTitle();
+      break;
+    case "SCENE":
+      renderScene();
       break;
     case "BRIEFING":
       renderBriefing();
@@ -669,6 +724,7 @@ const on = (id: string, fn: () => void): void =>
   el(id).addEventListener("click", () => act(id, fn));
 
 on("btn-new-game", () => shell.newGame());
+on("btn-scene-continue", () => shell.endScene());
 on("btn-continue", () => shell.continueGame());
 on("btn-erase", () => shell.eraseSave());
 on("btn-deploy", () => shell.deploy());
@@ -681,6 +737,35 @@ on("btn-done-title", () => shell.quitToTitle());
 on("btn-end-turn", () => shell.session?.endTurn());
 on("btn-cancel", () => shell.session?.cancel());
 on("btn-step", () => shell.session?.step());
+
+/**
+ * Keyboard on the SCENE screen, and ONLY there.
+ *
+ * A document-level handler is safe here because the whole screen is one scene with one
+ * command. It is deliberately NOT installed on the briefing: that screen is full of
+ * selects, checkboxes and buttons where Space and Enter already mean something, and a
+ * document handler would fight them.
+ *
+ * The scene's own More/Show all buttons keep working by being real buttons — this only
+ * adds the "press anything to continue" reflex a reader expects.
+ */
+document.addEventListener("keydown", (ev) => {
+  if (shell.screen !== "SCENE") return;
+  const handle = scenes.get("scene-story");
+  const target = ev.target as HTMLElement | null;
+  // Never swallow a key aimed at a control the player has actually focused.
+  if (target && (target.tagName === "BUTTON" || target.tagName === "SELECT")) return;
+  if (ev.key === "Enter" || ev.key === " " || ev.key === "ArrowRight") {
+    ev.preventDefault();
+    if (handle?.model && !handle.model.done) act("scene-key-advance", () => handle.advance());
+    else act("scene-key-continue", () => shell.endScene());
+    return;
+  }
+  if (ev.key === "End" || ev.key === "Escape") {
+    ev.preventDefault();
+    act("scene-key-all", () => handle?.showAll());
+  }
+});
 
 /**
  * The shipped seam. Every entry routes through the SAME shell/session method a button
