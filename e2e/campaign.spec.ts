@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { prepEveryMember } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
+// The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
+// Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
+import storyPack from "../data/campaign/story/camp-the-first-march.story.json" with { type: "json" };
 
 const SHOTS = "visual-artifacts/screenshots";
 
@@ -47,7 +50,13 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   // The story seam on screen (AC-M4): the AUTHORED title and the pre-battle text, both
   // from `data/campaign/story/*.story.json`. The A/B that proves they came from the data
   // is headless (`campaign-shell.test.ts`); what a browser adds is that they render.
-  await expect(page.getByTestId("brief-title")).toHaveText("The Toll Road");
+  // Read out of the pack, not pinned. `check:story` matches authored TITLES whole (a
+  // title never reaches the six-word window used for lines), so a literal here is the
+  // same violation as quoting a line — it just went unnoticed until the guard learned
+  // to look at titles.
+  const b1Title = storyPack.entries.find((e) => e.battleId === "b1")?.title;
+  expect(typeof b1Title).toBe("string"); // non-degeneracy: an absent title would pass vacuously
+  await expect(page.getByTestId("brief-title")).toHaveText(b1Title!);
   // Not a story LITERAL: the pack is meant to be swappable, so pinning its prose here
   // turns the seam's whole purpose into a test failure (it did — this line named a party
   // size the battle does not field, and had to change). The speaker is structure, not

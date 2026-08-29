@@ -389,7 +389,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
   it("DISCRIMINATING (AC-M4's A/B): swapping the DATA changes what the player reads", () => {
     // The whole contract in one assertion. Same campaign, same encounters, same code
     // path, same method calls — only the pack differs, and the text follows the pack.
-    // A shell with the prose compiled in would return "The Toll Road" for both.
+    // A shell with the prose compiled in would return the shipped title for both.
     const swapped = parseStoryPack({
       storySchemaVersion: 1,
       campaignId: campaign.id,
@@ -407,7 +407,15 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     const alternate = shell(memorySlot(), swapped);
     alternate.newGame();
 
-    expect(shipped.sceneTitle()).toBe("The Toll Road");
+    // Read out of the pack, never pinned: `check:story` fails a test that names an
+    // authored title, for the same reason it fails one that names a line. The guard
+    // window is six words and a title never reaches six, so titles are matched WHOLE —
+    // which is how this literal survived here until 2026-08-29.
+    const shippedTitle = story.entries.find((e) => e.battleId === "b1")?.title;
+    // Non-degeneracy: if the pack authored no title, `sceneTitle()` returns null and the
+    // comparison below would be undefined-vs-null — a pass that proves nothing.
+    expect(typeof shippedTitle).toBe("string");
+    expect(shipped.sceneTitle()).toBe(shippedTitle);
     expect(alternate.sceneTitle()).toBe("Chapter B1");
     expect(alternate.preBeat()?.speaker).toBe("Narrator");
     expect(alternate.preBeat()?.lines).toEqual(["A different opening for b1."]);
