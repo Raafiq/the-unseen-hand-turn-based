@@ -6,7 +6,9 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 28 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026).
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 38 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+campaign page is set on **parchment** and its text contrast is measured, not eyeballed
+(ADR-0028, `docs/10` AC-V15).
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 
@@ -70,6 +72,13 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 
 - **Diff the ROWS, not the summary.** An invariant aggregate cannot tell "not wired" from "wired but not decisive". The reaction-slot A/B reported pass, variety count and in-band tallies **byte-identical** with effects stripped — which is exactly what a dead slot looks like — while 13 of 96 gauntlet rows had moved. Diff at the resolution the change acts on, then say which of the two answers you got.
 - **A loop over a PROXY set encodes an invariant nobody wrote down.** The gate's self-maintaining "dropping one build costs one identity" sweep silently assumed one credited build per identity, and went red the day a second carrier landed. Loop over **the quantity the assertion is about**, and assert the proxy set is the same size.
+- **A CHECKER THAT DECLINES TO CHECK STILL REPORTS PASS.** axe-core refuses to judge
+  contrast over a background it cannot flatten — and reports the refusal as
+  `incomplete`, not as a violation. On the parchment briefing screen it evaluated **2
+  nodes, filed 106 as incomplete, and returned zero violations**: a green identical to
+  the one an unreadable page produces. Reading a tool's summary is not reading its
+  coverage. **Ask any analyzer how many things it actually looked at**, assert that
+  number, and disable the rule it cannot honour rather than banking its green.
 - **A non-monotonic sweep is a SIGNAL, not noise — never read a value off one.** Counts of 5, 2, 4, 3 at adjacent steps meant the system was straddling a **discontinuity** (integer time-to-kill crossing 1), not that the best step was best. Picking the local maximum calibrates to the metric and freezes on a knife-edge. **Find the plateau** — the plateau is evidence you fixed a mechanism rather than moved a number. **Perturb the BASELINE too:** a build two handoffs called sub-viable was straddling a discontinuity, so the recorded diagnosis of why it failed was wrong, twice.
 - **When a metric collapses, check the REGIME before blaming the last change.** ADR-0015's move+act fold dropped the diversity count 6 → 1 and got blamed; it had merely removed the slack hiding the TTK violation above, and the follow-up slice scoped from that diagnosis was **unmeasurable as written**. The last thing that changed is the trigger, not necessarily the cause. **Trace one actual run before committing a diagnosis.**
 
