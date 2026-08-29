@@ -338,6 +338,22 @@
       .story .who { margin: 0 0 7px; font-family: var(--roman); font-size: .66rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--warn); }
       .story p.line { margin: 0 0 8px; color: var(--ink); font-size: 1.12rem; max-width: 56ch; }
       .story p.line:last-child { margin-bottom: 0; }
+      /* ── the scene player (docs/10 AC-V16) ────────────────────────────────
+         The lines sit in the same ruled pull-quote the whole beat used to; only
+         the controls below are new. NO motion here on purpose — the reveal is
+         input-driven, so there is no transition, no keyframe and nothing for
+         prefers-reduced-motion to turn off. See src/render/scene.ts. */
+      .scene-lines { border-left: 2px solid var(--accent); padding: 2px 0 2px 18px; }
+      .scene-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+      .scene-controls button { font-size: .68rem; padding: 8px 14px 8px 24px; }
+      .scene-controls button::before { left: 9px; font-size: .5rem; }
+      .scene-controls button[hidden] { display: none; }
+      /* Ink, not --ink-faint: this readout is the only thing telling a player there is
+         more to read, so it is measured as body text rather than as decoration. */
+      .scene-progress { margin: 0; font-family: var(--roman); font-size: .62rem;
+                        letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+                        font-variant-numeric: tabular-nums; }
+      .scene-progress:empty { display: none; }
       /* An illuminated initial on the opening line only. */
       .story p.line:first-of-type::first-letter { font-family: var(--display); font-size: 2.8rem; line-height: .82; float: left; margin: 5px 8px 0 0; color: var(--warn); }
 

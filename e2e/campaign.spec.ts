@@ -576,3 +576,131 @@ test("playtest log: it survives a reload, and one click hands it over", async ({
 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(payload);
 });
+
+/**
+ * AC-V16 — the scene player reveals one line at a time, and its position survives the
+ * repaints the briefing screen inflicts on itself.
+ *
+ * The prose is read OUT OF THE PACK, never written here: `check:story` fails a test that
+ * quotes a line, and that guard is the reason this file cannot simply assert the text.
+ */
+const b1Pre = storyPack.entries.find((e) => e.battleId === "b1")!.pre!.lines;
+
+const lineCount = (page: Page): Promise<number> =>
+  page.locator('[data-testid="brief-story"] p.line').count();
+
+test("AC-V16: a beat is revealed one line at a time, not hidden with CSS", async ({ page }) => {
+  // Non-degeneracy first. On a one-line beat every assertion below scores the same under
+  // the right behaviour and under "render everything at once", so the fixture has to be
+  // shown to discriminate before it is trusted.
+  expect(b1Pre.length).toBeGreaterThan(1);
+
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+  // ELEMENT COUNT, not visibility. A renderer that emitted every line and hid the tail
+  // with `visibility: hidden` or `display: none` passes a visibility check exactly as a
+  // correct one does.
+  expect(await lineCount(page)).toBe(1);
+  // And `textContent` includes hidden text, so this catches the CSS-hiding variant that
+  // the count alone would not if the tail were rendered outside `p.line`.
+  await expect(page.getByTestId("brief-story")).not.toContainText(b1Pre.at(-1)!.text);
+
+  // The one clue a player has that there is more.
+  await expect(page.getByTestId("brief-story-progress")).toContainText(`of ${b1Pre.length}`);
+
+  // Advancing APPENDS rather than rebuilding. Holding the first line's element across
+  // the click is the only assertion that can tell the two apart — a rebuild leaves the
+  // handle detached, and re-announces the whole region to a screen reader.
+  const firstLine = await page.locator('[data-testid="brief-story"] p.line').first().elementHandle();
+  await page.getByTestId("brief-story-more").click();
+  expect(await lineCount(page)).toBe(2);
+  expect(await firstLine!.evaluate((el) => el.isConnected)).toBe(true);
+
+  // Reading to the end retires the controls, and clears the readout rather than leaving
+  // it saying "line N of N", which would imply there is more.
+  while ((await page.getByTestId("brief-story-more").count()) > 0) {
+    if (await page.getByTestId("brief-story-more").isHidden()) break;
+    await page.getByTestId("brief-story-more").click();
+  }
+  expect(await lineCount(page)).toBe(b1Pre.length);
+  await expect(page.getByTestId("brief-story")).toContainText(b1Pre.at(-1)!.text);
+  await expect(page.getByTestId("brief-story-progress")).toBeEmpty();
+});
+
+test("AC-V16: the read position survives a prep edit AND a deploy toggle", async ({ page }) => {
+  // The bug this whole module is shaped around. `renderBriefingText()` is re-entered by
+  // the prep panel's onChange and by every deploy toggle, and the old renderer wiped and
+  // rebuilt its box on every call — so a cursor held in the DOM is destroyed by an
+  // ordinary party edit. TWO entry points, asserted separately: they are different code
+  // paths and a fix for one does not imply the other.
+  //
+  // Run at battle TWO, not battle one, because nobody has banked any AP before the first
+  // fight — there is no enabled buy button to click, so the prep-edit path would be
+  // unexercised and the test would quietly assert only half of what it claims.
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  await playCurrentBattle(page);
+  await page.getByTestId("next").click();
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  await expect(page.getByTestId("brief-step")).toContainText("Battle 2 of 5");
+
+  const b2Pre = storyPack.entries.find((e) => e.battleId === "b2")!.pre!.lines;
+  expect(b2Pre.length).toBeGreaterThan(1); // non-degeneracy: a 1-line beat proves nothing
+  expect(await lineCount(page)).toBe(1);
+  await page.getByTestId("brief-story-more").click();
+  expect(await lineCount(page)).toBe(2);
+
+  // Path one: EQUIPPING A WEAPON, which mutates the record and fires the prep panel's
+  // onChange -> updateParty -> renderBriefingText(). A purchase would exercise the same
+  // path, but no node is affordable this early — the cheapest is 60 AP and the
+  // best-earning member has 56 after one battle — so buying here would silently not
+  // happen and this half of the test would assert nothing.
+  await page.locator('[data-testid="prep-roster"] button.ptab').first().click();
+  expect(await lineCount(page)).toBe(2); // selecting a member repaints the briefing too
+  const weapon = page.getByTestId("prep-weapon");
+  const options = await weapon.locator("option").evaluateAll((os) =>
+    os.map((o) => (o as HTMLOptionElement).value),
+  );
+  expect(options.length).toBeGreaterThan(1); // non-degeneracy: nothing to change is no edit
+  await weapon.selectOption(options[1]!);
+  await expect(weapon).toHaveValue(options[1]!); // the edit really landed
+  expect(await lineCount(page)).toBe(2);
+
+  // Path two: benching someone, which runs toggleDeploy -> refresh().
+  const bench = page.locator('[data-testid="brief-party"] li button[data-deploy]').first();
+  await bench.click();
+  expect(await lineCount(page)).toBe(2);
+
+  // THE OTHER HALF, and it is required: without it a handle that NEVER resets passes
+  // everything above. A genuinely different beat must start from line one again.
+  await playCurrentBattle(page);
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+  expect(await page.locator('[data-testid="after-story"] p.line').count()).toBe(1);
+});
+
+test("AC-V16: there is no motion to reduce", async ({ page }) => {
+  // The claim this makes is deliberately narrow, and it is asserted rather than written
+  // in a comment: the reveal is input-driven, so there is no animation or transition on
+  // a line in EITHER motion mode, and the reveal behaves identically in both. A page
+  // that grew a typewriter would fail here rather than in a screenshot nobody opened.
+  for (const reducedMotion of ["no-preference", "reduce"] as const) {
+    const context = await page.context().browser()!.newContext({ reducedMotion });
+    const p = await context.newPage();
+    await p.goto("/");
+    await p.getByTestId("new-game").click();
+    await expect(p.getByTestId("screen-briefing")).toBeVisible();
+    expect(await p.locator('[data-testid="brief-story"] p.line').count()).toBe(1);
+    await p.getByTestId("brief-story-more").click();
+    expect(await p.locator('[data-testid="brief-story"] p.line').count()).toBe(2);
+    const motion = await p.locator('[data-testid="brief-story"] p.line').first().evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { animationName: s.animationName, transitionDuration: s.transitionDuration };
+    });
+    expect(motion.animationName).toBe("none");
+    expect(motion.transitionDuration).toBe("0s");
+    await context.close();
+  }
+});

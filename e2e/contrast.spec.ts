@@ -232,13 +232,24 @@ test("contrast: briefing and prep, before and after spending", async ({ page }) 
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
-  await screenPasses(page, 40);
+  // MEASURED 2026-08-29, not guessed: this screen paints 113 text-bearing elements on
+  // first paint and 112 once the scene is read out (the progress readout and the two
+  // scene controls retire as a line is added). The old floor of 40 had a 73-node margin,
+  // which is another way of saying it could not have noticed most of the screen failing
+  // to render. 100 keeps a real margin and is sensitive enough to be evidence.
+  await screenPasses(page, 100);
+
+  // The scene player's own chrome is new ink on the parchment — the progress readout in
+  // --ink-soft and two ghost buttons — so read the scene out and measure again rather
+  // than assuming the first paint covered them.
+  await page.getByTestId("brief-story-more").click();
+  await screenPasses(page, 100);
 
   // Spending redraws the learn list with rows the first pass never held — the red
   // "needs Secondary" tag, spent-out seals, the receipt. New colours on new grounds.
   await prepEveryMember(page);
   await expect(page.getByTestId("prep-learn")).toBeVisible();
-  await screenPasses(page, 40);
+  await screenPasses(page, 100);
 });
 
 test("contrast: the help panel", async ({ page }) => {

@@ -21,6 +21,7 @@ import { HELP_TOPICS } from "./help.js";
 import { draw, pickTile } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
+import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
 import type { Phase, Session } from "./session.js";
@@ -113,6 +114,12 @@ function look(): LookUp {
   };
 }
 
+/**
+ * One mounted scene per story host, kept OUT of the DOM so a repaint cannot reset how
+ * much has been read. Lazily filled, exactly as the prep panel is.
+ */
+const scenes = new Map<string, SceneHandle>();
+
 let canvasFocused = false;
 
 // ─── painting ───────────────────────────────────────────────────────────────
@@ -159,35 +166,47 @@ function renderTitle(): void {
  * `null` for it), and rendering an empty bordered box in its place would present an
  * authoring gap as a scene. Same rule as the preview panel's absent-not-zero.
  *
- * `textContent`, never `innerHTML` — story text is CONTENT from a data file, and the
- * seam exists so a separate repo can supply it. Interpolating it as markup would make
- * every future story author able to inject script into the page.
+ * The reveal state lives in the mounted {@link SceneHandle}, NOT in the DOM this
+ * function touches, because this function is reached from `refresh()` — which the prep
+ * panel's `onChange` and every deploy toggle also trigger, on the very screen a scene is
+ * being read. See `scene.ts`'s header. The KEY is what makes that safe: an unchanged key
+ * is a no-op all the way down.
  */
-function renderStory(id: string, beat: StoryBeat | null): void {
-  const box = el(id);
-  box.hidden = beat === null;
-  box.textContent = "";
-  if (!beat) return;
-  // Consecutive lines by the same speaker share ONE name plate. That is what makes a
-  // migrated v1 beat (one speaker, several lines) render byte-identically to what v1
-  // drew — the schema's attribution moved, the page's appearance did not.
-  let plated: string | null = null;
-  for (const line of shell.resolve(beat)) {
-    const name = line.who?.name ?? null;
-    if (name !== null && name !== plated) {
-      const who = document.createElement("p");
-      who.className = "who";
-      who.textContent = name;
-      box.append(who);
-    }
-    // Narration resets the plate, so the next line by the same character is re-attributed
-    // rather than reading as if the narrator said it.
-    plated = name;
-    const p = document.createElement("p");
-    p.className = "line";
-    p.textContent = line.text;
-    box.append(p);
+function renderStory(id: string, key: string, beat: StoryBeat | null): void {
+  let handle = scenes.get(id);
+  if (!handle) {
+    handle = mountScene(el(id), {
+      onAction: (action) => {
+        telemetry.action(shell.screen, action);
+      },
+    });
+    scenes.set(id, handle);
   }
+  handle.setBeat(key, beat === null ? null : shell.resolve(beat));
+}
+
+/**
+ * The key identifying WHICH beat a host is showing, so a repaint of the same beat is a
+ * no-op and a genuinely new beat starts from line one.
+ *
+ * Strings assembled from save state rather than object identity: a beat object is
+ * re-derived on every call, so identity would never match, and a `.map()` appearing
+ * anywhere in an accessor's path would break an identity check silently.
+ *
+ * `attempts` is in the briefing key on purpose — a retry is a fresh read of the same
+ * scene, and the player has been away to a battle in between.
+ */
+function preKey(): string {
+  const brief = shell.briefing();
+  if (!brief) return "brief:none";
+  const attempts = shell.save?.history.filter((h) => h.battleId === brief.battleId).length ?? 0;
+  return `brief:${brief.battleId}:${attempts}`;
+}
+
+function outcomeKey(): string {
+  const history = shell.save?.history ?? [];
+  const last = history.at(-1);
+  return last ? `outcome:${last.battleId}:${last.outcome}:${history.length}` : "outcome:none";
 }
 
 /**
@@ -257,7 +276,7 @@ function renderBriefingText(): void {
   // does not — the page prefers data over its own derivation, which is what makes the
   // title part of the story seam rather than a naming convention.
   el("brief-title").textContent = shell.sceneTitle() ?? battleTitle(brief.encounterId);
-  renderStory("brief-story", shell.preBeat());
+  renderStory("brief-story", preKey(), shell.preBeat());
   el("brief-note").textContent = brief.retrying
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
@@ -377,7 +396,7 @@ function renderAfter(): void {
   el("after-note").textContent = won
     ? "AP is banked. The party redeploys at full HP — nobody is lost in this chapter."
     : "Nothing was spent. Retry the same battle with exactly the party you had.";
-  renderStory("after-story", shell.outcomeBeat());
+  renderStory("after-story", outcomeKey(), shell.outcomeBeat());
   el<HTMLButtonElement>("btn-next").hidden = !won;
   el<HTMLButtonElement>("btn-retry").hidden = won;
 }
@@ -386,7 +405,7 @@ function renderCompleted(): void {
   // The FINAL victory never passes through the after-battle screen — winning the last
   // battle goes straight to `COMPLETED` — so the last battle's victory scene would be
   // the one beat in the pack a player could never read. It belongs here.
-  renderStory("done-story", shell.outcomeBeat());
+  renderStory("done-story", outcomeKey(), shell.outcomeBeat());
   const wins = shell.save?.history.filter((h) => h.outcome === "victory").length ?? 0;
   const losses = (shell.save?.history.length ?? 0) - wins;
   el("done-note").textContent =
