@@ -1,4 +1,4 @@
-<!-- written-against: 0eb9f2dc925e1899490956d7ed684a01df9cca1d-->
+<!-- written-against: cf709e9 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -12,26 +12,72 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ---
 
-## THE NEXT SLICE — a person plays it
+## THE NEXT SLICE — visual identity, while the playtest waits
 
-**Unchanged, and now overdue.** The top open question is still whether a stranger
-understands this game, and nothing in the repo can settle it. The synthetic playtest
-finished 2026-08-25 and did the half an agent can do. The other half is a human being,
-once.
+**Owner decision, 2026-08-30.** Two things moved:
 
-### What changed on 2026-08-29, and what did NOT
+1. **The human playtest is DELAYED, not dropped.** It is still the top open question and
+   still the only thing that can answer it. It is now a **standing reminder** — see the
+   section below — not the gate on the next slice.
+2. **Look and feel comes before combat.** The next slices are **visual**. Do not open a
+   balance, ability, encounter or scheduler slice unless the owner asks.
+3. **The variety score (7 → 8) is OFF the priority list.** Not weakened, not relitigated:
+   `DIVERSITY_TARGET_N` stays 7, `docs/06` AC-E2's release bar stays ≥ 8, the gate still
+   fails CI on a drop. It is simply not what to work on. Leave `docs/06`, `docs/08` §1a
+   and `docs/11` §3 exactly as they read.
 
-The scene player landed (ADR-0029). **A prettier, better-paced story screen is not
-onboarding evidence** — it is exactly the same claim the parchment slice had to make about
-itself, for the same reason. `docs/11` AC-M6 asserts the help panel's CLAIMS are
-deliverable. Nothing asserts the game reads on its own.
+### The visual work, in order
 
-> **The previous version of this file said "no code change should be started before" a
-> human plays it. The owner overrode that on 2026-08-29** and asked for the
-> highest-value work that does not depend on playtest data. That was the right call and
-> the override is recorded here rather than left as a contradiction between this file and
-> the tree. **It does not generalise to difficulty or pacing**, which still cannot be
-> tuned without a real session.
+**Before writing any stylesheet or renderer, get a reference.** The parchment slice was
+rebuilt twice from a description — "too bright", then "too dark" — and one image from the
+owner settled it in a single pass. Ask for a reference image, or put 2–3 rendered options
+in front of the owner. This is not optional politeness; it is the cheapest step here.
+
+| # | Slice | State | The catch |
+|---|---|---|---|
+| 1 | **The battle screen looks nothing like the rest of the game.** The shell is parchment and ink; the battle is a flat isometric canvas with **units drawn as coloured circles** (`iso.ts`, `ctx.arc(...)`). Two visual languages in one product. | not started | `iso.ts` is a pure projection `screen = f(x, y, height)` and the sim knows nothing about it — the look is swappable by design. `Theme` is already a named palette, so a first pass may be a theme, not a rewrite. |
+| 2 | **Unit presentation** — silhouettes, job-readable shapes, or sprites instead of a circle with a facing pip. | not started | Blocked on art direction, not on code. Get a reference first. Whatever lands must keep facing, the active ring, the AI ring, HP and status chips readable — those are *information*, not decoration. |
+| 3 | **Portrait art + option C** (the full cinematic scene screen). | seam done, art missing | Owner supplies reference images. Drop files in `data/campaign/story/portraits/`, add an import to `PORTRAITS`, change the asset key in the pack. A tripwire in `campaign-shell.test.ts` **fails on purpose** that day to force ADR-0029, this file and the "Portrait pending" caption to move together. |
+| 4 | **Motion and feedback** — hit reactions, damage popups, turn transitions. | popups exist, nothing else | Any timing source must stay out of `src/sim`. The render layer may animate; the command log may not become a function of elapsed time. |
+
+**Two rules bind every one of these.**
+
+- **The suite cannot see the screen.** Two real defects shipped past 851 green tests and 43
+  green browser specs and were found only by opening a PNG. **Open
+  `visual-artifacts/playtest/` after any change to a screen** — the trap named
+  "THE SUITE STILL CANNOT SEE THE SCREEN" below.
+- **Contrast is measured, not eyeballed.** The traps named "`--accent` IS RULES AND BORDERS
+  ONLY", "THE SHEET'S PADDING AND THE SCORCH ARE COUPLED", "THE CONTRAST FLOOR IS NOW 100"
+  and "AN ANALYZER THAT DECLINES TO CHECK STILL SAYS PASS" are each a way a visual change
+  goes quietly wrong. Do not mint a new sheet class, and do not nudge the floor — re-measure.
+
+---
+
+## STANDING REMINDER — one person still has to play it
+
+**Deferred by the owner on 2026-08-30, expected to be a while. Do not delete this section
+and do not let a prettier screen read as an answer to it.** A better-looking game is not a
+more legible one; that is the same claim the parchment slice had to make about itself.
+
+Nothing in the repo can settle whether a newcomer understands this game. Every automated
+run drives the balance probe or a deliberate forfeit, so "completable" means *reachable* —
+never difficulty, pacing or fun.
+
+**When a human is available:** give them a link to the site root and say nothing else. When
+they finish or give up, ask them to press **Copy playtest log** on the title or ending
+screen and paste it back.
+
+**Read `stoppedAt` first.** Then `timeToFirstActionMs` for `BRIEFING` — a large number
+there is the 5-slot ability chassis being illegible, which is the open bet. Then
+`prepChanges`: an empty object means they never touched the progression systems, which the
+campaign is now tuned to punish (ADR-0027). `SCENE` rows and `*-story-more` /
+`*-story-all` actions show **whether they read the scenes or skipped them** — a curiosity,
+not a finding, until more than one person has played.
+
+`summarize()` in `src/render/telemetry.ts` folds a pasted log into those numbers.
+
+**Still blocked on that session, and on nothing else:** difficulty, pacing, session length,
+and whether the chassis teaches itself. Do not tune any of them from agent play.
 
 | Question | Settled? | By what |
 |---|---|---|
@@ -40,21 +86,6 @@ deliverable. Nothing asserts the game reads on its own.
 | Do story scenes render, advance and persist | yes | AC-V16, AC-V17 — and the frames were opened, not just green |
 | Does a newcomer UNDERSTAND the 5-slot chassis | **no** | nothing can. Expert inspection gives hypotheses |
 | Is 30–45 minutes right, is it too hard, is it fun | **no** | agent skill is not human skill. The numbers are RELATIVE only |
-
-### What to actually do
-
-Give one person who has never seen this a link to the site root and say nothing else.
-When they finish or give up, ask them to press **Copy playtest log** on the title or
-ending screen and paste it back.
-
-**Read `stoppedAt` first.** Then `timeToFirstActionMs` for `BRIEFING` — a large number
-there is the chassis being illegible, which is the open bet. Then `prepChanges`: an empty
-object means they never touched the progression systems, which the campaign is now tuned
-to punish (ADR-0027). New since 2026-08-29: `SCENE` rows and `*-story-more` / `*-story-all`
-actions, so you can also see **whether they read the scenes or skipped them** — but treat
-that as a curiosity, not a finding, until more than one person has played.
-
-`summarize()` in `src/render/telemetry.ts` folds a pasted log into those numbers.
 
 ---
 
@@ -167,21 +198,17 @@ identical across both, so that switch is a rewrite of `mountScene`'s DOM and not
 
 ---
 
-## Other candidates — AFTER the playtest
+## Parked — not the next slice, and not because they are wrong
 
-1. **The story repo itself** (`docs/08` §4). The contract is now rich enough to be worth
-   filling: per-line speakers, a cast, standalone scenes. The pack moves out, this repo
-   consumes it as a versioned package. **This is the natural follow-on to the slice just
-   landed**, and the owner has already said the writing comes next.
-2. **Portrait art.** The seam is done and the placeholder is honest, but every frame is
-   the same placeholder. The owner said they would supply reference images. When art
-   lands: drop files in `data/campaign/story/portraits/`, add an import line to
-   `PORTRAITS`, change the asset key in the pack. A tripwire test in
-   `campaign-shell.test.ts` fails that day **on purpose**, to force ADR-0029, this file
-   and the "Portrait pending" caption to move with it. Revisit option C (a full cinematic
-   scene screen) at the same time — that was deferred, not rejected.
-3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is **gear**.
-4. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
+**The visual slices above come first (owner, 2026-08-30).** Nothing here is cancelled;
+none of it is scheduled.
+
+| Item | Why parked |
+|---|---|
+| **The story repo itself** (`docs/08` §4) — the pack moves out, this repo consumes it as a versioned package. The contract is rich enough now: per-line speakers, a cast, standalone scenes. | Still the natural follow-on to the scene player, and the owner has said the writing comes next. It is a content move, not a look-and-feel one, so it sits behind the visual slices. |
+| **Variety score 7 → 8** (`docs/06` AC-E2). The untried lever is **gear** — every build in `data/builds/*` carries `weapon: null`. | **Explicitly removed from the priority list by the owner, 2026-08-30.** The criterion is untouched: `DIVERSITY_TARGET_N` stays 7, the release bar stays ≥ 8, CI still fails on a drop. Do not weaken it, do not "clean it up", and do not treat this row as permission to reopen it. |
+| **The AP grant shape** (ADR-0012) — a healer who only heals banks nothing. | Combat/progression work. Same reason: after the visuals. |
+| **MP enforcement** (`docs/08` §1a). | Blocked on durable carriers, unchanged. |
 
 ---
 
