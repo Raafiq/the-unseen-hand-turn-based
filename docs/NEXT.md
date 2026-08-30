@@ -148,11 +148,15 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    blocked" is vacuously true on a flat map, which is what four of five battles still are.
    The check asserts at least one blocked tile exists, and that half is mutation-verified
    separately.
-0. **`tiles` GOES INSIDE `grid`, NOT AT THE ROOT** of an encounter file. Putting it at the
-   root is accepted by nothing and rejected by Zod at parse — but the first attempt to
-   render variants this way **failed the build, left the previous `dist` standing, and
-   produced three screenshots of the OLD map that looked entirely plausible.** Trap 0 of the
-   scene-player slice, hit again. Gate every capture on a successful build.
+0. **`tiles` GOES INSIDE `grid`, NOT AT THE ROOT** of an encounter file. Rejected by Zod at
+   parse — but the first attempt to render variants this way produced three screenshots of
+   the OLD map that looked entirely plausible. **Both halves of that are now mechanical**
+   (retro, 2026-08-30): the build-freshness check moved from `fresh-build.spec.ts` into
+   Playwright's `globalSetup`, so a single-file run like
+   `npx playwright test one.spec.ts` can no longer step around it, and
+   `playtest-capture.spec.ts` **clears** `visual-artifacts/playtest/` before it starts, so
+   a run that dies leaves a missing frame rather than yesterday's. The browser-spec count
+   dropped 43 → 42 because the guard is no longer a spec; that is the fix, not a regression.
 
 ---
 

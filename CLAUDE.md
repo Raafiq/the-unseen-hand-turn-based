@@ -164,6 +164,18 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
   image, which settled it in a single pass. Aesthetic direction is not derivable from a
   description, and each blind iteration costs a full rebuild. Ask for a reference, or
   put 2–3 real options in front of them, before writing the stylesheet.
+  - **OPTIONS THAT ARE ALL VARIATIONS OF THE CURRENT IMPLEMENTATION CANNOT ESCAPE A FAULT
+    IN IT.** Three re-colourings of the battle board were rejected outright; every one of
+    them kept the per-tile grid line, which *was* the fault ("actual grounds instead of
+    this blocky generic"). When the user names a reference work, go and establish what
+    that work actually **does** — FFT draws no grid on the ground — before generating
+    options, or the whole set inherits the thing being complained about.
+  - **WHEN THE DECISION IS ABOUT APPEARANCE, RENDER IT BEFORE ASKING.** A multiple-choice
+    question about how something looks is unanswerable in prose: the user said so three
+    times in one session ("give me the image ... before I can even say go or no go", "I
+    can't quite visualise the options, can u show me"). Frames from the **running game**
+    beat mockups, and both beat a description — patch the data, capture, revert. Budget
+    for it; it is cheaper than a rejected slice.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.

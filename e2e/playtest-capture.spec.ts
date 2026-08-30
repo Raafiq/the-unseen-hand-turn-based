@@ -1,12 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { prepEveryMember, dismissScene } from "./helpers.js";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/playtest";
 
 /** What a player would see, captured for a human to judge. */
 test("PLAYTEST: capture every screen a player passes through", async ({ page }) => {
   test.setTimeout(180_000);
+  // CLEARED, not just created. These frames are written to fixed paths and are the only
+  // way a human judges a screen, so a run that dies partway leaves the PREVIOUS run's
+  // PNGs sitting there reading as current — the same shape as a failed build leaving the
+  // old `dist`. A missing frame is an honest signal; a stale one is not.
+  await rm(SHOTS, { recursive: true, force: true });
   await mkdir(SHOTS, { recursive: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   /**

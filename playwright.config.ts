@@ -12,6 +12,11 @@ const CHROMIUM = existsSync(PRESET) ? PRESET : undefined;
 const PORT = 4173;
 
 export default defineConfig({
+  // Runs once per invocation, BEFORE any browser opens and whatever file filter was
+  // passed. It used to be a spec, and a spec only guards the runs that load it —
+  // `npx playwright test one.spec.ts` stepped straight around it and captured three
+  // screenshots of the previous build. See the module for the full account.
+  globalSetup: "./e2e/fresh-build.ts",
   testDir: "e2e",
   outputDir: "visual-artifacts/pw",
   fullyParallel: false,
