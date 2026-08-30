@@ -222,25 +222,26 @@ export const TERRAIN: Readonly<Record<string, TerrainMap>> = Object.freeze({
     ],
   ),
 
-  // The Broken Span — 11x7. A plank deck between two rock ledges, with the middle of the
-  // span collapsed to rubble. Both parties start ON the deck (columns 0 and 10).
+  // The Broken Span — 11x7. A plank deck two steps above a river, with the middle of
+  // the span collapsed. THE WATER AND THE GAP ARE REAL (ADR-0031): those tiles are
+  // `passable: false` in the encounter, so this is the one map where paint and rule
+  // agree. The west abutment runs one row further than the east because a party member
+  // starts at (0, 5); a unit standing on painted water is the defect that check exists
+  // to catch.
   "camp-b4-the-broken-span": parseTerrain(
     [
-      "rrrrrrrrrrr",
-      "rrppppppprr",
-      "ppppprrpppp",
-      "ppppprrpppp",
-      "ppppprrpppp",
-      "rrppppppprr",
-      "rrrrrrrrrrr",
+      "wwwwwwwwwww",
+      "wwwwwwwwwww",
+      "rppppwppppr",
+      "rpppppppppr",
+      "rppppwppppr",
+      "rwwwwwwwwww",
+      "wwwwwwwwwww",
     ],
     [
-      { pos: { x: 2, y: 1 }, kind: "pillar" },
-      { pos: { x: 8, y: 1 }, kind: "pillar" },
-      { pos: { x: 2, y: 5 }, kind: "pillar" },
-      { pos: { x: 8, y: 5 }, kind: "pillar" },
-      { pos: { x: 5, y: 0 }, kind: "boulder" },
-      { pos: { x: 5, y: 6 }, kind: "boulder" },
+      { pos: { x: 2, y: 2 }, kind: "pillar" },
+      { pos: { x: 8, y: 4 }, kind: "pillar" },
+      { pos: { x: 3, y: 3 }, kind: "boulder" },
     ],
   ),
 

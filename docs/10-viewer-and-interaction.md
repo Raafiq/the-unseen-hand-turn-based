@@ -313,6 +313,18 @@ degenerate fixture where all orderings coincide).
   inverse offsets every click by a constant factor rather than failing outright. **Met**
   (ADR-0030).
 
+- **AC-V20 (a blocked tile never looks like ground):** For every battle, a tile the sim
+  marks impassable SHALL be painted as a surface a player reads as impassable — never as
+  grass, dirt, sand or planking. *Discriminator:* painting one blocked tile as grass MUST
+  fail the check, **and** removing every blocked tile MUST fail it too — without the second
+  half the loop is vacuous on a flat map and passes against a renderer that paints blocked
+  tiles as lawn. The converse (painted water a unit can cross) is deliberately **not**
+  asserted while `camp-b2-ambush-at-the-ford`'s river is paint only; the exception is named
+  in the test rather than left to inference, and this becomes an equality the day water
+  blocks everywhere. A companion check asserts no unit **starts** on a blocked tile or in
+  painted water — reachable by editing terrain alone, since a battle's placements and its
+  paint live in different files. **Met** (ADR-0031).
+
 ## 7. Required module shape
 
 The turn state machine lives in a **DOM-free `src/render/session.ts`**; `main.ts` is

@@ -41,6 +41,7 @@ that one fact was the whole fault, and no amount of palette work would have foun
 | 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
 | 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
 | 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
+| 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles stay flat so the build-variety score remains comparable. Do not widen this without asking. |
 
 **Two rules bind every one of these.**
 
@@ -115,6 +116,43 @@ drawn-in-code look is **the destination**, not a placeholder for art.
    BUILD IS NOT A VERDICT.** Both still bite. Every mutation this slice was gated on
    `npm run typecheck` passing, and `iso.ts` was copied aside rather than checked out —
    a `git checkout` there would have reverted the entire slice, not the mutation.
+
+---
+
+## LANDED 2026-08-30 — the span is real (ADR-0031)
+
+Battle 4 now has a deck two steps above a river, the river blocks, and the collapsed middle
+is a real hole leaving a **one-tile chokepoint** on the centre row. Chosen from three
+variants rendered out of the running game.
+
+**It needed no schema change.** The encounter format already carries per-tile
+`{height, passable}`, so this is authored data: no `Tile` field, no version bump, no save
+migration. ADR-0030 expected a schema bump here and was wrong.
+
+### Traps this slice bought
+
+0. **JUMP IS UNIFORM AT 3 ACROSS THE WHOLE PARTY.** A climb of 1–3 is free for everyone and
+   a climb of 4+ severs the map, so **height cannot currently gate a route**. The "stepped
+   span" variant looked like a design lever and is not one. If height is ever to be a route
+   choice, Jump has to vary by job first — a job-system decision, not a terrain one.
+0. **A BLOCKED TILE MUST NEVER LOOK LIKE GROUND** (AC-V20). The failure is an invisible
+   wall: a click on solid-looking ground that does nothing, with nothing on screen to
+   explain it. Asserted for every battle. **The converse is NOT asserted on purpose** —
+   battle 2's ford river is paint and units wade anywhere. The day water blocks everywhere,
+   that check becomes an equality and battle 2 needs a real crossing.
+0. **A UNIT CAN BE AUTHORED INTO THE RIVER.** Placements live in the encounter, paint lives
+   in `campaign-data.ts` — two files, no compiler between them. Battle 4's west abutment
+   runs one row further than the east *only* because a party member starts at (0, 5).
+   Guarded, and the guard was earned during authoring.
+0. **A NON-DEGENERACY HALF IS LOAD-BEARING HERE.** "Every blocked tile is painted as
+   blocked" is vacuously true on a flat map, which is what four of five battles still are.
+   The check asserts at least one blocked tile exists, and that half is mutation-verified
+   separately.
+0. **`tiles` GOES INSIDE `grid`, NOT AT THE ROOT** of an encounter file. Putting it at the
+   root is accepted by nothing and rejected by Zod at parse — but the first attempt to
+   render variants this way **failed the build, left the previous `dist` standing, and
+   produced three screenshots of the OLD map that looked entirely plausible.** Trap 0 of the
+   scene-player slice, hit again. Gate every capture on a successful build.
 
 ---
 

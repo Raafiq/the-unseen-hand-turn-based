@@ -28,7 +28,7 @@ import {
   type StoryPack,
 } from "../sim/index.js";
 import { ENCOUNTERS, PORTRAITS, TERRAIN, campaign, registry, story, terrainFor } from "./campaign-data.js";
-import { assertFitsGrid } from "./terrain.js";
+import { assertFitsGrid, terrainAt } from "./terrain.js";
 import { CampaignShell } from "./campaign-shell.js";
 import { OPTIMIZER } from "./playtest.js";
 import { PrepModel } from "./prep.js";
@@ -119,6 +119,55 @@ describe("the bundled campaign data covers exactly the battles the campaign name
       expect(starts.size, id).toBeGreaterThan(0); // non-degeneracy: an empty set passes vacuously
       for (const prop of map.props) {
         expect(starts.has(`${prop.pos.x},${prop.pos.y}`), `${id}: ${prop.kind}`).toBe(false);
+      }
+    }
+  });
+
+  it("DISCRIMINATING: a tile the sim blocks is never painted as walkable ground", () => {
+    // THE ONE-DIRECTIONAL CHECK, AND THE DIRECTION MATTERS.
+    //
+    // Blocked-but-looks-walkable is an invisible wall: a player clicks solid-looking
+    // ground and nothing happens, with no way to know why. That is asserted here for
+    // every battle.
+    //
+    // The converse — painted water a unit CAN cross — is deliberately NOT asserted,
+    // because battle 2 is a ford: its river is paint, the sim was never told about it,
+    // and units wade anywhere (ADR-0030). Asserting both directions would either break
+    // that map or force a difficulty change nobody asked for. When water blocks
+    // everywhere, this becomes an equality and battle 2 gets a real crossing.
+    const WALKABLE_LOOKING: readonly string[] = ["grass", "dirt", "sand", "wood"];
+    let blockedSeen = 0;
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const grid = (ENCOUNTERS[id] as { grid: { width: number; tiles?: { passable: boolean }[] } })
+        .grid;
+      for (const [i, tile] of (grid.tiles ?? []).entries()) {
+        if (tile.passable) continue;
+        blockedSeen++;
+        const x = i % grid.width;
+        const y = Math.floor(i / grid.width);
+        expect(WALKABLE_LOOKING, `${id} (${x}, ${y}) is blocked but painted as ground`)
+          .not.toContain(terrainAt(map, x, y));
+      }
+    }
+    // Non-degeneracy: with no blocked tile anywhere the loop above is vacuous and this
+    // test passes against a renderer that paints blocked tiles as lawn.
+    expect(blockedSeen).toBeGreaterThan(0);
+  });
+
+  it("no unit starts on a tile the sim blocks, or on painted water", () => {
+    // A unit standing in the river is the visible half of the same defect, and it is
+    // reachable by editing terrain alone — the encounter's placements and its tiles are
+    // authored in one file, its paint in another.
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const def = ENCOUNTERS[id] as {
+        grid: { width: number; tiles?: { passable: boolean }[] };
+        placements: { slotId: string; pos: { x: number; y: number } }[];
+      };
+      for (const pl of def.placements) {
+        const { x, y } = pl.pos;
+        const tile = def.grid.tiles?.[y * def.grid.width + x];
+        expect(tile?.passable ?? true, `${id}: ${pl.slotId} starts on a blocked tile`).toBe(true);
+        expect(terrainAt(map, x, y), `${id}: ${pl.slotId} starts in the water`).not.toBe("water");
       }
     }
   });

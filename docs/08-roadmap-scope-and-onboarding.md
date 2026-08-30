@@ -54,7 +54,12 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > so no build, ability or encounter changed — and P2's `N ≥ 8` is **still open at N = 7**.
 > Note the owner's 2026-08-30 decision that the variety gate is **off the priority list**
 > while visual work runs: parked, not weakened. `DIVERSITY_TARGET_N` stays 7 and the bar
-> stays ≥ 8.
+> stays ≥ 8. Reconciled again on **2026-08-30** for the broken-span slice
+> (ADR-0031): **nothing below moved for the eighth time.** Giving one campaign map real
+> height and blocked tiles is authored encounter data — no schema change, no engine
+> deliverable — and the six balance test battles were deliberately left flat by owner
+> decision, so P2's `N ≥ 8` is **still open at N = 7** and still comparable to every past
+> measurement.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists
