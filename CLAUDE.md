@@ -168,7 +168,7 @@ This is stronger than "delegate when convenient" and it replaces it:
 The judgement call is the *scoping*, not the doing. A slice usually needs two or three
 specialists in sequence; sequencing them and reconciling what they hand back is the job.
 
-Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), `qe-tester`, `playtester` (spawn 2–3 personas). Design and review agents are read-only; `combat-engineer`, `content-author` and `viewer-engineer` edit code or data, and `art-director` writes only scratch mockups. Full contract in `.claude/agents/README.md`.
+Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
 
 ## Tooling & workflow
 

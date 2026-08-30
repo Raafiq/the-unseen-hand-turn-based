@@ -20,6 +20,8 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 | `combat-engineer` | Pure/headless sim core, scheduler, determinism | now | `sim-determinism-guard`; `docs/05` |
 | `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `src/render/CLAUDE.md`; `docs/10` |
 | `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | ADR-0028/0030; `index.html` tokens |
+| `docs-steward` | The written record — docs, ADRs, Acceptance Criteria, `docs/NEXT.md` — and auditing it for drift | now | `docs/` outranks the code; `decision-record` |
+| `release-engineer` | Branches, commits, PR bodies, CI to green, the Pages deploy | now | `pages.yml`; the check-runs API |
 | `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `docs/05` schemas, `docs/01` fidelity |
 | `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `docs/*` acceptance criteria |
 | `playtester` | Player-experience critique; spawn **2–3** with distinct personas | now | `docs/03` archetypes, `docs/00` |
@@ -47,14 +49,19 @@ Work the roster does **not** own today, found by asking who should have done wha
 session actually did. Each is a hiring or promotion conversation with the owner, not a task
 to quietly pick up.
 
-| Uncovered work | Who did it instead | Candidate owner |
-|---|---|---|
-| **The written record** — design docs, ADRs, Acceptance Criteria, `docs/NEXT.md`. Every word of ADR-0030 and ADR-0031, and every AC in this branch, was written by the main session. `decision-record` is a skill, not an agent, so it has no owner. | main session | a new `docs-steward`, or promote `systems-designer` to own the record of what was decided |
-| **Repository and release operations** — branches, commits, PR bodies, CI, GitHub, the Pages deploy. A PR body is authored, and this repo has a written rule about it. | main session | a new `release-engineer`, or promote `qe-tester` from "does it pass" to "does it ship" |
-| **Process and tooling** — retrospectives, lint rules, hooks, CI guards, and the agent definitions themselves. The two guards added on 2026-08-30 and this very file had no owner. | main session | a new `toolsmith`, or accept that meta-work is the PO's one legitimate exception |
+| Uncovered work | Resolved |
+|---|---|
+| **The written record** — docs, ADRs, Acceptance Criteria, `docs/NEXT.md`. Every word of ADR-0030 and ADR-0031 was written by the main session, and a review found three of their claims false. | **HIRED: `docs-steward`** (owner, 2026-08-30) |
+| **Repository and release operations** — branches, commits, PR bodies, CI, the Pages deploy. | **HIRED: `release-engineer`** (owner, 2026-08-30) |
+| **Process and tooling** — retrospectives, lint rules, hooks, CI guards, and the agent definitions themselves. | **STAYS WITH THE PO** (owner, 2026-08-30). An agent that rewrites its own team's definitions is a strange loop, and the `retrospective` skill is already approval-gated. This is the PO's one legitimate exception to "does not do the work" — do not quietly widen it. |
 
-Two things stay the PO's by definition and are **not** gaps: deciding what to build, and
-speaking to the human.
+Three things stay the PO's by definition and are **not** gaps: deciding what to build,
+speaking to the human, and the process/tooling exception above.
+
+**A NEW AGENT FILE IS NOT LIVE UNTIL THE SESSION RELOADS ITS ROSTER.** `docs-steward` and
+`release-engineer` were written and committed on 2026-08-30 and could not be spawned in the
+session that wrote them — the Agent tool reported them as not found. Write them, commit
+them, and expect them on the next session; do not conclude the definition is broken.
 
 ## Playtester personas (spawn 2–3 in parallel)
 
