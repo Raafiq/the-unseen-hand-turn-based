@@ -18,6 +18,8 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 | `fft-fidelity` | FFT baseline accuracy; verify constants vs BMG/FFHacktics | now | `docs/01`; web research |
 | `reviewer` | Adversarial review of designs/specs/PRs | now | `grill-me`; acceptance criteria |
 | `combat-engineer` | Pure/headless sim core, scheduler, determinism | **P0** | `sim-determinism-guard`; `docs/05` |
+| `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `src/render/CLAUDE.md`; `docs/10` |
+| `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | ADR-0028/0030; `index.html` tokens |
 | `content-author` | Job/ability/status/battle data against schemas | **P0** | `docs/05` schemas, `docs/01` fidelity |
 | `qe-tester` | Test plans, acceptance-criteria coverage; later, running tests + screenshots | partial now, full at **P0** | `docs/*` acceptance criteria |
 | `playtester` | Player-experience critique; spawn **2–3** with distinct personas | design-level now, real play at **P0** | `docs/03` archetypes, `docs/00` |
@@ -32,6 +34,11 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 
 ## Conventions
 
-- Design/review/fidelity/playtest agents are **read-only** (no code edits) — they produce findings/proposals the PO integrates.
+- **DELEGATE BY DEFAULT (owner, 2026-08-30).** The PO doing the work itself is the failure
+  mode this roster exists to prevent, and it went unnoticed for a whole session: the agents
+  were never once invoked. When a task fits a specialist, spawn it. When nothing fits,
+  **say so and propose the hire** rather than quietly absorbing the work — an unused roster
+  is a signal about the roster, not about the task.
+- Design/review/fidelity/playtest agents are **read-only** (no code edits) — they produce findings/proposals the PO integrates. `art-director` is read-only *for shipped source*: it may write mockups and capture scripts to a scratch path, because its whole contract is to argue with rendered pictures rather than prose.
 - `combat-engineer` and `content-author` may edit code/data, and must honor the determinism invariant (`sim-determinism-guard`) and the doc acceptance criteria.
 - Model/tool scoping is left conservative now (mostly inherit); tune per agent at P0 (see `task-model-routing` for cheap-vs-strong routing once tasks exist).

@@ -149,7 +149,16 @@ Invoke by name:
 
 **Product Owner is the operating contract of the main session** — it holds the vision, is the single point of contact for requirements and decisions, and **delegates to specialists**, integrating their results rather than surfacing raw sub-agent output.
 
-Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, `qe-tester`, `playtester` (spawn 2–3 personas). Design and review agents are read-only; only `combat-engineer` / `content-author` edit code or data. Full contract in `.claude/agents/README.md`.
+**DELEGATE BY DEFAULT — standing permission (user, 2026-08-30).** No approval is needed to
+spawn a specialist; the main session doing implementation work itself is the failure this
+roster exists to prevent. It went unnoticed for an entire multi-slice session, in which the
+agents were invoked **zero** times. Two consequences the user asked to be written down:
+when a task fits a specialist, spawn it; and when **nothing** on the roster fits, say so and
+**propose the hire** rather than absorbing the work — a roster nobody uses is a signal about
+the roster, not about the task. (That session's gap was the whole visual layer, which is why
+`viewer-engineer` and `art-director` now exist.)
+
+Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), `qe-tester`, `playtester` (spawn 2–3 personas). Design and review agents are read-only; `combat-engineer`, `content-author` and `viewer-engineer` edit code or data, and `art-director` writes only scratch mockups. Full contract in `.claude/agents/README.md`.
 
 ## Tooling & workflow
 
