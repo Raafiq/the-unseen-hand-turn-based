@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 809 tests, 39 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 886 tests, 43 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -113,6 +113,7 @@ Stack locked at P0 (ADR-0007): **Web / TypeScript** — headless `src/sim/` + th
 | `npm run check:rng` | greps `src/sim` for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
+| `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
 | `npm run test` | `vitest run` · watch: `npm run test:watch` |
 | `npx vitest run <file>` | one file · or `npx vitest run -t "<name>"` |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
@@ -123,6 +124,13 @@ Notes:
 
 - **`npx playwright test` alone does NOT rebuild.** It serves whatever is in `dist`, so a spec for a feature you just wrote fails exactly like a broken feature. Rebuild before believing a browser failure.
 - **`check:story`** exists because the story pack is swappable by contract (`docs/11` AC-M4); a test pinning its prose makes exercising that seam a build failure. Four did.
+- **`check:counts`** exists because a count in prose that nothing derives went stale twice
+  in two commits, both times caught by a human happening to look. It matches only the LIVE
+  shape — `N tests, M browser specs`, a comma joining both — so the six **dated** evidence
+  claims elsewhere ("shipped past 720 green tests") are deliberately not touched: those are
+  the record of a past defect and correcting them would falsify it. It also fails if it
+  finds fewer than three live claims, because a guard that only checks the numbers it finds
+  passes vacuously the day someone rewords every site. Mutation-verified four ways.
 - **`check:handoff`** runs on push events only — a `pull_request` event checks out a *merge* ref and would count base commits the branch never authored.
 - CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages.
 
@@ -149,7 +157,26 @@ Invoke by name:
 
 **Product Owner is the operating contract of the main session** — it holds the vision, is the single point of contact for requirements and decisions, and **delegates to specialists**, integrating their results rather than surfacing raw sub-agent output.
 
-Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, `qe-tester`, `playtester` (spawn 2–3 personas). Design and review agents are read-only; only `combat-engineer` / `content-author` edit code or data. Full contract in `.claude/agents/README.md`.
+**THE MAIN SESSION IS COMMAND CENTER, AND DOES NOT DO THE WORK (user, 2026-08-30).**
+This is stronger than "delegate when convenient" and it replaces it:
+
+1. **Every piece of work goes to an agent.** The main session decides, scopes, sequences,
+   integrates, quality-gates, and talks to the user. It does not implement, author, test,
+   review or design. No approval is needed to spawn a specialist.
+2. **Work no agent covers is ESCALATED, never absorbed.** Name the gap, say what it would
+   own, and propose either a **new hire** or **promoting an existing agent** to broader
+   responsibility — then wait for the user's call. Quietly doing it yourself is the failure
+   this roster exists to prevent.
+3. **A roster nobody uses is a signal about the roster.** It was invoked **zero** times
+   across an entire multi-slice session and nobody noticed until the user asked. The gap
+   was the whole visual layer, which is why `viewer-engineer` and `art-director` exist —
+   and the first review that was actually delegated found three blockers the main session
+   and 880 green tests had both missed.
+
+The judgement call is the *scoping*, not the doing. A slice usually needs two or three
+specialists in sequence; sequencing them and reconciling what they hand back is the job.
+
+Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
 
 ## Tooling & workflow
 
@@ -164,6 +191,18 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
   image, which settled it in a single pass. Aesthetic direction is not derivable from a
   description, and each blind iteration costs a full rebuild. Ask for a reference, or
   put 2–3 real options in front of them, before writing the stylesheet.
+  - **OPTIONS THAT ARE ALL VARIATIONS OF THE CURRENT IMPLEMENTATION CANNOT ESCAPE A FAULT
+    IN IT.** Three re-colourings of the battle board were rejected outright; every one of
+    them kept the per-tile grid line, which *was* the fault ("actual grounds instead of
+    this blocky generic"). When the user names a reference work, go and establish what
+    that work actually **does** — FFT draws no grid on the ground — before generating
+    options, or the whole set inherits the thing being complained about.
+  - **WHEN THE DECISION IS ABOUT APPEARANCE, RENDER IT BEFORE ASKING.** A multiple-choice
+    question about how something looks is unanswerable in prose: the user said so three
+    times in one session ("give me the image ... before I can even say go or no go", "I
+    can't quite visualise the options, can u show me"). Frames from the **running game**
+    beat mockups, and both beat a description — patch the data, capture, revert. Budget
+    for it; it is cheaper than a rejected slice.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.

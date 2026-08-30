@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
-import { test, expect } from "@playwright/test";
 
 /**
  * The browser suite serves `dist`. This asserts `dist` was built from the sources on
- * disk right now.
+ * disk right now, and it runs as Playwright's `globalSetup` so **no invocation can skip
+ * it**.
  *
  * WHY THIS EXISTS. `npx playwright test` does not rebuild — that trap is already in
  * `docs/NEXT.md`. The variant that actually cost time in this repo is nastier, because
@@ -13,6 +13,14 @@ import { test, expect } from "@playwright/test";
  * `contrast.spec.ts` measured the OLD stylesheet and reported ratios that were
  * plausible, wrong, and disagreed with the CSS in the editor — which sent the session
  * off re-deriving colour maths that had never been wrong.
+ *
+ * WHY IT IS `globalSetup` AND NO LONGER A SPEC. It used to be `fresh-build.spec.ts`,
+ * and a spec is only a guard for the runs that load it. Rendering three map variants
+ * with `npx playwright test e2e/playtest-capture.spec.ts` loaded exactly one file, so
+ * the freshness check never ran, and the session produced three entirely plausible
+ * screenshots **of the previous build** (2026-08-30). A guard that a targeted run can
+ * step around is not a guard. `globalSetup` runs once per invocation, whatever the file
+ * filter, and a throw here aborts before a single browser opens.
  *
  * A stale `dist` is exactly the kind of failure the evidence rules warn about: the
  * suite is green or red for reasons that have nothing to do with the diff, and both
@@ -33,7 +41,7 @@ const CODE = new Set([
 ]);
 
 /** Newest mtime under a directory tree, recursively. Returns 0 for a missing path. */
-function newestUnder(path: string): { mtime: number; file: string } {
+export function newestUnder(path: string): { mtime: number; file: string } {
   if (!existsSync(path)) return { mtime: 0, file: "" };
   const st = statSync(path);
   if (!st.isDirectory()) return { mtime: st.mtimeMs, file: path };
@@ -51,9 +59,11 @@ function newestUnder(path: string): { mtime: number; file: string } {
   return best;
 }
 
-test("build: dist is newer than every source it is built from", () => {
+export default function assertFreshBuild(): void {
   const dist = newestUnder("dist");
-  expect(dist.mtime, "dist/ is missing or empty — run `npm run build`").toBeGreaterThan(0);
+  if (dist.mtime === 0) {
+    throw new Error("dist/ is missing or empty — run `npm run build` (or `npm run test:visual`)");
+  }
 
   let newest = { mtime: 0, file: "" };
   for (const p of [...WATCHED_FILES, ...WATCHED_DIRS]) {
@@ -61,13 +71,16 @@ test("build: dist is newer than every source it is built from", () => {
     if (found.mtime > newest.mtime) newest = found;
   }
   // Guard the guard: a watch list that resolves to nothing would pass on any dist.
-  expect(newest.mtime, "no watched sources found — the watch list has gone stale").toBeGreaterThan(0);
+  if (newest.mtime === 0) {
+    throw new Error("no watched sources found — the watch list in e2e/fresh-build.ts has gone stale");
+  }
 
-  const staleBySeconds = Math.round((newest.mtime - dist.mtime) / 1000);
-  expect(
-    dist.mtime,
-    `dist is ${staleBySeconds}s older than ${newest.file}. The browser suite is about to ` +
-      "measure the PREVIOUS build — which is what a failed `npm run build` leaves behind. " +
-      "Run `npm run test:visual` (build + test) instead of `npx playwright test`.",
-  ).toBeGreaterThanOrEqual(newest.mtime);
-});
+  if (dist.mtime < newest.mtime) {
+    const staleBySeconds = Math.round((newest.mtime - dist.mtime) / 1000);
+    throw new Error(
+      `dist is ${staleBySeconds}s older than ${newest.file}. The browser suite is about to ` +
+        "measure the PREVIOUS build — which is what a failed `npm run build` leaves behind. " +
+        "Run `npm run test:visual` (build + test) instead of `npx playwright test`.",
+    );
+  }
+}

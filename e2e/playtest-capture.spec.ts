@@ -1,12 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { prepEveryMember, dismissScene } from "./helpers.js";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/playtest";
 
 /** What a player would see, captured for a human to judge. */
 test("PLAYTEST: capture every screen a player passes through", async ({ page }) => {
   test.setTimeout(180_000);
+  // CLEARED, not just created. These frames are written to fixed paths and are the only
+  // way a human judges a screen, so a run that dies partway leaves the PREVIOUS run's
+  // PNGs sitting there reading as current — the same shape as a failed build leaving the
+  // old `dist`. A missing frame is an honest signal; a stale one is not.
+  await rm(SHOTS, { recursive: true, force: true });
   await mkdir(SHOTS, { recursive: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   /**
@@ -22,6 +27,20 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   const shot = async (name: string, expectVisible: string) => {
     await expect(page.getByTestId(expectVisible)).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+    console.log(`captured ${name}`);
+  };
+
+  /**
+   * Capture the BOARD alone — the canvas element, not the page.
+   *
+   * Same caption rule as `shot`: the battle screen must actually be up, or the frame is
+   * of whatever was on screen instead. Cropped to the canvas because these frames exist
+   * to judge the painted ground, and a full page puts four fifths of its pixels into
+   * panels that are identical in every one of them.
+   */
+  const board = async (name: string) => {
+    await expect(page.getByTestId("screen-battle")).toBeVisible();
+    await page.locator("canvas").first().screenshot({ path: `${SHOTS}/${name}.png` });
     console.log(`captured ${name}`);
   };
 
@@ -50,6 +69,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
 
   await page.getByTestId("deploy").click();
   await shot("04-battle-1-start", "screen-battle");
+  await board("map-battle-1");
 
   // One enemy turn, so the board shows a fight in progress rather than the opening.
   await page.getByTestId("step").click();
@@ -60,11 +80,15 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await page.getByTestId("conclude").click();
   await shot("07-after-battle", "screen-after");
 
-  // Walk to the last briefing so the prep panel is shown fully stocked.
+  // Walk to the last briefing so the prep panel is shown fully stocked, capturing each
+  // battle's BOARD on the way. Every map is painted by hand (ADR-0030) and nothing in the
+  // suite can see a canvas, so these frames are the only way a human judges whether a map
+  // reads as the place its name claims — a ford, a ruin, a broken span, a camp.
   for (let i = 0; i < 3; i++) {
     await page.getByTestId("next").click();
     await dismissScene(page);
     await page.getByTestId("deploy").click();
+    await board(`map-battle-${i + 2}`);
     await page.evaluate(() => window.tuhGame.autoplay());
     await page.getByTestId("conclude").click();
   }
@@ -78,6 +102,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   // one of them, and it is where the copy-log control lives.
   await prepEveryMember(page);
   await page.getByTestId("deploy").click();
+  await board("map-battle-5");
   await page.evaluate(() => window.tuhGame.autoplay());
   await page.getByTestId("conclude").click();
   // The epilogue stands in front of the ending (AC-V17).

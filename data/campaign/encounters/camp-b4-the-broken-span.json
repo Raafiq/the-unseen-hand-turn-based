@@ -4,7 +4,317 @@
   "seed": 20260904,
   "grid": {
     "width": 11,
-    "height": 7
+    "height": 7,
+    "tiles": [
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 2,
+        "passable": true
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      },
+      {
+        "height": 0,
+        "passable": false
+      }
+    ]
   },
   "teams": [
     {

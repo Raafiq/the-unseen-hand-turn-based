@@ -27,7 +27,8 @@ import {
   type CampaignSave,
   type StoryPack,
 } from "../sim/index.js";
-import { ENCOUNTERS, PORTRAITS, campaign, registry, story } from "./campaign-data.js";
+import { ENCOUNTERS, PORTRAITS, TERRAIN, campaign, registry, story, terrainFor } from "./campaign-data.js";
+import { assertFitsGrid, terrainAt } from "./terrain.js";
 import { CampaignShell } from "./campaign-shell.js";
 import { OPTIMIZER } from "./playtest.js";
 import { PrepModel } from "./prep.js";
@@ -92,6 +93,116 @@ describe("the bundled campaign data covers exactly the battles the campaign name
     const bundled = Object.keys(ENCOUNTERS).sort();
     expect(bundled).toEqual(named);
     expect(named.length).toBe(5);
+  });
+
+  it("every battle is painted, and every painted map belongs to a battle", () => {
+    // BIDIRECTIONAL since 2026-08-30, when the last four battles were painted, and the
+    // second direction is the one that rots: a map keyed to a renamed battle resolves for
+    // nothing and reads as done, exactly like the story pack's `extra` check. The first
+    // direction is a forcing function — a sixth battle cannot ship drawing the flat look
+    // by omission; leaving it unpainted has to be a deliberate edit to this test.
+    const named = campaign.battles.map((b) => b.encounterId).sort();
+    expect(Object.keys(TERRAIN).sort()).toEqual(named);
+    // And the lookup actually resolves — an accessor that always returned `undefined`
+    // would satisfy every assertion above.
+    for (const id of named) expect(terrainFor(id), id).toBeDefined();
+    expect(terrainFor("camp-b-does-not-exist")).toBeUndefined();
+  });
+
+  it("no prop stands on a tile a unit starts on", () => {
+    // Props block nothing, so this is cosmetic — and cosmetic is the whole point of the
+    // slice. A tree drawn over the unit you are about to move is the kind of thing no
+    // colour assertion sees and every player does.
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const def = ENCOUNTERS[id] as { placements: { pos: { x: number; y: number } }[] };
+      const starts = new Set(def.placements.map((pl) => `${pl.pos.x},${pl.pos.y}`));
+      expect(starts.size, id).toBeGreaterThan(0); // non-degeneracy: an empty set passes vacuously
+      for (const prop of map.props) {
+        expect(starts.has(`${prop.pos.x},${prop.pos.y}`), `${id}: ${prop.kind}`).toBe(false);
+      }
+    }
+  });
+
+  it("DISCRIMINATING: a tile the sim blocks is never painted as walkable ground", () => {
+    // THE ONE-DIRECTIONAL CHECK, AND THE DIRECTION MATTERS.
+    //
+    // Blocked-but-looks-walkable is an invisible wall: a player clicks solid-looking
+    // ground and nothing happens, with no way to know why. That is asserted here for
+    // every battle.
+    //
+    // The converse — painted water a unit CAN cross — is deliberately NOT asserted,
+    // because battle 2 is a ford: its river is paint, the sim was never told about it,
+    // and units wade anywhere (ADR-0030). Asserting both directions would either break
+    // that map or force a difficulty change nobody asked for. When water blocks
+    // everywhere, this becomes an equality and battle 2 gets a real crossing.
+    // INVERTED, not exempted. The first version listed the surfaces that read as
+    // walkable — grass, dirt, sand, wood — and let everything else through, which
+    // silently exempted `rock`. Rock is walkable ground in two shipped maps: all of
+    // battle 3's centre, and battle 4's own abutments, which the party stands on.
+    // Painting battle 4's gap as rock therefore passed, and produced exactly the
+    // invisible wall this check exists to prevent: a continuous stone ledge, identical
+    // to the one under your feet, that refuses the click.
+    //
+    // Water is the only surface that reads as impassable, so that is the assertion.
+    let blockedSeen = 0;
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const grid = (ENCOUNTERS[id] as { grid: { width: number; tiles?: { passable: boolean }[] } })
+        .grid;
+      for (const [i, tile] of (grid.tiles ?? []).entries()) {
+        if (tile.passable) continue;
+        blockedSeen++;
+        const x = i % grid.width;
+        const y = Math.floor(i / grid.width);
+        expect(terrainAt(map, x, y), `${id} (${x}, ${y}) is blocked but not painted as water`)
+          .toBe("water");
+      }
+    }
+    // Non-degeneracy: with no blocked tile anywhere the loop above is vacuous and this
+    // test passes against a renderer that paints blocked tiles as lawn.
+    expect(blockedSeen).toBeGreaterThan(0);
+  });
+
+  it("no unit starts on a tile the sim blocks, or on painted water", () => {
+    // A unit standing in the river is the visible half of the same defect, and it is
+    // reachable by editing terrain alone — the encounter's placements and its tiles are
+    // authored in one file, its paint in another.
+    let checked = 0;
+    let withTiles = 0;
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const def = ENCOUNTERS[id] as {
+        grid: { width: number; tiles?: { passable: boolean }[] };
+        placements: { slotId: string; pos: { x: number; y: number } }[];
+      };
+      if (def.grid.tiles !== undefined) withTiles++;
+      for (const pl of def.placements) {
+        const { x, y } = pl.pos;
+        // Bounds FIRST. A row-major index of an out-of-range x wraps into the next
+        // row and reads as an ordinary passable tile, so without this the check would
+        // quietly approve a placement that is off the map.
+        expect(x, `${id}: ${pl.slotId} x out of range`).toBeLessThan(def.grid.width);
+        expect(y, `${id}: ${pl.slotId} y out of range`).toBeLessThan(map.height);
+        const tile = def.grid.tiles?.[y * def.grid.width + x];
+        expect(tile?.passable ?? true, `${id}: ${pl.slotId} starts on a blocked tile`).toBe(true);
+        expect(terrainAt(map, x, y), `${id}: ${pl.slotId} starts in the water`).not.toBe("water");
+        checked++;
+      }
+    }
+    // Non-degeneracy, twice over. Four of five encounters ship no `tiles` array at all,
+    // so `?? true` makes the passability half vacuous for them — and a run where NO
+    // encounter declared tiles would pass this test having asserted nothing about
+    // blocked ground. Count both.
+    expect(checked, "no placements checked").toBeGreaterThan(0);
+    expect(withTiles, "no encounter declares tiles — the blocked half asserted nothing")
+      .toBeGreaterThan(0);
+  });
+
+  it("a painted battle's terrain covers its grid exactly", () => {
+    // The renderer checks this at the first frame, which is too late to be a test: a
+    // ragged map would ship and fail in front of a player. Same check, at build time.
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const grid = (ENCOUNTERS[id] as { grid: { width: number; height: number } }).grid;
+      expect(() => assertFitsGrid(map, grid.width, grid.height), id).not.toThrow();
+    }
   });
 });
 

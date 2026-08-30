@@ -41,6 +41,7 @@ import {
   type EncounterMap,
   type StoryPack,
 } from "../sim/index.js";
+import { parseTerrain, type TerrainMap } from "./terrain.js";
 
 /** The content registry every campaign unit is compiled against. */
 export const registry: ContentRegistry = loadContentPack(pack);
@@ -136,4 +137,145 @@ export function battleTitle(encounterId: string): string {
     .split("-")
     .map((w) => (w.length > 0 ? w[0]!.toUpperCase() + w.slice(1) : w))
     .join(" ");
+}
+
+/**
+ * PAINTED GROUND, per battle (owner decision, 2026-08-30 — "Daylight field").
+ *
+ * One authored row of letters per grid row: `g` grass, `d` dirt, `r` rock, `w` water,
+ * `s` sand, `p` wood. Props stand on tiles and block nothing.
+ *
+ * **This is presentation and nothing else.** No entry here reaches `BattleState`; the
+ * sim's `passable` is the only answer to "may I stand there".
+ *
+ * WHETHER IT WAS ASKED IS NOW PER-MAP (ADR-0031). `camp-b4-the-broken-span` authors real
+ * `passable: false` tiles in its encounter file, so its river and its gap block movement
+ * and the paint below is honest. The other four maps author no tiles at all, so their
+ * water is decorative and a unit wades through it — battle 2's ford is the live example.
+ * An earlier version of this comment said flatly that "the sim was not asked"; that has
+ * been false since ADR-0031. See `terrain.ts`, and note that making water block needs no
+ * schema change — it is authored encounter data.
+ *
+ * EVERY BATTLE MUST HAVE AN ENTRY. Battle 1 shipped alone first so the look could be
+ * judged in the real game; the owner said go on 2026-08-30 and the other four followed,
+ * so `campaign-shell.test.ts` now checks the two sets are EQUAL. Both directions earn
+ * their keep: a battle with no map would draw the flat look by omission and read as a
+ * rendering bug, and a map keyed to a renamed battle is ground nobody can stand on.
+ * `terrainFor` still returns `undefined` for an unknown id — that is the engine demo's
+ * path, not a campaign battle's.
+ *
+ * The map's dimensions are re-checked against the real grid at the first frame
+ * (`assertFitsGrid`), so a row of the wrong length fails loudly rather than painting a
+ * battle half-right.
+ */
+export const TERRAIN: Readonly<Record<string, TerrainMap>> = Object.freeze({
+  // The Toll Road — 7x5. A dirt road runs the length of it, grass either side, a rocky
+  // verge where the brigands hold the far end.
+  "camp-b1-the-toll-road": parseTerrain(
+    [
+      "ggggggr",
+      "gdddddr",
+      "dddddrr",
+      "gdddddr",
+      "ggggggr",
+    ],
+    [
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 5, y: 4 }, kind: "tree" },
+      { pos: { x: 0, y: 4 }, kind: "boulder" },
+      { pos: { x: 6, y: 0 }, kind: "pillar" },
+    ],
+  ),
+
+  // Ambush at the Ford — 9x5. A river cuts the road in two; the road crosses it at a
+  // shallow sand bar, which is the ford the battle is named for.
+  "camp-b2-ambush-at-the-ford": parseTerrain(
+    [
+      "ggdwwgggg",
+      "gddwwgggg",
+      "dddssdddd",
+      "gddwwgggg",
+      "ggdwwgggg",
+    ],
+    [
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 7, y: 0 }, kind: "tree" },
+      { pos: { x: 6, y: 4 }, kind: "tree" },
+      { pos: { x: 1, y: 4 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Hollow Watch — 9x7. A ruined watchpost: a flagstone floor with four broken
+  // pillars where the tower stood, the road running through what is left of it.
+  "camp-b3-the-hollow-watch": parseTerrain(
+    [
+      "ggggggggg",
+      "ggdrrrdgg",
+      "gddrrrddg",
+      "dddrrrddd",
+      "gddrrrddg",
+      "ggdrrrdgg",
+      "ggggggggg",
+    ],
+    [
+      { pos: { x: 3, y: 1 }, kind: "pillar" },
+      { pos: { x: 5, y: 1 }, kind: "pillar" },
+      { pos: { x: 3, y: 5 }, kind: "pillar" },
+      { pos: { x: 5, y: 5 }, kind: "pillar" },
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 7, y: 6 }, kind: "tree" },
+      { pos: { x: 7, y: 0 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Broken Span — 11x7. A plank deck two steps above a river, with the middle of
+  // the span collapsed. THE WATER AND THE GAP ARE REAL (ADR-0031): those tiles are
+  // `passable: false` in the encounter, so this is the one map where paint and rule
+  // agree. The west abutment runs one row further than the east because a party member
+  // starts at (0, 5); a unit standing on painted water is the defect that check exists
+  // to catch.
+  "camp-b4-the-broken-span": parseTerrain(
+    [
+      "wwwwwwwwwww",
+      "wwwwwwwwwww",
+      "rppppwppppr",
+      "rpppppppppr",
+      "rppppwppppr",
+      "rwwwwwwwwww",
+      "wwwwwwwwwww",
+    ],
+    [
+      { pos: { x: 2, y: 2 }, kind: "pillar" },
+      { pos: { x: 8, y: 4 }, kind: "pillar" },
+      { pos: { x: 3, y: 3 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Warchief's Camp — 11x7. Ground trampled to dirt and sand around a plank floor,
+  // with banner posts at its corners.
+  "camp-b5-the-warchiefs-camp": parseTerrain(
+    [
+      "ggdddddddgg",
+      "gddsssssddg",
+      "ddsspppssdd",
+      "ddsspppssdd",
+      "ddsspppssdd",
+      "gddsssssddg",
+      "ggdddddddgg",
+    ],
+    [
+      { pos: { x: 4, y: 1 }, kind: "pillar" },
+      { pos: { x: 6, y: 1 }, kind: "pillar" },
+      { pos: { x: 4, y: 5 }, kind: "pillar" },
+      { pos: { x: 6, y: 5 }, kind: "pillar" },
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 9, y: 6 }, kind: "tree" },
+      { pos: { x: 9, y: 0 }, kind: "boulder" },
+    ],
+  ),
+});
+
+/** The painted ground for a battle, or `undefined` where none is authored yet. */
+export function terrainFor(encounterId: string): TerrainMap | undefined {
+  return TERRAIN[encounterId];
 }

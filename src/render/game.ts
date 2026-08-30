@@ -14,11 +14,19 @@
  */
 
 import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
-import { ENCOUNTERS, PORTRAITS, battleTitle, campaign, registry, story } from "./campaign-data.js";
+import {
+  ENCOUNTERS,
+  PORTRAITS,
+  battleTitle,
+  campaign,
+  registry,
+  story,
+  terrainFor,
+} from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
-import { draw, pickTile } from "./iso.js";
+import { draw, pickTile, FIELD_THEME } from "./iso.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
 import { mountScene, type SceneHandle } from "./scene.js";
@@ -357,7 +365,16 @@ function renderBattle(): void {
   if (!session) return;
   const lk = look();
   const active = session.actor();
+  // The battle a player is LOOKING at, for its painted ground. `briefing()` reads the
+  // save's pending battle, which on this screen is still the one being fought.
+  const encounterId = shell.briefing()?.encounterId;
+  // A battle with no authored terrain draws the flat look, unchanged — absent, not a
+  // default map, because painting one battle's ground onto another's grid would be a lie
+  // about where the fight is happening. The theme moves WITH the terrain: `FIELD_THEME`'s
+  // blue range panels are unreadable on the dark slate the flat look paints.
+  const terrain = encounterId === undefined ? undefined : terrainFor(encounterId);
   draw(ctx!, session.state, canvas.width, canvas.height, {
+    ...(terrain ? { terrain, theme: FIELD_THEME } : {}),
     activeId: active?.id,
     activeControl:
       active === undefined ? undefined : active.teamId === session.playerTeam ? "player" : "ai",

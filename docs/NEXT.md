@@ -1,4 +1,4 @@
-<!-- written-against: 0eb9f2dc925e1899490956d7ed684a01df9cca1d-->
+<!-- written-against: 9cc4890 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -12,26 +12,246 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ---
 
-## THE NEXT SLICE — a person plays it
+## THE NEXT SLICE — visual identity, while the playtest waits
 
-**Unchanged, and now overdue.** The top open question is still whether a stranger
-understands this game, and nothing in the repo can settle it. The synthetic playtest
-finished 2026-08-25 and did the half an agent can do. The other half is a human being,
-once.
+**Owner decision, 2026-08-30.** Three things moved:
 
-### What changed on 2026-08-29, and what did NOT
+1. **The human playtest is DELAYED, not dropped.** It is still the top open question and
+   still the only thing that can answer it. It is now a **standing reminder** — see the
+   section below — not the gate on the next slice.
+2. **Look and feel comes before combat.** The next slices are **visual**. Do not open a
+   balance, ability, encounter or scheduler slice unless the owner asks.
+3. **The variety score (7 → 8) is OFF the priority list.** Not weakened, not relitigated:
+   `DIVERSITY_TARGET_N` stays 7, `docs/06` AC-E2's release bar stays ≥ 8, the gate still
+   fails CI on a drop. It is simply not what to work on. Leave `docs/06`, `docs/08` §1a
+   and `docs/11` §3 exactly as they read.
 
-The scene player landed (ADR-0029). **A prettier, better-paced story screen is not
-onboarding evidence** — it is exactly the same claim the parchment slice had to make about
-itself, for the same reason. `docs/11` AC-M6 asserts the help panel's CLAIMS are
-deliverable. Nothing asserts the game reads on its own.
+### The visual work, in order
 
-> **The previous version of this file said "no code change should be started before" a
-> human plays it. The owner overrode that on 2026-08-29** and asked for the
-> highest-value work that does not depend on playtest data. That was the right call and
-> the override is recorded here rather than left as a contradiction between this file and
-> the tree. **It does not generalise to difficulty or pacing**, which still cannot be
-> tuned without a real session.
+**Before writing any stylesheet or renderer, get a reference or put rendered options in
+front of the owner.** Proven twice now. The parchment slice was rebuilt from a description
+twice before one image settled it. And the FIRST battle-map pitch — three re-colourings of
+the existing board — was rejected outright with the actual diagnosis: *"actual grounds
+instead of this blocky generic"*. **Final Fantasy Tactics draws no grid on the ground**;
+that one fact was the whole fault, and no amount of palette work would have found it.
+
+| # | Slice | State | The catch |
+|---|---|---|---|
+| 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19), all five battles. | See the traps below. The engine demo page still draws the flat look, and that is what keeps AC-V18's A/B possible — do not paint it. |
+| 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
+| 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
+| 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
+| 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles are **not touched at all**, so the variety score stays comparable. (They are *not* flat, and never were: `enc-the-high-ground` has heights 0–3 and `enc-the-breach` 4 blocked tiles, both since the P2 benchmark slice. What keeps the score comparable is that nothing changed.) Do not widen this without asking. |
+
+**Two rules bind every one of these.**
+
+- **The suite cannot see the screen.** Three defects in the slice just landed were found
+  only by opening a PNG, with the whole suite green. **Open `visual-artifacts/playtest/`
+  after any change to a screen** — the trap named "THE SUITE STILL CANNOT SEE THE SCREEN".
+- **Contrast is measured, not eyeballed** — but only for DOM text. `contrast.spec.ts`
+  cannot see the canvas at all, so nothing measures the battle map's legibility. The traps
+  named "`--accent` IS RULES AND BORDERS ONLY", "THE SHEET'S PADDING AND THE SCORCH ARE
+  COUPLED", "THE CONTRAST FLOOR IS NOW 100" and "AN ANALYZER THAT DECLINES TO CHECK STILL
+  SAYS PASS" each cover a way a *sheet* change goes quietly wrong.
+
+---
+
+## LANDED 2026-08-30 — the ground is painted (ADR-0030)
+
+The battle map paints real terrain: textured surfaces, side faces cut only where the
+ground drops, props, open sky, and **no grid line on the ground**. Direction chosen from
+three rendered options ("Daylight field"); four scoping questions answered by the owner.
+
+| Piece | Where |
+|---|---|
+| Kinds, parser, `DAYLIGHT` palette, per-tile noise | `src/render/terrain.ts` (no canvas — testable without a DOM) |
+| Painting, prop drawing, the camera | `src/render/iso.ts` — `DrawOptions.terrain`, `FIELD_THEME`, `viewFor` |
+| All five battles' authored ground | `TERRAIN` in `src/render/campaign-data.ts` |
+| The wiring | `renderBattle()` in `game.ts` — terrain and theme move together |
+
+**Owner decisions this slice, all four explicit:** terrain is **paint only** (no
+`BattleState` change); authored as **a grid per battle**; **one battle first**; and the
+drawn-in-code look is **the destination**, not a placeholder for art.
+
+### Traps this slice bought
+
+0. **FOUR OF THE FIVE CAMPAIGN MAPS ARE FLAT.** Battles 1, 2, 3 and 5 have no height and
+   no blocked tiles, and painted ground cannot supply them. **Battle 4 is the exception**
+   since ADR-0031: height 2 and 45 blocked tiles, authored in its encounter file.
+   ~~Giving a map relief is a rules change, not a visual one.~~ **Both halves of that were
+   wrong and ADR-0031 disproved them the same day.** Relief and blocked water need **no
+   schema change** — the encounter format already carries per-tile `{height, passable}`, so
+   it is authored data. It does change what a fight *is*, which is why battles 1, 2, 3 and 5
+   are **parked by owner decision, 2026-08-30**: they keep the difficulty they were tuned
+   for until someone asks.
+0. **WHETHER THE PAINT AND THE RULE AGREE IS NOW PER MAP.** On battle 4 the river and the
+   gap really block, so the paint is honest. On the other four the water is decorative and
+   units wade through it — battle 2's ford is the live example. ~~"The sim was not asked"~~
+   is no longer true as a blanket statement; it is true of four maps out of five. Written
+   down in `terrain.ts`, `campaign-data.ts` and AC-V18 — keep all three in step; two of the
+   three went stale after ADR-0031 and had to be corrected. What stays forbidden is a
+   **second opinion in `src/render`**: this layer never answers "may I stand there".
+0. **`viewFor` IS ON THE CLICK PATH.** `draw` and `pickTile` share the camera the way they
+   already share `paintOrder`. A zoom applied to the painting and not the inverse offsets
+   every click by a constant factor — it does not fail, it just misses. `originFor` now
+   returns a **world** origin; a screen point is `project(...) * scale`. `e2e/play.spec.ts`
+   and `iso.test.ts` both convert. AC-V19's discriminator is that the *unscaled* point does
+   **not** resolve to the same tile — at `iso.test.ts`'s 900×600 canvas it returns `null`,
+   not another tile, and the shipped pages are **900×440**. Never read a scale off a test
+   here as what a player sees.
+0. **NOTHING STANDING IS OCCLUDED BY TERRAIN.** Props and units draw in a second pass over
+   the finished ground, because drawing a tree inside the painter's walk let the next tile
+   paint over its canopy — on a flat map, every prop. The opposite error is live: a unit
+   behind a tall cliff shows through. ~~Harmless while the maps are flat.~~ **Battle 4 has
+   walls now.** It stays invisible only because every *passable* tile on battle 4 is the
+   same height, so nothing can stand behind anything. The first map with two standable
+   heights owes the fix.
+0. **FOLIAGE MUST NOT BE THE GROUND'S OWN GREEN.** A canopy in the grass colour is
+   invisible everywhere except against the sky, which is the edge of the map.
+   ~~`terrain.test.ts` asserts `leaf !== grass.base`.~~ **String inequality was the bug**, not
+   the check: a shipped `leafLit` of `#548b38` against a grass mottle of `#5c8737` is
+   contrast **1.03** and passed `!==` fine. `terrain.test.ts` now asserts a **WCAG contrast
+   ratio floor of 1.6** for both canopy tones against all three grass tones.
+0. **A RANGE PANEL HAS TWO GROUNDS TO SEPARATE FROM, NOT ONE.** `FIELD_THEME.highlight` is
+   `#8fd0ffb3` — a **light blue at 70% alpha**. ~~A deep blue at moderate alpha.~~ That was
+   an earlier *failed* attempt: it desaturated to grey over grass exactly as the first pale
+   blue did, and a saturated `#2d6fd8` then landed within four points of the river. Only
+   **opacity** moves a translucent colour off its ground, so the panel is lighter than the
+   ground rather than a different hue. **Do not "restore" a darker blue.** The margin is
+   thin in two places — WCAG 1.07 over `sand.base`, 1.08 over `water.detail`, against
+   1.5–3.3 elsewhere — and **nothing asserts any of it**; `contrast.spec.ts` cannot see a
+   canvas. The measured table is in `iso.ts`'s `FIELD_THEME` comment.
+0. **THE UNIT TOKEN IS UNDECIDED.** Still the flat kite. Do not change it inside another
+   slice — three options were drawn and the owner has not picked. Bundled with the portrait
+   references (see the table above).
+0. **A MAP CAN ONLY LOOK LIKE WHAT THE GRID ALLOWS.** ~~"The Broken Span" reads as a wooden
+   platform, not a span over anything~~ — **fixed by ADR-0031**, which gave it real height
+   and real blocked water. The ford still stands as the example: its river is crossable
+   everywhere because the sim was never told there is a river. That is the flat-map limit,
+   not authoring. Do not try to paint around it — author the tiles instead, which costs no
+   schema change.
+0. **`visual-artifacts/playtest/map-battle-{1..5}.png` ARE THE ONLY VIEW OF THE MAPS.**
+   `playtest-capture.spec.ts` shoots the canvas alone for each battle. Nothing in the suite
+   can see a canvas, so after any change to `iso.ts`, `terrain.ts` or a `TERRAIN` entry,
+   open all five.
+0. **`git checkout` CANNOT RESTORE AN UNTRACKED FILE, AND A MUTATION VERDICT FROM A FAILED
+   BUILD IS NOT A VERDICT.** Both still bite. Every mutation this slice was gated on
+   `npm run typecheck` passing, and `iso.ts` was copied aside rather than checked out —
+   a `git checkout` there would have reverted the entire slice, not the mutation.
+
+---
+
+## LANDED 2026-08-30 — the span is real (ADR-0031)
+
+Battle 4 now has a deck two steps above a river, the river blocks, and the collapsed middle
+is a real hole leaving a **one-tile chokepoint** on the centre row. Chosen from three
+variants rendered out of the running game.
+
+**It needed no schema change.** The encounter format already carries per-tile
+`{height, passable}`, so this is authored data: no `Tile` field, no version bump, no save
+migration. ADR-0030 expected a schema bump here and was wrong.
+
+### Traps this slice bought
+
+0. **JUMP IS UNIFORM AT 3 ACROSS THE WHOLE PARTY.** A climb of 1–3 is free for everyone and
+   a climb of 4+ severs the map, so **height cannot currently gate a route**. The "stepped
+   span" variant looked like a design lever and is not one. If height is ever to be a route
+   choice, Jump has to vary by job first — a job-system decision, not a terrain one.
+0. **A BLOCKED TILE MUST BE PAINTED `water`** (AC-V20) — an **allow-list of one**, not a
+   deny-list. The failure is an invisible wall: a click on solid-looking ground that does
+   nothing, with nothing on screen to explain it. The first version listed the surfaces that
+   read as walkable and so exempted **`rock`**, which is walkable ground on battles 3 and 4;
+   painting battle 4's gap as rock passed it and produced the exact defect. Asserted for
+   every battle. Any new surface is walkable-looking by default — add it deliberately.
+   **The converse is NOT asserted on purpose** —
+   battle 2's ford river is paint and units wade anywhere. The day water blocks everywhere,
+   that check becomes an equality and battle 2 needs a real crossing.
+0. **A UNIT CAN BE AUTHORED INTO THE RIVER.** Placements live in the encounter, paint lives
+   in `campaign-data.ts` — two files, no compiler between them. Battle 4's west abutment
+   runs one row further than the east *only* because a party member starts at (0, 5).
+   Guarded, and the guard was earned during authoring.
+0. **A NON-DEGENERACY HALF IS LOAD-BEARING HERE.** "Every blocked tile is painted as
+   blocked" is vacuously true on a flat map, which is what four of five battles still are.
+   The check asserts at least one blocked tile exists, and that half is mutation-verified
+   separately.
+0. **`tiles` GOES INSIDE `grid`, NOT AT THE ROOT** of an encounter file. Rejected by Zod at
+   parse — but the first attempt to render variants this way produced three screenshots of
+   the OLD map that looked entirely plausible. **Both halves of that are now mechanical**
+   (retro, 2026-08-30): the build-freshness check moved from `fresh-build.spec.ts` into
+   Playwright's `globalSetup`, so a single-file run like
+   `npx playwright test one.spec.ts` can no longer step around it, and
+   `playtest-capture.spec.ts` **clears** `visual-artifacts/playtest/` before it starts, so
+   a run that dies leaves a missing frame rather than yesterday's. The browser-spec count
+   dropped 43 → 42 when the guard stopped being a spec; that was the fix, not a regression.
+   **It is back to 43** — the adversarial-review slice (`c1507dc`) added the page-to-terrain
+   canvas assertion in `campaign.spec.ts`. Current counts: **886 unit tests, 43 browser
+   specs in 8 files.**
+
+---
+
+## LANDED 2026-08-30 — an adversarial review, and what it cost
+
+The `reviewer` agent was run against the branch — **the first time this project's agent
+roster was used at all**. It found eight things. Three were blockers, and all three were
+tests this repo would have called discriminating.
+
+| What it found | How it hid |
+|---|---|
+| The page-to-terrain wire had **no test**. One property name (`encounterId` → `battleId`, both real) reverted all five battles to the old dark board | typecheck, lint and 880 unit tests green |
+| The blocked-tile check listed the surfaces that read as *walkable* and so exempted `rock` — which **is** walkable ground in two shipped maps | 42/42 green; painting the gap as rock gave the exact invisible wall the check exists to prevent |
+| "Foliage isn't the ground's green" was string inequality. Shipped `leafLit` was **contrast 1.03** against the grass mottle | 16/16 green |
+| The camera's bound charged the tallest tile's lift at the top AND its base at the bottom | battle 4 — the only campaign map with relief — drew below 1:1. (The camera exists because **battle 1**, a 7×5 map, filled under half the frame; battle 4 is where the *bound* failed. Two different things, conflated in the first write-up.) |
+
+### Traps this bought
+
+0. **NEVER ANCHOR A CHECK ON THE THING IT IS CHECKING** — again, and it slipped past the
+   first fix. The new camera test imported the shipped `HEADROOM`, so setting it to 0
+   moved the code and the expectation together and stayed green. The floor is now an
+   independent constant read off what is actually drawn above a tile.
+0. **A TRANSLUCENT PANEL HAS TWO GROUNDS TO SEPARATE FROM, NOT ONE.** Three attempts,
+   each fixing the previous one's ground and colliding with the next: pale blue went grey
+   over grass; a deeper blue at the same alpha did too; a saturated blue finally read over
+   grass and landed within four points of the **river**. Only opacity moves a translucent
+   colour off its ground, and the panel is now brighter than every surface rather than a
+   different hue.
+0. **"NO GRID" IS ABOUT WHAT IS SEEN, NOT ABOUT `stroke()`.** The water branch put a
+   full-width band at a fixed offset from each tile centre; it repeated identically on
+   every tile and drew a plain lattice across a river, while passing the no-stroke check
+   exactly. Place every texture by the tile's own noise.
+0. **A DEFECT CALLED FIXED IN AN ADR IS A CLAIM.** ADR-0030's Evidence section listed
+   three defects found by opening frames and fixed. **All three were still shipping** —
+   half-fixed by a hex change, an over-estimating bound, and a re-tone that did not survive
+   compositing. The ADR now says so.
+0. **THE REVIEWER AGENT EARNED ITS KEEP ON FIRST USE.** Nothing in the suite, and nobody
+   in the main session, found any of this. Run it on anything non-trivial before the PR.
+
+---
+
+## STANDING REMINDER — one person still has to play it
+
+**Deferred by the owner on 2026-08-30, expected to be a while. Do not delete this section
+and do not let a prettier screen read as an answer to it.** A better-looking game is not a
+more legible one; that is the same claim the parchment slice had to make about itself.
+
+Nothing in the repo can settle whether a newcomer understands this game. Every automated
+run drives the balance probe or a deliberate forfeit, so "completable" means *reachable* —
+never difficulty, pacing or fun.
+
+**When a human is available:** give them a link to the site root and say nothing else. When
+they finish or give up, ask them to press **Copy playtest log** on the title or ending
+screen and paste it back.
+
+**Read `stoppedAt` first.** Then `timeToFirstActionMs` for `BRIEFING` — a large number
+there is the 5-slot ability chassis being illegible, which is the open bet. Then
+`prepChanges`: an empty object means they never touched the progression systems, which the
+campaign is now tuned to punish (ADR-0027). `SCENE` rows and `*-story-more` /
+`*-story-all` actions show **whether they read the scenes or skipped them** — a curiosity,
+not a finding, until more than one person has played.
+
+`summarize()` in `src/render/telemetry.ts` folds a pasted log into those numbers.
+
+**Still blocked on that session, and on nothing else:** difficulty, pacing, session length,
+and whether the chassis teaches itself. Do not tune any of them from agent play.
 
 | Question | Settled? | By what |
 |---|---|---|
@@ -40,21 +260,6 @@ deliverable. Nothing asserts the game reads on its own.
 | Do story scenes render, advance and persist | yes | AC-V16, AC-V17 — and the frames were opened, not just green |
 | Does a newcomer UNDERSTAND the 5-slot chassis | **no** | nothing can. Expert inspection gives hypotheses |
 | Is 30–45 minutes right, is it too hard, is it fun | **no** | agent skill is not human skill. The numbers are RELATIVE only |
-
-### What to actually do
-
-Give one person who has never seen this a link to the site root and say nothing else.
-When they finish or give up, ask them to press **Copy playtest log** on the title or
-ending screen and paste it back.
-
-**Read `stoppedAt` first.** Then `timeToFirstActionMs` for `BRIEFING` — a large number
-there is the chassis being illegible, which is the open bet. Then `prepChanges`: an empty
-object means they never touched the progression systems, which the campaign is now tuned
-to punish (ADR-0027). New since 2026-08-29: `SCENE` rows and `*-story-more` / `*-story-all`
-actions, so you can also see **whether they read the scenes or skipped them** — but treat
-that as a curiosity, not a finding, until more than one person has played.
-
-`summarize()` in `src/render/telemetry.ts` folds a pasted log into those numbers.
 
 ---
 
@@ -167,21 +372,17 @@ identical across both, so that switch is a rewrite of `mountScene`'s DOM and not
 
 ---
 
-## Other candidates — AFTER the playtest
+## Parked — not the next slice, and not because they are wrong
 
-1. **The story repo itself** (`docs/08` §4). The contract is now rich enough to be worth
-   filling: per-line speakers, a cast, standalone scenes. The pack moves out, this repo
-   consumes it as a versioned package. **This is the natural follow-on to the slice just
-   landed**, and the owner has already said the writing comes next.
-2. **Portrait art.** The seam is done and the placeholder is honest, but every frame is
-   the same placeholder. The owner said they would supply reference images. When art
-   lands: drop files in `data/campaign/story/portraits/`, add an import line to
-   `PORTRAITS`, change the asset key in the pack. A tripwire test in
-   `campaign-shell.test.ts` fails that day **on purpose**, to force ADR-0029, this file
-   and the "Portrait pending" caption to move with it. Revisit option C (a full cinematic
-   scene screen) at the same time — that was deferred, not rejected.
-3. **M1: the variety score, 7 → 8** (`docs/06` AC-E2). The untried lever is **gear**.
-4. **M1: the AP grant shape** (ADR-0012) — a healer who only heals banks nothing.
+**The visual slices above come first (owner, 2026-08-30).** Nothing here is cancelled;
+none of it is scheduled.
+
+| Item | Why parked |
+|---|---|
+| **The story repo itself** (`docs/08` §4) — the pack moves out, this repo consumes it as a versioned package. The contract is rich enough now: per-line speakers, a cast, standalone scenes. | Still the natural follow-on to the scene player, and the owner has said the writing comes next. It is a content move, not a look-and-feel one, so it sits behind the visual slices. |
+| **Variety score 7 → 8** (`docs/06` AC-E2). The untried lever is **gear** — every build in `data/builds/*` carries `weapon: null`. | **Explicitly removed from the priority list by the owner, 2026-08-30.** The criterion is untouched: `DIVERSITY_TARGET_N` stays 7, the release bar stays ≥ 8, CI still fails on a drop. Do not weaken it, do not "clean it up", and do not treat this row as permission to reopen it. |
+| **The AP grant shape** (ADR-0012) — a healer who only heals banks nothing. | Combat/progression work. Same reason: after the visuals. |
+| **MP enforcement** (`docs/08` §1a). | Blocked on durable carriers, unchanged. |
 
 ---
 

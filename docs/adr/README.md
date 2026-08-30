@@ -33,3 +33,5 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0027](0027-the-campaign-demands-engagement.md) | The campaign demands engagement: an unprepped party loses the finale | Accepted | 2026-08-24 |
 | [0028](0028-parchment-and-the-contrast-instrument.md) | The campaign is set on parchment, and its legibility is measured | Accepted | 2026-08-29 |
 | [0029](0029-story-v2-who-speaks-is-data.md) | Story v2: who speaks is data, and a scene can belong to no battle | Accepted | 2026-08-29 |
+| [0030](0030-the-ground-is-painted-not-tiled.md) | The battle map paints real ground, and carries no grid | Accepted | 2026-08-30 |
+| [0031](0031-the-span-is-real.md) | The span is real: one map where the water blocks | Accepted | 2026-08-30 |
