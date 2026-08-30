@@ -17,14 +17,29 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 | `systems-designer` | Jobs/abilities/hybrids/economy/balance design | now | `game-design`, `brainstorm`, `grill-me`; `docs/02/03/07` |
 | `fft-fidelity` | FFT baseline accuracy; verify constants vs BMG/FFHacktics | now | `docs/01`; web research |
 | `reviewer` | Adversarial review of designs/specs/PRs | now | `grill-me`; acceptance criteria |
-| `combat-engineer` | Pure/headless sim core, scheduler, determinism | **P0** | `sim-determinism-guard`; `docs/05` |
+| `combat-engineer` | Pure/headless sim core, scheduler, determinism | now | `sim-determinism-guard`; `docs/05` |
 | `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `src/render/CLAUDE.md`; `docs/10` |
 | `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | ADR-0028/0030; `index.html` tokens |
-| `content-author` | Job/ability/status/battle data against schemas | **P0** | `docs/05` schemas, `docs/01` fidelity |
-| `qe-tester` | Test plans, acceptance-criteria coverage; later, running tests + screenshots | partial now, full at **P0** | `docs/*` acceptance criteria |
-| `playtester` | Player-experience critique; spawn **2–3** with distinct personas | design-level now, real play at **P0** | `docs/03` archetypes, `docs/00` |
+| `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `docs/05` schemas, `docs/01` fidelity |
+| `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `docs/*` acceptance criteria |
+| `playtester` | Player-experience critique; spawn **2–3** with distinct personas | now | `docs/03` archetypes, `docs/00` |
 
-"Active: P0" agents are defined now but do their real work once the tech stack is locked and code/build exists (`docs/08`). Their `tools:`/`model:` scoping should be revisited then.
+**Every agent is active.** The roster was written on 2026-07-30 against a repo with no
+code, and four of them still said "until the stack is locked" / "pre-code" / "play on
+paper" long after P0 and P1 had landed — which reads as *not my job yet* on work that is
+squarely theirs. Rewritten 2026-08-30. If you find another pre-code gate, it is stale;
+delete it.
+
+Two boundaries worth stating because they are new and adjacent:
+
+- **`qe-tester` vs `viewer-engineer`.** Judging whether a *screen looks right* is the
+  viewer engineer's job and its accountability. `qe-tester` judges whether the *checks*
+  around it can fail — that a contrast spec measures what it claims, that an analyzer is
+  asked how many nodes it actually looked at.
+- **`content-author` vs `viewer-engineer`.** A battle's painted terrain and props are
+  **content**, authored in the `TERRAIN` table in `src/render/campaign-data.ts` even though
+  that is a `.ts` file under `src/render/`. The renderer that paints it is the viewer
+  engineer's.
 
 ## Playtester personas (spawn 2–3 in parallel)
 
