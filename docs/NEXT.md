@@ -38,8 +38,8 @@ that one fact was the whole fault, and no amount of palette work would have foun
 | # | Slice | State | The catch |
 |---|---|---|---|
 | 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19) on `camp-b1-the-toll-road` only. | See the traps below. The other four battles draw the flat look on purpose. |
-| 2 | **Paint the other four battles.** `TERRAIN` in `campaign-data.ts` — one row of letters per grid row. | not started | Judge battle 1 in the real game first; that was the point of stopping at one. |
-| 3 | **Unit presentation.** Still flat kite tokens with a facing pip, unchanged and **undecided**. | not started | Three treatments were drawn (kite / heraldic shield / standing figure) and the owner has **not chosen**. Do not pick one under cover of another slice. |
+| 2 | **Paint the other four battles.** `TERRAIN` in `campaign-data.ts` — one row of letters per grid row. | **waiting on a go/no-go** | The owner has the real before/after frames for battle 1. Do not paint the rest until they say go — that was the point of stopping at one. |
+| 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
 | 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
 
 **Two rules bind every one of these.**
@@ -76,8 +76,9 @@ drawn-in-code look is **the destination**, not a placeholder for art.
 
 0. **THE CAMPAIGN MAPS ARE FLAT — ALL FIVE.** No height anywhere, no blocked tiles.
    Every cliff and plateau in the mockups is absent from the real game and painted ground
-   cannot supply them. Giving a map relief changes evasion and reach, so **it is a rules
-   change**, not a visual one, and needs its own decision.
+   cannot supply them. Giving a map relief changes evasion and reach, so it is a **rules
+   change**, not a visual one. **Owner decision, 2026-08-30: parked until terrain rules are
+   taken up**, at which point relief and "water you cannot cross" are one slice, not two.
 0. **TERRAIN IS A LIE THE RENDERER TELLS.** A painted pond is walkable, because `passable`
    is the sim's answer and the sim was not asked. Written down in `terrain.ts`,
    `campaign-data.ts` and AC-V18 — keep all three in step. The day water blocks movement it
