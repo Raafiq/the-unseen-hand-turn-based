@@ -113,6 +113,7 @@ Stack locked at P0 (ADR-0007): **Web / TypeScript** — headless `src/sim/` + th
 | `npm run check:rng` | greps `src/sim` for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
+| `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
 | `npm run test` | `vitest run` · watch: `npm run test:watch` |
 | `npx vitest run <file>` | one file · or `npx vitest run -t "<name>"` |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
@@ -123,6 +124,13 @@ Notes:
 
 - **`npx playwright test` alone does NOT rebuild.** It serves whatever is in `dist`, so a spec for a feature you just wrote fails exactly like a broken feature. Rebuild before believing a browser failure.
 - **`check:story`** exists because the story pack is swappable by contract (`docs/11` AC-M4); a test pinning its prose makes exercising that seam a build failure. Four did.
+- **`check:counts`** exists because a count in prose that nothing derives went stale twice
+  in two commits, both times caught by a human happening to look. It matches only the LIVE
+  shape — `N tests, M browser specs`, a comma joining both — so the six **dated** evidence
+  claims elsewhere ("shipped past 720 green tests") are deliberately not touched: those are
+  the record of a past defect and correcting them would falsify it. It also fails if it
+  finds fewer than three live claims, because a guard that only checks the numbers it finds
+  passes vacuously the day someone rewords every site. Mutation-verified four ways.
 - **`check:handoff`** runs on push events only — a `pull_request` event checks out a *merge* ref and would count base commits the branch never authored.
 - CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages.
 
