@@ -299,8 +299,10 @@ degenerate fixture where all orderings coincide).
   canopy, which on a flat map is every prop on the board and which no colour-presence
   assertion can see. The map's dimensions SHALL be checked against the grid in **both**
   directions: a short map leaves tiles unpainted, and a long one paints tiles that do not
-  exist. **Met** (ADR-0030) on `camp-b1-the-toll-road`; the other four battles are
-  deliberately unpainted and draw the flat look.
+  exist, and the terrain/battle coverage SHALL be checked in both directions too — a battle
+  with no map draws the flat look by omission, and a map keyed to a renamed battle is
+  ground nobody can stand on. **Met** (ADR-0030) on **all five** campaign battles; the
+  engine demo page still draws the flat look, which is what keeps the A/B above possible.
 
 - **AC-V19 (one camera, shared by the painting and the click):** The renderer SHALL fit the
   whole board to its canvas, and `pickTile` SHALL invert **the same** fit. *Discriminator:*

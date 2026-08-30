@@ -150,20 +150,21 @@ export function battleTitle(encounterId: string): string {
  * `passable` is still the only answer to "may I stand there", and it was not asked.
  * See `terrain.ts` for why that is deliberate rather than an oversight.
  *
- * A BATTLE WITH NO ENTRY IS NOT A BUG. Only the first battle is painted in this slice
- * (owner decision: one battle first, then judge it in the real game). The other four
- * fall back to the flat look, which is what `game.ts` gets from `terrainFor` returning
- * `undefined`. `campaign-shell.test.ts` therefore checks the entries that EXIST against
- * the campaign, and does not require one per battle — but it does fail on an entry whose
- * id no battle uses, which is the half that would otherwise rot silently.
+ * EVERY BATTLE MUST HAVE AN ENTRY. Battle 1 shipped alone first so the look could be
+ * judged in the real game; the owner said go on 2026-08-30 and the other four followed,
+ * so `campaign-shell.test.ts` now checks the two sets are EQUAL. Both directions earn
+ * their keep: a battle with no map would draw the flat look by omission and read as a
+ * rendering bug, and a map keyed to a renamed battle is ground nobody can stand on.
+ * `terrainFor` still returns `undefined` for an unknown id — that is the engine demo's
+ * path, not a campaign battle's.
  *
  * The map's dimensions are re-checked against the real grid at the first frame
  * (`assertFitsGrid`), so a row of the wrong length fails loudly rather than painting a
  * battle half-right.
  */
 export const TERRAIN: Readonly<Record<string, TerrainMap>> = Object.freeze({
-  // The Toll Road — 7x5, flat. A dirt road runs the length of it (the thing the battle
-  // is named for), grass either side, a rocky verge where the brigands hold the far end.
+  // The Toll Road — 7x5. A dirt road runs the length of it, grass either side, a rocky
+  // verge where the brigands hold the far end.
   "camp-b1-the-toll-road": parseTerrain(
     [
       "ggggggr",
@@ -177,6 +178,92 @@ export const TERRAIN: Readonly<Record<string, TerrainMap>> = Object.freeze({
       { pos: { x: 5, y: 4 }, kind: "tree" },
       { pos: { x: 0, y: 4 }, kind: "boulder" },
       { pos: { x: 6, y: 0 }, kind: "pillar" },
+    ],
+  ),
+
+  // Ambush at the Ford — 9x5. A river cuts the road in two; the road crosses it at a
+  // shallow sand bar, which is the ford the battle is named for.
+  "camp-b2-ambush-at-the-ford": parseTerrain(
+    [
+      "ggdwwgggg",
+      "gddwwgggg",
+      "dddssdddd",
+      "gddwwgggg",
+      "ggdwwgggg",
+    ],
+    [
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 7, y: 0 }, kind: "tree" },
+      { pos: { x: 6, y: 4 }, kind: "tree" },
+      { pos: { x: 1, y: 4 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Hollow Watch — 9x7. A ruined watchpost: a flagstone floor with four broken
+  // pillars where the tower stood, the road running through what is left of it.
+  "camp-b3-the-hollow-watch": parseTerrain(
+    [
+      "ggggggggg",
+      "ggdrrrdgg",
+      "gddrrrddg",
+      "dddrrrddd",
+      "gddrrrddg",
+      "ggdrrrdgg",
+      "ggggggggg",
+    ],
+    [
+      { pos: { x: 3, y: 1 }, kind: "pillar" },
+      { pos: { x: 5, y: 1 }, kind: "pillar" },
+      { pos: { x: 3, y: 5 }, kind: "pillar" },
+      { pos: { x: 5, y: 5 }, kind: "pillar" },
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 7, y: 6 }, kind: "tree" },
+      { pos: { x: 7, y: 0 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Broken Span — 11x7. A plank deck between two rock ledges, with the middle of the
+  // span collapsed to rubble. Both parties start ON the deck (columns 0 and 10).
+  "camp-b4-the-broken-span": parseTerrain(
+    [
+      "rrrrrrrrrrr",
+      "rrppppppprr",
+      "ppppprrpppp",
+      "ppppprrpppp",
+      "ppppprrpppp",
+      "rrppppppprr",
+      "rrrrrrrrrrr",
+    ],
+    [
+      { pos: { x: 2, y: 1 }, kind: "pillar" },
+      { pos: { x: 8, y: 1 }, kind: "pillar" },
+      { pos: { x: 2, y: 5 }, kind: "pillar" },
+      { pos: { x: 8, y: 5 }, kind: "pillar" },
+      { pos: { x: 5, y: 0 }, kind: "boulder" },
+      { pos: { x: 5, y: 6 }, kind: "boulder" },
+    ],
+  ),
+
+  // The Warchief's Camp — 11x7. Ground trampled to dirt and sand around a plank floor,
+  // with banner posts at its corners.
+  "camp-b5-the-warchiefs-camp": parseTerrain(
+    [
+      "ggdddddddgg",
+      "gddsssssddg",
+      "ddsspppssdd",
+      "ddsspppssdd",
+      "ddsspppssdd",
+      "gddsssssddg",
+      "ggdddddddgg",
+    ],
+    [
+      { pos: { x: 4, y: 1 }, kind: "pillar" },
+      { pos: { x: 6, y: 1 }, kind: "pillar" },
+      { pos: { x: 4, y: 5 }, kind: "pillar" },
+      { pos: { x: 6, y: 5 }, kind: "pillar" },
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 9, y: 6 }, kind: "tree" },
+      { pos: { x: 9, y: 0 }, kind: "boulder" },
     ],
   ),
 });

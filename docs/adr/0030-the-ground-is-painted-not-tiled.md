@@ -43,9 +43,8 @@ Four calls were put to the owner and answered:
   wood`), three props (`tree boulder pillar`), a parser with real validation, and the
   `DAYLIGHT` palette. It imports no canvas, so its rules are testable without a DOM.
 - `iso.ts` gains one optional `DrawOptions.terrain`. **Absent, nothing changes** — the
-  engine demo page still draws the flat look, and the four unpainted campaign battles do
-  too. Present, it paints textured surfaces, culls side faces against the neighbour's
-  height, draws props, and strokes no grid.
+  engine demo page still draws the flat look. Present, it paints textured surfaces, culls
+  side faces against the neighbour's height, draws props, and strokes no grid.
 - A **camera** (`viewFor`) fits the board to the canvas. This was forced rather than
   chosen: at scale 1 a 7×5 map filled under half the frame, which was invisible while the
   canvas was transparent and became the loudest thing on screen the moment a sky went
@@ -63,6 +62,25 @@ a unit walks straight through.
 movement it becomes a `Tile` field with a migration — never a second opinion held in the
 render layer, which would put two answers to "may I stand there" in the codebase with only
 one of them authoritative.
+
+## Amendment, 2026-08-30 — all five battles painted
+
+Battle 1 shipped alone, the owner judged it against before/after frames from the running
+game, and said go. The other four are now authored: **the ford** (a river with a sand
+crossing where the road meets it), **the hollow watch** (a flagstone floor with four broken
+pillars), **the broken span** (a plank deck between rock ledges, its middle collapsed to
+rubble), and **the warchief's camp** (ground trampled to dirt and sand around a plank
+floor with banner posts).
+
+The coverage check is now **bidirectional**: every battle must be painted, and every map
+must belong to a battle. The first direction is a forcing function — a sixth battle cannot
+ship drawing the flat look by omission. A second guard keeps props off the tiles units
+start on; props block nothing, so that is purely cosmetic, and cosmetic is the point.
+
+**What the flat maps cost, concretely.** "The Broken Span" reads as a wooden platform, not
+as a span over anything, because there is nothing to span. Height would fix it and height
+is a rules change. The same limit blunts the ford: the river is crossable everywhere, not
+only at the ford, because the sim was never told there is a river.
 
 ## Consequences
 

@@ -37,8 +37,8 @@ that one fact was the whole fault, and no amount of palette work would have foun
 
 | # | Slice | State | The catch |
 |---|---|---|---|
-| 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19) on `camp-b1-the-toll-road` only. | See the traps below. The other four battles draw the flat look on purpose. |
-| 2 | **Paint the other four battles.** `TERRAIN` in `campaign-data.ts` — one row of letters per grid row. | **waiting on a go/no-go** | The owner has the real before/after frames for battle 1. Do not paint the rest until they say go — that was the point of stopping at one. |
+| 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19), all five battles. | See the traps below. The engine demo page still draws the flat look, and that is what keeps AC-V18's A/B possible — do not paint it. |
+| 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
 | 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
 | 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
 
@@ -101,7 +101,16 @@ drawn-in-code look is **the destination**, not a placeholder for art.
    concrete slabs laid on the field. Blue is the one channel a green-and-earth field
    leaves free, which is also why FFT uses it.
 0. **THE UNIT TOKEN IS UNDECIDED.** Still the flat kite. Do not change it inside another
-   slice — three options were drawn and the owner has not picked.
+   slice — three options were drawn and the owner has not picked. Bundled with the portrait
+   references (see the table above).
+0. **A MAP CAN ONLY LOOK LIKE WHAT THE GRID ALLOWS.** "The Broken Span" reads as a wooden
+   platform, not a span over anything, because there is nothing to span; the ford's river
+   is crossable everywhere because the sim was never told there is a river. Both are the
+   flat-map limit, not authoring. Do not try to paint around it.
+0. **`visual-artifacts/playtest/map-battle-{1..5}.png` ARE THE ONLY VIEW OF THE MAPS.**
+   `playtest-capture.spec.ts` shoots the canvas alone for each battle. Nothing in the suite
+   can see a canvas, so after any change to `iso.ts`, `terrain.ts` or a `TERRAIN` entry,
+   open all five.
 0. **`git checkout` CANNOT RESTORE AN UNTRACKED FILE, AND A MUTATION VERDICT FROM A FAILED
    BUILD IS NOT A VERDICT.** Both still bite. Every mutation this slice was gated on
    `npm run typecheck` passing, and `iso.ts` was copied aside rather than checked out —

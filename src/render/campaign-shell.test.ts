@@ -95,22 +95,32 @@ describe("the bundled campaign data covers exactly the battles the campaign name
     expect(named.length).toBe(5);
   });
 
-  it("every painted battle is a battle the campaign plays — but not every battle is painted", () => {
-    // Terrain is authored per battle and only the first is painted so far (ADR-0030), so
-    // this is deliberately ONE-directional and the asymmetry is the point. A missing
-    // entry is well-formed content: that battle draws the flat look. An entry keyed to an
-    // id no battle uses is ground nobody can ever stand on, and reads as done.
-    const named = new Set(campaign.battles.map((b) => b.encounterId));
-    for (const id of Object.keys(TERRAIN)) {
-      expect(named.has(id), `terrain painted for unknown battle "${id}"`).toBe(true);
-    }
-    // Non-degeneracy: with no painted battle at all the loop above is vacuous and passes.
-    expect(Object.keys(TERRAIN).length).toBeGreaterThan(0);
-    // And the lookup actually resolves for a painted battle — an accessor that always
-    // returned `undefined` would satisfy every assertion above.
-    const painted = Object.keys(TERRAIN)[0]!;
-    expect(terrainFor(painted)).toBeDefined();
+  it("every battle is painted, and every painted map belongs to a battle", () => {
+    // BIDIRECTIONAL since 2026-08-30, when the last four battles were painted, and the
+    // second direction is the one that rots: a map keyed to a renamed battle resolves for
+    // nothing and reads as done, exactly like the story pack's `extra` check. The first
+    // direction is a forcing function — a sixth battle cannot ship drawing the flat look
+    // by omission; leaving it unpainted has to be a deliberate edit to this test.
+    const named = campaign.battles.map((b) => b.encounterId).sort();
+    expect(Object.keys(TERRAIN).sort()).toEqual(named);
+    // And the lookup actually resolves — an accessor that always returned `undefined`
+    // would satisfy every assertion above.
+    for (const id of named) expect(terrainFor(id), id).toBeDefined();
     expect(terrainFor("camp-b-does-not-exist")).toBeUndefined();
+  });
+
+  it("no prop stands on a tile a unit starts on", () => {
+    // Props block nothing, so this is cosmetic — and cosmetic is the whole point of the
+    // slice. A tree drawn over the unit you are about to move is the kind of thing no
+    // colour assertion sees and every player does.
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const def = ENCOUNTERS[id] as { placements: { pos: { x: number; y: number } }[] };
+      const starts = new Set(def.placements.map((pl) => `${pl.pos.x},${pl.pos.y}`));
+      expect(starts.size, id).toBeGreaterThan(0); // non-degeneracy: an empty set passes vacuously
+      for (const prop of map.props) {
+        expect(starts.has(`${prop.pos.x},${prop.pos.y}`), `${id}: ${prop.kind}`).toBe(false);
+      }
+    }
   });
 
   it("a painted battle's terrain covers its grid exactly", () => {
