@@ -1,4 +1,4 @@
-<!-- written-against: cf709e9 -->
+<!-- written-against: 155dd7b -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -14,7 +14,7 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## THE NEXT SLICE — visual identity, while the playtest waits
 
-**Owner decision, 2026-08-30.** Two things moved:
+**Owner decision, 2026-08-30.** Three things moved:
 
 1. **The human playtest is DELAYED, not dropped.** It is still the top open question and
    still the only thing that can answer it. It is now a **standing reminder** — see the
@@ -28,28 +28,83 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ### The visual work, in order
 
-**Before writing any stylesheet or renderer, get a reference.** The parchment slice was
-rebuilt twice from a description — "too bright", then "too dark" — and one image from the
-owner settled it in a single pass. Ask for a reference image, or put 2–3 rendered options
-in front of the owner. This is not optional politeness; it is the cheapest step here.
+**Before writing any stylesheet or renderer, get a reference or put rendered options in
+front of the owner.** Proven twice now. The parchment slice was rebuilt from a description
+twice before one image settled it. And the FIRST battle-map pitch — three re-colourings of
+the existing board — was rejected outright with the actual diagnosis: *"actual grounds
+instead of this blocky generic"*. **Final Fantasy Tactics draws no grid on the ground**;
+that one fact was the whole fault, and no amount of palette work would have found it.
 
 | # | Slice | State | The catch |
 |---|---|---|---|
-| 1 | **The battle screen looks nothing like the rest of the game.** The shell is parchment and ink; the battle is a **cold blue-slate** isometric canvas (`DARK_THEME` in `iso.ts` — `#2b3450` tops, `#3a4a68` grid). Units are flat kite tokens with a facing pip, an HP bar and status chips. Two visual languages in one product. | not started | `iso.ts` is a pure projection `screen = f(x, y, height)` and the sim knows nothing about it — the look is swappable by design. `Theme` is already a named palette, so a first pass may be a theme, not a rewrite. |
-| 2 | **Unit presentation** — silhouettes, job-readable shapes, or sprites instead of a circle with a facing pip. | not started | Blocked on art direction, not on code. Get a reference first. Whatever lands must keep facing, the active ring, the AI ring, HP and status chips readable — those are *information*, not decoration. |
-| 3 | **Portrait art + option C** (the full cinematic scene screen). | seam done, art missing | Owner supplies reference images. Drop files in `data/campaign/story/portraits/`, add an import to `PORTRAITS`, change the asset key in the pack. A tripwire in `campaign-shell.test.ts` **fails on purpose** that day to force ADR-0029, this file and the "Portrait pending" caption to move together. |
-| 4 | **Motion and feedback** — hit reactions, damage popups, turn transitions. | popups exist, nothing else | Any timing source must stay out of `src/sim`. The render layer may animate; the command log may not become a function of elapsed time. |
+| 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19) on `camp-b1-the-toll-road` only. | See the traps below. The other four battles draw the flat look on purpose. |
+| 2 | **Paint the other four battles.** `TERRAIN` in `campaign-data.ts` — one row of letters per grid row. | not started | Judge battle 1 in the real game first; that was the point of stopping at one. |
+| 3 | **Unit presentation.** Still flat kite tokens with a facing pip, unchanged and **undecided**. | not started | Three treatments were drawn (kite / heraldic shield / standing figure) and the owner has **not chosen**. Do not pick one under cover of another slice. |
+| 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
 
 **Two rules bind every one of these.**
 
-- **The suite cannot see the screen.** Two real defects shipped past 851 green tests and 43
-  green browser specs and were found only by opening a PNG. **Open
-  `visual-artifacts/playtest/` after any change to a screen** — the trap named
-  "THE SUITE STILL CANNOT SEE THE SCREEN" below.
-- **Contrast is measured, not eyeballed.** The traps named "`--accent` IS RULES AND BORDERS
-  ONLY", "THE SHEET'S PADDING AND THE SCORCH ARE COUPLED", "THE CONTRAST FLOOR IS NOW 100"
-  and "AN ANALYZER THAT DECLINES TO CHECK STILL SAYS PASS" are each a way a visual change
-  goes quietly wrong. Do not mint a new sheet class, and do not nudge the floor — re-measure.
+- **The suite cannot see the screen.** Three defects in the slice just landed were found
+  only by opening a PNG, with the whole suite green. **Open `visual-artifacts/playtest/`
+  after any change to a screen** — the trap named "THE SUITE STILL CANNOT SEE THE SCREEN".
+- **Contrast is measured, not eyeballed** — but only for DOM text. `contrast.spec.ts`
+  cannot see the canvas at all, so nothing measures the battle map's legibility. The traps
+  named "`--accent` IS RULES AND BORDERS ONLY", "THE SHEET'S PADDING AND THE SCORCH ARE
+  COUPLED", "THE CONTRAST FLOOR IS NOW 100" and "AN ANALYZER THAT DECLINES TO CHECK STILL
+  SAYS PASS" each cover a way a *sheet* change goes quietly wrong.
+
+---
+
+## LANDED 2026-08-30 — the ground is painted (ADR-0030)
+
+The battle map paints real terrain: textured surfaces, side faces cut only where the
+ground drops, props, open sky, and **no grid line on the ground**. Direction chosen from
+three rendered options ("Daylight field"); four scoping questions answered by the owner.
+
+| Piece | Where |
+|---|---|
+| Kinds, parser, `DAYLIGHT` palette, per-tile noise | `src/render/terrain.ts` (no canvas — testable without a DOM) |
+| Painting, prop drawing, the camera | `src/render/iso.ts` — `DrawOptions.terrain`, `FIELD_THEME`, `viewFor` |
+| Battle 1's authored ground | `TERRAIN` in `src/render/campaign-data.ts` |
+| The wiring | `renderBattle()` in `game.ts` — terrain and theme move together |
+
+**Owner decisions this slice, all four explicit:** terrain is **paint only** (no
+`BattleState` change); authored as **a grid per battle**; **one battle first**; and the
+drawn-in-code look is **the destination**, not a placeholder for art.
+
+### Traps this slice bought
+
+0. **THE CAMPAIGN MAPS ARE FLAT — ALL FIVE.** No height anywhere, no blocked tiles.
+   Every cliff and plateau in the mockups is absent from the real game and painted ground
+   cannot supply them. Giving a map relief changes evasion and reach, so **it is a rules
+   change**, not a visual one, and needs its own decision.
+0. **TERRAIN IS A LIE THE RENDERER TELLS.** A painted pond is walkable, because `passable`
+   is the sim's answer and the sim was not asked. Written down in `terrain.ts`,
+   `campaign-data.ts` and AC-V18 — keep all three in step. The day water blocks movement it
+   becomes a `Tile` field with a schema bump, **never** a second opinion in `src/render`.
+0. **`viewFor` IS ON THE CLICK PATH.** `draw` and `pickTile` share the camera the way they
+   already share `paintOrder`. A zoom applied to the painting and not the inverse offsets
+   every click by a constant factor — it does not fail, it just misses. `originFor` now
+   returns a **world** origin; a screen point is `project(...) * scale`. `e2e/play.spec.ts`
+   and `iso.test.ts` both convert, and AC-V19's discriminator is that the *unscaled* point
+   lands on a different tile.
+0. **NOTHING STANDING IS OCCLUDED BY TERRAIN.** Props and units draw in a second pass over
+   the finished ground, because drawing a tree inside the painter's walk let the next tile
+   paint over its canopy — on a flat map, every prop. The opposite error is now live: a
+   unit behind a tall cliff would show through. Harmless while the maps are flat.
+0. **FOLIAGE MUST NOT BE THE GROUND'S OWN GREEN.** A canopy in the grass colour is
+   invisible everywhere except against the sky, which is the edge of the map.
+   `terrain.test.ts` asserts `DAYLIGHT.leaf !== surfaces.grass.base`.
+0. **A LIGHT RANGE PANEL DESATURATES TO GREY OVER GRASS.** `FIELD_THEME.highlight` is a
+   deep blue at moderate alpha for that reason; the first pale-blue attempt read as
+   concrete slabs laid on the field. Blue is the one channel a green-and-earth field
+   leaves free, which is also why FFT uses it.
+0. **THE UNIT TOKEN IS UNDECIDED.** Still the flat kite. Do not change it inside another
+   slice — three options were drawn and the owner has not picked.
+0. **`git checkout` CANNOT RESTORE AN UNTRACKED FILE, AND A MUTATION VERDICT FROM A FAILED
+   BUILD IS NOT A VERDICT.** Both still bite. Every mutation this slice was gated on
+   `npm run typecheck` passing, and `iso.ts` was copied aside rather than checked out —
+   a `git checkout` there would have reverted the entire slice, not the mutation.
 
 ---
 

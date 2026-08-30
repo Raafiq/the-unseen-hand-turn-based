@@ -27,7 +27,8 @@ import {
   type CampaignSave,
   type StoryPack,
 } from "../sim/index.js";
-import { ENCOUNTERS, PORTRAITS, campaign, registry, story } from "./campaign-data.js";
+import { ENCOUNTERS, PORTRAITS, TERRAIN, campaign, registry, story, terrainFor } from "./campaign-data.js";
+import { assertFitsGrid } from "./terrain.js";
 import { CampaignShell } from "./campaign-shell.js";
 import { OPTIMIZER } from "./playtest.js";
 import { PrepModel } from "./prep.js";
@@ -92,6 +93,33 @@ describe("the bundled campaign data covers exactly the battles the campaign name
     const bundled = Object.keys(ENCOUNTERS).sort();
     expect(bundled).toEqual(named);
     expect(named.length).toBe(5);
+  });
+
+  it("every painted battle is a battle the campaign plays — but not every battle is painted", () => {
+    // Terrain is authored per battle and only the first is painted so far (ADR-0030), so
+    // this is deliberately ONE-directional and the asymmetry is the point. A missing
+    // entry is well-formed content: that battle draws the flat look. An entry keyed to an
+    // id no battle uses is ground nobody can ever stand on, and reads as done.
+    const named = new Set(campaign.battles.map((b) => b.encounterId));
+    for (const id of Object.keys(TERRAIN)) {
+      expect(named.has(id), `terrain painted for unknown battle "${id}"`).toBe(true);
+    }
+    // Non-degeneracy: with no painted battle at all the loop above is vacuous and passes.
+    expect(Object.keys(TERRAIN).length).toBeGreaterThan(0);
+    // And the lookup actually resolves for a painted battle — an accessor that always
+    // returned `undefined` would satisfy every assertion above.
+    const painted = Object.keys(TERRAIN)[0]!;
+    expect(terrainFor(painted)).toBeDefined();
+    expect(terrainFor("camp-b-does-not-exist")).toBeUndefined();
+  });
+
+  it("a painted battle's terrain covers its grid exactly", () => {
+    // The renderer checks this at the first frame, which is too late to be a test: a
+    // ragged map would ship and fail in front of a player. Same check, at build time.
+    for (const [id, map] of Object.entries(TERRAIN)) {
+      const grid = (ENCOUNTERS[id] as { grid: { width: number; height: number } }).grid;
+      expect(() => assertFitsGrid(map, grid.width, grid.height), id).not.toThrow();
+    }
   });
 });
 

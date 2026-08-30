@@ -283,6 +283,34 @@ degenerate fixture where all orderings coincide).
   optional content — so the claim that the prologue exists is carried by its own assertion
   rather than by a helper that would shrug past its disappearance. **Met** (ADR-0029).
 
+- **AC-V18 (painted ground is paint, and carries no grid):** A battle MAY declare a
+  terrain map — one authored surface per tile, plus props — which the renderer SHALL paint
+  in place of the flat fill, and on painted ground the renderer SHALL stroke **no per-tile
+  grid line**: a side face SHALL be drawn only where the ground actually drops, or at the
+  map's edge. Terrain SHALL NOT reach `BattleState`; a unit's legal moves SHALL be
+  byte-identical with and without it. *Discriminators:* the A/B is on the **output**, not
+  the input — the same battle drawn twice, with and without terrain, asserting the terrain
+  colour reached the canvas in one and the flat fill in the other, and that the theme's
+  grid colour is stroked once per tile without terrain and **never** with it. A test that
+  merely passed a map and checked it was accepted would look identical whether the renderer
+  painted it or discarded it (the "validates its input and then discards it" shape). Props
+  are asserted by **draw order** — the leaf colour must arrive after the last ground fill —
+  because drawing a prop inside the painter's walk lets the next tile paint over its
+  canopy, which on a flat map is every prop on the board and which no colour-presence
+  assertion can see. The map's dimensions SHALL be checked against the grid in **both**
+  directions: a short map leaves tiles unpainted, and a long one paints tiles that do not
+  exist. **Met** (ADR-0030) on `camp-b1-the-toll-road`; the other four battles are
+  deliberately unpainted and draw the flat look.
+
+- **AC-V19 (one camera, shared by the painting and the click):** The renderer SHALL fit the
+  whole board to its canvas, and `pickTile` SHALL invert **the same** fit. *Discriminator:*
+  the unscaled point — the canvas coordinate a `pickTile` that ignored the zoom would be
+  handed — MUST resolve to a **different** tile, and the fixture MUST assert the zoom is
+  greater than 1, or the A/B is between two identical numbers and certifies nothing. This
+  is the same hazard as AC-V10's height-ignoring inverse and harder to see: a mis-scaled
+  inverse offsets every click by a constant factor rather than failing outright. **Met**
+  (ADR-0030).
+
 ## 7. Required module shape
 
 The turn state machine lives in a **DOM-free `src/render/session.ts`**; `main.ts` is

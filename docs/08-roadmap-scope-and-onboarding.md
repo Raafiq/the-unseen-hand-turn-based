@@ -48,7 +48,13 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > **2026-08-29** for the scene-player slice (ADR-0029): **nothing below moved for the
 > sixth time.** Story presentation is a *game*-roadmap concern — it deepens `docs/11` M0
 > item 4's seam rather than any P0–P4 engine deliverable — and P2's `N ≥ 8` is **still
-> open at N = 7**, untouched by a slice that changes no build, no ability and no encounter.
+> open at N = 7**, untouched by a slice that changes no build, no ability and no encounter. Reconciled again on **2026-08-30** for the painted-ground slice
+> (ADR-0030): **nothing below moved for the seventh time.** The battle map's look is a
+> *game*-roadmap concern and terrain is presentation only — it reaches no `BattleState`,
+> so no build, ability or encounter changed — and P2's `N ≥ 8` is **still open at N = 7**.
+> Note the owner's 2026-08-30 decision that the variety gate is **off the priority list**
+> while visual work runs: parked, not weakened. `DIVERSITY_TARGET_N` stays 7 and the bar
+> stays ≥ 8.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists

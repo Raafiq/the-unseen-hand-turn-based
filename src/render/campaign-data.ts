@@ -41,6 +41,7 @@ import {
   type EncounterMap,
   type StoryPack,
 } from "../sim/index.js";
+import { parseTerrain, type TerrainMap } from "./terrain.js";
 
 /** The content registry every campaign unit is compiled against. */
 export const registry: ContentRegistry = loadContentPack(pack);
@@ -136,4 +137,51 @@ export function battleTitle(encounterId: string): string {
     .split("-")
     .map((w) => (w.length > 0 ? w[0]!.toUpperCase() + w.slice(1) : w))
     .join(" ");
+}
+
+/**
+ * PAINTED GROUND, per battle (owner decision, 2026-08-30 — "Daylight field").
+ *
+ * One authored row of letters per grid row: `g` grass, `d` dirt, `r` rock, `w` water,
+ * `s` sand, `p` wood. Props stand on tiles and block nothing.
+ *
+ * **This is presentation and nothing else.** No entry here reaches `BattleState`, so a
+ * unit walks across painted water exactly as it walks across painted grass — the sim's
+ * `passable` is still the only answer to "may I stand there", and it was not asked.
+ * See `terrain.ts` for why that is deliberate rather than an oversight.
+ *
+ * A BATTLE WITH NO ENTRY IS NOT A BUG. Only the first battle is painted in this slice
+ * (owner decision: one battle first, then judge it in the real game). The other four
+ * fall back to the flat look, which is what `game.ts` gets from `terrainFor` returning
+ * `undefined`. `campaign-shell.test.ts` therefore checks the entries that EXIST against
+ * the campaign, and does not require one per battle — but it does fail on an entry whose
+ * id no battle uses, which is the half that would otherwise rot silently.
+ *
+ * The map's dimensions are re-checked against the real grid at the first frame
+ * (`assertFitsGrid`), so a row of the wrong length fails loudly rather than painting a
+ * battle half-right.
+ */
+export const TERRAIN: Readonly<Record<string, TerrainMap>> = Object.freeze({
+  // The Toll Road — 7x5, flat. A dirt road runs the length of it (the thing the battle
+  // is named for), grass either side, a rocky verge where the brigands hold the far end.
+  "camp-b1-the-toll-road": parseTerrain(
+    [
+      "ggggggr",
+      "gdddddr",
+      "dddddrr",
+      "gdddddr",
+      "ggggggr",
+    ],
+    [
+      { pos: { x: 1, y: 0 }, kind: "tree" },
+      { pos: { x: 5, y: 4 }, kind: "tree" },
+      { pos: { x: 0, y: 4 }, kind: "boulder" },
+      { pos: { x: 6, y: 0 }, kind: "pillar" },
+    ],
+  ),
+});
+
+/** The painted ground for a battle, or `undefined` where none is authored yet. */
+export function terrainFor(encounterId: string): TerrainMap | undefined {
+  return TERRAIN[encounterId];
 }

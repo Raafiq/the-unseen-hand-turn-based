@@ -56,7 +56,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { makeDemoBattle } from "../src/render/demo.js";
-import { originFor, project } from "../src/render/iso.js";
+import { project, viewFor } from "../src/render/iso.js";
 import { serialize, type BattleState } from "../src/sim/index.js";
 
 const SHOTS = "visual-artifacts/screenshots";
@@ -204,8 +204,12 @@ test.describe("AC-V10 — the pointer→tile mapping", () => {
     // pixels. Taken from the renderer's own forward projection rather than a
     // hard-coded pair, so a camera tweak moves the click with the art instead of
     // breaking this test for a non-behavioural reason (docs/10 §8).
-    const origin = originFor(makeDemoBattle(), CANVAS_W, CANVAS_H);
-    const plateau = project(4, 3, 2, origin); // measured: { x: 450, y: 216 }
+    const { origin, scale } = viewFor(makeDemoBattle(), CANVAS_W, CANVAS_H);
+    const world = project(4, 3, 2, origin);
+    // WORLD units → canvas-backing pixels. The camera zooms the board to fit its frame,
+    // and `pickTile` divides by the same factor; a click computed without it lands on a
+    // different tile entirely.
+    const plateau = { x: world.x * scale, y: world.y * scale };
 
     // NON-DEGENERACY GUARD (CLAUDE.md: an AC test must exercise the discriminating
     // case). Model the BUG — a height-ignoring algebraic inverse of the (x−y, x+y)
@@ -214,8 +218,8 @@ test.describe("AC-V10 — the pointer→tile mapping", () => {
     // nothing. `project(1,0,0,·)` recovers the half-tile basis, so the bug model
     // stays tied to the real tile size without importing private constants.
     const basis = project(1, 0, 0, { x: 0, y: 0 }); // { TILE_W/2, TILE_H/2 }
-    const dx = (plateau.x - origin.x) / basis.x;
-    const dy = (plateau.y - origin.y) / basis.y;
+    const dx = (world.x - origin.x) / basis.x;
+    const dy = (world.y - origin.y) / basis.y;
     const naive = { x: Math.round((dy + dx) / 2), y: Math.round((dy - dx) / 2) };
     expect(naive).toEqual({ x: 3, y: 2 });
     expect(naive).not.toEqual({ x: 4, y: 3 });

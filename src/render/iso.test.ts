@@ -13,7 +13,8 @@
 import { describe, expect, it } from "vitest";
 import { createBattleState, defaultUnit, makeFlatTiles, type BattleState, type Position } from "../sim/index.js";
 import { makeDemoBattle } from "./demo.js";
-import { draw, originFor, paintOrder, pickTile, pointInDiamond, project } from "./iso.js";
+import { DARK_THEME, draw, FIELD_THEME, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
+import { DAYLIGHT, parseTerrain, type TerrainMap } from "./terrain.js";
 
 const CANVAS_W = 900;
 const CANVAS_H = 600;
@@ -50,8 +51,18 @@ function naivePick(state: BattleState, px: number, py: number): Position | null 
   return { x, y };
 }
 
-const pick = (state: BattleState, p: Position): Position | null =>
-  pickTile(state, p.x, p.y, CANVAS_W, CANVAS_H);
+/**
+ * Pick at a point given in WORLD units — the space `project` and `originFor` work in.
+ *
+ * `pickTile` takes CANVAS pixels, and the camera (`viewFor`) zooms the board to fit its
+ * frame, so the two spaces differ by `scale`. Converting here rather than in each test
+ * keeps every case below written in the projection's own coordinates, and means a camera
+ * change moves these tests with the art instead of breaking them (docs/10 §8).
+ */
+const pick = (state: BattleState, p: Position): Position | null => {
+  const { scale } = viewFor(state, CANVAS_W, CANVAS_H);
+  return pickTile(state, p.x * scale, p.y * scale, CANVAS_W, CANVAS_H);
+};
 
 describe("pickTile — flat round trip", () => {
   it("returns the same tile for every tile's projected centre", () => {
@@ -107,6 +118,48 @@ describe("pickTile — height occlusion (the discriminating case)", () => {
     const p: Position = { x: centre.x, y: centre.y + HALF_H / 2 }; // 8px down, still inside
     expect(pick(state, p)).toEqual(PLATEAU);
     expect(naivePick(state, p.x, p.y)).toEqual(NAIVE_ANSWER);
+  });
+});
+
+describe("the camera — viewFor", () => {
+  it("DISCRIMINATING: the click inverse honours the zoom", () => {
+    // A zoom applied to the painting but not to the inverse offsets every click by a
+    // factor nobody thinks to look for. The A/B is the unscaled point: it is what a
+    // `pickTile` that ignored the camera would be handed, and it must MISS.
+    const state = makeDemoBattle();
+    const { origin, scale } = viewFor(state, CANVAS_W, CANVAS_H);
+    expect(scale).toBeGreaterThan(1.05); // the camera really zooms; not a no-op A/B
+
+    const world = project(4, 3, 2, origin);
+    expect(pickTile(state, world.x * scale, world.y * scale, CANVAS_W, CANVAS_H)).toEqual({
+      x: 4,
+      y: 3,
+    });
+    expect(pickTile(state, world.x, world.y, CANVAS_W, CANVAS_H)).not.toEqual({ x: 4, y: 3 });
+  });
+
+  it("fits the board inside the canvas with room for props and chips above", () => {
+    const state = makeDemoBattle();
+    const { origin, scale } = viewFor(state, CANVAS_W, CANVAS_H);
+    const { width, height, tiles } = state.grid;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = project(x, y, tiles[y * width + x]!.height, origin);
+        expect(p.x * scale).toBeGreaterThanOrEqual(0);
+        expect(p.x * scale).toBeLessThanOrEqual(CANVAS_W);
+        expect(p.y * scale).toBeGreaterThanOrEqual(0);
+        expect(p.y * scale).toBeLessThanOrEqual(CANVAS_H);
+      }
+    }
+  });
+
+  it("shrinks rather than overflowing when the board is bigger than the frame", () => {
+    const big = createBattleState({
+      seed: 1,
+      grid: { width: 40, height: 40, tiles: makeFlatTiles(40, 40) },
+      units: [],
+    });
+    expect(viewFor(big, CANVAS_W, CANVAS_H).scale).toBeLessThan(1);
   });
 });
 
@@ -185,19 +238,33 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
    * missed the lookup and was painted one fallback grey — friend and foe alike. The
    * whole suite was green because nothing read pixels.
    */
-  function recordingCtx(): { ctx: CanvasRenderingContext2D; fills: string[] } {
+  function recordingCtx(): {
+    ctx: CanvasRenderingContext2D;
+    fills: string[];
+    strokes: string[];
+  } {
     const fills: string[] = [];
+    const strokes: string[] = [];
     const noop = (): void => {};
+    // A gradient is a legal `fillStyle` and is NOT a colour, so it is recorded as
+    // nothing rather than as "[object Object]" — an entry that would quietly satisfy a
+    // `toContain` on some future string.
     const target = {
-      set fillStyle(v: string) { fills.push(v); },
+      set fillStyle(v: unknown) { if (typeof v === "string") fills.push(v); },
       get fillStyle() { return ""; },
-      strokeStyle: "", lineWidth: 0, lineJoin: "", font: "", textAlign: "", globalAlpha: 1,
+      // Recorded at STROKE time, not at assignment: what matters is the colour that was
+      // actually drawn with, and `draw` sets `strokeStyle` in places it never strokes.
+      strokeStyle: "" as string,
+      lineWidth: 0, lineJoin: "", font: "", textAlign: "", globalAlpha: 1,
       clearRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop,
-      fill: noop, stroke: noop, arc: noop, ellipse: noop, rect: noop, fillRect: noop,
+      quadraticCurveTo: noop, arcTo: noop, clip: noop,
+      fill: noop, arc: noop, ellipse: noop, rect: noop, fillRect: noop,
       save: noop, restore: noop, setLineDash: noop, fillText: noop, strokeText: noop,
       translate: noop, scale: noop, measureText: () => ({ width: 0 }),
+      createLinearGradient: () => ({ addColorStop: noop }),
+      stroke(): void { strokes.push(target.strokeStyle); },
     };
-    return { ctx: target as unknown as CanvasRenderingContext2D, fills };
+    return { ctx: target as unknown as CanvasRenderingContext2D, fills, strokes };
   }
 
   function twoTeams(): BattleState {
@@ -220,6 +287,81 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     // would pass on the broken version too, if it were called and then discarded.
     expect(fills).toContain("#4f8cff");
     expect(fills).toContain("#e2603c");
+  });
+
+  // ── painted ground ────────────────────────────────────────────────────────
+  //
+  // The A/B is on the OUTPUT, not on the input: every assertion below draws the same
+  // battle twice, once with terrain and once without, and asserts the two frames differ
+  // in the specific way the feature claims. A test that merely passed a terrain map and
+  // checked it was accepted would look identical whether `draw` painted it or dropped it.
+
+  const GRASS = DAYLIGHT.surfaces.grass.base;
+  const WATER = DAYLIGHT.surfaces.water.base;
+
+  function flat3x3(): TerrainMap {
+    return parseTerrain(["ggg", "ggg", "ggg"]);
+  }
+
+  it("DISCRIMINATING: terrain paints the ground, and its absence does not", () => {
+    const withTerrain = recordingCtx();
+    draw(withTerrain.ctx, twoTeams(), CANVAS_W, CANVAS_H, { terrain: flat3x3() });
+    const without = recordingCtx();
+    draw(without.ctx, twoTeams(), CANVAS_W, CANVAS_H, {});
+
+    expect(withTerrain.fills).toContain(GRASS);
+    expect(without.fills).not.toContain(GRASS);
+    // And the flat fill it REPLACES is gone, so this is a swap rather than an overlay.
+    expect(without.fills).toContain(DARK_THEME.top);
+    expect(withTerrain.fills).not.toContain(DARK_THEME.top);
+  });
+
+  it("DISCRIMINATING: no grid line is stroked on painted ground", () => {
+    // The whole point of the direction. FFT draws no grid on the ground; a stroke on
+    // every tile is what made this board read as tiles rather than as a place.
+    const withTerrain = recordingCtx();
+    draw(withTerrain.ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      terrain: flat3x3(),
+      theme: FIELD_THEME,
+    });
+    const without = recordingCtx();
+    draw(without.ctx, twoTeams(), CANVAS_W, CANVAS_H, { theme: FIELD_THEME });
+
+    // 9 tiles, one grid stroke each, without terrain — and none with it.
+    expect(without.strokes.filter((s) => s === FIELD_THEME.grid)).toHaveLength(9);
+    expect(withTerrain.strokes).not.toContain(FIELD_THEME.grid);
+  });
+
+  it("paints each authored tile's own surface, not one colour for the map", () => {
+    const { ctx, fills } = recordingCtx();
+    draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      terrain: parseTerrain(["ggg", "gwg", "ggg"]),
+    });
+    expect(fills).toContain(GRASS);
+    expect(fills).toContain(WATER);
+  });
+
+  it("DISCRIMINATING: a prop is painted AFTER every tile, not inside the tile walk", () => {
+    // Earned. Drawing a tree inside the painter's walk let the very next tile paint
+    // over its canopy — on a flat map, which all five campaign maps are, that is every
+    // tree on the board. This asserts the second pass by ORDER: the leaf colour must
+    // arrive after the last ground fill. Interleaved, a back-row tree fails it.
+    const { ctx, fills } = recordingCtx();
+    draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      terrain: parseTerrain(["ggg", "ggg", "ggg"], [{ pos: { x: 0, y: 0 }, kind: "tree" }]),
+    });
+    const lastGround = fills.lastIndexOf(GRASS);
+    const firstLeaf = fills.indexOf(DAYLIGHT.leaf);
+    expect(firstLeaf).toBeGreaterThan(-1);
+    expect(lastGround).toBeGreaterThan(-1);
+    expect(firstLeaf).toBeGreaterThan(lastGround);
+  });
+
+  it("refuses a terrain map that does not cover the grid", () => {
+    const { ctx } = recordingCtx();
+    expect(() =>
+      draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, { terrain: parseTerrain(["gg", "gg"]) }),
+    ).toThrow(/2x2, grid is 3x3/);
   });
 
   it("without a colour mapping, campaign-shaped ids fall back to ONE grey", () => {
