@@ -771,3 +771,50 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
   await expect(figure).toBeHidden();
   await expect(img).toHaveCount(0);
 });
+
+/**
+ * THE WIRE FROM THE PAGE TO THE PAINTED GROUND, ASSERTED ON PIXELS.
+ *
+ * Every other check around terrain is on data or on `draw` as a function. The fifteen
+ * characters that connect them — `shell.briefing()?.encounterId` in `game.ts` — had no
+ * test at all, and changing that one property to `battleId` (which also exists, and is
+ * `"b1"…"b5"`) reverted all five battles to the old dark board with **typecheck, lint
+ * and 880 unit tests green**. That is the same shape as the bug that once painted every
+ * unit in the game one fallback grey: a content-keyed lookup whose miss returns
+ * `undefined`, which is also a legitimate value elsewhere.
+ *
+ * The only thing that can see it is a pixel. Painted terrain puts a sky gradient behind
+ * the diorama; the flat look leaves the canvas transparent. So the top-left corner is
+ * pale blue with terrain and not without it — a difference no amount of seam-driving
+ * can reach.
+ */
+test("campaign: the battle board is actually painted — asserted on canvas pixels", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+
+  const corner = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    // Inset from the very edge so a one-pixel border cannot answer for the frame.
+    const px = ctx.getImageData(6, 6, 1, 1).data;
+    return { r: px[0] ?? 0, g: px[1] ?? 0, b: px[2] ?? 0, a: px[3] ?? 0 };
+  });
+
+  expect(corner, "no canvas on the battle screen").not.toBeNull();
+  const { r, g, b, a } = corner!;
+  // Opaque: the flat look never fills the canvas at all, so a transparent corner means
+  // the terrain was not passed.
+  expect(a, `corner is transparent — rgba(${r}, ${g}, ${b}, ${a})`).toBe(255);
+  // And it is the daylight sky rather than the old slate: blue-dominant and bright.
+  // `DARK_THEME`'s tones are all far darker than this, so the two cannot be confused.
+  expect(b, `corner is not sky — rgba(${r}, ${g}, ${b}, ${a})`).toBeGreaterThan(150);
+  expect(b).toBeGreaterThanOrEqual(r);
+  expect(r + g + b, `corner is too dark to be sky`).toBeGreaterThan(450);
+});

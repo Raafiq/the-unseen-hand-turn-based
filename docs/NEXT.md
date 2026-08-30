@@ -160,6 +160,44 @@ migration. ADR-0030 expected a schema bump here and was wrong.
 
 ---
 
+## LANDED 2026-08-30 — an adversarial review, and what it cost
+
+The `reviewer` agent was run against the branch — **the first time this project's agent
+roster was used at all**. It found eight things. Three were blockers, and all three were
+tests this repo would have called discriminating.
+
+| What it found | How it hid |
+|---|---|
+| The page-to-terrain wire had **no test**. One property name (`encounterId` → `battleId`, both real) reverted all five battles to the old dark board | typecheck, lint and 880 unit tests green |
+| The blocked-tile check listed the surfaces that read as *walkable* and so exempted `rock` — which **is** walkable ground in two shipped maps | 42/42 green; painting the gap as rock gave the exact invisible wall the check exists to prevent |
+| "Foliage isn't the ground's green" was string inequality. Shipped `leafLit` was **contrast 1.03** against the grass mottle | 16/16 green |
+| The camera's bound charged the tallest tile's lift at the top AND its base at the bottom | battle 4 — the only map with relief, and the one the camera exists for — drew below 1:1 |
+
+### Traps this bought
+
+0. **NEVER ANCHOR A CHECK ON THE THING IT IS CHECKING** — again, and it slipped past the
+   first fix. The new camera test imported the shipped `HEADROOM`, so setting it to 0
+   moved the code and the expectation together and stayed green. The floor is now an
+   independent constant read off what is actually drawn above a tile.
+0. **A TRANSLUCENT PANEL HAS TWO GROUNDS TO SEPARATE FROM, NOT ONE.** Three attempts,
+   each fixing the previous one's ground and colliding with the next: pale blue went grey
+   over grass; a deeper blue at the same alpha did too; a saturated blue finally read over
+   grass and landed within four points of the **river**. Only opacity moves a translucent
+   colour off its ground, and the panel is now brighter than every surface rather than a
+   different hue.
+0. **"NO GRID" IS ABOUT WHAT IS SEEN, NOT ABOUT `stroke()`.** The water branch put a
+   full-width band at a fixed offset from each tile centre; it repeated identically on
+   every tile and drew a plain lattice across a river, while passing the no-stroke check
+   exactly. Place every texture by the tile's own noise.
+0. **A DEFECT CALLED FIXED IN AN ADR IS A CLAIM.** ADR-0030's Evidence section listed
+   three defects found by opening frames and fixed. **All three were still shipping** —
+   half-fixed by a hex change, an over-estimating bound, and a re-tone that did not survive
+   compositing. The ADR now says so.
+0. **THE REVIEWER AGENT EARNED ITS KEEP ON FIRST USE.** Nothing in the suite, and nobody
+   in the main session, found any of this. Run it on anything non-trivial before the PR.
+
+---
+
 ## STANDING REMINDER — one person still has to play it
 
 **Deferred by the owner on 2026-08-30, expected to be a while. Do not delete this section

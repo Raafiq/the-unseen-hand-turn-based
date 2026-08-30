@@ -77,23 +77,30 @@ must belong to a battle. The first direction is a forcing function — a sixth b
 ship drawing the flat look by omission. A second guard keeps props off the tiles units
 start on; props block nothing, so that is purely cosmetic, and cosmetic is the point.
 
-**What the flat maps cost, concretely.** "The Broken Span" reads as a wooden platform, not
-as a span over anything, because there is nothing to span. Height would fix it and height
-is a rules change. The same limit blunts the ford: the river is crossable everywhere, not
-only at the ford, because the sim was never told there is a river.
+**What the flat maps cost, concretely.** ~~"The Broken Span" reads as a wooden platform,
+not as a span over anything, because there is nothing to span. Height would fix it and
+height is a rules change.~~ **Superseded by ADR-0031 the same day**: the span got real
+height and real blocked water, and it turned out **not** to be a rules change — the
+encounter format already carried per-tile `{height, passable}`. The ford is unchanged: its
+river is crossable everywhere, because the sim was never told there is a river.
 
 ## Consequences
 
-**The campaign maps are flat.** All five are featureless rectangles: no height, no blocked
-tiles. Every cliff, plateau and cut face in the mockups is absent from the real game, and
-painted ground alone cannot supply them. Giving a map relief changes evasion and reach, so
-it is a rules change and a separate decision.
+**~~The campaign maps are flat.~~ FOUR of five are.** ~~All five are featureless
+rectangles~~ — **corrected by ADR-0031**, which gave `camp-b4-the-broken-span` height 2
+and 45 blocked tiles. Battles 1, 2, 3 and 5 remain featureless rectangles: no height, no
+blocked tiles, so every cliff and plateau in the mockups is still absent from four of the
+five, and painted ground alone cannot supply them. Giving one of those relief changes what
+its fight is, so it stays a separate decision — though ADR-0031 established it needs no
+schema change to do.
 
 **Nothing standing is occluded by terrain.** Props and units are drawn in a second pass
 over the finished ground, because drawing a tree inside the painter's walk let the next
 tile paint over its canopy — on a flat map, every prop on the board. The opposite error is
-now possible: a unit behind a tall cliff would show through. Harmless while the shipped
-maps are flat, and the thing to fix the day one is not.
+now possible: a unit behind a tall cliff would show through. ~~Harmless while the shipped
+maps are flat~~ — **the premise expired with ADR-0031.** Battle 4 has walls now; it stays
+harmless there only because every *passable* tile on it is the same height, so nothing
+stands behind anything. The first map with two standable heights makes this visible.
 
 **The camera is now on the click path.** `draw` and `pickTile` share `viewFor` exactly as
 they already share `paintOrder`. A zoom applied to the painting but not the inverse offsets
@@ -118,6 +125,27 @@ that choice for them.
   fixed: tree canopies painted in the ground's own green and therefore invisible over
   grass; the board floating in a mostly empty sky; and pale-blue range panels desaturating
   to grey concrete over green.
+  > **Two of those three were only half fixed, and an adversarial review caught it
+  > (2026-08-30).** The canopy fix changed the hex and asserted `!==`, shipping a `leafLit`
+  > at contrast **1.03** against the grass mottle — the same colour to an eye, on two of
+  > the five canopy blobs. And the camera's bound over-estimated any map with relief, so
+  > battle 4 — the one map the camera exists for — drew below 1:1 in a half-empty sky.
+  > **The third was wrong too.** The range panels were re-toned to a deeper blue and
+  > recorded as resolved; the shipped frame still showed grey concrete slabs on a field,
+  > because *any* translucent blue over green composites toward teal and only opacity
+  > moves it. Fixing that then collided with the ford: a saturated panel that finally
+  > read as blue over grass landed within four points of the river's own colour, so the
+  > tiles you may walk to and the water became the same thing. The panel is now
+  > deliberately **brighter** than every ground rather than a different hue.
+  >
+  > **And the water was drawing a grid.** `paintSurface`'s water branch put a full-width
+  > band at a fixed offset from each tile's centre, which repeated identically on every
+  > water tile and drew a plain lattice across a river — the exact thing AC-V18 exists to
+  > remove, passing AC-V18 because it used no `stroke()`. Now placed by the tile's own
+  > noise.
+  >
+  > All three defects were called fixed in this ADR while still shipping. **A defect
+  > called fixed is a claim, and it needs a measurement or a frame, not a recollection.**
 
 ## Not asserted
 

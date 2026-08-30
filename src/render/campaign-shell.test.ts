@@ -135,7 +135,15 @@ describe("the bundled campaign data covers exactly the battles the campaign name
     // and units wade anywhere (ADR-0030). Asserting both directions would either break
     // that map or force a difficulty change nobody asked for. When water blocks
     // everywhere, this becomes an equality and battle 2 gets a real crossing.
-    const WALKABLE_LOOKING: readonly string[] = ["grass", "dirt", "sand", "wood"];
+    // INVERTED, not exempted. The first version listed the surfaces that read as
+    // walkable — grass, dirt, sand, wood — and let everything else through, which
+    // silently exempted `rock`. Rock is walkable ground in two shipped maps: all of
+    // battle 3's centre, and battle 4's own abutments, which the party stands on.
+    // Painting battle 4's gap as rock therefore passed, and produced exactly the
+    // invisible wall this check exists to prevent: a continuous stone ledge, identical
+    // to the one under your feet, that refuses the click.
+    //
+    // Water is the only surface that reads as impassable, so that is the assertion.
     let blockedSeen = 0;
     for (const [id, map] of Object.entries(TERRAIN)) {
       const grid = (ENCOUNTERS[id] as { grid: { width: number; tiles?: { passable: boolean }[] } })
@@ -145,8 +153,8 @@ describe("the bundled campaign data covers exactly the battles the campaign name
         blockedSeen++;
         const x = i % grid.width;
         const y = Math.floor(i / grid.width);
-        expect(WALKABLE_LOOKING, `${id} (${x}, ${y}) is blocked but painted as ground`)
-          .not.toContain(terrainAt(map, x, y));
+        expect(terrainAt(map, x, y), `${id} (${x}, ${y}) is blocked but not painted as water`)
+          .toBe("water");
       }
     }
     // Non-degeneracy: with no blocked tile anywhere the loop above is vacuous and this
@@ -158,18 +166,34 @@ describe("the bundled campaign data covers exactly the battles the campaign name
     // A unit standing in the river is the visible half of the same defect, and it is
     // reachable by editing terrain alone — the encounter's placements and its tiles are
     // authored in one file, its paint in another.
+    let checked = 0;
+    let withTiles = 0;
     for (const [id, map] of Object.entries(TERRAIN)) {
       const def = ENCOUNTERS[id] as {
         grid: { width: number; tiles?: { passable: boolean }[] };
         placements: { slotId: string; pos: { x: number; y: number } }[];
       };
+      if (def.grid.tiles !== undefined) withTiles++;
       for (const pl of def.placements) {
         const { x, y } = pl.pos;
+        // Bounds FIRST. A row-major index of an out-of-range x wraps into the next
+        // row and reads as an ordinary passable tile, so without this the check would
+        // quietly approve a placement that is off the map.
+        expect(x, `${id}: ${pl.slotId} x out of range`).toBeLessThan(def.grid.width);
+        expect(y, `${id}: ${pl.slotId} y out of range`).toBeLessThan(map.height);
         const tile = def.grid.tiles?.[y * def.grid.width + x];
         expect(tile?.passable ?? true, `${id}: ${pl.slotId} starts on a blocked tile`).toBe(true);
         expect(terrainAt(map, x, y), `${id}: ${pl.slotId} starts in the water`).not.toBe("water");
+        checked++;
       }
     }
+    // Non-degeneracy, twice over. Four of five encounters ship no `tiles` array at all,
+    // so `?? true` makes the passability half vacuous for them — and a run where NO
+    // encounter declared tiles would pass this test having asserted nothing about
+    // blocked ground. Count both.
+    expect(checked, "no placements checked").toBeGreaterThan(0);
+    expect(withTiles, "no encounter declares tiles — the blocked half asserted nothing")
+      .toBeGreaterThan(0);
   });
 
   it("a painted battle's terrain covers its grid exactly", () => {

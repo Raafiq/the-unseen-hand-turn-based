@@ -90,16 +90,30 @@ export const FIELD_THEME: Theme = {
   right: "#654828",
   grid: "rgba(38,28,14,.22)",
   impassable: "#8a5a4a",
-  // Deep blue, not pale: a light blue at this alpha over green grass desaturates to
-  // grey and the range panels read as concrete slabs laid on the field.
-  highlight: "#1a5fbe5c",
-  highlightEdge: "#bfe0ff",
+  // A RANGE PANEL HAS TWO GROUNDS TO SEPARATE FROM, NOT ONE.
+  //
+  // Three attempts failed here, each fixing the previous one's ground and colliding
+  // with the next. A pale blue at 34% desaturated to grey over green; a deeper blue at
+  // the same alpha did too (and shipped, recorded in ADR-0030 as fixed, while the frame
+  // still showed concrete slabs on a field); and a saturated `#2d6fd8` at 65% finally
+  // read as blue over grass — at rgb(67, 126, 164), which is within four points of the
+  // river's own `#3f7ba8`. On the ford, the tiles you may walk to and the water became
+  // the same colour.
+  //
+  // So the panel is deliberately much BRIGHTER than any ground rather than merely a
+  // different hue: over grass it lands near rgb(133, 192, 199) and over water near
+  // rgb(119, 182, 229) — lighter than both, on every map.
+  //
+  // The cost is deliberate and is what FFT pays too: the texture under a panel is
+  // mostly hidden. The panel is information; the ground beneath it is not.
+  highlight: "#8fd0ffb3",
+  highlightEdge: "#eaf7ff",
   active: "#ffd968",
   activeAi: "#ff8a44",
   staged: "#ffeca047",
   stagedEdge: "#fff0b8",
-  target: "#e24a4a52",
-  targetEdge: "#ffb0a6",
+  target: "#d43b34a6",
+  targetEdge: "#ffc0b6",
   cursor: "#ffffff",
   text: "#f4ecd8",
   buff: "#5cc98d",
@@ -114,8 +128,13 @@ export function project(x: number, y: number, height: number, origin: Position):
   };
 }
 
-/** Room above the topmost tile for props, HP bars and status chips. */
-const HEADROOM = 54;
+/**
+ * Room above the topmost tile for props, HP bars and status chips.
+ *
+ * Exported so `iso.test.ts` measures the SHIPPED value rather than a copy — a test
+ * holding its own `54` passes with this set to 0, which was measured.
+ */
+export const HEADROOM = 54;
 const VIEW_PAD = 10;
 const MIN_ZOOM = 0.5;
 /** A small map must not be blown up past the point where the texture detail coarsens. */
@@ -144,16 +163,32 @@ export interface View {
  */
 export function viewFor(state: BattleState, canvasW: number, canvasH: number): View {
   const { width, height, tiles } = state.grid;
-  let maxH = 0;
-  for (const tile of tiles) if (tile.height > maxH) maxH = tile.height;
 
-  const w1 = width - 1;
-  const h1 = height - 1;
-  const minX = -(h1 * (TILE_W / 2)) - TILE_W / 2;
-  const maxX = w1 * (TILE_W / 2) + TILE_W / 2;
-  const minY = -(maxH * HEIGHT_STEP) - TILE_H / 2 - HEADROOM;
-  // The `+ 1` step is the base the whole diorama stands on when terrain is painted.
-  const maxY = (w1 + h1) * (TILE_H / 2) + TILE_H / 2 + (maxH + 1) * HEIGHT_STEP;
+  // The TRUE extent, walked tile by tile. An earlier version bounded the box from
+  // `maxH` alone and charged the tallest tile's lift at the top AND its base at the
+  // bottom — but one tile cannot be at both corners, so every map with relief was
+  // over-estimated by a full height's worth and drawn too small. Battle 4, the only
+  // shipped map with height, came out at 0.97 (below 1:1) while every flat map sat
+  // near 1.4; the one map the camera exists for was the one it failed.
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const h = tiles[y * width + x]?.height ?? 0;
+      const px = (x - y) * (TILE_W / 2);
+      const py = (x + y) * (TILE_H / 2) - h * HEIGHT_STEP;
+      if (px - TILE_W / 2 < minX) minX = px - TILE_W / 2;
+      if (px + TILE_W / 2 > maxX) maxX = px + TILE_W / 2;
+      // Above a tile sit its props, HP bar and status chips.
+      if (py - TILE_H / 2 - HEADROOM < minY) minY = py - TILE_H / 2 - HEADROOM;
+      // Below it, the wall down to the diorama's base when terrain is painted.
+      if (py + TILE_H / 2 + (h + 1) * HEIGHT_STEP > maxY) {
+        maxY = py + TILE_H / 2 + (h + 1) * HEIGHT_STEP;
+      }
+    }
+  }
   const spanX = maxX - minX;
   const spanY = maxY - minY;
 
@@ -840,16 +875,36 @@ function paintSurface(
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 5 + r() * 7, py + 2 + r() * 3); ctx.stroke();
     }
   } else if (kind === "water") {
+    // NO FIXED-OFFSET BAND. A full-width `fillRect` at a constant offset from the tile
+    // centre repeats identically on every water tile and draws a plain lattice across a
+    // river — a grid by another name, which is the one thing this direction exists to
+    // remove. It was there, and it took an adversarial review of the shipped frame to
+    // see it. Both the tone patches and the crests are now placed by the tile's own
+    // noise, so no two tiles agree.
     ctx.fillStyle = surface.mottle;
-    ctx.fillRect(top.x - TILE_W / 2, top.y - 4, TILE_W, 5);
+    for (i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.ellipse(
+        top.x - 30 + r() * 60,
+        top.y - 12 + r() * 24,
+        7 + r() * 12,
+        2 + r() * 3,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
     ctx.strokeStyle = surface.detail;
-    ctx.lineWidth = 1.4;
-    for (i = 0; i < 3; i++) {
-      const px = top.x - 16 + r() * 12;
-      const py = top.y - 8 + i * 7 + r() * 2;
+    ctx.lineWidth = 1.3;
+    const crests = 2 + Math.floor(r() * 2);
+    for (i = 0; i < crests; i++) {
+      const px = top.x - 26 + r() * 40;
+      const py = top.y - 11 + r() * 22;
+      const w = 9 + r() * 9;
       ctx.beginPath();
       ctx.moveTo(px, py);
-      ctx.quadraticCurveTo(px + 8, py - 2, px + 17, py);
+      ctx.quadraticCurveTo(px + w / 2, py - 2.2, px + w, py);
       ctx.stroke();
     }
   } else {

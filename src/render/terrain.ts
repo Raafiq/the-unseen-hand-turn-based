@@ -189,8 +189,13 @@ export const DAYLIGHT: TerrainPalette = Object.freeze({
       wallLeft: "#7d5c36", wallRight: "#5c4225",
     }),
   }),
-  leaf: "#3f6b2c",
-  leafLit: "#548b38",
+  // A CANOPY MUST SEPARATE FROM THE GROUND BY LUMINANCE, NOT BY BEING A DIFFERENT
+  // STRING. The first fix here only changed the hex — `leafLit` came out at #548b38
+  // against a grass mottle of #5c8737, a contrast ratio of **1.03**, which is the same
+  // colour to a human eye. Half the invisible-canopy defect was still shipping while a
+  // test asserting `!==` reported it fixed. `terrain.test.ts` now asserts a ratio floor.
+  leaf: "#1f3a16",
+  leafLit: "#335c22",
   bark: "#6b4a2a",
   stone: "#a9a49a",
   stoneLit: "#c6c1b6",

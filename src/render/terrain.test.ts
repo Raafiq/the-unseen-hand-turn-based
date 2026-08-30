@@ -12,6 +12,20 @@ import {
 
 const ROWS = ["ggd", "dwr", "sgp"] as const;
 
+/** WCAG relative luminance of a `#rrggbb` string. */
+function luminance(hex: string): number {
+  const n = hex.replace("#", "");
+  const parts = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255);
+  const lin = parts.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+}
+
+/** WCAG contrast ratio between two opaque colours. 1 = identical. */
+function contrastRatio(a: string, b: string): number {
+  const [la, lb] = [luminance(a), luminance(b)];
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 describe("parseTerrain", () => {
   it("reads rows left-to-right, top-to-bottom, row-major like the grid", () => {
     const t = parseTerrain([...ROWS]);
@@ -104,27 +118,60 @@ describe("tileNoise", () => {
     }
   });
 
-  it("does not degenerate at the origin", () => {
-    // x = y = 0 zeroes a naive xor-hash, and an xorshift seeded with 0 returns 0
-    // forever — a whole corner of every map with identical, motionless texture.
-    const r = tileNoise(0, 0);
-    const seen = new Set([r(), r(), r(), r()]);
-    expect(seen.size).toBe(4);
+  it("does not degenerate for ANY tile, including the seed the guard exists for", () => {
+    // The `s === 0` guard in `tileNoise` cannot be reached through `(0, 0)` — the salt
+    // constant keeps that seed non-zero — so a test that only probes the origin passes
+    // with the guard deleted, which was measured. Sweep instead: an xorshift seeded
+    // with 0 returns 0 forever, so ANY tile that hashed to 0 would be a corner of the
+    // map with identical, motionless texture.
+    for (let y = 0; y < 24; y++) {
+      for (let x = 0; x < 24; x++) {
+        const r = tileNoise(x, y);
+        const seen = new Set([r(), r(), r(), r()]);
+        expect(seen.size, `(${x}, ${y}) degenerated`).toBe(4);
+      }
+    }
+    // And the guard itself, exercised directly through the salt that reaches it.
+    const salted = tileNoise(0, 0, 0);
+    expect(new Set([salted(), salted(), salted()]).size).toBe(3);
   });
 });
 
 describe("DAYLIGHT palette", () => {
-  it("paints every terrain kind", () => {
+  it("gives every terrain kind three DISTINCT tones", () => {
+    // `Record<TerrainKind, SurfacePaint>` already makes "is it defined" true at compile
+    // time, so asserting that proved nothing. What the type cannot say is that a
+    // surface's three tones actually differ — a kind whose mottle equals its base paints
+    // a flat slab and reads exactly like the board this whole direction replaced.
     for (const kind of TERRAIN_KINDS) {
-      expect(DAYLIGHT.surfaces[kind]).toBeDefined();
+      const s = DAYLIGHT.surfaces[kind];
+      expect(new Set([s.base, s.mottle, s.detail]).size, kind).toBe(3);
+      expect(new Set([s.wallLeft, s.wallRight]).size, kind).toBe(2);
     }
   });
 
-  it("does not paint foliage in the ground's own green", () => {
-    // Earned: a canopy drawn in the grass colour vanished the moment a tree stood on
-    // grass rather than against the sky, which is most of any map.
-    expect(DAYLIGHT.leaf).not.toBe(DAYLIGHT.surfaces.grass.base);
-    expect(DAYLIGHT.leaf).not.toBe(DAYLIGHT.surfaces.grass.mottle);
-    expect(DAYLIGHT.leafLit).not.toBe(DAYLIGHT.surfaces.grass.base);
+  it("DISCRIMINATING: foliage separates from the ground by LUMINANCE, not by string", () => {
+    // Earned twice. A canopy drawn in the grass colour vanished the moment a tree stood
+    // on grass rather than against the sky, which is most of any map. The first fix
+    // asserted `leaf !== grass.base` — and shipped `leafLit: #548b38` against a grass
+    // mottle of `#5c8737`, a contrast ratio of **1.03**: the same colour to an eye, and
+    // two of the five canopy blobs are painted in it. `!==` on two hex strings cannot
+    // see that, so it reported a defect fixed that was still half-present.
+    //
+    // The floor is asserted against `base` and `mottle`, the two tones that cover a
+    // grass tile. `detail` is EXCLUDED BY NAME: it is one-pixel blade strokes, not a
+    // field, so a canopy is never read against it.
+    const MIN_RATIO = 1.6;
+    for (const canopy of [DAYLIGHT.leaf, DAYLIGHT.leafLit]) {
+      for (const ground of [DAYLIGHT.surfaces.grass.base, DAYLIGHT.surfaces.grass.mottle]) {
+        expect(contrastRatio(canopy, ground), `${canopy} on ${ground}`).toBeGreaterThan(
+          MIN_RATIO,
+        );
+      }
+    }
+    // Non-degeneracy: the helper must be able to report a FAILING pair, or the loop
+    // above is a formality. Two identical colours are ratio 1.
+    expect(contrastRatio("#5c8737", "#5c8737")).toBeCloseTo(1, 5);
+    expect(contrastRatio("#548b38", "#5c8737")).toBeLessThan(MIN_RATIO);
   });
 });

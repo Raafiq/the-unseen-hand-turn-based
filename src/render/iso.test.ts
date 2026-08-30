@@ -11,9 +11,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createBattleState, defaultUnit, makeFlatTiles, type BattleState, type Position } from "../sim/index.js";
+import { createBattleState, defaultUnit, makeFlatTiles, moveRange, type BattleState, type Position } from "../sim/index.js";
 import { makeDemoBattle } from "./demo.js";
-import { DARK_THEME, draw, FIELD_THEME, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
+import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
 import { DAYLIGHT, parseTerrain, type TerrainMap } from "./terrain.js";
 
 const CANVAS_W = 900;
@@ -138,28 +138,114 @@ describe("the camera — viewFor", () => {
     expect(pickTile(state, world.x, world.y, CANVAS_W, CANVAS_H)).not.toEqual({ x: 4, y: 3 });
   });
 
-  it("fits the board inside the canvas with room for props and chips above", () => {
-    const state = makeDemoBattle();
-    const { origin, scale } = viewFor(state, CANVAS_W, CANVAS_H);
+  /**
+   * The board's real on-screen extent: tile CORNERS, plus the room a prop or a status
+   * chip occupies above a tile and the wall a tile drops below it.
+   *
+   * Asserting tile CENTRES — which the first version of this did — cannot see an
+   * overflow at all: multiplying the fitted scale by 1.25 clipped the demo board on
+   * both edges and every centre still landed inside the canvas. It also could not see
+   * `HEADROOM` being set to 0, which is half of what the test's own name promises.
+   */
+  function extentOf(state: BattleState, canvasW: number, canvasH: number) {
+    const { origin, scale } = viewFor(state, canvasW, canvasH);
     const { width, height, tiles } = state.grid;
+    const half = project(1, 0, 0, ZERO); // { TILE_W/2, TILE_H/2 }, from the projection
+    const step = HEIGHT_RISE;
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const p = project(x, y, tiles[y * width + x]!.height, origin);
-        expect(p.x * scale).toBeGreaterThanOrEqual(0);
-        expect(p.x * scale).toBeLessThanOrEqual(CANVAS_W);
-        expect(p.y * scale).toBeGreaterThanOrEqual(0);
-        expect(p.y * scale).toBeLessThanOrEqual(CANVAS_H);
+        const h = tiles[y * width + x]!.height;
+        const p = project(x, y, h, origin);
+        left = Math.min(left, (p.x - half.x) * scale);
+        right = Math.max(right, (p.x + half.x) * scale);
+        top = Math.min(top, (p.y - half.y - HEADROOM) * scale);
+        bottom = Math.max(bottom, (p.y + half.y + (h + 1) * step) * scale);
       }
+    }
+    return { left, right, top, bottom, scale };
+  }
+
+  it("DISCRIMINATING: the whole board, its headroom and its base fit inside the canvas", () => {
+    for (const state of [makeDemoBattle(), flatBattle()]) {
+      const e = extentOf(state, CANVAS_W, CANVAS_H);
+      expect(e.left).toBeGreaterThanOrEqual(0);
+      expect(e.right).toBeLessThanOrEqual(CANVAS_W);
+      expect(e.top).toBeGreaterThanOrEqual(0);
+      expect(e.bottom).toBeLessThanOrEqual(CANVAS_H);
     }
   });
 
-  it("shrinks rather than overflowing when the board is bigger than the frame", () => {
+  it("HEADROOM clears the tallest thing drawn above a tile", () => {
+    // NEVER ANCHOR A CHECK ON THE THING IT IS CHECKING. The extent helper above reads
+    // the shipped `HEADROOM`, so setting it to 0 moved the code AND the expectation
+    // together and the fit test stayed green — measured. The floor here is an
+    // INDEPENDENT constant, read off what `iso.ts` actually draws above `top.y`:
+    //   · a tree canopy reaches `base - 42 - 9` ≈ 51px, the tallest prop;
+    //   · a status chip sits at `cy - 42` and is 12 tall, with `cy = top.y - 14`.
+    // If a taller prop or a second chip row lands, this number moves WITH it, on
+    // purpose — and it fails first, which is the point.
+    const TALLEST_THING_ABOVE_A_TILE = 51;
+    expect(HEADROOM).toBeGreaterThanOrEqual(TALLEST_THING_ABOVE_A_TILE);
+  });
+
+  it("uses the frame it is given rather than leaving it half empty", () => {
+    // The camera exists because a small map drew at under half the canvas. A fit that
+    // is merely *inside* the frame satisfies the test above at any scale; this is the
+    // half that says it actually filled it. Measured on the demo board: 0.93 of one
+    // axis. The floor is well below that, so it fails on a real regression rather than
+    // on a pixel of drift.
+    const e = extentOf(makeDemoBattle(), CANVAS_W, CANVAS_H);
+    const fill = Math.max((e.right - e.left) / CANVAS_W, (e.bottom - e.top) / CANVAS_H);
+    expect(fill).toBeGreaterThan(0.85);
+  });
+
+  it("a map with RELIEF is not drawn smaller than a flat one of the same footprint", () => {
+    // Earned. The bound charged the tallest tile's lift at the top AND its base at the
+    // bottom, though one tile cannot be at both corners — so the only shipped map with
+    // height came out below 1:1 while every flat map sat near 1.4. The discriminating
+    // pair is the same footprint with and without relief: an over-estimating bound
+    // gives the raised one a strictly smaller scale.
+    const flat = createBattleState({
+      seed: 1,
+      grid: { width: 9, height: 7, tiles: makeFlatTiles(9, 7, 0) },
+      units: [],
+    });
+    const raised = createBattleState({
+      seed: 1,
+      grid: {
+        width: 9,
+        height: 7,
+        tiles: makeFlatTiles(9, 7, 0).map((t, i) => (i % 3 === 0 ? { ...t, height: 2 } : t)),
+      },
+      units: [],
+    });
+    const flatScale = viewFor(flat, CANVAS_W, CANVAS_H).scale;
+    const raisedScale = viewFor(raised, CANVAS_W, CANVAS_H).scale;
+    // Relief genuinely costs some vertical room, so this is a proportion, not equality.
+    expect(raisedScale).toBeGreaterThan(flatScale * 0.85);
+  });
+
+  it("clamps rather than shrinking without limit, and says so", () => {
+    // The previous version of this test was called "shrinks rather than overflowing"
+    // and its own fixture overflowed by 380px: a 40x40 board clamps at MIN_ZOOM and
+    // `scale < 1` is satisfied by the clamp, not by a fit. Assert the clamp, which is
+    // what actually happens, and assert that it IS the clamp rather than a fit.
     const big = createBattleState({
       seed: 1,
       grid: { width: 40, height: 40, tiles: makeFlatTiles(40, 40) },
       units: [],
     });
-    expect(viewFor(big, CANVAS_W, CANVAS_H).scale).toBeLessThan(1);
+    const scale = viewFor(big, CANVAS_W, CANVAS_H).scale;
+    expect(scale).toBeLessThan(1);
+    const e = extentOf(big, CANVAS_W, CANVAS_H);
+    // At the clamp the board is deliberately WIDER than the canvas — the alternative is
+    // a board too small to read. Pinning it here stops a future reader taking the
+    // previous test's name at face value.
+    expect(e.right - e.left).toBeGreaterThan(CANVAS_W);
   });
 });
 
@@ -355,6 +441,40 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     expect(firstLeaf).toBeGreaterThan(-1);
     expect(lastGround).toBeGreaterThan(-1);
     expect(firstLeaf).toBeGreaterThan(lastGround);
+  });
+
+  it("DISCRIMINATING: painting terrain changes NO rule — legal moves are identical", () => {
+    // AC-V18 states this as a testable claim and nothing asserted it. It is
+    // structurally true today (`terrain.ts` imports only a type from the sim), but the
+    // repo's own rule is that an unasserted number in a spec is worse than an absent
+    // one — a future terrain field that quietly reached `BattleState` would satisfy
+    // every other test on this page.
+    //
+    // Reaches THROUGH the renderer to the sim's own answer: the same state, drawn both
+    // ways, must give byte-identical move ranges and serialize identically.
+    const state = twoTeams();
+    const actor = state.units[0]!;
+    const range = () => moveRange(state.grid, state.units, actor.id);
+    const before = JSON.stringify(range());
+    const stateJson = JSON.stringify(state);
+
+    draw(recordingCtx().ctx, state, CANVAS_W, CANVAS_H, {});
+    const plain = JSON.stringify(range());
+    draw(recordingCtx().ctx, state, CANVAS_W, CANVAS_H, {
+      terrain: parseTerrain(["ggg", "gwg", "ggg"]),
+      theme: FIELD_THEME,
+    });
+    const painted = JSON.stringify(range());
+
+    expect(painted).toBe(plain);
+    expect(painted).toBe(before);
+    expect(JSON.stringify(state)).toBe(stateJson);
+    // Non-degeneracy: a `moveRange` that returned nothing would satisfy every equality
+    // above. The painted pond at (1,1) is deliberately INSIDE the range — that is the
+    // walkable-water lie ADR-0030 records, asserted rather than assumed.
+    const tiles = range();
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles).toContainEqual({ x: 1, y: 1 });
   });
 
   it("refuses a terrain map that does not cover the grid", () => {

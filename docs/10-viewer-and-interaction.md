@@ -294,6 +294,12 @@ degenerate fixture where all orderings coincide).
   grid colour is stroked once per tile without terrain and **never** with it. A test that
   merely passed a map and checked it was accepted would look identical whether the renderer
   painted it or discarded it (the "validates its input and then discards it" shape). Props
+  **A surface's own texture may not draw a lattice either.** "No grid" is about what the
+  player sees, not about whether `stroke()` was called: a fixed-offset band inside the water
+  branch repeated identically on every water tile and drew a plain grid across a river while
+  satisfying the stroke check exactly. Every texture is now placed by the tile's own seeded
+  noise for that reason. That half is carried by the frames, not by a test — said here
+  rather than left implied. Props
   are asserted by **draw order** — the leaf colour must arrive after the last ground fill —
   because drawing a prop inside the painter's walk lets the next tile paint over its
   canopy, which on a flat map is every prop on the board and which no colour-presence
