@@ -45,8 +45,17 @@ the only answer to *may I stand there*.
 ### Terrain rules elsewhere are still parked
 
 The owner's scope was **just battle 4**. Battles 1, 2, 3 and 5 keep the exact difficulty
-they were tuned for, and the six balance test battles stay flat so the build-variety score
-remains comparable to every past measurement (owner decision, 2026-08-30).
+they were tuned for, and the six balance test battles are **not touched at all**, so the
+build-variety score remains comparable to every past measurement (owner decision,
+2026-08-30).
+
+> **Amendment, 2026-08-30 — the reason was stated wrongly.** ~~"the six balance test
+> battles stay flat"~~ was false when written. `data/encounters/enc-the-high-ground.json`
+> has carried per-tile heights 0–3 and `enc-the-breach.json` 4 blocked tiles since the P2
+> benchmark slice (`6309a7f`), long before this ADR. **The decision is unchanged** — the
+> six test battles were not edited — but what makes the score comparable is that they did
+> not change, not that they are featureless. The same sentence in `docs/08` and
+> `docs/NEXT.md` is corrected.
 
 ## The new invariant, and why it is one-directional
 

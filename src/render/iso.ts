@@ -100,9 +100,25 @@ export const FIELD_THEME: Theme = {
   // river's own `#3f7ba8`. On the ford, the tiles you may walk to and the water became
   // the same colour.
   //
-  // So the panel is deliberately much BRIGHTER than any ground rather than merely a
-  // different hue: over grass it lands near rgb(133, 192, 199) and over water near
-  // rgb(119, 182, 229) — lighter than both, on every map.
+  // So the panel is deliberately LIGHTER than the ground rather than merely a different
+  // hue: over grass it lands near rgb(133, 192, 199) and over the river near
+  // rgb(119, 182, 229).
+  //
+  // MEASURED, AND THINNER THAN "much brighter" SOUNDS. Compositing #8fd0ff at 70% over
+  // all 18 shipped surface tones (6 kinds x base/mottle/detail), the panel is the lighter
+  // of the pair every time — the direction holds everywhere — but the WCAG ratio is:
+  //
+  //   sand.base    1.07   <- thinnest; sand is battles 2 and 5
+  //   water.detail 1.08   <- the river's own highlight, battles 2 and 4
+  //   sand.mottle  1.25 | rock.base 1.51 | dirt.base 1.53 | water.mottle 1.54
+  //   grass.base   1.63 | ... | wood.detail 3.34
+  //
+  // So the mechanism carries grass, dirt, rock and wood, and is nearly invisible on pale
+  // sand and on a lit ripple. Do not restate this as "much brighter than any ground on
+  // every map" — that was the previous wording and it was wrong on two of eighteen tones.
+  // NOTHING ASSERTS ANY OF IT: there is no canvas contrast test (`contrast.spec.ts` reads
+  // DOM text only), so these numbers are a hand measurement, not a guard. Re-measure
+  // before touching either colour, and read the frames.
   //
   // The cost is deliberate and is what FFT pays too: the texture under a panel is
   // mostly hidden. The panel is information; the ground beneath it is not.
@@ -167,9 +183,15 @@ export function viewFor(state: BattleState, canvasW: number, canvasH: number): V
   // The TRUE extent, walked tile by tile. An earlier version bounded the box from
   // `maxH` alone and charged the tallest tile's lift at the top AND its base at the
   // bottom — but one tile cannot be at both corners, so every map with relief was
-  // over-estimated by a full height's worth and drawn too small. Battle 4, the only
-  // shipped map with height, came out at 0.97 (below 1:1) while every flat map sat
-  // near 1.4; the one map the camera exists for was the one it failed.
+  // over-estimated by a full height's worth and drawn too small. On the SHIPPED 900x440
+  // canvas, battle 4 — the only campaign map with height — came out at 0.97 (below 1:1)
+  // while the flat maps sat between 1.17 and 1.59. It is fixed: battle 4 now fits at
+  // 1.15 there, and at 1.53 on the 900x600 canvas `iso.test.ts` measures with.
+  //
+  // The camera does NOT exist for battle 4. It exists because a 7x5 map (battle 1) drew
+  // at under half the canvas — see this function's docstring. Battle 4 is where the
+  // BOUND failed, which is a different thing; an earlier version of this comment
+  // conflated the two.
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -493,11 +515,14 @@ export function draw(
     //
     // WITH TERRAIN THIS IS DEFERRED TO A SECOND PASS. A tree is taller than a tile, so
     // drawing it here let the very next tile in painter's order paint over its canopy —
-    // every tree on the map lost its head, and on a flat map (which all five campaign
-    // maps are) that is every tree. The trade-off of the second pass is the opposite
-    // error: nothing standing is ever occluded BY terrain, so a unit behind a tall cliff
-    // shows through. Harmless while the shipped maps are flat, and the thing to fix the
-    // day one is not.
+    // every tree on the map lost its head, and on a flat map that is every tree.
+    //
+    // The trade-off of the second pass is the opposite error: nothing standing is ever
+    // occluded BY terrain, so a unit behind a tall cliff shows through. THAT IS NO LONGER
+    // A HYPOTHETICAL — battle 4 has walls (ADR-0031). It stays invisible there only
+    // because every PASSABLE tile on that map is the same height (2), so nothing can
+    // stand behind anything. The first map with two standable heights makes it visible,
+    // and that map is the one that has to fix this.
     if (terrain) {
       standing.push({ x, y, top, k });
     } else {

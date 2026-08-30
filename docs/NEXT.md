@@ -1,4 +1,4 @@
-<!-- written-against: 155dd7b -->
+<!-- written-against: b1d219c -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -41,7 +41,7 @@ that one fact was the whole fault, and no amount of palette work would have foun
 | 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
 | 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
 | 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
-| 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles stay flat so the build-variety score remains comparable. Do not widen this without asking. |
+| 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles are **not touched at all**, so the variety score stays comparable. (They are *not* flat, and never were: `enc-the-high-ground` has heights 0–3 and `enc-the-breach` 4 blocked tiles, both since the P2 benchmark slice. What keeps the score comparable is that nothing changed.) Do not widen this without asking. |
 
 **Two rules bind every one of these.**
 
@@ -66,7 +66,7 @@ three rendered options ("Daylight field"); four scoping questions answered by th
 |---|---|
 | Kinds, parser, `DAYLIGHT` palette, per-tile noise | `src/render/terrain.ts` (no canvas — testable without a DOM) |
 | Painting, prop drawing, the camera | `src/render/iso.ts` — `DrawOptions.terrain`, `FIELD_THEME`, `viewFor` |
-| Battle 1's authored ground | `TERRAIN` in `src/render/campaign-data.ts` |
+| All five battles' authored ground | `TERRAIN` in `src/render/campaign-data.ts` |
 | The wiring | `renderBattle()` in `game.ts` — terrain and theme move together |
 
 **Owner decisions this slice, all four explicit:** terrain is **paint only** (no
@@ -75,39 +75,61 @@ drawn-in-code look is **the destination**, not a placeholder for art.
 
 ### Traps this slice bought
 
-0. **THE CAMPAIGN MAPS ARE FLAT — ALL FIVE.** No height anywhere, no blocked tiles.
-   Every cliff and plateau in the mockups is absent from the real game and painted ground
-   cannot supply them. Giving a map relief changes evasion and reach, so it is a **rules
-   change**, not a visual one. **Owner decision, 2026-08-30: parked until terrain rules are
-   taken up**, at which point relief and "water you cannot cross" are one slice, not two.
-0. **TERRAIN IS A LIE THE RENDERER TELLS.** A painted pond is walkable, because `passable`
-   is the sim's answer and the sim was not asked. Written down in `terrain.ts`,
-   `campaign-data.ts` and AC-V18 — keep all three in step. The day water blocks movement it
-   becomes a `Tile` field with a schema bump, **never** a second opinion in `src/render`.
+0. **FOUR OF THE FIVE CAMPAIGN MAPS ARE FLAT.** Battles 1, 2, 3 and 5 have no height and
+   no blocked tiles, and painted ground cannot supply them. **Battle 4 is the exception**
+   since ADR-0031: height 2 and 45 blocked tiles, authored in its encounter file.
+   ~~Giving a map relief is a rules change, not a visual one.~~ **Both halves of that were
+   wrong and ADR-0031 disproved them the same day.** Relief and blocked water need **no
+   schema change** — the encounter format already carries per-tile `{height, passable}`, so
+   it is authored data. It does change what a fight *is*, which is why battles 1, 2, 3 and 5
+   are **parked by owner decision, 2026-08-30**: they keep the difficulty they were tuned
+   for until someone asks.
+0. **WHETHER THE PAINT AND THE RULE AGREE IS NOW PER MAP.** On battle 4 the river and the
+   gap really block, so the paint is honest. On the other four the water is decorative and
+   units wade through it — battle 2's ford is the live example. ~~"The sim was not asked"~~
+   is no longer true as a blanket statement; it is true of four maps out of five. Written
+   down in `terrain.ts`, `campaign-data.ts` and AC-V18 — keep all three in step; two of the
+   three went stale after ADR-0031 and had to be corrected. What stays forbidden is a
+   **second opinion in `src/render`**: this layer never answers "may I stand there".
 0. **`viewFor` IS ON THE CLICK PATH.** `draw` and `pickTile` share the camera the way they
    already share `paintOrder`. A zoom applied to the painting and not the inverse offsets
    every click by a constant factor — it does not fail, it just misses. `originFor` now
    returns a **world** origin; a screen point is `project(...) * scale`. `e2e/play.spec.ts`
-   and `iso.test.ts` both convert, and AC-V19's discriminator is that the *unscaled* point
-   lands on a different tile.
+   and `iso.test.ts` both convert. AC-V19's discriminator is that the *unscaled* point does
+   **not** resolve to the same tile — at `iso.test.ts`'s 900×600 canvas it returns `null`,
+   not another tile, and the shipped pages are **900×440**. Never read a scale off a test
+   here as what a player sees.
 0. **NOTHING STANDING IS OCCLUDED BY TERRAIN.** Props and units draw in a second pass over
    the finished ground, because drawing a tree inside the painter's walk let the next tile
-   paint over its canopy — on a flat map, every prop. The opposite error is now live: a
-   unit behind a tall cliff would show through. Harmless while the maps are flat.
+   paint over its canopy — on a flat map, every prop. The opposite error is live: a unit
+   behind a tall cliff shows through. ~~Harmless while the maps are flat.~~ **Battle 4 has
+   walls now.** It stays invisible only because every *passable* tile on battle 4 is the
+   same height, so nothing can stand behind anything. The first map with two standable
+   heights owes the fix.
 0. **FOLIAGE MUST NOT BE THE GROUND'S OWN GREEN.** A canopy in the grass colour is
    invisible everywhere except against the sky, which is the edge of the map.
-   `terrain.test.ts` asserts `DAYLIGHT.leaf !== surfaces.grass.base`.
-0. **A LIGHT RANGE PANEL DESATURATES TO GREY OVER GRASS.** `FIELD_THEME.highlight` is a
-   deep blue at moderate alpha for that reason; the first pale-blue attempt read as
-   concrete slabs laid on the field. Blue is the one channel a green-and-earth field
-   leaves free, which is also why FFT uses it.
+   ~~`terrain.test.ts` asserts `leaf !== grass.base`.~~ **String inequality was the bug**, not
+   the check: a shipped `leafLit` of `#548b38` against a grass mottle of `#5c8737` is
+   contrast **1.03** and passed `!==` fine. `terrain.test.ts` now asserts a **WCAG contrast
+   ratio floor of 1.6** for both canopy tones against all three grass tones.
+0. **A RANGE PANEL HAS TWO GROUNDS TO SEPARATE FROM, NOT ONE.** `FIELD_THEME.highlight` is
+   `#8fd0ffb3` — a **light blue at 70% alpha**. ~~A deep blue at moderate alpha.~~ That was
+   an earlier *failed* attempt: it desaturated to grey over grass exactly as the first pale
+   blue did, and a saturated `#2d6fd8` then landed within four points of the river. Only
+   **opacity** moves a translucent colour off its ground, so the panel is lighter than the
+   ground rather than a different hue. **Do not "restore" a darker blue.** The margin is
+   thin in two places — WCAG 1.07 over `sand.base`, 1.08 over `water.detail`, against
+   1.5–3.3 elsewhere — and **nothing asserts any of it**; `contrast.spec.ts` cannot see a
+   canvas. The measured table is in `iso.ts`'s `FIELD_THEME` comment.
 0. **THE UNIT TOKEN IS UNDECIDED.** Still the flat kite. Do not change it inside another
    slice — three options were drawn and the owner has not picked. Bundled with the portrait
    references (see the table above).
-0. **A MAP CAN ONLY LOOK LIKE WHAT THE GRID ALLOWS.** "The Broken Span" reads as a wooden
-   platform, not a span over anything, because there is nothing to span; the ford's river
-   is crossable everywhere because the sim was never told there is a river. Both are the
-   flat-map limit, not authoring. Do not try to paint around it.
+0. **A MAP CAN ONLY LOOK LIKE WHAT THE GRID ALLOWS.** ~~"The Broken Span" reads as a wooden
+   platform, not a span over anything~~ — **fixed by ADR-0031**, which gave it real height
+   and real blocked water. The ford still stands as the example: its river is crossable
+   everywhere because the sim was never told there is a river. That is the flat-map limit,
+   not authoring. Do not try to paint around it — author the tiles instead, which costs no
+   schema change.
 0. **`visual-artifacts/playtest/map-battle-{1..5}.png` ARE THE ONLY VIEW OF THE MAPS.**
    `playtest-capture.spec.ts` shoots the canvas alone for each battle. Nothing in the suite
    can see a canvas, so after any change to `iso.ts`, `terrain.ts` or a `TERRAIN` entry,
@@ -135,9 +157,13 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    a climb of 4+ severs the map, so **height cannot currently gate a route**. The "stepped
    span" variant looked like a design lever and is not one. If height is ever to be a route
    choice, Jump has to vary by job first — a job-system decision, not a terrain one.
-0. **A BLOCKED TILE MUST NEVER LOOK LIKE GROUND** (AC-V20). The failure is an invisible
-   wall: a click on solid-looking ground that does nothing, with nothing on screen to
-   explain it. Asserted for every battle. **The converse is NOT asserted on purpose** —
+0. **A BLOCKED TILE MUST BE PAINTED `water`** (AC-V20) — an **allow-list of one**, not a
+   deny-list. The failure is an invisible wall: a click on solid-looking ground that does
+   nothing, with nothing on screen to explain it. The first version listed the surfaces that
+   read as walkable and so exempted **`rock`**, which is walkable ground on battles 3 and 4;
+   painting battle 4's gap as rock passed it and produced the exact defect. Asserted for
+   every battle. Any new surface is walkable-looking by default — add it deliberately.
+   **The converse is NOT asserted on purpose** —
    battle 2's ford river is paint and units wade anywhere. The day water blocks everywhere,
    that check becomes an equality and battle 2 needs a real crossing.
 0. **A UNIT CAN BE AUTHORED INTO THE RIVER.** Placements live in the encounter, paint lives
@@ -156,7 +182,10 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    `npx playwright test one.spec.ts` can no longer step around it, and
    `playtest-capture.spec.ts` **clears** `visual-artifacts/playtest/` before it starts, so
    a run that dies leaves a missing frame rather than yesterday's. The browser-spec count
-   dropped 43 → 42 because the guard is no longer a spec; that is the fix, not a regression.
+   dropped 43 → 42 when the guard stopped being a spec; that was the fix, not a regression.
+   **It is back to 43** — the adversarial-review slice (`c1507dc`) added the page-to-terrain
+   canvas assertion in `campaign.spec.ts`. Current counts: **884 unit tests, 43 browser
+   specs in 8 files.**
 
 ---
 
@@ -171,7 +200,7 @@ tests this repo would have called discriminating.
 | The page-to-terrain wire had **no test**. One property name (`encounterId` → `battleId`, both real) reverted all five battles to the old dark board | typecheck, lint and 880 unit tests green |
 | The blocked-tile check listed the surfaces that read as *walkable* and so exempted `rock` — which **is** walkable ground in two shipped maps | 42/42 green; painting the gap as rock gave the exact invisible wall the check exists to prevent |
 | "Foliage isn't the ground's green" was string inequality. Shipped `leafLit` was **contrast 1.03** against the grass mottle | 16/16 green |
-| The camera's bound charged the tallest tile's lift at the top AND its base at the bottom | battle 4 — the only map with relief, and the one the camera exists for — drew below 1:1 |
+| The camera's bound charged the tallest tile's lift at the top AND its base at the bottom | battle 4 — the only campaign map with relief — drew below 1:1. (The camera exists because **battle 1**, a 7×5 map, filled under half the frame; battle 4 is where the *bound* failed. Two different things, conflated in the first write-up.) |
 
 ### Traps this bought
 

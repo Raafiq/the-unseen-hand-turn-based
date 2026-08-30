@@ -58,19 +58,27 @@ whole purpose is to find out whether the look is right. So the renderer paints a
 a unit walks straight through.
 
 **That is a lie the renderer tells, and it is written down in three places** (`terrain.ts`,
-`campaign-data.ts`, AC-V18) rather than left for someone to discover. The day water blocks
-movement it becomes a `Tile` field with a migration — never a second opinion held in the
-render layer, which would put two answers to "may I stand there" in the codebase with only
-one of them authoritative.
+`campaign-data.ts`, AC-V18) rather than left for someone to discover. ~~The day water blocks
+movement it becomes a `Tile` field with a migration~~ — **wrong, and disproved by ADR-0031
+the same day**: the encounter format already carried per-tile `{height, passable}`, so
+blocking water is authored data with no `Tile` field, no version bump and no migration.
+What survives is the part that mattered: **never a second opinion held in the render
+layer**, which would put two answers to "may I stand there" in the codebase with only one
+of them authoritative. All three places have been corrected.
 
 ## Amendment, 2026-08-30 — all five battles painted
 
 Battle 1 shipped alone, the owner judged it against before/after frames from the running
 game, and said go. The other four are now authored: **the ford** (a river with a sand
 crossing where the road meets it), **the hollow watch** (a flagstone floor with four broken
-pillars), **the broken span** (a plank deck between rock ledges, its middle collapsed to
-rubble), and **the warchief's camp** (ground trampled to dirt and sand around a plank
-floor with banner posts).
+pillars), **the broken span** (a plank deck between rock ledges, ~~its middle collapsed to
+rubble~~ **its middle open to the water below**), and **the warchief's camp** (ground
+trampled to dirt and sand around a plank floor with banner posts).
+
+> **Corrected 2026-08-30.** The collapsed middle is painted **`water`**, not rubble, and
+> under AC-V20 it must be: `water` is the only surface a blocked tile may be painted.
+> Rubble would have been `rock`, rock is walkable ground on this very map's abutments, and
+> a rock-painted gap is the invisible wall the check exists to prevent (fixed in `c1507dc`).
 
 The coverage check is now **bidirectional**: every battle must be painted, and every map
 must belong to a battle. The first direction is a forcing function — a sixth battle cannot
@@ -129,7 +137,9 @@ that choice for them.
   > (2026-08-30).** The canopy fix changed the hex and asserted `!==`, shipping a `leafLit`
   > at contrast **1.03** against the grass mottle — the same colour to an eye, on two of
   > the five canopy blobs. And the camera's bound over-estimated any map with relief, so
-  > battle 4 — the one map the camera exists for — drew below 1:1 in a half-empty sky.
+  > battle 4 — ~~the one map the camera exists for~~ **the only campaign map with height** —
+  > drew below 1:1 in a half-empty sky. (The camera exists because battle 1, a 7×5 map,
+  > drew at under half the canvas; battle 4 is where the *bound* failed. Different things.)
   > **The third was wrong too.** The range panels were re-toned to a deeper blue and
   > recorded as resolved; the shipped frame still showed grey concrete slabs on a field,
   > because *any* translucent blue over green composites toward teal and only opacity
@@ -151,4 +161,18 @@ that choice for them.
 
 Nothing here measures whether the map is *good*, or whether a player reads it faster than
 the old board. No contrast measurement covers the canvas — `contrast.spec.ts` measures DOM
-text, and the battlefield is pixels. And no human has seen it.
+text, and the battlefield is pixels. ~~And no human has seen it.~~
+
+> **Corrected 2026-08-30 — that sentence contradicted this ADR's own amendment.** The
+> owner **has** seen it: battle 1 was judged against before/after frames from the running
+> game and approved, and the broken-span variants were chosen the same way (ADR-0031). What
+> is still true, and is the claim that was meant: **nobody has PLAYED it.** No human has sat
+> with the painted board in motion, so legibility, readability of the range panel in a real
+> turn, and whether the map helps or distracts are all unmeasured. Judging a frame is not
+> playing a battle.
+
+**Also not asserted: the range panel's separation from every ground.** The
+"brighter than every ground" claim below is directionally true by luminance on all 18
+surface tones, but the *margin* is thin in two places — WCAG contrast **1.07** against
+`sand.base` and **1.08** against `water.detail`, against 1.5–3.3 elsewhere. No test checks
+any of it. See `iso.ts`'s `FIELD_THEME` comment for the measured table.

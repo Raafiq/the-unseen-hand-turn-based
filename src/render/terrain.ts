@@ -3,10 +3,25 @@
  *
  * **This layer is paint, not rules** (user decision, 2026-08-30). Nothing here reaches
  * `BattleState`: the sim's tile is still `{height, passable}` and knows nothing about
- * grass or water. A unit walks across a painted pond exactly as it walks across painted
- * grass, because passability is the sim's answer and the sim was not asked. That is a
- * deliberate, temporary lie the renderer tells, and the day water blocks movement it
- * becomes a `Tile` field with a schema bump — not a second opinion held here.
+ * grass or water. Passability is the sim's answer, always.
+ *
+ * WHERE THE PAINT AND THE RULE AGREE, AND WHERE THEY DO NOT (updated for ADR-0031):
+ *
+ * - `camp-b4-the-broken-span` — the river and the gap are REAL. Those tiles are
+ *   `passable: false` in the encounter file, so the paint is honest there.
+ * - Every other campaign map — the paint is decorative. Battle 2's ford river is the
+ *   live example: a unit wades straight across it.
+ *
+ * So "a painted pond is walkable" is a per-map fact now, not a property of this layer.
+ * AC-V20 polices the direction that matters: a tile the sim BLOCKS must be painted
+ * `water`. The converse is deliberately unasserted while the ford's river is paint.
+ *
+ * NO SCHEMA CHANGE IS NEEDED TO MAKE WATER BLOCK. An earlier version of this comment
+ * said the day water blocks movement it "becomes a `Tile` field with a schema bump".
+ * That was wrong and ADR-0031 disproved it: the encounter format already carries per-tile
+ * `{height, passable}`, so blocking water is authored data — no `Tile` field, no version
+ * bump, no save migration. What remains forbidden is a SECOND OPINION held here: this
+ * module must never answer "may I stand there".
  *
  * WHY A SEPARATE MODULE FROM `iso.ts`. This one is pure data: kinds, a parse with real
  * validation, and a palette. It imports no canvas, so `terrain.test.ts` can prove a

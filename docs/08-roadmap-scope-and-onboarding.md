@@ -57,9 +57,12 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > stays ≥ 8. Reconciled again on **2026-08-30** for the broken-span slice
 > (ADR-0031): **nothing below moved for the eighth time.** Giving one campaign map real
 > height and blocked tiles is authored encounter data — no schema change, no engine
-> deliverable — and the six balance test battles were deliberately left flat by owner
-> decision, so P2's `N ≥ 8` is **still open at N = 7** and still comparable to every past
-> measurement.
+> deliverable — and the six balance test battles were **left untouched** by owner decision,
+> so P2's `N ≥ 8` is **still open at N = 7** and still comparable to every past measurement.
+> ~~"left flat"~~ **— corrected 2026-08-30, that was never true.** `enc-the-high-ground` has
+> carried heights 0–3 and `enc-the-breach` 4 blocked tiles since the P2 benchmark slice
+> (`6309a7f`). The property that keeps the score comparable is that **no test battle
+> changed**, not that they are featureless.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists

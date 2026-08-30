@@ -4,15 +4,15 @@
 [![Pages](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/Raafiq/the-unseen-hand-turn-based/actions/workflows/pages.yml)
 
 **Play it:** [▶ the campaign](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
-[engine viewer](https://raafiq.github.io/the-unseen-hand-turn-based/) ·
+[engine viewer](https://raafiq.github.io/the-unseen-hand-turn-based/viewer.html) ·
 [visual gallery](https://raafiq.github.io/the-unseen-hand-turn-based/visual/) ·
 [state of the engine](https://raafiq.github.io/the-unseen-hand-turn-based/state/)
 
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
-> **Status: M0 — the playable slice, in progress.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`), backed by 688 tests, 17 browser specs, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007).
+> **Status: M0 — all seven items built.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`), backed by 884 tests, 43 browser specs, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007).
 >
-> **You can now play a campaign start to finish** — title screen, New Game / Continue, five battles in order, scene text before and after each one, a prep screen between them (spend AP, change job, change loadout), a party that keeps what it earns, and one save slot in the browser (ADR-0022, ADR-0023, ADR-0024). What M0 still lacks: equipment and onboarding (`docs/11` §3).
+> **You can play a campaign start to finish** — title screen, New Game / Continue, five battles in order, a scene player that reads story a line at a time beside a portrait frame, a prep screen between battles (spend AP, change job, change loadout), weapons on an authored drip, a party that keeps what it earns, and one save slot in the browser (ADR-0022 … ADR-0026, ADR-0029). The campaign is the **site root** (`/`); the engine viewer is `/viewer.html`. ~~What M0 still lacks: equipment and onboarding.~~ Both shipped (ADR-0025, ADR-0026). **What is NOT established: that a stranger can play it** — nobody outside the build has played it, so difficulty, pacing and session length are all unmeasured (`docs/11` §3).
 >
 > The **engine** roadmap sits at P2 with one open exit criterion — the build-diversity gate, at **N=7** against a release bar of ≥8 (`docs/06` AC-E2, ADR-0014) — **carried into M1 by an explicit decision** (`docs/11` §3): it is a balance-quality bar, not a playability one. The docs in `docs/` remain the source of truth and outrank the code where they disagree.
 

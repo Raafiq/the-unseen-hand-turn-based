@@ -67,7 +67,10 @@ anything, and reaches a real ending — win or lose.**
 > (ADR-0024).** The campaign is playable by a person, end to end, at the **site root** (`/`; the old `/game.html` redirects there):
 > title screen → New Game / Continue → briefing (**scene text + prepare the party**) →
 > the real battle → win or lose (**with different text for each**) → next or retry →
-> ending. One save slot in `localStorage`. `/` stays the engine viewer and links to it.
+> ending. One save slot in `localStorage`. ~~`/` stays the engine viewer and links to it.~~
+> **Corrected 2026-08-30 — it contradicted the sentence above it and AC-V14.** `/` is the
+> **campaign**; the engine viewer moved to **`/viewer.html`**, and the campaign links to it.
+> `e2e/routes.spec.ts` asserts the two are different pages.
 > What is done and what is not:
 >
 > | M0 item | State |
@@ -75,7 +78,7 @@ anything, and reaches a real ending — win or lose.**
 > | 1. Shell | **done** — `index.html` (the site root) + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
 > | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
-> | 4. Story stubs | **done** (ADR-0024) — `src/sim/story.ts` (schema, no prose) + `data/campaign/story/camp-the-first-march.story.json` (pre / victory / defeat per battle). `mid` hooks are deliberately out — see the ADR |
+> | 4. Story stubs | **done** (ADR-0024), and **superseded by story v2** (ADR-0029). ~~`src/sim/story.ts` (schema, no prose) + a pack with pre / victory / defeat per battle~~ — the pack is now `storySchemaVersion: 2`: per-line speakers, a `characters` registry, and **3 standalone scenes** (prologue, interlude, epilogue) that belong to no battle. Text is read one line at a time beside a portrait frame (`src/render/scene.ts`, AC-V16/V17). `mid` hooks are still deliberately out |
 > | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
 > | 7. Onboarding | **done** (ADR-0025) — a `?` panel on the game page, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |

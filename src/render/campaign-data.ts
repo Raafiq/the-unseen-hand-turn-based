@@ -145,10 +145,16 @@ export function battleTitle(encounterId: string): string {
  * One authored row of letters per grid row: `g` grass, `d` dirt, `r` rock, `w` water,
  * `s` sand, `p` wood. Props stand on tiles and block nothing.
  *
- * **This is presentation and nothing else.** No entry here reaches `BattleState`, so a
- * unit walks across painted water exactly as it walks across painted grass — the sim's
- * `passable` is still the only answer to "may I stand there", and it was not asked.
- * See `terrain.ts` for why that is deliberate rather than an oversight.
+ * **This is presentation and nothing else.** No entry here reaches `BattleState`; the
+ * sim's `passable` is the only answer to "may I stand there".
+ *
+ * WHETHER IT WAS ASKED IS NOW PER-MAP (ADR-0031). `camp-b4-the-broken-span` authors real
+ * `passable: false` tiles in its encounter file, so its river and its gap block movement
+ * and the paint below is honest. The other four maps author no tiles at all, so their
+ * water is decorative and a unit wades through it — battle 2's ford is the live example.
+ * An earlier version of this comment said flatly that "the sim was not asked"; that has
+ * been false since ADR-0031. See `terrain.ts`, and note that making water block needs no
+ * schema change — it is authored encounter data.
  *
  * EVERY BATTLE MUST HAVE AN ENTRY. Battle 1 shipped alone first so the look could be
  * judged in the real game; the owner said go on 2026-08-30 and the other four followed,

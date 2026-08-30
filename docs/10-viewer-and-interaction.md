@@ -294,16 +294,25 @@ degenerate fixture where all orderings coincide).
   grid colour is stroked once per tile without terrain and **never** with it. A test that
   merely passed a map and checked it was accepted would look identical whether the renderer
   painted it or discarded it (the "validates its input and then discards it" shape). Props
+  are asserted by **draw order** — the leaf colour must arrive after the last ground fill —
+  because drawing a prop inside the painter's walk lets the next tile paint over its
+  canopy, which on a flat map is every prop on the board and which no colour-presence
+  assertion can see.
+
   **A surface's own texture may not draw a lattice either.** "No grid" is about what the
   player sees, not about whether `stroke()` was called: a fixed-offset band inside the water
   branch repeated identically on every water tile and drew a plain grid across a river while
   satisfying the stroke check exactly. Every texture is now placed by the tile's own seeded
   noise for that reason. That half is carried by the frames, not by a test — said here
-  rather than left implied. Props
-  are asserted by **draw order** — the leaf colour must arrive after the last ground fill —
-  because drawing a prop inside the painter's walk lets the next tile paint over its
-  canopy, which on a flat map is every prop on the board and which no colour-presence
-  assertion can see. The map's dimensions SHALL be checked against the grid in **both**
+  rather than left implied.
+
+  **NOT ASSERTED: the side-face half of this criterion.** No test checks that a face is
+  drawn only where the ground drops or at the map's edge. `iso.test.ts` asserts the surface
+  colours reached the canvas and that no grid line was stroked; the culling against the
+  neighbour's height is carried by the frames alone, exactly like the lattice half above.
+  Said here rather than left implied.
+
+  The map's dimensions SHALL be checked against the grid in **both**
   directions: a short map leaves tiles unpainted, and a long one paints tiles that do not
   exist, and the terrain/battle coverage SHALL be checked in both directions too — a battle
   with no map draws the flat look by omission, and a map keyed to a renamed battle is
@@ -313,15 +322,35 @@ degenerate fixture where all orderings coincide).
 - **AC-V19 (one camera, shared by the painting and the click):** The renderer SHALL fit the
   whole board to its canvas, and `pickTile` SHALL invert **the same** fit. *Discriminator:*
   the unscaled point — the canvas coordinate a `pickTile` that ignored the zoom would be
-  handed — MUST resolve to a **different** tile, and the fixture MUST assert the zoom is
-  greater than 1, or the A/B is between two identical numbers and certifies nothing. This
-  is the same hazard as AC-V10's height-ignoring inverse and harder to see: a mis-scaled
-  inverse offsets every click by a constant factor rather than failing outright. **Met**
-  (ADR-0030).
+  handed — MUST NOT resolve to the tile the scaled point resolves to, and the fixture MUST
+  assert the zoom is greater than 1, or the A/B is between two identical numbers and
+  certifies nothing. This is the same hazard as AC-V10's height-ignoring inverse and harder
+  to see: a mis-scaled inverse offsets every click by a constant factor rather than failing
+  outright. **Met** (ADR-0030).
+
+  **The wording was weakened on 2026-08-30 to match what is asserted.** ~~"MUST resolve to
+  a **different** tile"~~ overstated it: the test uses `not.toEqual`, which `null` — off the
+  grid entirely — satisfies. Measured on the fixture: at the test's 900×600 canvas the
+  unscaled point returns **`null`**, not another tile. (At the shipped 900×440 canvas the
+  same point returns `{x: 1, y: 2}`, so the stronger claim would hold there.) The A/B still
+  discriminates — an inverse ignoring the zoom fails it — but "a different tile" is not what
+  it proves. Tightening the test to a named non-null tile is open work for `qe-tester`.
 
 - **AC-V20 (a blocked tile never looks like ground):** For every battle, a tile the sim
-  marks impassable SHALL be painted as a surface a player reads as impassable — never as
-  grass, dirt, sand or planking. *Discriminator:* painting one blocked tile as grass MUST
+  marks impassable SHALL be painted **`water`** — the one surface that reads as impassable.
+  This is an **allow-list of one, not a deny-list**, and the direction is the whole point.
+
+  ~~"never as grass, dirt, sand or planking"~~ **— corrected 2026-08-30, the shipped test
+  is right and this AC was wrong.** A deny-list names the surfaces that read as walkable and
+  lets everything else through, which silently exempted **`rock`**. Rock is walkable ground
+  in two shipped maps: all of battle 3's centre, and battle 4's own abutments, which the
+  party stands on. Painting battle 4's gap as rock passed the deny-list and produced exactly
+  the invisible wall this criterion exists to prevent — a continuous stone ledge, identical
+  to the one under your feet, that refuses the click. That defect shipped and was fixed in
+  `c1507dc`. Any future surface (mud, ice, chasm) is walkable-looking by default under an
+  allow-list, and must be added deliberately; under a deny-list it is exempt by default.
+
+  *Discriminator:* painting one blocked tile as grass MUST
   fail the check, **and** removing every blocked tile MUST fail it too — without the second
   half the loop is vacuous on a flat map and passes against a renderer that paints blocked
   tiles as lawn. The converse (painted water a unit can cross) is deliberately **not**

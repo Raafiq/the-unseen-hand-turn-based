@@ -16,6 +16,21 @@ import { makeDemoBattle } from "./demo.js";
 import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
 import { DAYLIGHT, parseTerrain, type TerrainMap } from "./terrain.js";
 
+/**
+ * THIS IS NOT THE SHIPPED CANVAS. `index.html` and `viewer.html` both declare
+ * `900x440`; every number measured in this file is measured at `900x600`, which is
+ * taller and therefore zooms MORE. Two consequences worth knowing before you read a
+ * figure off a test here:
+ *
+ * - Scales differ. Battle 4 fits at 1.53 here and 1.15 on the real page; the demo board
+ *   at 1.72 here and 1.28 there.
+ * - AC-V19's unscaled point falls OFF the grid at this height and returns `null`. At
+ *   900x440 the same point lands on tile (1, 2). `not.toEqual` is satisfied either way,
+ *   which is why AC-V19's wording was weakened to "not the same tile".
+ *
+ * Deliberate — the ratios and orderings these tests assert are canvas-independent — but
+ * do not quote a scale from here as if it were what a player sees.
+ */
 const CANVAS_W = 900;
 const CANVAS_H = 600;
 
@@ -195,9 +210,10 @@ describe("the camera — viewFor", () => {
   it("uses the frame it is given rather than leaving it half empty", () => {
     // The camera exists because a small map drew at under half the canvas. A fit that
     // is merely *inside* the frame satisfies the test above at any scale; this is the
-    // half that says it actually filled it. Measured on the demo board: 0.93 of one
-    // axis. The floor is well below that, so it fails on a real regression rather than
-    // on a pixel of drift.
+    // half that says it actually filled it. Re-measured 2026-08-30 on the demo board:
+    // 0.978 of one axis here, 0.955 on the shipped 900x440 canvas. (The old comment said
+    // 0.93; that was never the reading.) The floor is well below both, so it fails on a
+    // real regression rather than on a pixel of drift.
     const e = extentOf(makeDemoBattle(), CANVAS_W, CANVAS_H);
     const fill = Math.max((e.right - e.left) / CANVAS_W, (e.bottom - e.top) / CANVAS_H);
     expect(fill).toBeGreaterThan(0.85);
@@ -429,8 +445,10 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
 
   it("DISCRIMINATING: a prop is painted AFTER every tile, not inside the tile walk", () => {
     // Earned. Drawing a tree inside the painter's walk let the very next tile paint
-    // over its canopy — on a flat map, which all five campaign maps are, that is every
-    // tree on the board. This asserts the second pass by ORDER: the leaf colour must
+    // over its canopy — on a flat map that is every tree on the board, and four of the
+    // five campaign maps are flat (battle 4 has height since ADR-0031, but every
+    // passable tile on it sits at the same height). This asserts the second pass by
+    // ORDER: the leaf colour must
     // arrive after the last ground fill. Interleaved, a back-row tree fails it.
     const { ctx, fills } = recordingCtx();
     draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {
