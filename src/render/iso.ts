@@ -104,21 +104,42 @@ export const FIELD_THEME: Theme = {
   // hue: over grass it lands near rgb(133, 192, 199) and over the river near
   // rgb(119, 182, 229).
   //
-  // MEASURED, AND THINNER THAN "much brighter" SOUNDS. Compositing #8fd0ff at 70% over
-  // all 18 shipped surface tones (6 kinds x base/mottle/detail), the panel is the lighter
-  // of the pair every time — the direction holds everywhere — but the WCAG ratio is:
+  // MEASURED TWICE, AND THE FIRST METRIC WAS THE WRONG ONE. Compositing #8fd0ff at 70%
+  // over all 18 shipped surface tones (6 kinds x base/mottle/detail), the panel is the
+  // lighter of the pair every time — the direction holds everywhere. The WCAG contrast
+  // ratios, and the CIEDE2000 perceptual distances for the same pairs:
   //
-  //   sand.base    1.07   <- thinnest; sand is battles 2 and 5
-  //   water.detail 1.08   <- the river's own highlight, battles 2 and 4
-  //   sand.mottle  1.25 | rock.base 1.51 | dirt.base 1.53 | water.mottle 1.54
-  //   grass.base   1.63 | ... | wood.detail 3.34
+  //                  WCAG   dE00
+  //   sand.base      1.07   29.8   <- sand is battles 2 and 5
+  //   water.detail   1.08    4.0   <- the river's own crest strokes, battle 2 only
+  //   sand.mottle    1.25   31.3
+  //   rock.base      1.51   23.3 | dirt.base 1.53 32.8 | water.mottle 1.54 10.8
+  //   grass.base     1.63   31.0 | water.base 2.10 19.5 | wood.detail 3.34 45.3
   //
-  // So the mechanism carries grass, dirt, rock and wood, and is nearly invisible on pale
-  // sand and on a lit ripple. Do not restate this as "much brighter than any ground on
-  // every map" — that was the previous wording and it was wrong on two of eighteen tones.
-  // NOTHING ASSERTS ANY OF IT: there is no canvas contrast test (`contrast.spec.ts` reads
-  // DOM text only), so these numbers are a hand measurement, not a guard. Re-measure
-  // before touching either colour, and read the frames.
+  // DO NOT READ A VERDICT OFF THE WCAG COLUMN. A doc audit read `sand.base 1.07` as "a
+  // player cannot see which tiles they may walk to on sand" and opened it as a defect.
+  // It is not one. WCAG contrast is a LUMINANCE-ONLY ratio built for text on a
+  // background: sand and the composited panel happen to share a luminance while sitting
+  // on opposite sides of the colour wheel, so the ratio collapses while the colours do
+  // not. Perceptually that pair is 29.8 apart — the sixth-largest separation of the
+  // eighteen — and `visual-artifacts/playtest/map-battle-5.png` shows it plainly: pale
+  // blue slabs on warm tan. Sampled from that frame, panelled sand is #a3cada against
+  // bare sand #d3bb85.
+  //
+  // The one genuinely close pair is `water.detail` at dE00 4.0, and it is not a defect
+  // either, for the reason `terrain.test.ts` already excludes `detail` from the canopy
+  // floor: it is 2-3 crest strokes 1.3px wide, under 5% of a tile. What a player
+  // compares is tile to tile, i.e. base to base — panelled river #76b6e5 against bare
+  // river #3f7ba8, dE00 19.5, sampled from map-battle-2.png. And the "battles 2 and 4"
+  // in the previous wording was wrong: battle 4 authors 45 of its 77 tiles
+  // `passable: false` (ADR-0031), so a move range never lands on its water at all.
+  //
+  // THIS IS NOW GUARDED, where the previous note said nothing asserted it. `iso.test.ts`
+  // holds two floors on dE00 — the panel must separate from the ground it sits on AND
+  // must not resemble a DIFFERENT bare ground — because the three failures above show
+  // one floor cannot express a two-sided constraint. Both historical colours are
+  // mutation-verified against it. Re-run it before touching either colour, and read the
+  // frames; the numbers above are a hand measurement and only the floors are enforced.
   //
   // The cost is deliberate and is what FFT pays too: the texture under a panel is
   // mostly hidden. The panel is information; the ground beneath it is not.

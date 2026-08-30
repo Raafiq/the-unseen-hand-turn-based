@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { createBattleState, defaultUnit, makeFlatTiles, moveRange, type BattleState, type Position } from "../sim/index.js";
 import { makeDemoBattle } from "./demo.js";
 import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
-import { DAYLIGHT, parseTerrain, type TerrainMap } from "./terrain.js";
+import { DAYLIGHT, parseTerrain, TERRAIN_KINDS, type TerrainMap } from "./terrain.js";
 
 /**
  * THIS IS NOT THE SHIPPED CANVAS. `index.html` and `viewer.html` both declare
@@ -401,6 +401,105 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
   const GRASS = DAYLIGHT.surfaces.grass.base;
   const WATER = DAYLIGHT.surfaces.water.base;
 
+  // ── colour maths, for the range-panel floors below ────────────────────────
+
+  /** `#rgb`, `#rrggbb` or `#rrggbbaa` -> [r, g, b, a] with a in 0..1. */
+  function rgba(hex: string): [number, number, number, number] {
+    const n = hex.replace("#", "");
+    const at = (i: number): number => parseInt(n.slice(i, i + 2), 16);
+    return [at(0), at(2), at(4), n.length >= 8 ? at(6) / 255 : 1];
+  }
+
+  /** Source-over composite of a possibly-translucent `fg` onto an opaque `bg`. */
+  function compositeOver(fg: string, bg: string): string {
+    const [fr, fg_, fb, a] = rgba(fg);
+    const [br, bg_, bb] = rgba(bg);
+    const mix = (f: number, b: number): number => Math.round(a * f + (1 - a) * b);
+    return `#${[mix(fr, br), mix(fg_, bg_), mix(fb, bb)]
+      .map((v) => v.toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+
+  const srgbToLinear = (c: number): number =>
+    c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4;
+
+  /** WCAG relative luminance. Used only for the "always lighter" direction check. */
+  function luminance(hex: string): number {
+    const [r, g, b] = rgba(hex).map(srgbToLinear) as [number, number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /** CIE L*a*b* (D65), the space CIEDE2000 is defined in. */
+  function toLab(hex: string): [number, number, number] {
+    const [r, g, b] = rgba(hex).map(srgbToLinear) as [number, number, number, number];
+    const f = (t: number): number =>
+      t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29;
+    const x = f((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047);
+    const y = f(0.2126729 * r + 0.7151522 * g + 0.072175 * b);
+    const z = f((0.0193339 * r + 0.119192 * g + 0.9503041 * b) / 1.08883);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  }
+
+  /**
+   * CIEDE2000 perceptual colour difference. ~1 is the just-noticeable difference for
+   * adjacent patches; >10 is unmistakable. This is the metric a "can I tell these two
+   * tiles apart" question needs, where a WCAG ratio answers a different question —
+   * see the floor test for why that distinction is the whole point here.
+   */
+  function deltaE00(c1: string, c2: string): number {
+    const rad = Math.PI / 180;
+    const [L1, a1, b1] = toLab(c1);
+    const [L2, a2, b2] = toLab(c2);
+    const C1 = Math.hypot(a1, b1);
+    const C2 = Math.hypot(a2, b2);
+    const Cbar = (C1 + C2) / 2;
+    const G = 0.5 * (1 - Math.sqrt(Cbar ** 7 / (Cbar ** 7 + 25 ** 7)));
+    const ap1 = (1 + G) * a1;
+    const ap2 = (1 + G) * a2;
+    const Cp1 = Math.hypot(ap1, b1);
+    const Cp2 = Math.hypot(ap2, b2);
+    const hue = (a: number, b: number): number => {
+      if (a === 0 && b === 0) return 0;
+      const d = Math.atan2(b, a) / rad;
+      return d < 0 ? d + 360 : d;
+    };
+    const hp1 = hue(ap1, b1);
+    const hp2 = hue(ap2, b2);
+    const dL = L2 - L1;
+    const dC = Cp2 - Cp1;
+    let dh = 0;
+    if (Cp1 * Cp2 !== 0) {
+      dh = hp2 - hp1;
+      if (dh > 180) dh -= 360;
+      else if (dh < -180) dh += 360;
+    }
+    const dH = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin((dh * rad) / 2);
+    const Lbar = (L1 + L2) / 2;
+    const Cpbar = (Cp1 + Cp2) / 2;
+    let hbar: number;
+    if (Cp1 * Cp2 === 0) hbar = hp1 + hp2;
+    else {
+      hbar = (hp1 + hp2) / 2;
+      if (Math.abs(hp1 - hp2) > 180) hbar += hp1 + hp2 < 360 ? 180 : -180;
+    }
+    const T =
+      1 -
+      0.17 * Math.cos((hbar - 30) * rad) +
+      0.24 * Math.cos(2 * hbar * rad) +
+      0.32 * Math.cos((3 * hbar + 6) * rad) -
+      0.2 * Math.cos((4 * hbar - 63) * rad);
+    const Sl = 1 + (0.015 * (Lbar - 50) ** 2) / Math.sqrt(20 + (Lbar - 50) ** 2);
+    const Sc = 1 + 0.045 * Cpbar;
+    const Sh = 1 + 0.015 * Cpbar * T;
+    const Rt =
+      -2 *
+      Math.sqrt(Cpbar ** 7 / (Cpbar ** 7 + 25 ** 7)) *
+      Math.sin(60 * Math.exp(-(((hbar - 275) / 25) ** 2)) * rad);
+    return Math.sqrt(
+      (dL / Sl) ** 2 + (dC / Sc) ** 2 + (dH / Sh) ** 2 + Rt * (dC / Sc) * (dH / Sh),
+    );
+  }
+
   function flat3x3(): TerrainMap {
     return parseTerrain(["ggg", "ggg", "ggg"]);
   }
@@ -493,6 +592,122 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     const tiles = range();
     expect(tiles.length).toBeGreaterThan(0);
     expect(tiles).toContainEqual({ x: 1, y: 1 });
+  });
+
+  // ── the move-range panel over painted ground ──────────────────────────────
+
+  it("DISCRIMINATING: the range panel is painted, and painted AFTER the ground", () => {
+    // Two claims in one, because the second is what makes every colour number in
+    // `FIELD_THEME`'s comment mean anything. If the panel were drawn BEFORE the tile's
+    // surface, the ground would composite over the panel instead and the whole measured
+    // table would be backwards — while a fill-presence assertion stayed green, because
+    // the colour still reached the canvas.
+    // THE PANELLED TILE IS THE ONLY SAND ON THE MAP, and that is the whole fixture.
+    // A flat all-grass board cannot test the order: every tile fills with the same
+    // string, so `panel` sits between a `GRASS` before it and a `GRASS` after it no
+    // matter which way round the two passes run. Measured — that version of this test
+    // was green against a mutant that repainted the ground on top of the panel. Giving
+    // the range tile a unique surface makes `indexOf(SAND)` name THAT tile's ground.
+    const SAND = DAYLIGHT.surfaces.sand.base;
+    const oneSand = parseTerrain(["ggg", "gsg", "ggg"]);
+    const withRange = recordingCtx();
+    draw(withRange.ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      terrain: oneSand,
+      theme: FIELD_THEME,
+      range: [{ x: 1, y: 1 }],
+    });
+    const without = recordingCtx();
+    draw(without.ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      terrain: oneSand,
+      theme: FIELD_THEME,
+    });
+
+    // A/B on the output: the same board, drawn with and without a range.
+    expect(withRange.fills).toContain(FIELD_THEME.highlight);
+    expect(without.fills).not.toContain(FIELD_THEME.highlight);
+    expect(withRange.strokes).toContain(FIELD_THEME.highlightEdge);
+    // The ground under it is painted either way — so the A/B above is the panel
+    // appearing, not the tile appearing.
+    expect(without.fills).toContain(SAND);
+
+    // Order: that tile's own surface, then the panel over it.
+    const ground = withRange.fills.indexOf(SAND);
+    const panel = withRange.fills.indexOf(FIELD_THEME.highlight);
+    expect(ground).toBeGreaterThan(-1);
+    expect(panel).toBeGreaterThan(ground);
+    // Exactly one sand tile, so `indexOf` is unambiguous rather than the first of many.
+    expect(withRange.fills.lastIndexOf(SAND)).toBe(ground);
+  });
+
+  it("DISCRIMINATING: the range panel separates from every ground it can sit on", () => {
+    // WHY THIS IS NOT A WCAG CHECK. `FIELD_THEME.highlight`'s comment tabulates WCAG
+    // contrast ratios, and on `sand.base` the ratio is 1.07 — which reads as "the panel
+    // is invisible on sand" and is wrong. WCAG contrast is a LUMINANCE-ONLY metric built
+    // for text on a background; sand and the composited panel happen to share a
+    // luminance while sitting on opposite sides of the colour wheel. Judged
+    // perceptually (CIEDE2000) that pair is 29.8 apart — one of the LARGEST separations
+    // on the board, and the frames agree. A luminance floor here would fail the
+    // shipped, legible colour and pass colours that are genuinely worse.
+    //
+    // TWO FLOORS, BECAUSE THE CONSTRAINT IS TWO-SIDED. Three previous panel colours each
+    // fixed one ground and collided with the next, so one floor cannot express it:
+    //   - own-ground: a panelled tile must not look like the SAME tile unpanelled.
+    //   - cross:      a panelled tile must not look like a DIFFERENT bare ground.
+    // Mutation-verified below; each historical failure trips exactly one of them.
+    //
+    // `base` only. `mottle` and `detail` are scatter — ellipses and 1.3px crest strokes
+    // over the base, not a field — and a tile is read by its base, the same exclusion
+    // `terrain.test.ts` makes for the canopy floor. Stated so it cannot be mistaken for
+    // an oversight: `water.mottle` is 10.8 and would fail this floor, and that is
+    // correct, because nobody compares a ripple to a ripple.
+    const MIN_DE = 15;
+    const bases = TERRAIN_KINDS.map((k) => [k, DAYLIGHT.surfaces[k].base] as const);
+    const panelOn = (ground: string): string =>
+      compositeOver(FIELD_THEME.highlight, ground);
+
+    for (const [kind, ground] of bases) {
+      expect(deltaE00(panelOn(ground), ground), `panel on ${kind}`).toBeGreaterThan(
+        MIN_DE,
+      );
+      for (const [other, otherGround] of bases) {
+        if (other === kind) continue;
+        expect(
+          deltaE00(panelOn(ground), otherGround),
+          `panel on ${kind} vs bare ${other}`,
+        ).toBeGreaterThan(MIN_DE);
+      }
+    }
+
+    // The direction the design rests on: lighter than the ground, on every one of the
+    // 18 shipped tones — not just the 6 bases the floors above cover.
+    for (const kind of TERRAIN_KINDS) {
+      const s = DAYLIGHT.surfaces[kind];
+      for (const tone of [s.base, s.mottle, s.detail]) {
+        expect(luminance(panelOn(tone)), `panel on ${kind} ${tone}`).toBeGreaterThan(
+          luminance(tone),
+        );
+      }
+    }
+
+    // NON-DEGENERACY, from this repo's own history — both colours below SHIPPED, and
+    // between them they show why ONE floor cannot hold this.
+    //
+    // `#8fd0ff` at 34% "desaturated to grey over green": it fails the own-ground floor.
+    const tooFaint = compositeOver("#8fd0ff57", DAYLIGHT.surfaces.grass.base); // 0x57 = 34%
+    expect(deltaE00(tooFaint, DAYLIGHT.surfaces.grass.base)).toBeLessThan(MIN_DE);
+    //
+    // `#2d6fd8` at 65% is the interesting one. Over grass it is 44 apart from its own
+    // ground — it PASSES the own-ground floor on the tile its author was looking at,
+    // which is exactly why it shipped. What it fails is the CROSS floor: panelled grass
+    // landed within four points of the bare river, so on the ford the tiles you may
+    // walk to and the water were the same colour. Drop the cross floor and this colour
+    // comes back.
+    const collides = compositeOver("#2d6fd8a6", DAYLIGHT.surfaces.grass.base); // 0xa6 = 65%
+    expect(deltaE00(collides, DAYLIGHT.surfaces.grass.base)).toBeGreaterThan(MIN_DE);
+    expect(deltaE00(collides, DAYLIGHT.surfaces.water.base)).toBeLessThan(MIN_DE);
+    // And the helper can report a PASS as well as a fail, or the floors are a formality.
+    expect(deltaE00("#ffffff", "#000000")).toBeGreaterThan(MIN_DE);
+    expect(deltaE00("#8fd0ff", "#8fd0ff")).toBeCloseTo(0, 5);
   });
 
   it("refuses a terrain map that does not cover the grid", () => {
