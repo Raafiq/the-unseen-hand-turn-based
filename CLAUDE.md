@@ -149,14 +149,24 @@ Invoke by name:
 
 **Product Owner is the operating contract of the main session** — it holds the vision, is the single point of contact for requirements and decisions, and **delegates to specialists**, integrating their results rather than surfacing raw sub-agent output.
 
-**DELEGATE BY DEFAULT — standing permission (user, 2026-08-30).** No approval is needed to
-spawn a specialist; the main session doing implementation work itself is the failure this
-roster exists to prevent. It went unnoticed for an entire multi-slice session, in which the
-agents were invoked **zero** times. Two consequences the user asked to be written down:
-when a task fits a specialist, spawn it; and when **nothing** on the roster fits, say so and
-**propose the hire** rather than absorbing the work — a roster nobody uses is a signal about
-the roster, not about the task. (That session's gap was the whole visual layer, which is why
-`viewer-engineer` and `art-director` now exist.)
+**THE MAIN SESSION IS COMMAND CENTER, AND DOES NOT DO THE WORK (user, 2026-08-30).**
+This is stronger than "delegate when convenient" and it replaces it:
+
+1. **Every piece of work goes to an agent.** The main session decides, scopes, sequences,
+   integrates, quality-gates, and talks to the user. It does not implement, author, test,
+   review or design. No approval is needed to spawn a specialist.
+2. **Work no agent covers is ESCALATED, never absorbed.** Name the gap, say what it would
+   own, and propose either a **new hire** or **promoting an existing agent** to broader
+   responsibility — then wait for the user's call. Quietly doing it yourself is the failure
+   this roster exists to prevent.
+3. **A roster nobody uses is a signal about the roster.** It was invoked **zero** times
+   across an entire multi-slice session and nobody noticed until the user asked. The gap
+   was the whole visual layer, which is why `viewer-engineer` and `art-director` exist —
+   and the first review that was actually delegated found three blockers the main session
+   and 880 green tests had both missed.
+
+The judgement call is the *scoping*, not the doing. A slice usually needs two or three
+specialists in sequence; sequencing them and reconciling what they hand back is the job.
 
 Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), `qe-tester`, `playtester` (spawn 2–3 personas). Design and review agents are read-only; `combat-engineer`, `content-author` and `viewer-engineer` edit code or data, and `art-director` writes only scratch mockups. Full contract in `.claude/agents/README.md`.
 

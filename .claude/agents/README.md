@@ -41,6 +41,21 @@ Two boundaries worth stating because they are new and adjacent:
   that is a `.ts` file under `src/render/`. The renderer that paints it is the viewer
   engineer's.
 
+## Known coverage gaps — escalate, do not absorb
+
+Work the roster does **not** own today, found by asking who should have done what the main
+session actually did. Each is a hiring or promotion conversation with the owner, not a task
+to quietly pick up.
+
+| Uncovered work | Who did it instead | Candidate owner |
+|---|---|---|
+| **The written record** — design docs, ADRs, Acceptance Criteria, `docs/NEXT.md`. Every word of ADR-0030 and ADR-0031, and every AC in this branch, was written by the main session. `decision-record` is a skill, not an agent, so it has no owner. | main session | a new `docs-steward`, or promote `systems-designer` to own the record of what was decided |
+| **Repository and release operations** — branches, commits, PR bodies, CI, GitHub, the Pages deploy. A PR body is authored, and this repo has a written rule about it. | main session | a new `release-engineer`, or promote `qe-tester` from "does it pass" to "does it ship" |
+| **Process and tooling** — retrospectives, lint rules, hooks, CI guards, and the agent definitions themselves. The two guards added on 2026-08-30 and this very file had no owner. | main session | a new `toolsmith`, or accept that meta-work is the PO's one legitimate exception |
+
+Two things stay the PO's by definition and are **not** gaps: deciding what to build, and
+speaking to the human.
+
 ## Playtester personas (spawn 2–3 in parallel)
 
 - **Newcomer** — first time with a tactics RPG; tests onboarding and the 2-hour-bounce risk.
@@ -49,11 +64,12 @@ Two boundaries worth stating because they are new and adjacent:
 
 ## Conventions
 
-- **DELEGATE BY DEFAULT (owner, 2026-08-30).** The PO doing the work itself is the failure
-  mode this roster exists to prevent, and it went unnoticed for a whole session: the agents
-  were never once invoked. When a task fits a specialist, spawn it. When nothing fits,
-  **say so and propose the hire** rather than quietly absorbing the work — an unused roster
-  is a signal about the roster, not about the task.
+- **THE PO IS COMMAND CENTER AND DOES NOT DO THE WORK (owner, 2026-08-30).** Every piece
+  of work goes to an agent; the PO decides, scopes, sequences, integrates, quality-gates
+  and talks to the human. Work no agent covers is **escalated** — name the gap, propose a
+  new hire or the promotion of an existing agent, and wait for the call. Absorbing it
+  quietly is the failure this roster exists to prevent, and it went unnoticed for a whole
+  session in which the agents were never once invoked.
 - Design/review/fidelity/playtest agents are **read-only** (no code edits) — they produce findings/proposals the PO integrates. `art-director` is read-only *for shipped source*: it may write mockups and capture scripts to a scratch path, because its whole contract is to argue with rendered pictures rather than prose.
 - `combat-engineer` and `content-author` may edit code/data, and must honor the determinism invariant (`sim-determinism-guard`) and the doc acceptance criteria.
 - Model/tool scoping is left conservative now (mostly inherit); tune per agent at P0 (see `task-model-routing` for cheap-vs-strong routing once tasks exist).
