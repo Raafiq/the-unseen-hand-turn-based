@@ -1,4 +1,4 @@
-<!-- written-against: b1d219c -->
+<!-- written-against: 9cc4890 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -184,7 +184,7 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    a run that dies leaves a missing frame rather than yesterday's. The browser-spec count
    dropped 43 → 42 when the guard stopped being a spec; that was the fix, not a regression.
    **It is back to 43** — the adversarial-review slice (`c1507dc`) added the page-to-terrain
-   canvas assertion in `campaign.spec.ts`. Current counts: **884 unit tests, 43 browser
+   canvas assertion in `campaign.spec.ts`. Current counts: **886 unit tests, 43 browser
    specs in 8 files.**
 
 ---
