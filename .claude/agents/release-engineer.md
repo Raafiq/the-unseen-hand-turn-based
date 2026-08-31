@@ -85,6 +85,14 @@ If a task seems to need one of these, it belongs to the PO or the human. Say whi
 - **`npm run state` goes stale on any commit that adds a counted artifact** — an ADR,
   encounter, build or spec file — not only on a gate change. Regenerate it as the **last**
   step of a slice; a clean run taken mid-slice proves nothing about the commit you push.
+- **`docs/NEXT.md`'s stamp names the branch's BASE, never the commit you are making.**
+  Stamping your own head is impossible by construction: amending to carry the stamp
+  changes the SHA and orphans it, so `check:handoff` then fails on a commit that does
+  not exist. Stamp the base — it is an ancestor, and it is the history the handoff
+  describes. And `check:handoff` reads the **working tree**, not `HEAD`, so it reports
+  green while `HEAD` still carries the old stamp if you amend without staging the edit.
+  Confirm with `git show HEAD:docs/NEXT.md`, never with the checker alone.
+
 - **Every GitHub comment you author ends with the attribution footer**, verbatim, as the
   final lines. Be frugal: comment only when a reply is genuinely necessary.
 - **Retry a failed push up to four times** with 2s/4s/8s/16s backoff, network errors only.

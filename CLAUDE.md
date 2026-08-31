@@ -69,6 +69,15 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 - **A spec with no test is not a spec.** `docs/07` §3's time-to-kill band went unasserted, and shipped content missed it by 3–4× for the life of the repo: every build died to one basic attack, which made range, positioning and tempo invisible and collapsed the diversity gate. Prose in `docs/` outranks code, so an unasserted numeric target is worse than an absent one. **When a doc states a number a build could violate, either assert it (AC + test, cf. AC-P6) or mark it explicitly aspirational.**
 - **Prose that describes evidence IS an assertion — including a comment explaining why a check is weakened.** A PR caption, a visual-proof README, an ADR's "we verified X": each is trusted without re-derivation. Either the test asserts the claim, or the prose says it is unasserted. A wrong *reason* is worse than none: `benchmark-suite.test.ts` exempted `black-magic` "because the spellblade is masked", which was not the binding constraint at all, making the gap look smaller than it was. A proof-sheet caption once described an enemy's charge reticle as an attack option. When a frame shows less than you hoped, the honest reading is usually the **stronger** argument.
 - **External precedents lend credibility past what they support.** Name the claim a citation backs and say where it stops. Triangle Strategy and Fire Emblem were cited for a level-gap EXP curve — real — and silently read as backing "levels grant zero stats", which their levels contradict (ADR-0021; XCOM / Into the Breach are the precedents that fit).
+- **A claim that something is UNASSERTED rots the day someone asserts it, and nothing
+  goes red.** `docs/NEXT.md` said the range panel's separation from every ground had
+  **nothing asserting any of it** — false as of the very commit the file was stamped
+  against, which had added perceptual-distance floors for exactly that. The prose was
+  then relayed to the user as a live coverage gap. A "nothing covers X" you read in a
+  doc is a **hypothesis**: grep for the test before repeating it. This is the mirror of
+  the future-tense rule above — there, the prediction comes true and the comment is
+  wrong; here, the gap gets closed and the comment is wrong. Both are green.
+
 - **Prose in the FUTURE TENSE rots with nothing going red.** `ASSUMED_FUTURE_TURN_COST`'s docstring named the move+act fold as a *future* slice's problem and said the −80 guess was "currently harmless". The fold landed; the oracle stayed green — correctly, the code was fine — so the comment kept reading as pending work nobody owed. A prediction is the one kind of comment whose own test **passing** is what makes it wrong. **When you land the thing a comment predicted, grep for the prediction.**
 
 **Proxies and measurement**
