@@ -35,3 +35,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0029](0029-story-v2-who-speaks-is-data.md) | Story v2: who speaks is data, and a scene can belong to no battle | Accepted | 2026-08-29 |
 | [0030](0030-the-ground-is-painted-not-tiled.md) | The battle map paints real ground, and carries no grid | Accepted | 2026-08-30 |
 | [0031](0031-the-span-is-real.md) | The span is real: one map where the water blocks | Accepted | 2026-08-30 |
+| [0032](0032-the-board-moves-and-never-blocks.md) | The board moves, and the motion never blocks: option B, non-blocking | Accepted | 2026-09-01 |
