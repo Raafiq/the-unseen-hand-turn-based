@@ -63,3 +63,26 @@ A level-gap-scaled EXP curve (Triangle Strategy's shape: large award when underl
 - **Levels grant stats, capped per chapter (Tactics Ogre: Reborn).** Airtight against overlevelling, but it is a blunt instrument players visibly resent, and it keeps growth-per-level — the exact model B4 was written to defuse.
 - **Levels grant stats, enemies scale to your highest unit (FFT's own random battles).** Grinding self-defeats, but it produces the treadmill feel where nothing the player earns changes anything.
 - **Cut `level` from the schema entirely.** Tempting while it is unread. Rejected: the access gate is genuinely useful for pacing (`docs/07` §4 stages currencies by act), and deleting a field to re-add it later costs two migrations.
+
+
+## Amendment — 2026-09-01: decision 4's gate is NOT BUILT
+
+Decision 4 reads in the present tense: *"~~Level gates which jobs and equipment tiers a unit
+may use, and it rises on the critical path.~~"* Checked against the tree today, **neither
+clause is true of the code**, and the sentence has been read as a description of shipped
+behaviour.
+
+- `level` appears in exactly one file, `src/sim/roster.ts` — the schema field (`min(1)`) and
+  a default of 1 in `defaultUnitRecord`. No function reads it.
+- No job check and no equipment check consults it; `loadout.ts` and the weapon catalog gate
+  on learned abilities and inventory, not on a tier.
+- Nothing writes it. The campaign party ships at level 1 and stays there; the 15 benchmark
+  builds author level 10, which changes no built unit.
+
+**What is unchanged:** decisions 1–3 and 5 stand, and the negative half — level grants no
+stats — is real and asserted by AC-J10 (whose value is the mutation, not the green tick).
+The gate stays the recorded intent and the reason `level` is not cut from the schema; it is
+now marked `[NOT BUILT]` in `docs/02` B0 and `docs/07` §1 so no reader takes it for
+behaviour. Building it needs a tier field on jobs and weapons plus a check with a
+discriminating fixture — a unit one tier short must be refused where an equal unit at tier
+is allowed.

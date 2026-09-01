@@ -16,7 +16,7 @@ Real and tested, not aspirational:
 - A deterministic combat simulation with a CT scheduler, five equip slots, AP-driven job
   trees, mastery, and free respec.
 - A playable viewer: click to move and attack, full resolution previews, keyboard control.
-- Encounters and builds as **data**, six of them shipped, all winnable (AC-E6).
+- Encounters and builds as **data**. ~~Six encounters shipped, all winnable (AC-E6).~~ Re-counted 2026-09-01: **eleven** encounter files ship — six benchmark (`data/encounters/`: five `enc-*` plus `skirmish-a`) and five campaign battles (`data/campaign/encounters/`). **AC-E6 covers five of the eleven**: the `SUITE` list in `benchmark-suite.test.ts` is the five `enc-*` files, so `skirmish-a` and all five campaign battles have no winnability check. The campaign battles are covered differently: `campaign-run.test.ts` asserts the unprepped party wins four and loses the finale by design (ADR-0027), and `src/render/playtest.test.ts` asserts an ending is reachable under a real player policy. Neither is AC-E6's per-encounter reachability check.
 - A prep screen that equips abilities and traits.
 - Save/replay **substrate** — `(seed, commands)` reproduces any battle byte-for-byte.
 
@@ -79,7 +79,7 @@ anything, and reaches a real ending — win or lose.**
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
 > | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
 > | 4. Story stubs | **done** (ADR-0024), and **superseded by story v2** (ADR-0029). ~~`src/sim/story.ts` (schema, no prose) + a pack with pre / victory / defeat per battle~~ — the pack is now `storySchemaVersion: 2`: per-line speakers, a `characters` registry, and **3 standalone scenes** (prologue, interlude, epilogue) that belong to no battle. Text is read one line at a time beside a portrait frame (`src/render/scene.ts`, AC-V16/V17). `mid` hooks are still deliberately out |
-> | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
+> | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2 **at that slice; it is 4 today** — v2→v3 added the deployment list, v3→v4 the seen-scenes list, each with a migration). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
 > | 7. Onboarding | **done** (ADR-0025) — a `?` panel on the game page, plus the content and panel fixes that made every chassis slot reachable inside one campaign. Deliberately NOT `docs/08` §3's ramp: nothing is gated or taught on rails (user decision, 2026-08-22) |
 >

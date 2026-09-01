@@ -78,7 +78,17 @@ No feature below is real until it earns a row here. **Rule: if any two rows can'
 | **Mastery** | Fully completing a job's tree | Unlocks a **permanent, portable passive** + counts toward hybrid eligibility | A milestone, **never a wallet and never lost** — long-term goal, not a resource you juggle. | `[CORE]` |
 | **Hybrid unlock** | Mastering **two specific** base jobs | Opens a fusion job | Gated by **combinations**, not accumulation — orthogonal to AP/mastery totals. | `[CORE]` |
 | **Socket loot** | Encounter/boss rewards | Modular passives **moved between units** | The only **transferable** axis — solves "I want this passive on two builds" without re-earning it. | `[OPTIONAL]` |
-| **Level** | **Authored progression only** — it rises on the critical path, it is not bought with EXP | **Nothing.** It is a gate, not a wallet: it opens job and equipment tiers | Distinct because it grants **no stats and no power** (ADR-0021) — the one row a player cannot spend, farm, or optimise | `[CORE]` |
+| **Level** | ~~Authored progression only — it rises on the critical path~~ **Nothing raises it.** `level` is stored and never written; it is not bought with EXP | ~~It opens job and equipment tiers~~ **Nothing, and no gate exists** `[NOT BUILT]` | Distinct because it grants **no stats and no power** (ADR-0021, asserted by AC-J10) — the one row a player cannot spend, farm, or optimise | `[CORE]` |
+
+> **The Level row is half built (verified against the tree, 2026-09-01).** `level` occurs
+> in one file: `src/sim/roster.ts`, as a schema field (`min(1)`) and a default of 1 in
+> `defaultUnitRecord`. No function reads it — not `deriveStats`, not `awardAp`, not any
+> job or equipment check. The campaign party ships at level 1 and nothing advances it; the
+> 15 benchmark builds author level 10, which changes no built unit (AC-J10 asserts
+> byte-identity across levels). So ADR-0021's negative half — level grants no stats — holds
+> and is tested. Its positive half — an authored gate on job and equipment tiers — is
+> **`[NOT BUILT]`**: kept here because the intent still stands, struck above because the
+> code does not do it.
 
 Everything else considered (weapon skill-trees, ability rank-up, set bonuses) collapses into **"AP walks a tree"** and is therefore **not** a separate currency — they are presentation variants of the AP spend, kept only if `docs/03` needs them. **Behavior scripting is `[DEFERRED]`** (a different game's spine).
 
