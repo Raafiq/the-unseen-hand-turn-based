@@ -27,6 +27,7 @@ import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
 import { draw, pickTile, FIELD_THEME } from "./iso.js";
+import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrep, type PrepHandle } from "./prep.js";
 import { mountScene, type SceneHandle } from "./scene.js";
@@ -131,6 +132,23 @@ function look(): LookUp {
 const scenes = new Map<string, SceneHandle>();
 
 let canvasFocused = false;
+
+/**
+ * THE PAGE OWNS THE CLOCK (docs/10 §3a). `draw` stays a pure function of `(state, opts)`;
+ * everything about elapsed time lives here and in `motion.ts`, and the only thing that
+ * crosses into the renderer is one plain `MotionState` value.
+ *
+ * Wall-clock is now read by TWO things on this page — the playtest log and this — and
+ * neither can reach `BattleState`. The battle still advances only on an explicit click or
+ * seam call, so "how many commands have been applied" is a function of input order alone.
+ */
+const motion = new MotionDirector({
+  nameOf: (id) => look()(id)?.label ?? id,
+  reduced: prefersReducedMotion,
+});
+/** The beat already handed to {@link motion}; a new one starts an animation. */
+let lastBeat: MotionBeat | null = null;
+let motionFrame: number | null = null;
 
 // ─── painting ───────────────────────────────────────────────────────────────
 
@@ -360,10 +378,17 @@ function renderBriefing(): void {
   renderPrep();
 }
 
-function renderBattle(): void {
+/**
+ * THE CANVAS ALONE — the only thing the animation frame loop repaints.
+ *
+ * Split out of {@link renderBattle} deliberately: a full `refresh()` rebuilds every
+ * panel, re-runs eight forecast clones and files a screen row with the playtest recorder.
+ * Doing that sixty times a second would put the cost of a cosmetic flourish onto the
+ * telemetry and the timeline. Nothing here reads or writes game state.
+ */
+function paintBoard(): void {
   const session = shell.session;
-  if (!session) return;
-  const lk = look();
+  if (!session || shell.screen !== "BATTLE") return;
   const active = session.actor();
   // The battle a player is LOOKING at, for its painted ground. `briefing()` reads the
   // save's pending battle, which on this screen is still the one being fought.
@@ -387,7 +412,50 @@ function renderBattle(): void {
     // campaign's units all fall through to one grey and a player cannot tell their
     // party from the enemy by looking at the grid.
     unitColor: (u) => TEAM_COLOR[u.teamId] ?? "#9aa4bb",
+    motion: motion.sample(),
   });
+}
+
+/**
+ * Hand a freshly committed beat to the director, if there is a new one.
+ *
+ * Identity, not a deep compare: `Session.commit` builds a fresh object every time and
+ * `reset()` nulls it, so `!==` is exact. It is a stored field, never a value re-derived
+ * per call — the trap `scene.ts` documents.
+ */
+function syncMotion(session: Session): void {
+  if (session.beat === lastBeat) return;
+  lastBeat = session.beat;
+  if (lastBeat === null) {
+    motion.clear();
+    return;
+  }
+  motion.start(lastBeat);
+  pumpMotion();
+}
+
+/**
+ * The page's ONLY frame loop, and it STOPS. `running()` goes false the moment the
+ * current beat's clock runs out, is settled or is pinned — so an idle board burns
+ * nothing, which is the difference between an animation and a spinning canvas.
+ */
+function pumpMotion(): void {
+  if (motionFrame !== null || !motion.running()) return;
+  if (typeof requestAnimationFrame !== "function") return;
+  const tick = (): void => {
+    motionFrame = null;
+    paintBoard();
+    if (motion.running()) motionFrame = requestAnimationFrame(tick);
+  };
+  motionFrame = requestAnimationFrame(tick);
+}
+
+function renderBattle(): void {
+  const session = shell.session;
+  if (!session) return;
+  const lk = look();
+  syncMotion(session);
+  paintBoard();
   el("timeline").innerHTML = timelineHtml(session.state, lk);
   el("status").innerHTML = statusHtml(session, lk);
   el("preview").innerHTML = previewHtml(session, lk);
@@ -817,6 +885,17 @@ const api: GameApi = {
   storedSave: () => (storageAvailable ? localStorage.getItem(SAVE_KEY) : null),
   playtestLog: () => telemetry.snapshot(),
   clearPlaytestLog: () => telemetry.clear(),
+  // Camera controls, not game actions: deliberately NOT routed through `act()`, because a
+  // row in the playtest log would claim a player did something they did not.
+  settleMotion: () => {
+    motion.settle();
+    paintBoard();
+  },
+  freezeMotion: (ms) => {
+    motion.freeze(ms);
+    paintBoard();
+    pumpMotion();
+  },
   prep: (): PrepSeam | null => {
     const h = prep;
     if (!h) return null;

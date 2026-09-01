@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { freezeMotion, settleMotion } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
@@ -41,6 +42,7 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   await expect(page.getByTestId("timeline")).toContainText("Next up");
   await expect(page.getByTestId("status")).toContainText("Turns 0");
   await expect(page.getByTestId("preview")).toBeVisible();
+  await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/01-initial.png`, fullPage: true });
   await page.waitForTimeout(INTRO_MS); // let the opening frame settle
 
@@ -61,6 +63,13 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   //                   file left on disk is the last pre-combat board. Maneuvering.
   //   03-combat     — written on the FIRST turn total HP drops, so a damage popup is
   //                   necessarily on screen. Never a whiff frame.
+  //
+  // THE POPUP NOW EXPIRES, WHICH MADE THAT SECOND CAPTION A LIE IN WAITING. It used to
+  // persist until the next commit, so any frame after a damaging turn showed it; it now
+  // fades out ~400 ms after impact, and this shot is taken a full HOLD_MS later. The
+  // caption is kept TRUE by pinning the animation clock to impact for the capture and
+  // handing it back straight after — deterministic, and not a sleep. `02-closing-in` is
+  // settled for the opposite reason: its caption describes a board at rest.
   let combatShot = false;
   for (let i = 1; i <= MAX_TURNS; i++) {
     if ((await phase(page)) === "ENDED") break;
@@ -69,10 +78,13 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
     await page.waitForTimeout(HOLD_MS); // hold each turn long enough to read
     const hpNow = await totalHp(page);
     if (hpNow === startHp) {
+      await settleMotion(page);
       await page.screenshot({ path: `${SHOTS}/02-closing-in.png`, fullPage: true });
     } else if (!combatShot) {
       combatShot = true;
+      await freezeMotion(page, 0); // impact: the numeral is up, the target is flashed
       await page.screenshot({ path: `${SHOTS}/03-combat.png`, fullPage: true });
+      await freezeMotion(page, null);
     }
   }
   // Both gallery frames were actually produced — otherwise a caption ships over a
@@ -90,6 +102,7 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   await expect(page.getByTestId("status")).toContainText(`Turns ${taken}`);
   expect(await page.evaluate(() => window.tuh.commands().length)).toBe(taken);
 
+  await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/04-aftermath.png`, fullPage: true });
   await page.waitForTimeout(OUTRO_MS); // hold the final board before reset
 

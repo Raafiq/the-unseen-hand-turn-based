@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { prepEveryMember, dismissScene } from "./helpers.js";
+import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
 import { mkdir, rm } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/playtest";
+
 
 /** What a player would see, captured for a human to judge. */
 test("PLAYTEST: capture every screen a player passes through", async ({ page }) => {
@@ -26,6 +27,10 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
    */
   const shot = async (name: string, expectVisible: string) => {
     await expect(page.getByTestId(expectVisible)).toBeVisible();
+    // The board animates for ~1 s after a commit, so a frame taken here would be an
+    // arbitrary instant of it — and no assertion in this suite can see a canvas. Settle
+    // first: every caption in this set describes a board at rest.
+    await settleMotion(page);
     await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
     console.log(`captured ${name}`);
   };
@@ -40,6 +45,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
    */
   const board = async (name: string) => {
     await expect(page.getByTestId("screen-battle")).toBeVisible();
+    await settleMotion(page);
     await page.locator("canvas").first().screenshot({ path: `${SHOTS}/${name}.png` });
     console.log(`captured ${name}`);
   };
@@ -74,6 +80,29 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   // One enemy turn, so the board shows a fight in progress rather than the opening.
   await page.getByTestId("step").click();
   await shot("05-battle-1-midfight", "screen-battle");
+
+  // THE MOTION FRAMES. Nothing automated can judge these — no assertion in this suite
+  // reads a canvas — so they exist for a human to open. Both are the SAME committed
+  // state at two pinned instants of the animation clock, which is the only way a still
+  // can show motion at all. Stepped until damage actually lands, because a frame of the
+  // impact treatment over a turn where nothing was hit shows nothing at all.
+  // "The LAST commit landed a blow" is read off the turn log's newest row — the page's
+  // own record of what the sim did. It has to be the last one, not any one: a frame of
+  // the impact treatment over a turn that only moved shows nothing at all. (`logHtml`
+  // renders the six most recent entries newest-first, so row 0 is the latest.)
+  const lastRow = (): Promise<string> => page.locator("#log li").first().innerText();
+  const struck = async (): Promise<boolean> => /(?:hit|KO) /.test(await lastRow());
+  for (let i = 0; i < 12 && !(await struck()); i++) {
+    await page.getByTestId("step").click();
+  }
+  expect(await struck(), "no blow landed, so the motion frames would show nothing").toBe(true);
+  await freezeMotion(page, 0);
+  await page.locator("canvas").first().screenshot({ path: `${SHOTS}/05b-impact.png` });
+  console.log("captured 05b-impact");
+  await freezeMotion(page, 500);
+  await page.locator("canvas").first().screenshot({ path: `${SHOTS}/05c-turn-plate.png` });
+  console.log("captured 05c-turn-plate");
+  await freezeMotion(page, null);
 
   await page.evaluate(() => window.tuhGame.autoplay());
   await shot("06-battle-1-over", "screen-battle");

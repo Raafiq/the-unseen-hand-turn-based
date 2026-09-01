@@ -10,7 +10,7 @@
 
 A turn-based tactics game in the tradition of **Final Fantasy Tactics: War of the Lions (FFT/WotL)**, built around one obsession: **deep character customization powered by an intensive job system.** Narrative will come from a separate story repository (not yet started); this repo is the combat/systems game.
 
-> **Status: M0 — all seven items built.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`), backed by 886 tests, 43 browser specs, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007).
+> **Status: M0 — all seven items built.** A pure headless simulation (`src/sim`) plus a thin viewer (`src/render`), backed by 922 tests, 44 browser specs, a determinism guard, CI, and a GitHub Pages deploy. The stack is Web / TypeScript (ADR-0007).
 >
 > **You can play a campaign start to finish** — title screen, New Game / Continue, five battles in order, a scene player that reads story a line at a time beside a portrait frame, a prep screen between battles (spend AP, change job, change loadout), weapons on an authored drip, a party that keeps what it earns, and one save slot in the browser (ADR-0022 … ADR-0026, ADR-0029). The campaign is the **site root** (`/`); the engine viewer is `/viewer.html`. ~~What M0 still lacks: equipment and onboarding.~~ Both shipped (ADR-0025, ADR-0026). **What is NOT established: that a stranger can play it** — nobody outside the build has played it, so difficulty, pacing and session length are all unmeasured (`docs/11` §3).
 >

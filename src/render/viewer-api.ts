@@ -64,6 +64,19 @@ export interface ViewerApi {
   preview: () => ActPreview | null;
   /** The transient illegal-click reason chip, or null. */
   reason: () => string | null;
+  /**
+   * MOTION IS COSMETIC, AND THESE TWO CONTROL ITS CLOCK — nothing else.
+   *
+   * They exist because a screenshot taken straight after a state change lands on an
+   * arbitrary animation frame, and a spec that "fixed" that with a sleep would be
+   * timing-dependent on a loaded box. `settleMotion` jumps the current animation to its
+   * finished frame; `freezeMotion(ms)` pins it at a CHOSEN instant (`null` restores the
+   * live clock), which is how a gallery frame captioned "a damage popup is on screen"
+   * stays true of the image it names. Neither touches the sim, emits a command, or is
+   * reachable from any code path a player's click takes.
+   */
+  settleMotion: () => void;
+  freezeMotion: (elapsedMs: number | null) => void;
 }
 
 declare global {

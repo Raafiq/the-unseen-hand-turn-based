@@ -166,12 +166,25 @@ export function project(x: number, y: number, height: number, origin: Position):
 }
 
 /**
- * Room above the topmost tile for props, HP bars and status chips.
+ * Room above the topmost tile for props, HP bars, status chips — and, since the motion
+ * slice, the damage numeral and the turn plate.
+ *
+ * 54 → 72 (2026-09-01), AND THE BOARD IS ~6% SMALLER FOR IT. That is the whole cost of
+ * this constant and it is worth stating plainly: at 54 the camera reserved 70 world units
+ * above a tile's top face (`TILE_H / 2 + HEADROOM`), which fit the old numeral at
+ * `p.y - 40` and nothing taller. Lifting the numeral clear of the HP bar puts its
+ * ascender at `p.y - 88` on the frame it appears, and the turn plate's top at `p.y - 82`,
+ * so on all five shipped maps a back-row unit's numeral was CLIPPED by 5–11 canvas pixels
+ * — measured, not feared. The board shrinks from 1.59 to 1.49 on battle 1.
+ *
+ * WHAT IS STILL NOT COVERED, deliberately: the numeral keeps rising as it fades, and past
+ * roughly three quarters of its fade it can touch the canvas top on the tightest map. It
+ * is under 40% opacity by then; reserving for it would cost another 4% of every board.
  *
  * Exported so `iso.test.ts` measures the SHIPPED value rather than a copy — a test
- * holding its own `54` passes with this set to 0, which was measured.
+ * holding its own number passes with this set to 0, which was measured.
  */
-export const HEADROOM = 54;
+export const HEADROOM = 72;
 const VIEW_PAD = 10;
 const MIN_ZOOM = 0.5;
 /** A small map must not be blown up past the point where the texture detail coarsens. */
@@ -323,6 +336,11 @@ export function pickTile(
   return null;
 }
 
+/** 0..255 → the two-digit alpha suffix of an `#rrggbbaa` colour. */
+function alphaHex(v: number): string {
+  return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+}
+
 function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.beginPath();
   ctx.moveTo(c.x, c.y - TILE_H / 2);
@@ -331,6 +349,55 @@ function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.lineTo(c.x - TILE_W / 2, c.y);
   ctx.closePath();
 }
+
+/**
+ * Where a frame sits inside an in-flight animation (docs/10 §3a).
+ *
+ * IT IS A PURE VALUE — no clock, no `requestAnimationFrame`, no timer. The PAGE samples
+ * its own clock, builds one of these through `motion.ts`, and hands it to {@link draw}.
+ * That is what keeps `draw` a function of `(state, opts)` alone: one `performance.now()`
+ * in here would make every renderer A/B non-reproducible, and `iso.test.ts` draws the
+ * same state at chosen instants precisely because it can.
+ *
+ * Everything on it is OPTIONAL and every absent field means "at rest", so
+ * `motion: undefined` renders the settled board byte-for-byte as it did before this
+ * existed. That is the property the reduced-motion branch leans on.
+ */
+export interface MotionState {
+  /** unit id → token displacement in WORLD units (the recoil and the attacker's lean). */
+  unitOffset?: Record<string, { dx: number; dy: number }> | undefined;
+  /** unit id → 0..1 white flash inside the token silhouette. */
+  unitFlash?: Record<string, number> | undefined;
+  /**
+   * unit id → the HP the bar should DISPLAY. Only ever drawn as the pale tail BEHIND
+   * the live bar: the coloured bar always shows `u.hp`, the sim's real answer, so this
+   * can never assert a health the sim does not hold (pillar 4).
+   */
+  hpShown?: Record<string, number> | undefined;
+  /** 0..1 sweep of the active unit's ring. Absent (or 1) is the full circle. */
+  ringSweep?: number | undefined;
+  /** Popup travel: extra rise in world units, alpha, and scale about its own anchor. */
+  popupRise?: number | undefined;
+  popupAlpha?: number | undefined;
+  popupScale?: number | undefined;
+  /** A name plate over the unit whose turn just began. */
+  plate?:
+    | { unitId: string; text: string; alpha: number; rise: number; kind: "player" | "ai" }
+    | undefined;
+}
+
+/**
+ * How far ABOVE a tile's top face a floating numeral is drawn, in world units.
+ *
+ * EARNED. It was 40, and the HP bar sits at 44: a 20px numeral centred there covered
+ * the bar completely, and popups persisted until the next commit — so the health of the
+ * unit you just hit was unreadable for the whole intervening period. 66 clears the bar
+ * AND the status-chip row above it (58) with the glyph's ascender and its 3px outline.
+ */
+const POPUP_BASE_Y = 66;
+
+/** Top edge of the turn plate, above tile top. Clears the HP bar and the chip row. */
+const PLATE_BASE_Y = 74;
 
 export interface DamagePopup {
   pos: Position;
@@ -386,6 +453,12 @@ export interface DrawOptions {
   terrain?: TerrainMap | undefined;
   /** Colours for the terrain above. Defaults to `DAYLIGHT`. Ignored without `terrain`. */
   terrainPalette?: TerrainPalette | undefined;
+  /**
+   * Where this frame sits inside an in-flight animation. ABSENT draws the settled
+   * board — which is exactly what every caller did before motion existed, and what the
+   * reduced-motion branch still passes.
+   */
+  motion?: MotionState | undefined;
 }
 
 export function draw(
@@ -396,6 +469,7 @@ export function draw(
   opts: DrawOptions = {},
 ): void {
   const theme = opts.theme ?? DARK_THEME;
+  const mo = opts.motion;
   const { origin, scale } = viewFor(state, canvasW, canvasH);
   const { width, height, tiles } = state.grid;
 
@@ -433,7 +507,13 @@ export function draw(
     const u = unitAt.get(k);
     if (u) {
       const control = u.id === opts.activeId ? (opts.activeControl ?? "player") : "none";
-      drawUnit(ctx, u, top, control, theme, opts.unitColor);
+      const off = mo?.unitOffset?.[u.id];
+      const at = off ? { x: top.x + off.dx, y: top.y + off.dy } : top;
+      drawUnit(ctx, u, at, control, theme, opts.unitColor, {
+        flash: mo?.unitFlash?.[u.id] ?? 0,
+        hpShown: mo?.hpShown?.[u.id],
+        ringSweep: u.id === opts.activeId ? (mo?.ringSweep ?? 1) : 1,
+      });
     }
     // The GHOST of the actor standing on its staged tile: same token, faded, no
     // active ring — the actor's real body stays where the sim has it.
@@ -582,15 +662,66 @@ export function draw(
   for (const popup of opts.popups ?? []) {
     const t = state.grid.tiles[popup.pos.y * width + popup.pos.x];
     const p = project(popup.pos.x, popup.pos.y, t?.height ?? 0, origin);
+    ctx.save();
+    ctx.globalAlpha = mo?.popupAlpha ?? 1;
+    ctx.translate(p.x, p.y - POPUP_BASE_Y - (mo?.popupRise ?? 0));
+    ctx.scale(mo?.popupScale ?? 1, mo?.popupScale ?? 1);
     ctx.font = "700 20px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#0b0f1c";
     ctx.fillStyle =
       popup.kind === "damage" ? "#ff5d5d" : popup.kind === "heal" ? theme.buff : "#9aa4bb";
-    ctx.strokeText(popup.text, p.x, p.y - 40);
-    ctx.fillText(popup.text, p.x, p.y - 40);
+    ctx.strokeText(popup.text, 0, 0);
+    ctx.fillText(popup.text, 0, 0);
+    ctx.restore();
     ctx.textAlign = "start";
+  }
+
+  // A per-unit TURN PLATE: the acting unit's name on a small tag over its head. FFT
+  // announces a turn ON the unit, not across the screen, and a board-wide banner would
+  // cover the very tiles a player is reading.
+  const plate = mo?.plate;
+  if (plate) {
+    const pu = state.units.find((u) => u.id === plate.unitId);
+    if (pu) {
+      const t = state.grid.tiles[pu.pos.y * width + pu.pos.x];
+      const p = project(pu.pos.x, pu.pos.y, t?.height ?? 0, origin);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, plate.alpha));
+      ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const bw = ctx.measureText(plate.text).width + 18;
+      const bh = 18;
+      const bx = p.x - bw / 2;
+      // PLATE_BASE_Y clears the unit's own HP bar (`cy - 24`, i.e. `p.y - 44`) and its
+      // status chips (`cy - 38`, i.e. `p.y - 58`) with the pointer included. A plate at
+      // -60 covered the bar, which is the same defect the popup anchor above fixes.
+      const by = p.y - PLATE_BASE_Y - plate.rise;
+      const edge = plate.kind === "player" ? "#8a6b1f" : "#8a3a1f";
+      roundedRect(ctx, bx, by, bw, bh, 4);
+      ctx.fillStyle = "#efe2c4";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+      // The little pointer down to the unit.
+      ctx.beginPath();
+      ctx.moveTo(p.x - 4, by + bh);
+      ctx.lineTo(p.x + 4, by + bh);
+      ctx.lineTo(p.x, by + bh + 5);
+      ctx.closePath();
+      ctx.fillStyle = "#efe2c4";
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+      ctx.fillStyle = "#2b2113";
+      ctx.fillText(plate.text, p.x, by + bh / 2 + 0.5);
+      ctx.restore();
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+    }
   }
 
   ctx.restore(); // pairs with the camera's `save`/`scale` above
@@ -603,6 +734,7 @@ function drawUnit(
   active: "none" | "player" | "ai",
   theme: Theme,
   unitColor?: (u: UnitState) => string,
+  mo?: { flash: number; hpShown?: number | undefined; ringSweep: number },
 ): void {
   // The caller's mapping wins; `UNIT_META` remains the demo page's own answer, and the
   // grey is the last resort for a unit neither one names.
@@ -642,10 +774,15 @@ function drawUnit(
   if (active !== "none") {
     const ring = active === "player" ? theme.active : theme.activeAi;
     ctx.save();
+    // The ring SWEEPS IN on a handoff. It never starts from nothing — the sweep opens
+    // at a quarter turn — so "whose turn is it" is answerable on the very first frame.
+    const sweep = Math.max(0, Math.min(1, mo?.ringSweep ?? 1));
     ctx.beginPath();
     ctx.arc(cx, top.y, 15, 0, Math.PI * 2);
-    ctx.fillStyle = ring + "44";
+    ctx.fillStyle = ring + (sweep >= 1 ? "44" : alphaHex(0x44 * sweep));
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, top.y, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sweep);
     ctx.lineWidth = 2;
     ctx.strokeStyle = ring;
     if (active === "ai") ctx.setLineDash([4, 4]);
@@ -671,6 +808,17 @@ function drawUnit(
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = "#0b0f1c";
   ctx.stroke();
+  // Hit flash: the token whitens for a beat. Filled INSIDE the token silhouette (the
+  // path is still the body), so the shape, its outline and everything above it are
+  // untouched. Capped by the caller at 0.55 — a fully white token loses its team
+  // colour, which is the one thing on the board that says friend from foe.
+  if (mo && mo.flash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, mo.flash);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Facing pip.
   const dir = { N: [0, -1], E: [1, 0.5], S: [0, 1], W: [-1, 0.5] }[u.facing] as [number, number];
@@ -682,8 +830,20 @@ function drawUnit(
   // HP bar.
   const w = 22;
   const frac = u.hp / u.maxHp;
+  const shownFrac = (mo?.hpShown ?? u.hp) / u.maxHp;
   ctx.fillStyle = "#0b0f1c";
   ctx.fillRect(cx - w / 2, cy - 24, w, 4);
+  // The DRAINING remainder — the part of the bar on its way out, a pale tail behind the
+  // live bar. The coloured bar below always shows `u.hp`, so the tail can only ever
+  // trail a loss the sim has already applied; it never leads it.
+  //
+  // THE `>` IS THE WHOLE GUARD, and it is deliberately the only one. A drain value BELOW
+  // the live HP (a heal, or a stale frame) draws nothing rather than a shorter bar: the
+  // sim's answer is the one that is painted, always.
+  if (shownFrac > frac) {
+    ctx.fillStyle = "#f2c0a8";
+    ctx.fillRect(cx - w / 2, cy - 24, w * shownFrac, 4);
+  }
   ctx.fillStyle = frac > 0.5 ? "#5cc98d" : frac > 0.25 ? "#e2a948" : "#e2603c";
   ctx.fillRect(cx - w / 2, cy - 24, w * frac, 4);
 

@@ -13,7 +13,8 @@
 import { describe, expect, it } from "vitest";
 import { createBattleState, defaultUnit, makeFlatTiles, moveRange, type BattleState, type Position } from "../sim/index.js";
 import { makeDemoBattle } from "./demo.js";
-import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor } from "./iso.js";
+import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor, type DamagePopup, type DrawOptions, type MotionState } from "./iso.js";
+import { settledMotion } from "./motion.js";
 import { DAYLIGHT, parseTerrain, TERRAIN_KINDS, type TerrainMap } from "./terrain.js";
 
 /**
@@ -78,6 +79,119 @@ const pick = (state: BattleState, p: Position): Position | null => {
   const { scale } = viewFor(state, CANVAS_W, CANVAS_H);
   return pickTile(state, p.x * scale, p.y * scale, CANVAS_W, CANVAS_H);
 };
+
+/** One `fillRect`, in CANVAS coordinates, with the colour it was filled in. */
+interface RecordedRect { x: number; y: number; w: number; h: number; style: string; alpha: number }
+/** One `fillText`/`strokeText`, in CANVAS coordinates. */
+interface RecordedText { text: string; x: number; y: number; scale: number; alpha: number; style: string }
+/** One `arc` that was actually stroked, with its angular sweep. */
+interface RecordedArc { x: number; y: number; r: number; sweep: number; style: string }
+
+interface Recording {
+  ctx: CanvasRenderingContext2D;
+  fills: string[];
+  strokes: string[];
+  rects: RecordedRect[];
+  texts: RecordedText[];
+  arcs: RecordedArc[];
+}
+
+/**
+ * A recording 2D context: every method is a no-op, every `fillStyle` written is
+ * kept. Enough for `draw`, and it makes the one thing no other test can see —
+ * what actually reached the canvas — assertable.
+ *
+ * This is the test that was missing. `drawUnit` read `UNIT_META`, a table keyed by
+ * the four DEMO unit ids, so every campaign unit (`blue-vance`, `red-brigand-1`)
+ * missed the lookup and was painted one fallback grey — friend and foe alike. The
+ * whole suite was green because nothing read pixels.
+ *
+ * IT NOW TRACKS THE TRANSFORM, and that is not decoration. Motion moves things: a
+ * recoiled token, a numeral lifted clear of the HP bar and a swept ring are all
+ * GEOMETRY, and a colour-presence recorder cannot tell a popup drawn on top of the
+ * health bar from one drawn above it — the exact defect this slice fixes. `save`,
+ * `restore`, `translate` and `scale` therefore maintain a real stack, and every
+ * `fillRect` / `fillText` / stroked `arc` is recorded in CANVAS coordinates.
+ */
+function recordingCtx(): Recording {
+  const fills: string[] = [];
+  const strokes: string[] = [];
+  const rects: RecordedRect[] = [];
+  const texts: RecordedText[] = [];
+  const arcs: RecordedArc[] = [];
+  const noop = (): void => {};
+
+  let tx = 0;
+  let ty = 0;
+  let sc = 1;
+  let cur = "";
+  const stack: { tx: number; ty: number; sc: number; alpha: number }[] = [];
+  let pending: { x: number; y: number; r: number; sweep: number } | null = null;
+  const X = (x: number): number => tx + x * sc;
+  const Y = (y: number): number => ty + y * sc;
+
+  // A gradient is a legal `fillStyle` and is NOT a colour, so it is recorded as
+  // nothing rather than as "[object Object]" — an entry that would quietly satisfy a
+  // `toContain` on some future string.
+  const target = {
+    set fillStyle(v: unknown) {
+      if (typeof v === "string") { fills.push(v); cur = v; }
+    },
+    get fillStyle() { return cur; },
+    // Recorded at STROKE time, not at assignment: what matters is the colour that was
+    // actually drawn with, and `draw` sets `strokeStyle` in places it never strokes.
+    strokeStyle: "" as string,
+    lineWidth: 0, lineJoin: "", font: "", textAlign: "", textBaseline: "", globalAlpha: 1,
+    clearRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop,
+    quadraticCurveTo: noop, arcTo: noop, clip: noop,
+    ellipse: noop, rect: noop,
+    setLineDash: noop,
+    measureText: (t: string) => ({ width: t.length * 6 }),
+    createLinearGradient: () => ({ addColorStop: noop }),
+    save(): void { stack.push({ tx, ty, sc, alpha: target.globalAlpha }); },
+    restore(): void {
+      const f = stack.pop();
+      if (!f) return;
+      tx = f.tx; ty = f.ty; sc = f.sc; target.globalAlpha = f.alpha;
+    },
+    translate(x: number, y: number): void { tx = X(x); ty = Y(y); },
+    // Uniform scale only: `draw` scales x and y by the same camera factor, and a
+    // recorder that pretended otherwise would report geometry no frame ever had.
+    scale(x: number, y: number): void {
+      if (x !== y) throw new Error(`recordingCtx: non-uniform scale ${x}x${y}`);
+      sc *= x;
+    },
+    fillRect(x: number, y: number, w: number, h: number): void {
+      rects.push({ x: X(x), y: Y(y), w: w * sc, h: h * sc, style: cur, alpha: target.globalAlpha });
+    },
+    fillText(t: string, x: number, y: number): void {
+      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: cur });
+    },
+    strokeText(t: string, x: number, y: number): void {
+      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: target.strokeStyle });
+    },
+    arc(x: number, y: number, r: number, a0: number, a1: number): void {
+      pending = { x: X(x), y: Y(y), r: r * sc, sweep: Math.abs(a1 - a0) };
+    },
+    fill: noop,
+    stroke(): void {
+      strokes.push(target.strokeStyle);
+      if (pending) { arcs.push({ ...pending, style: target.strokeStyle }); pending = null; }
+    },
+  };
+  return { ctx: target as unknown as CanvasRenderingContext2D, fills, strokes, rects, texts, arcs };
+}
+
+function twoTeams(): BattleState {
+  return createBattleState({
+    seed: 1,
+    grid: { width: 3, height: 3, tiles: makeFlatTiles(3, 3) },
+    units: [
+      defaultUnit("blue-vance", 0, { pos: { x: 0, y: 0 } }),
+      defaultUnit("red-brigand-1", 1, { pos: { x: 2, y: 2 } }),
+    ],
+  });
+}
 
 describe("pickTile — flat round trip", () => {
   it("returns the same tile for every tile's projected centre", () => {
@@ -330,56 +444,6 @@ describe("pickTile — height skirt (documented behaviour)", () => {
 });
 
 describe("the board colours units by TEAM, not by a demo-only id table (playtest, 2026-08-22)", () => {
-  /**
-   * A recording 2D context: every method is a no-op, every `fillStyle` written is
-   * kept. Enough for `draw`, and it makes the one thing no other test can see —
-   * what colour actually reached the canvas — assertable.
-   *
-   * This is the test that was missing. `drawUnit` read `UNIT_META`, a table keyed by
-   * the four DEMO unit ids, so every campaign unit (`blue-vance`, `red-brigand-1`)
-   * missed the lookup and was painted one fallback grey — friend and foe alike. The
-   * whole suite was green because nothing read pixels.
-   */
-  function recordingCtx(): {
-    ctx: CanvasRenderingContext2D;
-    fills: string[];
-    strokes: string[];
-  } {
-    const fills: string[] = [];
-    const strokes: string[] = [];
-    const noop = (): void => {};
-    // A gradient is a legal `fillStyle` and is NOT a colour, so it is recorded as
-    // nothing rather than as "[object Object]" — an entry that would quietly satisfy a
-    // `toContain` on some future string.
-    const target = {
-      set fillStyle(v: unknown) { if (typeof v === "string") fills.push(v); },
-      get fillStyle() { return ""; },
-      // Recorded at STROKE time, not at assignment: what matters is the colour that was
-      // actually drawn with, and `draw` sets `strokeStyle` in places it never strokes.
-      strokeStyle: "" as string,
-      lineWidth: 0, lineJoin: "", font: "", textAlign: "", globalAlpha: 1,
-      clearRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop,
-      quadraticCurveTo: noop, arcTo: noop, clip: noop,
-      fill: noop, arc: noop, ellipse: noop, rect: noop, fillRect: noop,
-      save: noop, restore: noop, setLineDash: noop, fillText: noop, strokeText: noop,
-      translate: noop, scale: noop, measureText: () => ({ width: 0 }),
-      createLinearGradient: () => ({ addColorStop: noop }),
-      stroke(): void { strokes.push(target.strokeStyle); },
-    };
-    return { ctx: target as unknown as CanvasRenderingContext2D, fills, strokes };
-  }
-
-  function twoTeams(): BattleState {
-    return createBattleState({
-      seed: 1,
-      grid: { width: 3, height: 3, tiles: makeFlatTiles(3, 3) },
-      units: [
-        defaultUnit("blue-vance", 0, { pos: { x: 0, y: 0 } }),
-        defaultUnit("red-brigand-1", 1, { pos: { x: 2, y: 2 } }),
-      ],
-    });
-  }
-
   it("DISCRIMINATING: two teams get two different token colours", () => {
     const { ctx, fills } = recordingCtx();
     draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {
@@ -725,5 +789,273 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     draw(ctx, twoTeams(), CANVAS_W, CANVAS_H, {});
     expect(fills).toContain("#9aa4bb");
     expect(fills).not.toContain("#4f8cff");
+  });
+});
+
+/**
+ * MOTION — what actually reached the canvas (docs/10, option B, 2026-09-01).
+ *
+ * EVERY TEST HERE IS AN A/B ON THE OUTPUT. `draw` gains one optional argument, and the
+ * failure mode of an optional argument is that it is type-checked, accepted and then
+ * dropped — a slot that validates its input and ignores it looks identical to a working
+ * one from the inside. So each assertion draws the SAME state twice, once with `motion`
+ * and once without, and states how the two frames differ. A test that only handed a
+ * `MotionState` in and checked `draw` did not throw would prove nothing.
+ *
+ * The geometry assertions are the point of widening the recorder: the live defect this
+ * slice fixes is a numeral drawn ON TOP OF the health bar, and no colour-presence check
+ * can see where something landed.
+ */
+describe("motion — the animated frame, A/B against the settled one", () => {
+  /** One unit, damaged, on a flat board: exactly one HP bar and one token to find. */
+  function oneUnit(hp = 60): BattleState {
+    return createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 3, tiles: makeFlatTiles(3, 3) },
+      units: [defaultUnit("blue-vance", 0, { pos: { x: 1, y: 1 }, hp, maxHp: 100 })],
+    });
+  }
+
+  const POPUP: DamagePopup = { pos: { x: 1, y: 1 }, text: "−37", kind: "damage" };
+
+  /** The HP bar's dark backing — the only `fillRect` `draw` ever paints in `#0b0f1c`. */
+  function hpBackings(r: Recording): RecordedRect[] {
+    return r.rects.filter((x) => x.style === "#0b0f1c");
+  }
+
+  function render(motion?: MotionState, extra: DrawOptions = {}): Recording {
+    const rec = recordingCtx();
+    draw(rec.ctx, oneUnit(), CANVAS_W, CANVAS_H, {
+      activeId: "blue-vance",
+      activeControl: "player",
+      popups: [POPUP],
+      unitColor: () => "#4f8cff",
+      ...extra,
+      ...(motion ? { motion } : {}),
+    });
+    return rec;
+  }
+
+  it("BASELINE: `motion` absent draws exactly the frame that shipped before it existed", () => {
+    // The whole compatibility claim of an optional parameter, and the one the
+    // reduced-motion branch rests on: absent means "no change", not "some default".
+    const a = render();
+    const b = render({});
+    expect(JSON.stringify(b.rects)).toBe(JSON.stringify(a.rects));
+    expect(JSON.stringify(b.texts)).toBe(JSON.stringify(a.texts));
+    expect(JSON.stringify(b.arcs)).toBe(JSON.stringify(a.arcs));
+  });
+
+  // ── the live defect: the numeral sat on the health bar ────────────────────
+
+  it("DISCRIMINATING: the damage numeral clears the HP bar it used to cover", () => {
+    // EARNED, and asserted as GEOMETRY rather than as a constant. The numeral was drawn
+    // at `p.y - 40` and the bar sits at `p.y - 44`, so a 20px glyph centred on that
+    // baseline covered the bar completely — and popups persisted until the next commit,
+    // so the health of the unit you had just hit was unreadable for the whole
+    // intervening period.
+    //
+    // The mutation this catches: restore `POPUP_BASE_Y = 40` and the boxes overlap.
+    const r = render();
+    const bar = hpBackings(r)[0];
+    const numeral = r.texts.find((t) => t.text === POPUP.text);
+    expect(bar).toBeDefined();
+    expect(numeral).toBeDefined();
+    // A 20px glyph rises ~15px above its baseline and drops ~5 below, plus a 3px
+    // outline. Its BOX must sit entirely above the bar's top edge.
+    const descent = (5 + 3) * numeral!.scale;
+    expect(numeral!.y + descent).toBeLessThan(bar!.y);
+    // Non-degeneracy: the two are on the same tile, so this is a real clearance and not
+    // two things that were never near each other.
+    expect(Math.abs(numeral!.x - (bar!.x + bar!.w / 2))).toBeLessThan(2);
+  });
+
+  it("DISCRIMINATING: the numeral EXPIRES — a settled frame draws it at zero alpha", () => {
+    // The second half of the same defect. A finished animation is not the same as no
+    // animation: `settledMotion()` keeps saying `popupAlpha: 0` after the clock stops,
+    // because the fade is the only thing that removes a popup.
+    //
+    // The mutation this catches: `draw` reading `opts.popups` and ignoring `popupAlpha`.
+    const off = render();
+    const settled = render(settledMotion());
+    expect(off.texts.find((t) => t.text === POPUP.text)?.alpha).toBe(1);
+    expect(settled.texts.find((t) => t.text === POPUP.text)?.alpha).toBe(0);
+  });
+
+  it("the numeral RISES and SCALES, and does not drag anything else with it", () => {
+    const off = render();
+    const mid = render({ popupRise: 16, popupScale: 1.3 });
+    const a = off.texts.find((t) => t.text === POPUP.text)!;
+    const b = mid.texts.find((t) => t.text === POPUP.text)!;
+    expect(b.y).toBeLessThan(a.y); // it travelled UP the screen
+    expect(b.scale).toBeGreaterThan(a.scale);
+    // The board underneath is untouched — the popup transform is scoped, not global.
+    expect(JSON.stringify(mid.rects)).toBe(JSON.stringify(off.rects));
+  });
+
+  // ── the blow ──────────────────────────────────────────────────────────────
+
+  it("DISCRIMINATING: a unit offset moves its whole token, and only that unit's", () => {
+    const off = render();
+    const knocked = render({ unitOffset: { "blue-vance": { dx: 7, dy: 0 } } });
+    const a = hpBackings(off)[0]!;
+    const b = hpBackings(knocked)[0]!;
+    expect(b.x).toBeGreaterThan(a.x);
+    expect(b.y).toBe(a.y);
+    // An offset naming NOBODY on the board changes nothing — the lookup is by id, so a
+    // stale id cannot silently move the wrong token.
+    const stale = render({ unitOffset: { nobody: { dx: 7, dy: 0 } } });
+    expect(JSON.stringify(stale.rects)).toBe(JSON.stringify(off.rects));
+  });
+
+  it("DISCRIMINATING: the flash whitens the token and nothing above it", () => {
+    const off = render();
+    const flashed = render({ unitFlash: { "blue-vance": 0.55 } });
+    expect(off.fills).not.toContain("#ffffff");
+    expect(flashed.fills).toContain("#ffffff");
+    // Drawn INSIDE the silhouette at partial alpha: the HP bar, the numeral and the
+    // ring must all still be painted exactly where they were.
+    expect(JSON.stringify(flashed.rects)).toBe(JSON.stringify(off.rects));
+    expect(JSON.stringify(flashed.texts)).toBe(JSON.stringify(off.texts));
+  });
+
+  it("DISCRIMINATING: the drain is a TAIL behind the live bar, never the bar itself", () => {
+    // Pillar 4. `hpShown` is a display value; the coloured bar must keep reporting the
+    // sim's `u.hp`, so the animation can trail a loss but can never assert one.
+    //
+    // The mutation this catches: computing `frac` from `hpShown` instead of drawing a
+    // second rect behind it — the live bar would then show a health the sim never held.
+    const off = render();
+    const draining = render({ hpShown: { "blue-vance": 90 } }); // real hp is 60
+    expect(off.rects.some((r) => r.style === "#f2c0a8")).toBe(false);
+    const tail = draining.rects.find((r) => r.style === "#f2c0a8");
+    expect(tail).toBeDefined();
+
+    const live = (r: Recording): RecordedRect =>
+      r.rects.filter((x) => x.style === "#5cc98d" || x.style === "#e2a948" || x.style === "#e2603c")[0]!;
+    expect(live(draining).w).toBe(live(off).w);
+    expect(tail!.w).toBeGreaterThan(live(off).w);
+  });
+
+  it("DISCRIMINATING: a drain BELOW the real HP draws no tail at all", () => {
+    // The `shownFrac > frac` guard, asserted. A heal moves HP the other way and a stale
+    // frame can lag it, and in both cases the honest answer is to draw nothing extra —
+    // the coloured bar already holds the sim's number.
+    //
+    // The mutation this catches: painting the tail unconditionally. On a real canvas the
+    // live bar would overpaint it and the frame would look right, which is precisely why
+    // the recorder — which sees every `fillRect`, painted over or not — is the thing
+    // asserting it.
+    const off = render();
+    const healing = render({ hpShown: { "blue-vance": 10 } });
+    expect(JSON.stringify(healing.rects)).toBe(JSON.stringify(off.rects));
+  });
+
+  // ── the handoff ───────────────────────────────────────────────────────────
+
+  it("DISCRIMINATING: the ring SWEEPS, and only around the active unit", () => {
+    const full = render();
+    const quarter = render({ ringSweep: 0.25 });
+    const ringOf = (r: Recording): RecordedArc | undefined =>
+      r.arcs.find((a) => a.style === DARK_THEME.active);
+    expect(ringOf(full)?.sweep).toBeCloseTo(Math.PI * 2, 5);
+    expect(ringOf(quarter)?.sweep).toBeCloseTo(Math.PI / 2, 5);
+    // A sweep belongs to the ACTIVE unit alone. On a two-unit board exactly one ring is
+    // stroked and it is the swept one — a `drawUnit` that took the sweep unconditionally
+    // would put a partial circle under a unit that is not acting, which reads as "your
+    // turn" on the wrong token.
+    const rec = recordingCtx();
+    draw(rec.ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+      activeId: "blue-vance",
+      activeControl: "player",
+      motion: { ringSweep: 0.25 },
+    });
+    const rings = rec.arcs.filter((a) => a.style === DARK_THEME.active);
+    expect(rings).toHaveLength(1);
+    expect(rings[0]!.sweep).toBeCloseTo(Math.PI / 2, 5);
+  });
+
+  it("DISCRIMINATING: the turn plate is drawn, names the unit, and clears its HP bar", () => {
+    // The plate's whole reason for sitting at -74 rather than -60: a name tag over the
+    // unit's own health bar is the same defect as the numeral over it. Asserted as
+    // geometry — the mutation this catches is `PLATE_BASE_Y = 60`.
+    const off = render();
+    const plated = render({
+      plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "player" },
+    });
+    expect(off.fills).not.toContain("#efe2c4");
+    expect(plated.fills).toContain("#efe2c4");
+    const name = plated.texts.find((t) => t.text === "Vance");
+    expect(name).toBeDefined();
+    const bar = hpBackings(off)[0]!;
+    // The plate's box is 18 tall around the text's midline, and its pointer drops 5
+    // more. Nothing in it may reach the bar.
+    const plateBottom = name!.y + (9 + 5) * name!.scale;
+    expect(plateBottom).toBeLessThan(bar.y);
+  });
+
+  it("the plate distinguishes a PLAYER handoff from an AI one", () => {
+    // Same rule as the ring: two treatments, not two shades of one. A plate that painted
+    // both the same would make "can I act?" unanswerable from the plate alone.
+    const player = render({
+      plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "player" },
+    });
+    const ai = render({
+      plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "ai" },
+    });
+    expect(player.strokes).toContain("#8a6b1f");
+    expect(ai.strokes).toContain("#8a3a1f");
+    expect(player.strokes).not.toContain("#8a3a1f");
+    expect(ai.strokes).not.toContain("#8a6b1f");
+  });
+
+  it("DISCRIMINATING: the camera reserves room, so a BACK-ROW numeral is not clipped", () => {
+    // MEASURED, NOT FEARED. Lifting the numeral clear of the HP bar made it taller than
+    // the camera's `HEADROOM` reserved, and on all five shipped maps a popup over the
+    // back-corner tile was cut by 5–11 canvas pixels — half a digit. Nothing in the suite
+    // could see it, and neither could the frames, because the walkthrough's blow happened
+    // to land mid-board.
+    //
+    // Asserted at 900x440, THE SHIPPED CANVAS (this file measures everything else at
+    // 900x600, which is taller and therefore hides exactly this). The mutation this
+    // catches: `HEADROOM` back to 54.
+    const W = 900;
+    const H = 440;
+    const back: Position = { x: 0, y: 0 }; // the topmost tile in painter's order
+    const state = createBattleState({
+      seed: 1,
+      grid: { width: 9, height: 7, tiles: makeFlatTiles(9, 7) },
+      units: [defaultUnit("blue-vance", 0, { pos: back, hp: 60, maxHp: 100 })],
+    });
+    const rec = recordingCtx();
+    draw(rec.ctx, state, W, H, {
+      activeId: "blue-vance",
+      activeControl: "player",
+      popups: [{ pos: back, text: "−137", kind: "damage" }],
+      unitColor: () => "#4f8cff",
+      motion: {
+        // The instant the numeral appears: full size, before it has risen.
+        popupScale: 1.3,
+        plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 8, kind: "player" },
+      },
+    });
+    const numeral = rec.texts.find((t) => t.text === "−137")!;
+    const name = rec.texts.find((t) => t.text === "Vance")!;
+    // A 20px glyph's ascender plus its 3px outline, and the plate's own half-height.
+    expect(numeral.y - 17 * numeral.scale).toBeGreaterThan(0);
+    expect(name.y - 9.5 * name.scale).toBeGreaterThan(0);
+    // Non-degeneracy: this really is the tile nearest the top edge, so the clearance is
+    // the worst case rather than a comfortable one somewhere in the middle.
+    const bar = rec.rects.filter((r) => r.style === "#0b0f1c")[0]!;
+    expect(bar.y).toBeLessThan(H / 2);
+  });
+
+  it("a plate naming a unit that is not on the board draws nothing", () => {
+    const off = render();
+    const ghost = render({
+      plate: { unitId: "nobody", text: "Nobody", alpha: 1, rise: 0, kind: "player" },
+    });
+    expect(ghost.fills).not.toContain("#efe2c4");
+    expect(JSON.stringify(ghost.texts)).toBe(JSON.stringify(off.texts));
   });
 });

@@ -64,3 +64,44 @@ export async function dismissScene(page: Page): Promise<void> {
   await page.getByTestId("scene-continue").click();
   await expect(screen).toBeHidden();
 }
+
+/**
+ * Put the board's cosmetic animation into a KNOWN frame before a screenshot.
+ *
+ * WHY THIS EXISTS RATHER THAN A SLEEP. Every spec that screenshots right after a state
+ * change now lands on an arbitrary frame of a ~1 s animation, and nothing in the suite
+ * can see a canvas — so a mid-animation capture would ship under a caption describing the
+ * settled board with everything green. A `waitForTimeout` would only trade that for a
+ * race on a loaded box. These two drive the page's own animation clock instead:
+ *
+ *   - {@link settleMotion} jumps to the finished frame (offsets at rest, the numeral
+ *     expired). Use it for any frame whose caption describes a board at rest.
+ *   - {@link freezeMotion} pins a CHOSEN instant. `0` is impact — the target flashed and
+ *     recoiled with the damage numeral at full size — which is the only frame that makes
+ *     a caption like "a damage popup is necessarily on screen" true of the image.
+ *     Pass `null` to hand the clock back.
+ *
+ * Both are no-ops on a page with no battle, and tolerant of either seam: `/` installs
+ * `window.tuhGame`, `/viewer.html` installs `window.tuh`.
+ */
+export async function settleMotion(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      tuh?: { settleMotion?: () => void };
+      tuhGame?: { settleMotion?: () => void };
+    };
+    w.tuhGame?.settleMotion?.();
+    w.tuh?.settleMotion?.();
+  });
+}
+
+export async function freezeMotion(page: Page, elapsedMs: number | null): Promise<void> {
+  await page.evaluate((ms) => {
+    const w = window as unknown as {
+      tuh?: { freezeMotion?: (ms: number | null) => void };
+      tuhGame?: { freezeMotion?: (ms: number | null) => void };
+    };
+    w.tuhGame?.freezeMotion?.(ms);
+    w.tuh?.freezeMotion?.(ms);
+  }, elapsedMs);
+}

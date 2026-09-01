@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { prepEveryMember, dismissScene } from "./helpers.js";
+import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
 // Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
@@ -79,6 +79,10 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await expect(page.getByTestId("timeline")).toContainText("Next up");
   await expect(page.getByTestId("preview")).toBeVisible();
+  // Settled, so the caption "the battle screen" describes a board at rest rather than an
+  // arbitrary frame of the commit animation. (Nothing has been committed here yet, so it
+  // is a no-op today — kept because the frame moves the day a step is added above it.)
+  await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/22-battle.png`, fullPage: true });
 
   await page.evaluate(() => window.tuhGame.autoplay());
@@ -817,4 +821,58 @@ test("campaign: the battle board is actually painted — asserted on canvas pixe
   expect(b, `corner is not sky — rgba(${r}, ${g}, ${b}, ${a})`).toBeGreaterThan(150);
   expect(b).toBeGreaterThanOrEqual(r);
   expect(r + g + b, `corner is too dark to be sky`).toBeGreaterThan(450);
+});
+
+/**
+ * REDUCED MOTION, ON THE CANVAS — asserted on pixels, because nothing else can.
+ *
+ * `index.html`'s single `prefers-reduced-motion` query reaches CSS transitions and
+ * nothing else; the board's motion is drawn, so honouring the preference is a decision
+ * the PAGE has to make and pass into the renderer. The headless suite proves the
+ * director obeys a `reduced` callback — it cannot prove `game.ts` supplies one, which
+ * is the "a recorder nobody calls looks exactly like one that works" shape.
+ *
+ * THE A/B IS THE WHOLE TEST. The same seed, the same commits, the same pinned instant of
+ * the animation clock, run twice: with the preference OFF the canvas must DIFFER from the
+ * settled board (something is moving), and with it ON the two must be IDENTICAL (nothing
+ * is). One half alone proves nothing — "identical" is also what an animation that never
+ * started looks like.
+ */
+test("reduced motion: the board animates by default and does not when it is asked not to", async ({
+  page,
+}) => {
+  /** The canvas as a data URL, at a pinned animation instant. */
+  const frameAt = async (ms: number | null): Promise<string> => {
+    await freezeMotion(page, ms);
+    return page.evaluate(() => (document.querySelector("canvas") as HTMLCanvasElement).toDataURL());
+  };
+
+  /** Play to the first commit that produced a floating label, then sample two frames. */
+  const play = async (): Promise<{ impact: string; settled: string }> => {
+    await page.goto("/");
+    await page.getByTestId("new-game").click();
+    await dismissScene(page);
+    await page.getByTestId("deploy").click();
+    await expect(page.getByTestId("screen-battle")).toBeVisible();
+    const lastRow = (): Promise<string> => page.locator("#log li").first().innerText();
+    for (let i = 0; i < 12 && !/(?:hit|KO) /.test(await lastRow().catch(() => "")); i++) {
+      await page.getByTestId("step").click();
+    }
+    expect(/(?:hit|KO) /.test(await lastRow()), "no blow landed to animate").toBe(true);
+    const impact = await frameAt(0);
+    await freezeMotion(page, null);
+    await page.evaluate(() => window.tuhGame.settleMotion());
+    const settled = await page.evaluate(
+      () => (document.querySelector("canvas") as HTMLCanvasElement).toDataURL(),
+    );
+    return { impact, settled };
+  };
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const moving = await play();
+  expect(moving.impact).not.toBe(moving.settled);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const still = await play();
+  expect(still.impact).toBe(still.settled);
 });
