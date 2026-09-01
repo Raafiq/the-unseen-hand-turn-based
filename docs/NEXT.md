@@ -218,7 +218,7 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    a run that dies leaves a missing frame rather than yesterday's. The browser-spec count
    dropped 43 → 42 when the guard stopped being a spec; that was the fix, not a regression.
    **It is back to 43** — the adversarial-review slice (`c1507dc`) added the page-to-terrain
-   canvas assertion in `campaign.spec.ts`. Current counts: **922 unit tests, 44 browser
+   canvas assertion in `campaign.spec.ts`. Current counts: **928 unit tests, 44 browser
    specs in 8 files.**
 
 ---

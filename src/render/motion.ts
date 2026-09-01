@@ -27,6 +27,11 @@
  * behind a pale tail while the attacker leans in; on a handoff the acting unit's ring
  * sweeps in and a name plate names them. No screen shake, no full-width banner — those
  * were options the owner did not pick and they are not implemented.
+ *
+ * AMENDED THE SAME DAY, from reference footage: the damage numeral sits on the struck
+ * unit's head and is allowed to overlap anything, and it holds for {@link MOTION_MS}`
+ * .popup` = 1500 ms rather than 400. The blow itself (`impact`) was NOT stretched with
+ * it. See ADR-0032's amendment and the anchor block in `iso.ts`.
  */
 
 import type { Position } from "../sim/index.js";
@@ -62,19 +67,40 @@ export interface MotionBeat {
 }
 
 /**
- * The timeline, in milliseconds. Named because two of them are decisions, not tuning:
- * `plateMs` is the owner's ~700 ms hold (the art director's option C timing over option
- * B's motion), and `plateDelayMs` is what keeps the name plate from arriving on top of a
- * damage numeral that has not finished leaving.
+ * The timeline, in milliseconds. Three of these are DECISIONS, not tuning.
+ *
+ * `popup` is the owner's call from the reference footage, where the number holds for
+ * roughly 1.5–2 s and rises as it fades; ours was 400 ms, which is a flicker by
+ * comparison. `plate` is the ~700 ms hold (the art director's option C timing over option
+ * B's motion). `impact` is deliberately NOT lengthened with the numeral: the recoil, the
+ * flash and the HP drain are the blow itself and a 1.5 s recoil would read as slow
+ * motion, so the numeral outlives them by design.
+ *
+ * `plateDelay` no longer means "wait for the numeral to leave" — at 1500 ms it never
+ * could, and overlap is allowed now (ADR-0032's amendment). It is a short beat so the
+ * blow lands before the next unit is announced.
  */
 export const MOTION_MS = {
-  /** The impact reaction end to end: recoil, flash, drain, numeral rise and fade. */
+  /** The impact reaction: recoil, flash, HP drain. */
   impact: 400,
+  /** The floating numeral's whole life: punch, rise, hold, fade out. */
+  popup: 1500,
+  /** How long the numeral spends fading, at the END of its window. */
+  popupFade: 450,
   /** How long after impact the handoff plate begins, when the commit produced a label. */
   plateDelay: 300,
   /** The plate's own window: fade in, hold, fade out. */
   plate: 700,
 } as const;
+
+/**
+ * How far the numeral travels over its window, in CANVAS PIXELS.
+ *
+ * Pixels because the numeral is drawn outside the camera transform (`iso.ts`'s label
+ * block): a world-unit rise would travel a third further on the smallest map than on the
+ * largest one, for the same animation.
+ */
+export const POPUP_RISE_PX = 26;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** Progress 0..1 across `[a, b]`, clamped outside it. */
@@ -101,9 +127,16 @@ function screenDir(from: Position, to: Position): { dx: number; dy: number } | n
   return { dx: dx / len, dy: dy / len };
 }
 
-/** How long this beat's animation runs. 0 when there is nothing to show. */
+/**
+ * How long this beat's animation runs. 0 when there is nothing to show.
+ *
+ * THE NUMERAL IS NOW THE LONGEST STRAND — 1500 ms against the plate's 300 + 700 — so on
+ * any commit that produced a label this is the numeral's window. That matters for the
+ * frame loop's exit condition: it has to outlast the fade, or the last frame drawn would
+ * leave a half-faded number on screen until something else repainted.
+ */
 export function beatDuration(beat: MotionBeat): number {
-  const popup = beat.popupCount > 0 ? MOTION_MS.impact : 0;
+  const popup = beat.popupCount > 0 ? MOTION_MS.popup : 0;
   const delay = beat.popupCount > 0 ? MOTION_MS.plateDelay : 0;
   const handoff = beat.handoff ? delay + MOTION_MS.plate : 0;
   const impact = beat.impacts.length > 0 ? MOTION_MS.impact : 0;
@@ -135,8 +168,8 @@ export function sampleBeat(
   // rise-and-fade is what makes a popup expire, and a whiff that never leaves the board
   // is the same defect as a damage number that never leaves it.
   if (beat.popupCount > 0) {
-    out.popupRise = 16 * easeOut(seg(t, 0, MOTION_MS.impact));
-    out.popupAlpha = 1 - seg(t, 260, MOTION_MS.impact);
+    out.popupRise = POPUP_RISE_PX * easeOut(seg(t, 0, MOTION_MS.popup));
+    out.popupAlpha = 1 - seg(t, MOTION_MS.popup - MOTION_MS.popupFade, MOTION_MS.popup);
     out.popupScale = lerp(1.3, 1, easeOut(seg(t, 0, 100)));
   }
 
@@ -224,6 +257,23 @@ export interface MotionDirectorOptions {
  * of `MotionState` is an offset from rest, the board is redrawn from the new state
  * anyway, and the outgoing beat's own popups have already been replaced by the new
  * commit's. Queueing would be the one design that CAN lag behind the sim.
+ *
+ * THE NUMERAL STAYS ON THE BEAT'S TIMELINE, AND THAT IS A DECISION (2026-09-01). At
+ * 1500 ms against a ~2.4 s turn cadence a numeral is now often still alive when the next
+ * action lands, so "should it decay on its own clock instead of being cancelled?" is a
+ * real question. The answer is NO, because the numeral is not this file's to keep:
+ * `Session.commit` reassigns `popups` and builds the beat in the same call, so the label
+ * and its animation are replaced together, atomically. Giving the fade an independent
+ * clock would mean holding a COPY of a popup the session has already retired — a second
+ * opinion in `src/render` about what the last commit did, which is the thing this layer
+ * is not allowed to have.
+ *
+ * The visible consequence, stated rather than hidden: when the next commit produces no
+ * label of its own (a plain move), an in-flight numeral is CUT rather than faded. It is
+ * cut because newer news has arrived on the same board. Expiry is guaranteed twice
+ * over — by the fade inside the window, and by {@link settledMotion} holding
+ * `popupAlpha: 0` after the clock stops — so the defect that started this (a numeral
+ * that never left) cannot come back through either door.
  */
 export class MotionDirector {
   private readonly nameOf: (unitId: string) => string;
@@ -252,7 +302,12 @@ export class MotionDirector {
    * do: it does not expire the damage numeral. The fade is the only thing that removes a
    * popup, so settling it would cost a reduced-motion reader the damage number
    * entirely. Reduced motion removes MOVEMENT, not information — and the numeral is
-   * legible for them anyway, because the anchor fix in `iso.ts` is unconditional.
+   * legible for them anyway, because `iso.ts` sizes and clamps it unconditionally.
+   *
+   * SAID PLAINLY: a reduced-motion reader's numeral does NOT expire on a timer. It stays
+   * until the next commit replaces `Session.popups`, exactly as every popup did before
+   * the motion slice. That is the price of not taking the information away, and it is a
+   * choice rather than an oversight.
    */
   start(beat: MotionBeat): void {
     if (this.reduced()) {

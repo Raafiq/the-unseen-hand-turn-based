@@ -69,7 +69,7 @@ export async function dismissScene(page: Page): Promise<void> {
  * Put the board's cosmetic animation into a KNOWN frame before a screenshot.
  *
  * WHY THIS EXISTS RATHER THAN A SLEEP. Every spec that screenshots right after a state
- * change now lands on an arbitrary frame of a ~1 s animation, and nothing in the suite
+ * change now lands on an arbitrary frame of a ~1.5 s animation, and nothing in the suite
  * can see a canvas — so a mid-animation capture would ship under a caption describing the
  * settled board with everything green. A `waitForTimeout` would only trade that for a
  * race on a loaded box. These two drive the page's own animation clock instead:

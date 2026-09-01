@@ -66,7 +66,8 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   //
   // THE POPUP NOW EXPIRES, WHICH MADE THAT SECOND CAPTION A LIE IN WAITING. It used to
   // persist until the next commit, so any frame after a damaging turn showed it; it now
-  // fades out ~400 ms after impact, and this shot is taken a full HOLD_MS later. The
+  // fades out by ~1500 ms after impact (400 ms until 2026-09-01), and this shot is taken
+  // a full HOLD_MS later. The
   // caption is kept TRUE by pinning the animation clock to impact for the capture and
   // handing it back straight after — deterministic, and not a sleep. `02-closing-in` is
   // settled for the opposite reason: its caption describes a board at rest.

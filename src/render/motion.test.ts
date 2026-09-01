@@ -27,6 +27,7 @@ import {
 import {
   MOTION_MS,
   MotionDirector,
+  POPUP_RISE_PX,
   beatDuration,
   sampleBeat,
   settledMotion,
@@ -176,9 +177,13 @@ describe("the timeline", () => {
     ...over,
   });
 
-  it("a hit commit runs the impact, then the plate; a quiet one runs the plate alone", () => {
-    expect(beatDuration(beatOf())).toBe(MOTION_MS.plateDelay + MOTION_MS.plate);
-    // No label to expire, so the plate needs no delay to stay clear of one.
+  it("a hit commit runs until the NUMERAL is gone; a quiet one runs the plate alone", () => {
+    // The numeral is now the longest strand — 1500 ms against the plate's 300 + 700 — so
+    // the beat has to outlast it. A duration that stopped at the plate would leave the
+    // frame loop exiting on a half-faded number, which is how a popup gets stuck.
+    expect(beatDuration(beatOf())).toBe(MOTION_MS.popup);
+    expect(MOTION_MS.popup).toBeGreaterThan(MOTION_MS.plateDelay + MOTION_MS.plate);
+    // No label at all, so the beat is the plate's own window.
     const quiet = beatOf({ strikers: [], impacts: [], popupCount: 0 });
     expect(beatDuration(quiet)).toBe(MOTION_MS.plate);
     // Nothing at all to show — a commit on a battle that just ended.
@@ -249,11 +254,16 @@ describe("the timeline", () => {
     expect(healed.hpShown?.foe).toBeUndefined();
   });
 
-  it("DISCRIMINATING: the plate waits for the numeral to leave, and holds ~700 ms", () => {
+  it("DISCRIMINATING: the plate follows the blow by a beat, and holds ~700 ms", () => {
     // The owner's call: option B's motion with option C's longer hold. Both halves are
-    // asserted, because a plate that appeared at t = 0 would land on top of a damage
-    // numeral that has not started fading, and one that held 440 ms would be the timing
-    // that was NOT chosen.
+    // asserted, because a plate that appeared at t = 0 would arrive on the same frame as
+    // the blow it is announcing the aftermath of, and one that held 440 ms would be the
+    // timing that was NOT chosen.
+    //
+    // RETARGETED 2026-09-01. This used to be titled "waits for the numeral to leave",
+    // and that reason died with the 1500 ms numeral: the plate now always comes up while
+    // the number is still on screen, which is fine — overlap is allowed (ADR-0032's
+    // amendment) and these two labels sit on different units in every case but one.
     const nameOf = (id: string): string => `Name:${id}`;
     const beat = beatOf();
     expect(sampleBeat(beat, 0, nameOf).plate).toBeUndefined();
@@ -264,6 +274,59 @@ describe("the timeline", () => {
     // finished. Then gone by the end of the 700 ms one.
     expect(sampleBeat(beat, MOTION_MS.plateDelay + 440, nameOf).plate?.alpha).toBeCloseTo(1, 5);
     expect(sampleBeat(beat, MOTION_MS.plateDelay + MOTION_MS.plate, nameOf).plate).toBeUndefined();
+    // The overlap, asserted rather than assumed: the numeral is fully opaque for the
+    // plate's entire window. A build that quietly restored the old 400 ms numeral would
+    // fail here, which is the one thing "the plate holds 700 ms" cannot see.
+    expect(up.popupAlpha).toBe(1);
+    expect(
+      sampleBeat(beat, MOTION_MS.plateDelay + MOTION_MS.plate, nameOf).popupAlpha,
+    ).toBe(1);
+  });
+
+  it("DISCRIMINATING: the numeral holds ~1500 ms, rising as it fades, and then is gone", () => {
+    // THE OWNER'S CALL FROM REFERENCE FOOTAGE (ADR-0032's amendment): the number stays up
+    // roughly 1.5–2 s and rises while it fades. Ours was 400 ms. The band is asserted as
+    // a LITERAL, not relative to `MOTION_MS.popup`, because a relative assertion is
+    // green at 400 ms — which is the value being reversed.
+    const nameOf = (id: string): string => id;
+    const beat = beatOf();
+    expect(MOTION_MS.popup).toBeGreaterThanOrEqual(1400);
+    expect(MOTION_MS.popup).toBeLessThanOrEqual(2000);
+
+    // Fully opaque at 400 ms, where the old numeral had already finished leaving.
+    expect(sampleBeat(beat, 400, nameOf).popupAlpha).toBe(1);
+    // Fading, but still readable, three quarters of the way through.
+    const late = sampleBeat(beat, 1200, nameOf).popupAlpha!;
+    expect(late).toBeLessThan(1);
+    expect(late).toBeGreaterThan(0);
+    // Gone at the end of the window — and `beatDuration` reaches it, so the frame loop
+    // actually draws this frame rather than stopping short of it.
+    expect(sampleBeat(beat, MOTION_MS.popup, nameOf).popupAlpha).toBe(0);
+    expect(beatDuration(beat)).toBeGreaterThanOrEqual(MOTION_MS.popup);
+
+    // RISING, monotonically, across the whole window — not only during the fade.
+    const rise = (t: number): number => sampleBeat(beat, t, nameOf).popupRise!;
+    expect(rise(0)).toBe(0);
+    expect(rise(400)).toBeGreaterThan(rise(0));
+    expect(rise(1200)).toBeGreaterThan(rise(400));
+    expect(rise(MOTION_MS.popup)).toBeCloseTo(POPUP_RISE_PX, 5);
+  });
+
+  it("DISCRIMINATING: the BLOW was not stretched with the numeral", () => {
+    // The lazy way to lengthen the numeral is to lengthen `MOTION_MS.impact`, and it
+    // would pass every assertion above. It would also give a 1.5 s recoil and a 1.5 s
+    // HP drain — slow motion on a board whose sim has already settled.
+    //
+    // The A/B is one instant, 400 ms in: the blow is entirely finished (the drain has
+    // arrived at the sim's real HP, the flash is out, nothing is displaced) while the
+    // numeral is untouched. The mutation this catches: `impact: 1500`.
+    const nameOf = (id: string): string => id;
+    const done = sampleBeat(beatOf(), MOTION_MS.impact, nameOf);
+    expect(done.hpShown?.foe).toBeCloseTo(300, 5); // the impact's own end state
+    expect(done.unitFlash?.foe ?? 0).toBe(0);
+    expect(done.unitOffset?.foe ?? { dx: 0, dy: 0 }).toEqual({ dx: 0, dy: 0 });
+    expect(done.popupAlpha).toBe(1);
+    expect(MOTION_MS.impact).toBeLessThan(MOTION_MS.popup);
   });
 
   it("DISCRIMINATING: the plate's text comes from the caller's mapping, not from the id", () => {

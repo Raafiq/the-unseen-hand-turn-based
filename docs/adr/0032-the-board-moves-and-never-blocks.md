@@ -159,6 +159,16 @@ original sprites, but its HUD is new work.
    units would hold the headroom up by itself and the numeral's move would buy nothing.
 5. **Numeral duration 400 ms → ~1500 ms**, still rising as it fades.
 
+**One thing the implementation added, 2026-09-01, and it is a decision rather than a
+detail: the numeral is painted OVER the plate.** When the unit that was just struck is
+also the unit up next, the two labels land on one head — and the plate's box is opaque, so
+with the numeral underneath it the damage number was simply erased for the plate's whole
+700 ms. Found by opening a frame with the suite green. This is ORDERING, not avoidance:
+neither label moves, and the number wins because the reference draws the number over
+everything. **What it does not fix:** the plate is then largely hidden behind the number
+for that case. Nobody has decided whether that is acceptable; it is an appearance call and
+it is open.
+
 ### What this supersedes
 
 | Claim, and where | Status now |
@@ -202,11 +212,20 @@ cross-corroboration or an owner-supplied reference, never the primary wikis.
 
 ### Numbers in this amendment that no test asserts
 
-- **`~1500 ms` and `HEADROOM` 54 are explicitly aspirational** until the AC pass. **No
-  Acceptance Criteria are written here** — the implementation is in flight, and ACs land in
-  the second pass against what is actually asserted.
+- ~~**`~1500 ms` and `HEADROOM` 54 are explicitly aspirational** until the AC pass.~~
+  **[CORRECTED 2026-09-01, when the implementation landed — both are now asserted, and
+  leaving this bullet standing would have been a coverage gap that had already been
+  closed.]** `motion.test.ts` pins the numeral's window to the **literal** 1400–2000 ms
+  band ("the numeral holds ~1500 ms…"), deliberately not relative to `MOTION_MS.popup`,
+  which would stay green at 400. `iso.test.ts` pins `HEADROOM` from both sides: a floor
+  against the tallest **world** tenant, and per-map camera-scale floors sitting between
+  the 72 and 54 readings on all five shipped maps. **No Acceptance Criteria are written
+  here** — ACs still land in a later pass against what is asserted.
 - **"1.5–2 s" is read off frames, not instrumented.** It is a target band, not a measurement
   of the source game.
+- **Still unasserted, and named rather than left implied:** whether any of this is
+  *legible* — the canvas is unmeasured (see the Consequences above), so every legibility
+  claim about the numeral is a human reading of a frame.
 - **Correction to the Consequences bullet above:** `~700 ms` is **no longer unasserted**.
   `motion.test.ts` — "DISCRIMINATING: the plate waits for the numeral to leave, and holds
   ~700 ms" — pins the ordering and the fade shape. But it asserts **relative to**

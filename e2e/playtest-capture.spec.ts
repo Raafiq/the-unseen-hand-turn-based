@@ -27,7 +27,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
    */
   const shot = async (name: string, expectVisible: string) => {
     await expect(page.getByTestId(expectVisible)).toBeVisible();
-    // The board animates for ~1 s after a commit, so a frame taken here would be an
+    // The board animates for ~1.5 s after a commit, so a frame taken here would be an
     // arbitrary instant of it — and no assertion in this suite can see a canvas. Settle
     // first: every caption in this set describes a board at rest.
     await settleMotion(page);

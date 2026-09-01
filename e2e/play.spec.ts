@@ -553,7 +553,7 @@ test.describe("playable — the static proof sheet", () => {
    * Screenshot the union of some elements' boxes (+ padding), full-page-relative.
    *
    * SETTLES THE BOARD FIRST. Several of these frames are taken immediately after a
-   * commit, which now starts a ~1 s cosmetic animation — without this they would capture
+   * commit, which now starts a ~1.5 s cosmetic animation — without this they would capture
    * an arbitrary instant of it, under captions that describe a board at rest, with every
    * assertion in this file green. `at` overrides that for the one frame whose caption is
    * about the blow itself.
@@ -780,7 +780,7 @@ test.describe("playable — the static proof sheet", () => {
     );
     // PINNED TO IMPACT. `docs/visual/p3-playable/README.md` captions this frame "damage
     // popup, HP bar dropped" — true only while the numeral is still up, which it no
-    // longer is a second later. Frozen at t = 0 the caption stays true of the image.
+    // longer is two seconds later. Frozen at t = 0 the caption stays true of the image.
     await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL], 0);
 
     // ── 15: an AI turn, with input inert. Reached by ending the player's turn; the

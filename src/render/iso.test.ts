@@ -11,10 +11,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createBattleState, defaultUnit, makeFlatTiles, moveRange, type BattleState, type Position } from "../sim/index.js";
+import { createBattleState, defaultUnit, makeFlatTiles, moveRange, parseEncounter, type BattleState, type Position, type UnitState } from "../sim/index.js";
+import { ENCOUNTERS } from "./campaign-data.js";
 import { makeDemoBattle } from "./demo.js";
 import { DARK_THEME, draw, FIELD_THEME, HEADROOM, originFor, paintOrder, pickTile, pointInDiamond, project, viewFor, type DamagePopup, type DrawOptions, type MotionState } from "./iso.js";
-import { settledMotion } from "./motion.js";
+import { POPUP_RISE_PX, settledMotion } from "./motion.js";
 import { DAYLIGHT, parseTerrain, TERRAIN_KINDS, type TerrainMap } from "./terrain.js";
 
 /**
@@ -41,6 +42,56 @@ const HALF_W = project(1, 0, 0, ZERO).x; // (x - y) * TILE_W / 2 with x-y = 1
 const HALF_H = project(1, 0, 0, ZERO).y; // (x + y) * TILE_H / 2 with x+y = 1
 /** Screen rise per unit of tile height, likewise derived from `project`. */
 const HEIGHT_RISE = project(0, 0, 0, ZERO).y - project(0, 0, 1, ZERO).y;
+
+/**
+ * The five SHIPPED campaign maps, as battle states with whatever units the test wants.
+ *
+ * PURPOSE-BUILT FIXTURES ARE THE HOUSE PREFERENCE, and most of this file follows it. Two
+ * claims here are about the boards a player actually sees, though — "no label is clipped
+ * on any shipped map" and "every board got its area back" — and a hand-rolled 9x7 cannot
+ * make either. Battle 1 is a 7x5 that zooms to 1.59 where battle 4 is an 11x7 with relief
+ * at 1.15, and the tight one is not the one an author would think to write down.
+ *
+ * The grid is lifted from the encounter def exactly as `loadEncounter` does it, so a map
+ * re-authored in `data/campaign/encounters` moves these tests with it.
+ */
+function shippedMaps(units: (grid: BattleState["grid"]) => UnitState[] = () => []): {
+  id: string;
+  state: BattleState;
+}[] {
+  return Object.entries(ENCOUNTERS).map(([id, def]) => {
+    const enc = parseEncounter(def);
+    const grid = {
+      width: enc.grid.width,
+      height: enc.grid.height,
+      ...(enc.grid.tiles ? { tiles: enc.grid.tiles } : {}),
+    };
+    const state = createBattleState({ seed: enc.seed, grid, units: [] });
+    const withUnits = units(state.grid);
+    return {
+      id,
+      state: withUnits.length === 0 ? state : createBattleState({ seed: enc.seed, grid, units: withUnits }),
+    };
+  });
+}
+
+/** The tile drawn NEAREST THE TOP EDGE — the worst case for anything drawn above a unit. */
+function backMostTile(state: BattleState, canvasW: number, canvasH: number): Position {
+  const { origin } = viewFor(state, canvasW, canvasH);
+  const { width, height, tiles } = state.grid;
+  let best: Position = { x: 0, y: 0 };
+  let top = Infinity;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = project(x, y, tiles[y * width + x]!.height, origin);
+      if (p.y < top) {
+        top = p.y;
+        best = { x, y };
+      }
+    }
+  }
+  return best;
+}
 
 /** A flat 9x7 grid — same footprint as the demo map, but zero relief. */
 function flatBattle(): BattleState {
@@ -82,8 +133,14 @@ const pick = (state: BattleState, p: Position): Position | null => {
 
 /** One `fillRect`, in CANVAS coordinates, with the colour it was filled in. */
 interface RecordedRect { x: number; y: number; w: number; h: number; style: string; alpha: number }
-/** One `fillText`/`strokeText`, in CANVAS coordinates. */
-interface RecordedText { text: string; x: number; y: number; scale: number; alpha: number; style: string }
+/**
+ * One `fillText`/`strokeText`, in CANVAS coordinates.
+ *
+ * `font` is recorded as well as `scale`, and the pair is what makes "this label is sized
+ * in canvas pixels" assertable: the size a reader actually sees is the font's px times
+ * the transform in force, and a label drawn under the camera has the camera's scale here.
+ */
+interface RecordedText { text: string; x: number; y: number; scale: number; alpha: number; style: string; font: string }
 /** One `arc` that was actually stroked, with its angular sweep. */
 interface RecordedArc { x: number; y: number; r: number; sweep: number; style: string }
 
@@ -165,10 +222,10 @@ function recordingCtx(): Recording {
       rects.push({ x: X(x), y: Y(y), w: w * sc, h: h * sc, style: cur, alpha: target.globalAlpha });
     },
     fillText(t: string, x: number, y: number): void {
-      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: cur });
+      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: cur, font: target.font });
     },
     strokeText(t: string, x: number, y: number): void {
-      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: target.strokeStyle });
+      texts.push({ text: t, x: X(x), y: Y(y), scale: sc, alpha: target.globalAlpha, style: target.strokeStyle, font: target.font });
     },
     arc(x: number, y: number, r: number, a0: number, a1: number): void {
       pending = { x: X(x), y: Y(y), r: r * sc, sweep: Math.abs(a1 - a0) };
@@ -308,17 +365,53 @@ describe("the camera — viewFor", () => {
     }
   });
 
-  it("HEADROOM clears the tallest thing drawn above a tile", () => {
+  it("HEADROOM clears the tallest WORLD thing drawn above a tile", () => {
     // NEVER ANCHOR A CHECK ON THE THING IT IS CHECKING. The extent helper above reads
     // the shipped `HEADROOM`, so setting it to 0 moved the code AND the expectation
     // together and the fit test stayed green — measured. The floor here is an
     // INDEPENDENT constant, read off what `iso.ts` actually draws above `top.y`:
-    //   · a tree canopy reaches `base - 42 - 9` ≈ 51px, the tallest prop;
-    //   · a status chip sits at `cy - 42` and is 12 tall, with `cy = top.y - 14`.
+    // a tree canopy reaches `base - 42 - 9` ≈ 51px, the tallest prop, and it is the
+    // tallest thing that does NOT clamp itself.
+    //
+    // WORLD TENANTS ONLY, since 2026-09-01 (ADR-0032's amendment). The damage numeral
+    // and the turn plate are no longer among them — they are drawn outside the camera
+    // transform and clamp into the viewport instead of being reserved for, which is what
+    // let this constant go back from 72 to 54 and give every board its area back. The
+    // status-chip row nominally reaches 58 (`cy - 38`, `cy = top.y - 20`) but has
+    // clamped itself off the top edge since long before any of this, so it is not the
+    // binding tenant either.
     // If a taller prop or a second chip row lands, this number moves WITH it, on
     // purpose — and it fails first, which is the point.
-    const TALLEST_THING_ABOVE_A_TILE = 51;
-    expect(HEADROOM).toBeGreaterThanOrEqual(TALLEST_THING_ABOVE_A_TILE);
+    const TALLEST_WORLD_THING_ABOVE_A_TILE = 51;
+    expect(HEADROOM).toBeGreaterThanOrEqual(TALLEST_WORLD_THING_ABOVE_A_TILE);
+  });
+
+  it("DISCRIMINATING: the board got back the area the label reservation had cost it", () => {
+    // The other half of the same amendment, and the half a floor on `HEADROOM` cannot
+    // see: the point of moving the labels was BOARD SIZE, so the assertion is on the
+    // camera's scale, not on the constant that drives it.
+    //
+    // MEASURED at the SHIPPED 900x440 canvas (this file measures everything else at
+    // 900x600 — see the note at the top). Per shipped map, `HEADROOM` 72 → 54:
+    //   b1 1.489 → 1.591 · b2 1.338 → 1.419 · b3 1.214 → 1.280
+    //   b4 1.099 → 1.154 · b5 1.111 → 1.167          (+5.0% to +6.9%)
+    // The floors below sit between the two readings, so this fails the day a label's
+    // footprint is charged to the camera again — which is the mutation it catches
+    // (`HEADROOM = 72`), and it was run.
+    const floors: Record<string, number> = {
+      "camp-b1-the-toll-road": 1.54,
+      "camp-b2-ambush-at-the-ford": 1.38,
+      "camp-b3-the-hollow-watch": 1.25,
+      "camp-b4-the-broken-span": 1.13,
+      "camp-b5-the-warchiefs-camp": 1.14,
+    };
+    const maps = shippedMaps();
+    // The manifest is checked BOTH ways: a sixth battle with no floor, or a floor for a
+    // map that no longer ships, both fail here rather than quietly measuring four maps.
+    expect(maps.map((m) => m.id).sort()).toEqual(Object.keys(floors).sort());
+    for (const { id, state } of maps) {
+      expect(viewFor(state, 900, 440).scale, id).toBeGreaterThan(floors[id]!);
+    }
   });
 
   it("uses the frame it is given rather than leaving it half empty", () => {
@@ -848,26 +941,107 @@ describe("motion — the animated frame, A/B against the settled one", () => {
 
   // ── the live defect: the numeral sat on the health bar ────────────────────
 
-  it("DISCRIMINATING: the damage numeral clears the HP bar it used to cover", () => {
-    // EARNED, and asserted as GEOMETRY rather than as a constant. The numeral was drawn
-    // at `p.y - 40` and the bar sits at `p.y - 44`, so a 20px glyph centred on that
-    // baseline covered the bar completely — and popups persisted until the next commit,
-    // so the health of the unit you had just hit was unreadable for the whole
-    // intervening period.
-    //
-    // The mutation this catches: restore `POPUP_BASE_Y = 40` and the boxes overlap.
+  it("DISCRIMINATING: the numeral is ON THE STRUCK UNIT'S HEAD, above its token", () => {
+    // PLACEMENT OPTION A (ADR-0032's amendment, from the owner's reference footage): the
+    // number sits over the head of the unit it belongs to. Both halves are asserted,
+    // because "somewhere above the board" is not the claim — a numeral centred on the
+    // wrong column names the wrong victim.
     const r = render();
     const bar = hpBackings(r)[0];
     const numeral = r.texts.find((t) => t.text === POPUP.text);
     expect(bar).toBeDefined();
     expect(numeral).toBeDefined();
-    // A 20px glyph rises ~15px above its baseline and drops ~5 below, plus a 3px
-    // outline. Its BOX must sit entirely above the bar's top edge.
-    const descent = (5 + 3) * numeral!.scale;
-    expect(numeral!.y + descent).toBeLessThan(bar!.y);
-    // Non-degeneracy: the two are on the same tile, so this is a real clearance and not
-    // two things that were never near each other.
+    // Centred on the struck unit's own column…
     expect(Math.abs(numeral!.x - (bar!.x + bar!.w / 2))).toBeLessThan(2);
+    // …and above its token, not below it or on the ground in front of it (which is what
+    // the rejected placement option B did).
+    expect(numeral!.y).toBeLessThan(bar!.y);
+  });
+
+  it("DISCRIMINATING: BOTH labels are sized in CANVAS pixels, not scaled by the camera", () => {
+    // THE DURABLE PART OF THE ART DIRECTOR'S DIAGNOSIS. The font is written in canvas
+    // pixels but used to be drawn under `ctx.scale(scale, scale)`, so it came out at
+    // `px × scale` — a third bigger on the smallest map — and `viewFor` reserved room for
+    // it in WORLD units. That reservation is what sets `scale`, which is what set the
+    // size, which is what the reservation was for: circular, and it cost ~6% of every
+    // board before anyone noticed.
+    //
+    // The A/B is the same popup on two boards the camera treats very differently: a 3x3
+    // (zoomed to the 2.2 cap) and the widest shipped 11x7 (~1.53 here). The mutation this
+    // catches: draw the label before `ctx.restore()` again — the two recorded scales then
+    // differ by that same 1.4x. Run, for the numeral AND for the plate: the plate has to
+    // be in here too, because it is the taller label and leaving it in world units would
+    // have kept `HEADROOM` up by itself.
+    const at = (state: BattleState): { numeral: RecordedText; plate: RecordedText } => {
+      const rec = recordingCtx();
+      const on = state.units[0]!;
+      draw(rec.ctx, state, CANVAS_W, CANVAS_H, {
+        popups: [{ ...POPUP, pos: { x: 1, y: 1 } }],
+        motion: { plate: { unitId: on.id, text: "Vance", alpha: 1, rise: 0, kind: "player" } },
+      });
+      return {
+        numeral: rec.texts.find((t) => t.text === POPUP.text)!,
+        plate: rec.texts.find((t) => t.text === "Vance")!,
+      };
+    };
+    const standing = (): UnitState[] => [
+      defaultUnit("blue-vance", 0, { pos: { x: 1, y: 1 }, hp: 60, maxHp: 100 }),
+    ];
+    const wide = shippedMaps(standing).find((m) => m.state.grid.width === 11)!.state;
+    const small = oneUnit();
+    // Non-degeneracy first: if the camera treated these two boards alike the whole test
+    // would be vacuous, and this is exactly the tie a shipped-content fixture can hand you.
+    const zoomWide = viewFor(wide, CANVAS_W, CANVAS_H).scale;
+    const zoomSmall = viewFor(small, CANVAS_W, CANVAS_H).scale;
+    expect(zoomSmall / zoomWide).toBeGreaterThan(1.3);
+
+    const a = at(wide);
+    const b = at(small);
+    // Said as the reader sees it: the same number of canvas pixels tall on both boards.
+    const px = (t: RecordedText): number => Number(/(\d+(?:\.\d+)?)px/.exec(t.font)![1]) * t.scale;
+    expect(px(a.numeral)).toBe(px(b.numeral));
+    expect(px(a.plate)).toBe(px(b.plate));
+    // …and the ANCHOR still tracks the board, so neither is a label pinned to the canvas.
+    expect(a.numeral.y).not.toBe(b.numeral.y);
+    expect(a.plate.y).not.toBe(b.plate.y);
+  });
+
+  it("DISCRIMINATING: overlap is ALLOWED — the numeral crosses the unit standing behind", () => {
+    // THE OWNER'S CALL, and the one property a well-meaning future slice is most likely
+    // to "fix": the reference draws the number over its own sprite, over the unit behind
+    // it and over terrain props, with no avoidance whatsoever. So the assertion is that
+    // the numeral OVERLAPS the furniture of the unit directly behind the struck one —
+    // any nudge, offset or collision test breaks it.
+    //
+    // (0,0) is directly behind (1,1): same screen column, one tile-pair further back.
+    const state = createBattleState({
+      seed: 1,
+      grid: { width: 3, height: 3, tiles: makeFlatTiles(3, 3) },
+      units: [
+        defaultUnit("blue-vance", 0, { pos: { x: 1, y: 1 }, hp: 60, maxHp: 100 }),
+        defaultUnit("red-brigand-1", 1, { pos: { x: 0, y: 0 }, hp: 60, maxHp: 100 }),
+      ],
+    });
+    const rec = recordingCtx();
+    draw(rec.ctx, state, CANVAS_W, CANVAS_H, {
+      popups: [POPUP],
+      unitColor: (u) => (u.teamId === 0 ? "#4f8cff" : "#ff6b6b"),
+      motion: { popupScale: 1.3 },
+    });
+    const numeral = rec.texts.find((t) => t.text === POPUP.text)!;
+    // The two HP-bar backings, front-most last (painter's order).
+    const bars = hpBackings(rec);
+    expect(bars).toHaveLength(2);
+    const behind = bars[0]!;
+    const struck = bars[1]!;
+    // Non-degeneracy: they really are one behind the other in the same column.
+    expect(behind.y).toBeLessThan(struck.y);
+    expect(Math.abs(behind.x - struck.x)).toBeLessThan(1);
+    // A 26px glyph's box around its baseline, in canvas pixels.
+    const top = numeral.y - 23 * numeral.scale;
+    const bottom = numeral.y + 8 * numeral.scale;
+    expect(top).toBeLessThan(behind.y);
+    expect(bottom).toBeGreaterThan(behind.y + behind.h);
   });
 
   it("DISCRIMINATING: the numeral EXPIRES — a settled frame draws it at zero alpha", () => {
@@ -884,7 +1058,7 @@ describe("motion — the animated frame, A/B against the settled one", () => {
 
   it("the numeral RISES and SCALES, and does not drag anything else with it", () => {
     const off = render();
-    const mid = render({ popupRise: 16, popupScale: 1.3 });
+    const mid = render({ popupRise: POPUP_RISE_PX, popupScale: 1.3 });
     const a = off.texts.find((t) => t.text === POPUP.text)!;
     const b = mid.texts.find((t) => t.text === POPUP.text)!;
     expect(b.y).toBeLessThan(a.y); // it travelled UP the screen
@@ -975,10 +1149,42 @@ describe("motion — the animated frame, A/B against the settled one", () => {
     expect(rings[0]!.sweep).toBeCloseTo(Math.PI / 2, 5);
   });
 
-  it("DISCRIMINATING: the turn plate is drawn, names the unit, and clears its HP bar", () => {
-    // The plate's whole reason for sitting at -74 rather than -60: a name tag over the
-    // unit's own health bar is the same defect as the numeral over it. Asserted as
-    // geometry — the mutation this catches is `PLATE_BASE_Y = 60`.
+  it("DISCRIMINATING: when both land on one head, the NUMERAL is drawn over the plate", () => {
+    // FOUND BY OPENING A FRAME, with the whole suite green. The struck unit is sometimes
+    // also the unit up next, and then the plate and the numeral share a head. The plate's
+    // box is opaque cream, so with the numeral painted first the damage was erased for
+    // the plate's entire 700 ms window — the exact class of defect a colour-presence
+    // check cannot see, because both labels were present the whole time.
+    //
+    // Asserted as DRAW ORDER, the only thing that separates them. The mutation this
+    // catches: put the popup loop back above the plate block. It was run.
+    const r = render({
+      plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "player" },
+    });
+    const plateAt = r.texts.findIndex((t) => t.text === "Vance");
+    const numeralAt = r.texts.findIndex((t) => t.text === POPUP.text);
+    expect(plateAt).toBeGreaterThanOrEqual(0);
+    expect(numeralAt).toBeGreaterThanOrEqual(0);
+    expect(numeralAt).toBeGreaterThan(plateAt);
+    // Non-degeneracy: they really are on top of each other, so the order decides what a
+    // reader sees rather than being a harmless preference.
+    const plate = r.texts[plateAt]!;
+    const numeral = r.texts[numeralAt]!;
+    expect(Math.abs(plate.x - numeral.x)).toBeLessThan(2);
+    expect(Math.abs(plate.y - numeral.y)).toBeLessThan(30);
+  });
+
+  it("DISCRIMINATING: the turn plate is drawn, names the unit, and sits over that unit", () => {
+    // The plate is the taller of the two labels, which is why leaving it under the camera
+    // would have held `HEADROOM` up on its own and made the numeral's move worth nothing
+    // (its canvas-pixel sizing is asserted in the test above, with the numeral's).
+    //
+    // WHAT THIS DELIBERATELY DOES NOT ASSERT: that the plate rides above the numeral. The
+    // two world anchors do differ by 8 (70 vs 62), but the plate's box is 22px where the
+    // numeral's ascender is up to 30, so which of the two reaches higher flips with the
+    // zoom and with the numeral's punch scale. Measured: setting both anchors to 62 moves
+    // the plate's top edge by 8 × scale and changes no ordering this file can see. An
+    // assertion on it would be a coin toss dressed as a rule.
     const off = render();
     const plated = render({
       plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "player" },
@@ -987,11 +1193,10 @@ describe("motion — the animated frame, A/B against the settled one", () => {
     expect(plated.fills).toContain("#efe2c4");
     const name = plated.texts.find((t) => t.text === "Vance");
     expect(name).toBeDefined();
+    // Over the named unit's own column, and above its token — not over a neighbour.
     const bar = hpBackings(off)[0]!;
-    // The plate's box is 18 tall around the text's midline, and its pointer drops 5
-    // more. Nothing in it may reach the bar.
-    const plateBottom = name!.y + (9 + 5) * name!.scale;
-    expect(plateBottom).toBeLessThan(bar.y);
+    expect(Math.abs(name!.x - (bar.x + bar.w / 2))).toBeLessThan(2);
+    expect(name!.y).toBeLessThan(bar.y);
   });
 
   it("the plate distinguishes a PLAYER handoff from an AI one", () => {
@@ -1009,45 +1214,60 @@ describe("motion — the animated frame, A/B against the settled one", () => {
     expect(ai.strokes).not.toContain("#8a6b1f");
   });
 
-  it("DISCRIMINATING: the camera reserves room, so a BACK-ROW numeral is not clipped", () => {
-    // MEASURED, NOT FEARED. Lifting the numeral clear of the HP bar made it taller than
-    // the camera's `HEADROOM` reserved, and on all five shipped maps a popup over the
-    // back-corner tile was cut by 5–11 canvas pixels — half a digit. Nothing in the suite
-    // could see it, and neither could the frames, because the walkthrough's blow happened
-    // to land mid-board.
+  it("DISCRIMINATING: both labels CLAMP into the frame on the back row of every shipped map", () => {
+    // RETARGETED 2026-09-01. This test used to read "the camera reserves room…" and its
+    // comment named `HEADROOM` back to 54 as the mutation it catches. That is now the
+    // shipped value: the reservation was the thing being reversed, and a guard written
+    // against the reversal would have made the reversal read as a regression.
     //
-    // Asserted at 900x440, THE SHIPPED CANVAS (this file measures everything else at
-    // 900x600, which is taller and therefore hides exactly this). The mutation this
-    // catches: `HEADROOM` back to 54.
+    // The claim it makes instead is the one the amendment actually rests on: nothing is
+    // reserved for a label any more, so the label has to CLAMP. Both do, at the numeral's
+    // peak rise, on the back-most tile of all five shipped maps, at the SHIPPED 900x440
+    // canvas (this file measures everything else at 900x600, which is taller and
+    // therefore hides exactly this).
+    //
+    // The clamp is not decorative here — it engages on every one of the five. Measured:
+    // the unclamped numeral wants y = −11 on battle 1 and the plate wants −20.
+    //
+    // The mutation this catches: drop either `Math.max(...)` in the label block and take
+    // the raw anchor. Run, and both halves go red.
     const W = 900;
     const H = 440;
-    const back: Position = { x: 0, y: 0 }; // the topmost tile in painter's order
-    const state = createBattleState({
-      seed: 1,
-      grid: { width: 9, height: 7, tiles: makeFlatTiles(9, 7) },
-      units: [defaultUnit("blue-vance", 0, { pos: back, hp: 60, maxHp: 100 })],
-    });
-    const rec = recordingCtx();
-    draw(rec.ctx, state, W, H, {
-      activeId: "blue-vance",
-      activeControl: "player",
-      popups: [{ pos: back, text: "−137", kind: "damage" }],
-      unitColor: () => "#4f8cff",
-      motion: {
-        // The instant the numeral appears: full size, before it has risen.
-        popupScale: 1.3,
-        plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 8, kind: "player" },
-      },
-    });
-    const numeral = rec.texts.find((t) => t.text === "−137")!;
-    const name = rec.texts.find((t) => t.text === "Vance")!;
-    // A 20px glyph's ascender plus its 3px outline, and the plate's own half-height.
-    expect(numeral.y - 17 * numeral.scale).toBeGreaterThan(0);
-    expect(name.y - 9.5 * name.scale).toBeGreaterThan(0);
-    // Non-degeneracy: this really is the tile nearest the top edge, so the clearance is
-    // the worst case rather than a comfortable one somewhere in the middle.
-    const bar = rec.rects.filter((r) => r.style === "#0b0f1c")[0]!;
-    expect(bar.y).toBeLessThan(H / 2);
+    const maps = shippedMaps();
+    expect(maps).toHaveLength(5);
+    for (const { id, state: empty } of maps) {
+      const back = backMostTile(empty, W, H);
+      const state = createBattleState({
+        seed: 1,
+        grid: empty.grid,
+        units: [defaultUnit("blue-vance", 0, { pos: back, hp: 60, maxHp: 100 })],
+      });
+      const rec = recordingCtx();
+      draw(rec.ctx, state, W, H, {
+        activeId: "blue-vance",
+        activeControl: "player",
+        popups: [{ pos: back, text: "−137", kind: "damage" }],
+        unitColor: () => "#4f8cff",
+        motion: {
+          // The worst instant of each: the numeral at full size AND fully risen (they do
+          // not co-occur — the punch is over by then — so this is stricter than any real
+          // frame), and the plate at the top of its own travel.
+          popupScale: 1.3,
+          popupRise: POPUP_RISE_PX,
+          plate: { unitId: "blue-vance", text: "Vance", alpha: 1, rise: 0, kind: "player" },
+        },
+      });
+      const numeral = rec.texts.find((t) => t.text === "−137")!;
+      const name = rec.texts.find((t) => t.text === "Vance")!;
+      // A 26px glyph's ascender plus its 3px outline; the plate's own half-height plus
+      // its border. Independent numbers, read off the fonts rather than off `iso.ts`.
+      expect(numeral.y - 23 * numeral.scale, `${id}: numeral`).toBeGreaterThan(0);
+      expect(name.y - 12 * name.scale, `${id}: plate`).toBeGreaterThan(0);
+      // Non-degeneracy: this really is the tile nearest the top edge on this map, so the
+      // clearance is the worst case rather than a comfortable one in the middle.
+      const bar = rec.rects.filter((r) => r.style === "#0b0f1c")[0]!;
+      expect(bar.y, `${id}: back row`).toBeLessThan(H / 2);
+    }
   });
 
   it("a plate naming a unit that is not on the board draws nothing", () => {
