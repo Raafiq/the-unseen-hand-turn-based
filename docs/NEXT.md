@@ -1,4 +1,4 @@
-<!-- written-against: e4181f9 -->
+<!-- written-against: 93aa973 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -9,92 +9,6 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 > **Trust rule.** This file is stamped with the commit it was written against, and the
 > SessionStart hook flags it once it falls behind. If the hook says it is stale, treat
 > every claim below as a hypothesis and re-derive.
-
----
-
-## OPEN — WAITING ON THE OWNER
-
-**Read this before telling the owner "nothing is pending".** Three asks are outstanding.
-Each one is written here with the material attached, because the session that opened them
-asked twice without attaching anything and that is what made them useless.
-
-### 1. Portraits: where does the team colour go?
-
-Owner's call so far: **red and blue on the clothing** — 8 jobs x 2 genders x 2 colourways
-= **32 portraits**. Then the reference contradicted it. Final Fantasy Tactics puts team
-colour on the **panel chrome and the portrait's backdrop**, never on the character: the
-enemy panel is maroon with a salmon backdrop and a pink "Enemy" tag, and the art itself is
-untouched (`f059`-`f061` of the owner's clip). That route is **16 portraits**, no recolour,
-no risk of the face drifting.
-
-**The owner has not seen a rendered comparison of the two.** That is what they need and it
-does not exist yet. It cannot be rendered until at least one real portrait exists, so this
-question is **downstream of ask 2**, not parallel to it. Do not ask it again before then.
-
-### 2. Run the Midjourney style probe — the prompts, in full
-
-Midjourney runs on the owner's subscription; no agent here can call it. **Paste these to
-them verbatim.** Subject is deliberately a female knight: it stresses metal, cloth, hair
-and skin at once, and tests the failure mode most likely to wreck half the set — the model
-reading "woman" as glamour instead of as a soldier.
-
-```
-1. [CEL - closest to the reference]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-anime cel illustration, clean thin warm-brown ink line, three flat shading tones, no
-gradient on the skin, three-quarter turn to the left with eyes toward the viewer, head
-fills two thirds of the frame, cropped at the collarbone, flat even light, muted earth
-palette of tan skin and dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
-
-2. [GOUACHE - sits closer to the parchment shell]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-opaque gouache on toned paper, visible brush facets, soft edges, no ink outline,
-three-quarter turn to the left with eyes toward the viewer, head fills two thirds of the
-frame, cropped at the collarbone, flat even light, muted earth palette of tan skin and
-dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
-
-3. [INK AND WASH - hardest line, strongest at 28px]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-ink and watercolour, hard confident ink line of varying weight, colour washed inside the
-line and breaking at the edges, dry-brush texture, paper grain, three-quarter turn to the
-left with eyes toward the viewer, head fills two thirds of the frame, cropped at the
-collarbone, flat even light, muted earth palette of tan skin and dull steel, flat pale
-sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
-```
-
-**What comes back:** the owner picks one and returns its **style reference code** (`--sref`
-in earlier Midjourney versions). That code then goes into all 16 prompts unchanged. Without
-a fixed style reference the set will not look like one game.
-
-**The flags are unverified against Midjourney v8.1** — `--ar`, `--style raw`, `--no`,
-`--sref` are from earlier versions and nothing here has confirmed them. Every prompt reads
-correctly with the flags stripped. Ask the owner to correct a flag rather than guessing.
-
-**Judge the winner at 28 px, not at full size.** The turn-order strip re-crops the same art
-to roughly 28 px, where only the headgear silhouette survives.
-
-### 3. The turn name-plate is now mostly hidden behind the damage number
-
-**"Turn plate" = the small parchment label carrying the acting unit's name that appears
-over their head when their turn starts** (FFT announces a turn on the unit, not with a
-full-screen banner). See `visual-artifacts/playtest/05c-turn-plate.png`.
-
-When the struck unit is also the next to act, both labels land on one head, and the number
-now paints over the plate. That ordering was deliberate — the plate's opaque box used to
-erase the damage number for its whole 700 ms, which was worse. But it is an appearance
-call and it is unresolved. **Render the alternatives before asking again.**
-
-Also unresolved and lower stakes: a clamped back-row plate's pointer no longer touches its
-unit.
 
 ---
 
@@ -126,8 +40,7 @@ that one fact was the whole fault, and no amount of palette work would have foun
 | 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19), all five battles. | See the traps below. The engine demo page still draws the flat look, and that is what keeps AC-V18's A/B possible — do not paint it. |
 | 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
 | 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
-| 4 | **Motion and feedback** — hit reactions, turn transitions. | **LANDED 2026-09-01** (ADR-0032 + its amendment). Hit reaction, turn name-plate, damage number on the head for 1.5 s, board size restored. | This layer now owns the **first frame loop and the first clock on the drawing path** in `src/render`. Motion never blocks input or a step; `draw()` stays pure and takes its phase through `DrawOptions`; `scene.ts` is untouched and AC-V16 still holds; reduced motion jumps to the settled frame via `matchMedia`, because the CSS query cannot reach a canvas. **`docs/10` has no acceptance criterion for any of it — AC-V21 is free.** |
-| 6 | **Portraits, then the mini stat window.** The next slice. | not started — blocked on ask 2 above | 8 jobs x 2 genders. Enemies are human only and reuse the set. **No portrait art exists**; the panel can be built against the shipped `placeholder.svg` (96x116, aspect 5:6 — the same aspect the reference uses, so keep it). Portraits come first: the panel's layout depends on the crop. The reference panel carries portrait, HP, MP, CT, Bravery/Faith, and a job + level + JP row, and is the **expanded bottom row of the turn-order rail**, not a separate widget. |
+| 4 | **Motion and feedback** — hit reactions, turn transitions. | popups exist, nothing else | Any timing source stays out of `src/sim`. The scene player's untimed reveal is load-bearing (AC-V16) — do not add motion there without rewriting those assertions. |
 | 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles are **not touched at all**, so the variety score stays comparable. (They are *not* flat, and never were: `enc-the-high-ground` has heights 0–3 and `enc-the-breach` 4 blocked tiles, both since the P2 benchmark slice. What keeps the score comparable is that nothing changed.) Do not widen this without asking. |
 
 **Two rules bind every one of these.**

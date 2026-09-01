@@ -212,19 +212,6 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     can't quite visualise the options, can u show me"). Frames from the **running game**
     beat mockups, and both beat a description — patch the data, capture, revert. Budget
     for it; it is cheaper than a rejected slice.
-  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.** Some
-    decisions cannot be rendered here at all — Midjourney runs on the owner's
-    subscription, so only they can generate a portrait. That does **not** license asking
-    in prose. The agent asked the owner to "run the probe prompts" across three replies
-    and **never pasted the prompts**, which a specialist had already written in full. Two
-    other asks went out with no example attached. When you cannot produce the artifact,
-    hand over the exact thing that lets the owner produce it — pasted inline or sent as a
-    file, verbatim. **A deliverable the user must act on is relayed, never summarised**:
-    a subagent's prompts, commands, or frames are the answer, and a description of them
-    is not. Corollary: never report "nothing is pending" in the same breath as listing
-    what is pending — keep the open asks in one place (`docs/NEXT.md` has an
-    **OPEN — WAITING ON THE OWNER** section for exactly this) and read it before
-    answering "what do you need from me".
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
