@@ -67,7 +67,14 @@ record="$repo_root/.claude/.session-branch"
 want=$(tr -d '[:space:]' < "$record")
 [ -n "$want" ] || exit 0
 
-verb=$(printf '%c%c%c%c' 112 117 115 104)
+# THIS LINE WAS DEAD FOR THE GUARD'S WHOLE LIFE. It read
+#   printf '%c%c%c%c' 112 117 115 104
+# expecting "push". bash's printf %c prints the FIRST CHARACTER of its argument,
+# not a character code, so it yielded "1111" and this hook greppped for `git 1111`
+# — every real publish sailed through. The fixtures did not catch it because they
+# built their verb the same wrong way: test and subject agreed perfectly, on the
+# wrong answer. Octal escapes in the FORMAT string are what printf honours.
+verb=$(printf '\160\165\163\150')
 
 while IFS= read -r seg; do
   printf '%s\n' "$seg" \

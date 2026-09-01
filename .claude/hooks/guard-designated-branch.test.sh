@@ -7,7 +7,15 @@
 set -u
 cd "$(git rev-parse --show-toplevel)"
 HOOK=.claude/hooks/guard-designated-branch.sh
-echo "claude/next-work-slice-ilnciv" > .claude/.session-branch
+# The record is REAL session state; the fixtures must not leave it overwritten.
+saved=$(cat .claude/.session-branch 2>/dev/null || true)
+restore() { if [ -n "$saved" ]; then printf '%s\n' "$saved" > .claude/.session-branch; else rm -f .claude/.session-branch; fi; }
+trap restore EXIT
+# The "no refspec" case resolves against the ACTUAL checked-out branch, so the
+# designation under test has to be that branch or the fixture fails wherever it
+# is run from. It did: it passed only on the one branch whose name was hardcoded.
+DESIGNATED=$(git rev-parse --abbrev-ref HEAD)
+echo "$DESIGNATED" > .claude/.session-branch
 fails=0
 
 t() {
@@ -23,17 +31,17 @@ t() {
   fi
 }
 
-P=$(printf '%c%c%c%c' 112 117 115 104)
+P=$(printf '\160\165\163\150')   # see the note in the guard: %c is not a char code
 
 echo "-- must ALLOW --"
-t 0 "the designated branch"        "git $P -u origin claude/next-work-slice-ilnciv"
-t 0 "force-with-lease, designated" "git $P --force-with-lease -u origin claude/next-work-slice-ilnciv"
+t 0 "the designated branch"        "git $P -u origin $DESIGNATED"
+t 0 "force-with-lease, designated" "git $P --force-with-lease -u origin $DESIGNATED"
 t 0 "no refspec, on the branch"    "git $P"
 t 0 "delete, long form"            "git $P origin --delete claude/landing-page-swap"
 t 0 "delete, colon form"           "git $P origin :claude/landing-page-swap"
 t 0 "the verb inside a message"    "git commit -m \"then run git $P origin whatever\""
 t 0 "the verb inside an echo"      "echo \"git $P origin nope\""
-t 0 "HEAD:designated"              "git $P origin HEAD:claude/next-work-slice-ilnciv"
+t 0 "HEAD:designated"              "git $P origin HEAD:$DESIGNATED"
 
 echo "-- must BLOCK --"
 t 2 "an invented branch"           "git $P -u origin claude/landing-page-swap"
@@ -52,7 +60,7 @@ chore(hooks): refuse to $P anywhere but the designated branch
 A slice was $P'ed to claude/landing-page-swap by mistake and had to be moved.
 14 cases run against the parser, allow and block both.
 MSG
-git $P -u origin claude/next-work-slice-ilnciv"
+git $P -u origin $DESIGNATED"
 t 0 "heredoc prose + designated publish" "$heredoc_ok"
 
 heredoc_bad="git commit -q -F - <<'MSG'

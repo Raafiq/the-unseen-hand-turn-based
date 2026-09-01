@@ -7,7 +7,6 @@
       "Bash(git log:*)",
       "Bash(git show:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)",
       "Bash(git fetch:*)",
       "Bash(git checkout:*)",
       "Bash(git branch:*)",
@@ -27,6 +26,10 @@
       {
         "matcher": "Bash|mcp__github__create_pull_request",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-git-write.sh"
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/require-retro-before-pr.sh"
