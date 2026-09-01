@@ -1,4 +1,4 @@
-<!-- written-against: 9cc4890 -->
+<!-- written-against: 93aa973 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -53,6 +53,34 @@ that one fact was the whole fault, and no amount of palette work would have foun
   named "`--accent` IS RULES AND BORDERS ONLY", "THE SHEET'S PADDING AND THE SCORCH ARE
   COUPLED", "THE CONTRAST FLOOR IS NOW 100" and "AN ANALYZER THAT DECLINES TO CHECK STILL
   SAYS PASS" each cover a way a *sheet* change goes quietly wrong.
+
+### Open test gaps — available to pick up, NOT scheduled
+
+**None of these is a shipping bug.** Each is a test that cannot come out the other way, so
+it certifies nothing. They are written down because nothing else records them. **The
+owner's order above stands** — these are not a slice and none of them is green-lit. Each
+was checked against the tree on 2026-08-30; the third turned out to be narrower than first
+reported.
+
+| # | Gap | Where | Why it proves nothing |
+|---|---|---|---|
+| **A** | The camera/click A/B passes on an off-board point | `src/render/iso.test.ts`, `"DISCRIMINATING: the click inverse honours the zoom"` | The miss half is `expect(pickTile(world.x, world.y, …)).not.toEqual({x: 4, y: 3})`, and `null` satisfies it. At the test's 900×600 canvas the unscaled point **is** `null` — off the grid — so the assertion cannot tell "the inverse honours the zoom" from "the point left the board". The shipped pages are 900×440, where the same point lands on (1, 2). **Fix:** pick a point that resolves to a genuinely different tile, and assert that tile. See the trap "`viewFor` IS ON THE CLICK PATH". |
+| **B** | Side-face culling has no test at all | `paintTerrainTile` in `src/render/iso.ts` | A cliff face is cut only where the ground drops: the LEFT face against the neighbour at `(x, y+1)`, the RIGHT against `(x+1, y)`, each skipped when the drop is ≤ 0. Nothing asserts it, so a renderer that drew every side face unconditionally — or never drew one — stays green. `iso.test.ts`'s recording 2D context already records `wallLeft`/`wallRight` fill strings, so it can see this. **Use a purpose-built fixture**: `camp-b4-the-broken-span` is the only shipped map with relief (heights 0 and 2, 45 blocked tiles). |
+| **C** | Nothing reads a pixel off the finished picture | every canvas test | Canvas tests assert what the code **asked** to draw — recorded `fillStyle` writes and their order. The range panel's legibility is asserted (`"the range panel separates from every ground it can sit on"`), but against `compositeOver`, a source-over blend **re-implemented inside the test**: it models the composite rather than reading it. So the model and the canvas can disagree — over the mottle and detail scatter, over antialiasing, over the panel's own edge stroke — with nothing going red. Only `base` tones and bare ground are covered; the panel over a prop, a unit token or a status chip is unmeasured. `contrast.spec.ts` measures DOM text and cannot see a canvas at all. |
+
+**What C is NOT.** Two claims that would have belonged here are already covered, and
+recording them again would be wrong:
+
+- `e2e/campaign.spec.ts` **does** sample a real canvas pixel — one corner, asserting the
+  daylight sky is opaque and blue-dominant. That proves the page-to-terrain wire, not
+  legibility anywhere on the board.
+- The panel's thin WCAG margins over sand and water **are** now judged, by CIEDE2000
+  separation floors rather than a luminance ratio, with the historical failures kept as
+  non-degeneracy cases (`9cc4890`).
+
+**A carries a doc consequence.** `docs/10`'s AC-V19 was **weakened** to "not the same
+tile" to match what the test asserts. If A is fixed, tighten that wording back in the same
+slice. `docs/10` is deliberately untouched here.
 
 ---
 
@@ -119,8 +147,14 @@ drawn-in-code look is **the destination**, not a placeholder for art.
    **opacity** moves a translucent colour off its ground, so the panel is lighter than the
    ground rather than a different hue. **Do not "restore" a darker blue.** The margin is
    thin in two places — WCAG 1.07 over `sand.base`, 1.08 over `water.detail`, against
-   1.5–3.3 elsewhere — and **nothing asserts any of it**; `contrast.spec.ts` cannot see a
-   canvas. The measured table is in `iso.ts`'s `FIELD_THEME` comment.
+   1.5–3.3 elsewhere. ~~And nothing asserts any of it.~~ **Asserted since `9cc4890`** — by
+   **CIEDE2000 separation**, not by a WCAG ratio, because luminance is the wrong metric for
+   two colours on opposite sides of the wheel: sand and the composited panel share a
+   luminance and are 29.8 apart perceptually. Two floors, own-ground and cross-ground,
+   because three earlier panel colours each fixed one ground and collided with the next.
+   Still true: `contrast.spec.ts` cannot see a canvas, and the test composites with its own
+   blend model rather than reading a pixel (open gap C). The measured table is in `iso.ts`'s
+   `FIELD_THEME` comment.
 0. **THE UNIT TOKEN IS UNDECIDED.** Still the flat kite. Do not change it inside another
    slice — three options were drawn and the owner has not picked. Bundled with the portrait
    references (see the table above).
