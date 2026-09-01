@@ -39,8 +39,8 @@ anime cel illustration, clean thin warm-brown ink line, three flat shading tones
 gradient on the skin, three-quarter turn to the left with eyes toward the viewer, head
 fills two thirds of the frame, cropped at the collarbone, flat even light, muted earth
 palette of tan skin and dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
+--ar 5:6 --raw --no scenery, rim light, glow, lens flare, glamour, lipstick,
+jewellery, text, watermark
 
 2. [GOUACHE - sits closer to the parchment shell]
 head and collar portrait of a woman mercenary knight, short dark hair under an open steel
@@ -49,8 +49,8 @@ opaque gouache on toned paper, visible brush facets, soft edges, no ink outline,
 three-quarter turn to the left with eyes toward the viewer, head fills two thirds of the
 frame, cropped at the collarbone, flat even light, muted earth palette of tan skin and
 dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
+--ar 5:6 --raw --no scenery, rim light, glow, lens flare, glamour, lipstick,
+jewellery, text, watermark
 
 3. [INK AND WASH - hardest line, strongest at 28px]
 head and collar portrait of a woman mercenary knight, short dark hair under an open steel
@@ -60,21 +60,33 @@ line and breaking at the edges, dry-brush texture, paper grain, three-quarter tu
 left with eyes toward the viewer, head fills two thirds of the frame, cropped at the
 collarbone, flat even light, muted earth palette of tan skin and dull steel, flat pale
 sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
+--ar 5:6 --raw --no scenery, rim light, glow, lens flare, glamour, lipstick,
+jewellery, text, watermark
 ```
 
-Three notes go with the prompts:
+Five notes go with the prompts:
 
 - **Judge the winner at 28 px, not at full size.** The turn-order strip re-crops the same
   art that small, where only the headgear silhouette survives.
-- **What comes back is the winner's style reference code** (`--sref`). It then goes into
-  all 16 prompts unchanged. Without a fixed style reference the set will not look like
-  one game.
-- **The flags are UNVERIFIED against Midjourney v8.1.** `--ar`, `--style raw`, `--no` and
-  `--sref` are from earlier versions and nothing here has confirmed them. Every prompt
-  reads correctly with the flags stripped. Ask the owner to correct a flag rather than
-  guessing.
+- **What comes back is the winning IMAGE, used as the style reference.** ~~The winner's
+  style reference code (`--sref`).~~ **That was wrong** — Midjourney's own docs say
+  verbatim: "You cannot create a style code based on an uploaded image." Upscale the
+  winner, upload it, drag it into the Style Reference slot and click the lock icon. Then
+  every one of the 16 prompts wears it. Without a fixed reference the set will not look
+  like one game.
+- **Strip the style clause from the 16 production prompts.** The probe prompts are
+  deliberately heavy on style words ("anime cel illustration, three flat shading tones").
+  Official best practice is the opposite once a reference is locked: style words in the
+  prompt fight the reference.
+- **The flags are now VERIFIED against V8.2**, from ten official pages the owner pasted in
+  on 2026-09-01. ~~UNVERIFIED against v8.1.~~ Two were wrong and are corrected above:
+  `--style raw` is now **`--raw`**, and **`armour below the shoulders` was deleted from
+  the `--no` list** — `--no` is judged word by word, so on a female subject that reads as
+  "no armour" + "no shoulders", the exact moderation trap the docs warn about.
+  `--ar 5:6` and the commas inside `--no` are both fine.
+- **`docs.midjourney.com` is EGRESS-BLOCKED in the sandbox** (403 at the proxy, whole
+  domain). The local copy of the docs lives in **`.claude/skills/midjourney/`** — read it
+  rather than web-searching, which is what produced both errors above.
 
 ### Ask 2 — the turn plate is mostly hidden behind the damage number
 

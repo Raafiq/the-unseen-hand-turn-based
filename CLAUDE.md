@@ -160,6 +160,9 @@ Invoke by name:
 - `game-design` — house rules: pillars, balance philosophy, anti-convergence law, build-fantasy acceptance test.
 - `decision-record` — record a decision as an ADR.
 - `brainstorm` / `grill-me` — ideation and adversarial spec-interrogation.
+- `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
+  project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
+  about it is stale — two wrong flags reached `docs/NEXT.md` that way. Read the skill first.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
 
 ## Agent team (`.claude/agents/`)
