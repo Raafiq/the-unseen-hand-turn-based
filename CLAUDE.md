@@ -38,7 +38,7 @@ Engine roadmap sits at **P2**. Open exit criterion: the build-diversity gate at 
 
 - **Customization spine = three axes:** the 5-slot ability chassis + AP-driven job/skill trees with permanent mastery bonuses + hybrid/fusion jobs. Everything else is `[OPTIONAL]`/`[DEFERRED]` — don't promote it to core.
 - **Respec:** permanent progress, free experiments. Learned abilities and masteries are never lost; loadout swaps are free.
-- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` only scans `src/sim`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
+- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim` and `src/render/playtest.ts`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
 - **Sim core is pure and headless** — no rendering/UI deps in the simulation layer.
 
 ## Conventions
@@ -115,11 +115,11 @@ Stack locked at P0 (ADR-0007): **Web / TypeScript** — headless `src/sim/` + th
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | **Everything CI runs**: typecheck + lint + check:rng + check:handoff + check:story + test |
+| `npm run check` | typecheck + lint + check:rng + check:handoff + check:story + test + check:counts. **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run build` | typecheck + `vite build` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `eslint .` — bans unseeded RNG / wall-clock in `src/sim/**` |
-| `npm run check:rng` | greps `src/sim` for banned nondeterminism |
+| `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |

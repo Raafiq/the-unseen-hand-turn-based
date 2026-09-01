@@ -57,6 +57,14 @@ jobs:
       - name: Test
         run: npm run test
 
+      # `check:counts` exists because a count stated in prose went stale twice in two
+      # commits, both times caught only by a human happening to look. It was in the local
+      # `npm run check` from the start but was never wired into CI, so for its whole life
+      # the one thing it guards was enforced by nobody. It reads the summary `npm run test`
+      # writes, so it must run after the Test step.
+      - name: Test counts in prose are not stale
+        run: npm run check:counts
+
       # Drift-proofing: the "state of the engine" dashboard is generated from the repo's
       # actual state (data counts + a LIVE diversity-gate run). Regenerate it and fail if
       # the committed copy drifted — this only works because the output is deterministic.
