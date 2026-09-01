@@ -112,8 +112,15 @@ toggle.
 > into `docs/11` M1 by the user decision recorded above. M0's first two slices have landed:
 > the campaign container and party save (ADR-0022), then the **shell** — title screen, one
 > `localStorage` save slot, and the campaign's battles played in the real viewer (ADR-0023).
-> A person can now start the game and finish it. What M0 still lacks: the between-battle
-> prep loop, story stubs, equipment and onboarding (`docs/11` §3's own status table).
+> A person can now start the game and finish it. ~~What M0 still lacks: the between-battle
+> prep loop, story stubs, equipment and onboarding (`docs/11` §3's own status table).~~
+> **SUPERSEDED — all four shipped, and this line stood stale until 2026-09-01.** The
+> between-battle prep loop and story stubs landed with ADR-0024, onboarding with ADR-0025,
+> equipment with ADR-0026, and story presentation was rebuilt as a scene player in
+> ADR-0029. `docs/11` §3's status table marks all seven M0 items **done**, and this file's
+> own §1a reconciliation log records the same thing ("completes M0 item 5
+> and therefore ALL of M0"). M0 is complete; the open items are P2's `N ≥ 8` and MP
+> enforcement, carried into M1.
 
 ## 2. Scope & cut-lines (for a small/solo team)
 

@@ -166,10 +166,25 @@ export function project(x: number, y: number, height: number, origin: Position):
 }
 
 /**
- * Room above the topmost tile for props, HP bars and status chips.
+ * Room above the topmost tile for the WORLD things that stand over it: props, the HP
+ * bar, the status-chip row. Nothing else.
+ *
+ * 72 → 54 (2026-09-01, ADR-0032's amendment), AND EVERY BOARD GETS ITS AREA BACK —
+ * battle 1 goes from 1.49 back to 1.59 on the shipped 900x440 canvas. The 72 was spent
+ * reserving room for the damage numeral and the turn plate, and that reservation was
+ * CIRCULAR: both are sized in canvas pixels but were drawn under the camera transform,
+ * so they rendered at `px × scale` — while the reservation itself is what shrinks
+ * `scale`. The quantity being reserved for changed because of the reservation, so
+ * raising this again would have cost more each time without ever converging.
+ *
+ * The loop is broken by placing both labels AFTER the camera transform is popped (see
+ * the label block at the end of {@link draw}): world ANCHOR, canvas-pixel SIZE and GAP,
+ * clamped inside the viewport. This constant is therefore back to reserving only world
+ * tenants, and it must stay ahead of the tallest of them — `iso.test.ts` holds that floor
+ * as an INDEPENDENT number, because a check that reads this value moves with it.
  *
  * Exported so `iso.test.ts` measures the SHIPPED value rather than a copy — a test
- * holding its own `54` passes with this set to 0, which was measured.
+ * holding its own number passes with this set to 0, which was measured.
  */
 export const HEADROOM = 54;
 const VIEW_PAD = 10;
@@ -323,6 +338,11 @@ export function pickTile(
   return null;
 }
 
+/** 0..255 → the two-digit alpha suffix of an `#rrggbbaa` colour. */
+function alphaHex(v: number): string {
+  return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+}
+
 function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.beginPath();
   ctx.moveTo(c.x, c.y - TILE_H / 2);
@@ -331,6 +351,91 @@ function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.lineTo(c.x - TILE_W / 2, c.y);
   ctx.closePath();
 }
+
+/**
+ * Where a frame sits inside an in-flight animation (docs/10 §3a).
+ *
+ * IT IS A PURE VALUE — no clock, no `requestAnimationFrame`, no timer. The PAGE samples
+ * its own clock, builds one of these through `motion.ts`, and hands it to {@link draw}.
+ * That is what keeps `draw` a function of `(state, opts)` alone: one `performance.now()`
+ * in here would make every renderer A/B non-reproducible, and `iso.test.ts` draws the
+ * same state at chosen instants precisely because it can.
+ *
+ * Everything on it is OPTIONAL and every absent field means "at rest", so
+ * `motion: undefined` renders the settled board byte-for-byte as it did before this
+ * existed. That is the property the reduced-motion branch leans on.
+ */
+export interface MotionState {
+  /** unit id → token displacement in WORLD units (the recoil and the attacker's lean). */
+  unitOffset?: Record<string, { dx: number; dy: number }> | undefined;
+  /** unit id → 0..1 white flash inside the token silhouette. */
+  unitFlash?: Record<string, number> | undefined;
+  /**
+   * unit id → the HP the bar should DISPLAY. Only ever drawn as the pale tail BEHIND
+   * the live bar: the coloured bar always shows `u.hp`, the sim's real answer, so this
+   * can never assert a health the sim does not hold (pillar 4).
+   */
+  hpShown?: Record<string, number> | undefined;
+  /** 0..1 sweep of the active unit's ring. Absent (or 1) is the full circle. */
+  ringSweep?: number | undefined;
+  /**
+   * Popup travel: extra rise in CANVAS PIXELS, alpha, and scale about its own anchor.
+   *
+   * The rise is pixels, not world units, because the numeral itself is: it is drawn
+   * outside the camera transform (see the label block at the end of {@link draw}), so a
+   * world-unit rise would travel further on a small map than on a large one for the same
+   * animation.
+   */
+  popupRise?: number | undefined;
+  popupAlpha?: number | undefined;
+  popupScale?: number | undefined;
+  /** A name plate over the unit whose turn just began. `rise` is in canvas pixels. */
+  plate?:
+    | { unitId: string; text: string; alpha: number; rise: number; kind: "player" | "ai" }
+    | undefined;
+}
+
+/**
+ * THE FLOATING LABELS: anchored in WORLD units, sized and clamped in CANVAS PIXELS.
+ *
+ * Both the damage numeral and the turn plate are drawn after the camera transform is
+ * popped, so `*_ANCHOR_Y` (world units above a tile's top face) is converted with
+ * `* scale` and everything after that is pixels. Two things follow, and they are the
+ * whole point of the arrangement:
+ *
+ *   - A label is the same legible size on a 7x5 map and an 11x7 one. Under the camera it
+ *     was `26px × scale`, i.e. a third bigger on the smallest board.
+ *   - {@link HEADROOM} no longer reserves board area for a label, so the reservation
+ *     stops feeding back into the scale that decides the label's size (ADR-0032's
+ *     amendment). The labels CLAMP into the viewport instead of being reserved for.
+ *
+ * OVERLAP IS NOT A DEFECT. The numeral sits on the struck unit's head and is allowed to
+ * cross its own sprite, the unit behind it and any prop — that is what the owner's
+ * reference footage does, and there is deliberately no avoidance, nudging or collision
+ * test anywhere below. An earlier version of this comment called the overlap with the HP
+ * bar a bug and bought clearance with ~6% of every board; what actually needed fixing was
+ * that the numeral never went away, and it is a DURATION that fixes that.
+ */
+const POPUP_ANCHOR_Y = 62;
+const POPUP_GAP_PX = 8;
+const POPUP_FONT_PX = 26;
+/** A 26px bold glyph reaches ~21px above its baseline, plus half of the 3px outline. */
+const POPUP_ASCENT_PX = 23;
+/**
+ * The plate's ANCHOR is 8 world units above the numeral's, keeping the relationship the
+ * old world-space constants had (74 vs 66). Which of the two actually reaches higher on
+ * screen also depends on the numeral's punch scale, so `iso.test.ts` asserts the anchors
+ * and explicitly does not assert an ordering it cannot make robust.
+ */
+const PLATE_ANCHOR_Y = 70;
+const PLATE_GAP_PX = 8;
+const PLATE_FONT_PX = 15;
+const PLATE_H_PX = 22;
+/** How close to the canvas edge a clamped label is allowed to sit. */
+const LABEL_PAD_PX = 4;
+
+const clampTo = (v: number, lo: number, hi: number): number =>
+  hi < lo ? (lo + hi) / 2 : v < lo ? lo : v > hi ? hi : v;
 
 export interface DamagePopup {
   pos: Position;
@@ -386,6 +491,12 @@ export interface DrawOptions {
   terrain?: TerrainMap | undefined;
   /** Colours for the terrain above. Defaults to `DAYLIGHT`. Ignored without `terrain`. */
   terrainPalette?: TerrainPalette | undefined;
+  /**
+   * Where this frame sits inside an in-flight animation. ABSENT draws the settled
+   * board — which is exactly what every caller did before motion existed, and what the
+   * reduced-motion branch still passes.
+   */
+  motion?: MotionState | undefined;
 }
 
 export function draw(
@@ -396,6 +507,7 @@ export function draw(
   opts: DrawOptions = {},
 ): void {
   const theme = opts.theme ?? DARK_THEME;
+  const mo = opts.motion;
   const { origin, scale } = viewFor(state, canvasW, canvasH);
   const { width, height, tiles } = state.grid;
 
@@ -433,7 +545,13 @@ export function draw(
     const u = unitAt.get(k);
     if (u) {
       const control = u.id === opts.activeId ? (opts.activeControl ?? "player") : "none";
-      drawUnit(ctx, u, top, control, theme, opts.unitColor);
+      const off = mo?.unitOffset?.[u.id];
+      const at = off ? { x: top.x + off.dx, y: top.y + off.dy } : top;
+      drawUnit(ctx, u, at, control, theme, opts.unitColor, {
+        flash: mo?.unitFlash?.[u.id] ?? 0,
+        hpShown: mo?.hpShown?.[u.id],
+        ringSweep: u.id === opts.activeId ? (mo?.ringSweep ?? 1) : 1,
+      });
     }
     // The GHOST of the actor standing on its staged tile: same token, faded, no
     // active ring — the actor's real body stays where the sim has it.
@@ -578,22 +696,101 @@ export function draw(
     ctx.restore();
   }
 
-  // Damage / heal / miss popups, drawn last so they sit above everything.
+  ctx.restore(); // pairs with the camera's `save`/`scale` above
+
+  // ── THE LABELS, IN CANVAS PIXELS ──────────────────────────────────────────
+  // Deliberately below the `restore`, like the sky above the `save`: everything from
+  // here is in canvas coordinates, and the world only supplies the ANCHOR. Drawn last,
+  // so they sit over the board, the units and the props — no avoidance (see the
+  // `POPUP_ANCHOR_Y` block).
+  //
+  // THE PLATE GOES FIRST AND THE NUMERAL OVER IT, which is a real decision and not the
+  // order the code happened to be in. When the unit that was just struck is also the
+  // unit up next, the two labels land on the same head — the plate's box is opaque, and
+  // with the numeral underneath it the damage was simply erased for the plate's whole
+  // 700 ms. Found by opening a frame; every assertion was green. The number wins,
+  // because the reference draws the number over everything. This is ORDERING, not
+  // avoidance: neither label moves.
+
+  // A per-unit TURN PLATE: the acting unit's name on a small tag over its head. FFT
+  // announces a turn ON the unit, not across the screen, and a board-wide banner would
+  // cover the very tiles a player is reading.
+  const plate = mo?.plate;
+  if (plate) {
+    const pu = state.units.find((u) => u.id === plate.unitId);
+    if (pu) {
+      const t = state.grid.tiles[pu.pos.y * width + pu.pos.x];
+      const p = project(pu.pos.x, pu.pos.y, t?.height ?? 0, origin);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, plate.alpha));
+      ctx.font = `700 ${PLATE_FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const bw = ctx.measureText(plate.text).width + 20;
+      const bh = PLATE_H_PX;
+      // THE PLATE IS THE SAME CLASS OF THING AS THE NUMERAL — a transient label pinned
+      // to a unit — and it is the TALLER of the two, so leaving it under the camera
+      // would hold `HEADROOM` up on its own and the numeral's move would buy nothing.
+      const cx = clampTo(p.x * scale, bw / 2 + LABEL_PAD_PX, canvasW - bw / 2 - LABEL_PAD_PX);
+      const bx = cx - bw / 2;
+      const by = Math.max(
+        LABEL_PAD_PX,
+        (p.y - PLATE_ANCHOR_Y) * scale - PLATE_GAP_PX - bh - plate.rise,
+      );
+      const edge = plate.kind === "player" ? "#8a6b1f" : "#8a3a1f";
+      roundedRect(ctx, bx, by, bw, bh, 4);
+      ctx.fillStyle = "#efe2c4";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+      // The little pointer down to the unit. It stays under the unit when the box has
+      // been clamped sideways, but never leaves the box it hangs off.
+      const px = clampTo(p.x * scale, bx + 7, bx + bw - 7);
+      ctx.beginPath();
+      ctx.moveTo(px - 4, by + bh);
+      ctx.lineTo(px + 4, by + bh);
+      ctx.lineTo(px, by + bh + 5);
+      ctx.closePath();
+      ctx.fillStyle = "#efe2c4";
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+      ctx.fillStyle = "#2b2113";
+      ctx.fillText(plate.text, cx, by + bh / 2 + 0.5);
+      ctx.restore();
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+    }
+  }
+  // Damage / heal / miss popups.
   for (const popup of opts.popups ?? []) {
     const t = state.grid.tiles[popup.pos.y * width + popup.pos.x];
     const p = project(popup.pos.x, popup.pos.y, t?.height ?? 0, origin);
-    ctx.font = "700 20px ui-sans-serif, system-ui, sans-serif";
+    const pop = mo?.popupScale ?? 1;
+    ctx.save();
+    ctx.globalAlpha = mo?.popupAlpha ?? 1;
+    ctx.font = `700 ${POPUP_FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = "center";
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#0b0f1c";
     ctx.fillStyle =
       popup.kind === "damage" ? "#ff5d5d" : popup.kind === "heal" ? theme.buff : "#9aa4bb";
-    ctx.strokeText(popup.text, p.x, p.y - 40);
-    ctx.fillText(popup.text, p.x, p.y - 40);
+    const half = (ctx.measureText(popup.text).width / 2) * pop + LABEL_PAD_PX;
+    const x = clampTo(p.x * scale, half, canvasW - half);
+    // The rise travels UP, so only the top edge can ever leave the frame.
+    const y = Math.max(
+      LABEL_PAD_PX + POPUP_ASCENT_PX * pop,
+      (p.y - POPUP_ANCHOR_Y) * scale - POPUP_GAP_PX - (mo?.popupRise ?? 0),
+    );
+    ctx.translate(x, y);
+    ctx.scale(pop, pop);
+    ctx.strokeText(popup.text, 0, 0);
+    ctx.fillText(popup.text, 0, 0);
+    ctx.restore();
     ctx.textAlign = "start";
   }
 
-  ctx.restore(); // pairs with the camera's `save`/`scale` above
 }
 
 function drawUnit(
@@ -603,6 +800,7 @@ function drawUnit(
   active: "none" | "player" | "ai",
   theme: Theme,
   unitColor?: (u: UnitState) => string,
+  mo?: { flash: number; hpShown?: number | undefined; ringSweep: number },
 ): void {
   // The caller's mapping wins; `UNIT_META` remains the demo page's own answer, and the
   // grey is the last resort for a unit neither one names.
@@ -642,10 +840,15 @@ function drawUnit(
   if (active !== "none") {
     const ring = active === "player" ? theme.active : theme.activeAi;
     ctx.save();
+    // The ring SWEEPS IN on a handoff. It never starts from nothing — the sweep opens
+    // at a quarter turn — so "whose turn is it" is answerable on the very first frame.
+    const sweep = Math.max(0, Math.min(1, mo?.ringSweep ?? 1));
     ctx.beginPath();
     ctx.arc(cx, top.y, 15, 0, Math.PI * 2);
-    ctx.fillStyle = ring + "44";
+    ctx.fillStyle = ring + (sweep >= 1 ? "44" : alphaHex(0x44 * sweep));
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, top.y, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sweep);
     ctx.lineWidth = 2;
     ctx.strokeStyle = ring;
     if (active === "ai") ctx.setLineDash([4, 4]);
@@ -671,6 +874,17 @@ function drawUnit(
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = "#0b0f1c";
   ctx.stroke();
+  // Hit flash: the token whitens for a beat. Filled INSIDE the token silhouette (the
+  // path is still the body), so the shape, its outline and everything above it are
+  // untouched. Capped by the caller at 0.55 — a fully white token loses its team
+  // colour, which is the one thing on the board that says friend from foe.
+  if (mo && mo.flash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, mo.flash);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Facing pip.
   const dir = { N: [0, -1], E: [1, 0.5], S: [0, 1], W: [-1, 0.5] }[u.facing] as [number, number];
@@ -682,8 +896,20 @@ function drawUnit(
   // HP bar.
   const w = 22;
   const frac = u.hp / u.maxHp;
+  const shownFrac = (mo?.hpShown ?? u.hp) / u.maxHp;
   ctx.fillStyle = "#0b0f1c";
   ctx.fillRect(cx - w / 2, cy - 24, w, 4);
+  // The DRAINING remainder — the part of the bar on its way out, a pale tail behind the
+  // live bar. The coloured bar below always shows `u.hp`, so the tail can only ever
+  // trail a loss the sim has already applied; it never leads it.
+  //
+  // THE `>` IS THE WHOLE GUARD, and it is deliberately the only one. A drain value BELOW
+  // the live HP (a heal, or a stale frame) draws nothing rather than a shorter bar: the
+  // sim's answer is the one that is painted, always.
+  if (shownFrac > frac) {
+    ctx.fillStyle = "#f2c0a8";
+    ctx.fillRect(cx - w / 2, cy - 24, w * shownFrac, 4);
+  }
   ctx.fillStyle = frac > 0.5 ? "#5cc98d" : frac > 0.25 ? "#e2a948" : "#e2603c";
   ctx.fillRect(cx - w / 2, cy - 24, w * frac, 4);
 

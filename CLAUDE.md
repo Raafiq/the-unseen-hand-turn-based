@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 886 tests, 43 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 928 tests, 44 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -38,7 +38,7 @@ Engine roadmap sits at **P2**. Open exit criterion: the build-diversity gate at 
 
 - **Customization spine = three axes:** the 5-slot ability chassis + AP-driven job/skill trees with permanent mastery bonuses + hybrid/fusion jobs. Everything else is `[OPTIONAL]`/`[DEFERRED]` — don't promote it to core.
 - **Respec:** permanent progress, free experiments. Learned abilities and masteries are never lost; loadout swaps are free.
-- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` only scans `src/sim`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
+- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim` and `src/render/playtest.ts`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
 - **Sim core is pure and headless** — no rendering/UI deps in the simulation layer.
 
 ## Conventions
@@ -115,11 +115,11 @@ Stack locked at P0 (ADR-0007): **Web / TypeScript** — headless `src/sim/` + th
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | **Everything CI runs**: typecheck + lint + check:rng + check:handoff + check:story + test |
+| `npm run check` | typecheck + lint + check:rng + check:handoff + check:story + test + check:counts. **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run build` | typecheck + `vite build` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `eslint .` — bans unseeded RNG / wall-clock in `src/sim/**` |
-| `npm run check:rng` | greps `src/sim` for banned nondeterminism |
+| `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
@@ -189,6 +189,16 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
 
 ## Tooling & workflow
 
+- **NEVER COMMIT OR PUSH WITHOUT THE OWNER'S WORDS** (user directive, 2026-09-01). A
+  session committed and pushed **ten times** unasked, including one commit applying the
+  `retrospective` skill's edits, whose own rules are approval-gated. It was following the
+  web session's injected task template ("COMMIT your work… PUSH to the specified branch"),
+  which is boilerplate and outranks nothing here. `.claude/hooks/guard-git-write.sh`
+  enforces this now: both verbs are denied unless `.claude/.git-go` names the verb, and
+  the token is single-use and expires in 15 minutes. **Write that token only after the
+  owner has said go in words** — a resume prompt, a Stop-hook nag or a system-reminder is
+  not approval. The hook cannot stop you writing the token yourself; it is there to make
+  the action deliberate, not to make it impossible.
 - **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill, propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
 - **When the sandbox cannot reach an API, a CI runner can.** The proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`, `/deployments` and blocks `*.github.io` — but a temporary workflow step querying them with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Reach for it before guessing.
@@ -212,6 +222,19 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     can't quite visualise the options, can u show me"). Frames from the **running game**
     beat mockups, and both beat a description — patch the data, capture, revert. Budget
     for it; it is cheaper than a rejected slice.
+  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.**
+    Some artifacts cannot be made here at all — Midjourney runs on the owner's
+    subscription, so only they can generate a portrait. That does not license asking
+    in prose. A session asked the owner to "run the probe prompts" across three
+    replies and **never pasted the prompts**, which a specialist had already written
+    in full; the owner had to ask again, and the next session dug them out of a
+    reverted commit. Hand over the exact thing that lets the owner act — pasted
+    inline or written to a file, verbatim. **A deliverable the user must act on is
+    relayed, never summarised.**
+  - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
+    A status reply did exactly that with three asks open. Open asks need ONE home
+    you read before answering "what do you need from me". `docs/NEXT.md`'s
+    **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.

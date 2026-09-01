@@ -127,7 +127,7 @@ Store **raw** and **derived** separately; never mutate raw from equipment/status
 
 The SUPPORT and MOVEMENT layers sit at the same position and touch **disjoint** fields, so
 there is no ordering question between them; each floors once, and the final clamp follows
-both. (`docs/02` §2's fifth slot could not ship until the AI weighed a tile's exposure —
+both. (`docs/02` §A2's fifth slot could not ship until the AI weighed a tile's exposure —
 see `docs/06` AC-E3(d) and ADR-0020 — because until then extra `move` only bought a
 fragile unit a deeper grave.)
 
@@ -151,7 +151,7 @@ rate (`docs/01` §3), which is a different quantity and is why Short Charge exis
 - **Save = serialized campaign state** (roster, learned abilities, masteries, inventory, progress) + optionally in-battle `BattleState` for mid-battle save.
 - **Every save and every content data file carries a `schemaVersion`.** Deep, moddable job data (§6) *will* change; without versioning, saves break silently.
 - Provide **migration hooks** (version N→N+1) from day one. A save older than the oldest supported migration fails loudly with a clear message, never corrupts.
-- **FOUR INDEPENDENT VERSION LINES** (ADR-0011, extended by ADR-0022). Each owns its own constant, migration registry and loud-fail loader, so a shape change in one never forces a migration in the others:
+- **~~FOUR~~ SIX INDEPENDENT VERSION LINES** (ADR-0011, extended by ADR-0022 and ADR-0029; corrected 2026-09-01). Each owns its own constant, migration registry and loud-fail loader, so a shape change in one never forces a migration in the others:
 
   | Line | Constant | Owns |
   |---|---|---|
@@ -159,8 +159,10 @@ rate (`docs/01` §3), which is a different quantity and is why Short Charge exis
   | Content | `CONTENT_SCHEMA_VERSION` (`content.ts`) | the authored jobs/abilities/statuses pack |
   | Roster | `ROSTER_SCHEMA_VERSION` (`roster.ts`) | `UnitRecord` — one unit's durable progress |
   | Campaign | `CAMPAIGN_SCHEMA_VERSION` (`campaign.ts`) | `CampaignDef` + `CampaignSave` — the battle sequence and the party save |
+  | Encounter | `ENCOUNTER_SCHEMA_VERSION` (`encounter.ts`) | authored battle definitions |
+  | Story | `STORY_SCHEMA_VERSION` (`story.ts`) | the authored story pack — per-line speakers, the `characters` registry, standalone scenes |
 
-  (`ENCOUNTER_SCHEMA_VERSION` is a fifth on the same pattern, covering authored battle definitions rather than saves.)
+  ~~(`ENCOUNTER_SCHEMA_VERSION` is a fifth on the same pattern, covering authored battle definitions rather than saves.)~~ Encounter and Story are now rows, not a footnote: both are **authored-content** lines rather than save lines, and both carry the full pattern — a current constant, a `MIN_SUPPORTED_*` floor and a migration registry (`ENCOUNTER_MIGRATIONS` is empty at version 1; `STORY_MIGRATIONS` holds 1→2).
 
 - **The campaign save carries NO current HP** (ADR-0022). `UnitRecord.raw.hp` is a maximum; current HP lives on `UnitState` and dies with the battle. That absence *is* `docs/11` M0's "HP restored between battles" and its no-permadeath cut — so it is asserted, not assumed.
 

@@ -25,6 +25,7 @@
 import type { Position } from "../sim/index.js";
 import { UNIT_META } from "./demo.js";
 import { draw, pickTile } from "./iso.js";
+import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
 import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
 import { mountPrepDemo } from "./prep.js";
 import { Session, type Phase } from "./session.js";
@@ -50,6 +51,23 @@ const session = new Session();
 /** Draw the keyboard tile cursor only while the canvas actually has focus. */
 let canvasFocused = false;
 
+/**
+ * THE PAGE OWNS THE CLOCK (docs/10 §3a). This is the wall-clock use the header above
+ * always allowed and nothing had yet needed: `draw` stays pure, the sample is taken here,
+ * and nothing derived from it reaches `BattleState` — the viewer still advances only on
+ * an explicit user or seam call.
+ *
+ * `nameOf` is the demo page's own roster, for the same reason `unitColor` is a parameter:
+ * this page names units `knight`/`archer`, the campaign names them `blue-vance`, and a
+ * table baked into the renderer would miss one of them entirely.
+ */
+const motion = new MotionDirector({
+  nameOf: (id) => UNIT_META[id]?.label ?? id,
+  reduced: prefersReducedMotion,
+});
+let lastBeat: MotionBeat | null = null;
+let motionFrame: number | null = null;
+
 const PHASE_TEXT: Record<Phase, string> = {
   AWAIT_ACTOR: "Advancing the clock…",
   PLAYER_IDLE: "Your turn — click a tile to move, or an enemy to strike",
@@ -58,7 +76,12 @@ const PHASE_TEXT: Record<Phase, string> = {
   ENDED: "Battle over",
 };
 
-function render(): void {
+/**
+ * THE CANVAS ALONE — the only thing the animation frame loop repaints. A full `render()`
+ * rebuilds the timeline (eight forecast clones) and every panel; doing that per frame
+ * would put the cost of a cosmetic flourish onto the transparency panels.
+ */
+function paintBoard(): void {
   const active = session.actor();
   draw(ctx!, session.state, canvas.width, canvas.height, {
     activeId: active?.id,
@@ -69,7 +92,37 @@ function render(): void {
     staged: session.stagedTile(),
     cursor: canvasFocused ? session.cursor : null,
     popups: session.popups,
+    motion: motion.sample(),
   });
+}
+
+/** Hand a freshly committed beat to the director. Identity: `commit` builds a new one. */
+function syncMotion(): void {
+  if (session.beat === lastBeat) return;
+  lastBeat = session.beat;
+  if (lastBeat === null) {
+    motion.clear();
+    return;
+  }
+  motion.start(lastBeat);
+  pumpMotion();
+}
+
+/** The page's ONLY frame loop, and it STOPS when nothing is animating. */
+function pumpMotion(): void {
+  if (motionFrame !== null || !motion.running()) return;
+  if (typeof requestAnimationFrame !== "function") return;
+  const tick = (): void => {
+    motionFrame = null;
+    paintBoard();
+    if (motion.running()) motionFrame = requestAnimationFrame(tick);
+  };
+  motionFrame = requestAnimationFrame(tick);
+}
+
+function render(): void {
+  syncMotion();
+  paintBoard();
   renderTimeline();
   renderStatus();
   renderControls();
@@ -273,6 +326,16 @@ const api: ViewerApi = {
   phase: () => session.phase,
   preview: () => session.preview(),
   reason: () => session.reason,
+  // Camera controls over the animation clock. They touch no state and emit no command.
+  settleMotion: () => {
+    motion.settle();
+    paintBoard();
+  },
+  freezeMotion: (ms) => {
+    motion.freeze(ms);
+    paintBoard();
+    pumpMotion();
+  },
 };
 window.tuh = api;
 

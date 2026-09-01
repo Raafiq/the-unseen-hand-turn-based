@@ -41,12 +41,17 @@ import {
   type Command,
   type Outcome,
   type Position,
+  type ResolutionEvent,
   type RunConfig,
   type RunReport,
   type UnitContribution,
   type UnitState,
 } from "../sim/index.js";
 import { PLAYER_TEAM, makeDemoBattle } from "./demo.js";
+// TYPE ONLY, and that is the direction rule holding: the beat flows OUT of a commit into
+// the page's animation layer and never back in. A value import would let a timing source
+// reach the one file in `src/render` that emits commands.
+import type { MotionBeat } from "./motion.js";
 import {
   computeActPreview,
   targetOptions,
@@ -151,6 +156,14 @@ export class Session {
   fatal: string | null = null;
   /** Floating damage/heal/miss labels from the most recent commit. */
   popups: Popup[] = [];
+  /**
+   * What the most recent commit DID, for the viewer's cosmetic catch-up (`motion.ts`).
+   *
+   * A fresh object per commit, so the page detects a new beat by identity. NOTHING in
+   * this class ever reads it back: it is an outbound record, the sim never sees it, and
+   * no animation can change how many commands have been applied.
+   */
+  beat: MotionBeat | null = null;
   /** Hovered/keyboard-focused tile — drives the preview only. */
   hover: Position | null = null;
   /** Keyboard tile cursor (arrow keys); starts on the active unit each turn. */
@@ -193,6 +206,7 @@ export class Session {
     this.reason = null;
     this.fatal = null;
     this.popups = [];
+    this.beat = null;
     this.hover = null;
     this.cursor = null;
     this.outcome = null;
@@ -642,6 +656,48 @@ export class Session {
         .filter(([id]) => !this.state.chargeQueue.some((c) => c.id === id))
         .map(([, tile]) => tile),
     });
+
+    // The animation record, built from the sim's OWN events plus the same HP diff the
+    // popups come from — never re-derived. `applied.event` and `applied.reactionEvents`
+    // were already in hand here and were being dropped after accounting; a counter's
+    // striker is the REACTOR, and only these can say so.
+    this.beat = this.makeBeat(before, [applied.event, ...applied.reactionEvents]);
+  }
+
+  /**
+   * Fold one commit into a {@link MotionBeat}.
+   *
+   * Positions are read from the state AFTER the command, because that is where the
+   * renderer draws each unit — a folded move+act attacker stands on its destination.
+   */
+  private makeBeat(before: BattleState, events: readonly (ResolutionEvent | null)[]): MotionBeat {
+    const posOf = (id: string): Position | null => {
+      const u = this.state.units.find((x) => x.id === id);
+      return u ? { ...u.pos } : null;
+    };
+    const strikers: { unitId: string; pos: Position; landed: boolean }[] = [];
+    for (const ev of events) {
+      if (!ev) continue;
+      const pos = posOf(ev.sourceUnitId);
+      if (pos) strikers.push({ unitId: ev.sourceUnitId, pos, landed: ev.landed });
+    }
+    const wasHp = new Map(before.units.map((u) => [u.id, u.hp]));
+    const impacts: { unitId: string; pos: Position; hpBefore: number; hpAfter: number }[] = [];
+    for (const u of this.state.units) {
+      const was = wasHp.get(u.id);
+      if (was === undefined || was === u.hp) continue;
+      impacts.push({ unitId: u.id, pos: { ...u.pos }, hpBefore: was, hpAfter: u.hp });
+    }
+    const next = this.activeUnitId;
+    return {
+      strikers,
+      impacts,
+      popupCount: this.popups.length,
+      handoff:
+        next === null || this.phase === "ENDED"
+          ? null
+          : { unitId: next, control: this.isPlayerControlled(next) ? "player" : "ai" },
+    };
   }
 
   private refuse(message: string): void {

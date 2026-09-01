@@ -58,6 +58,7 @@ import { mkdir } from "node:fs/promises";
 import { makeDemoBattle } from "../src/render/demo.js";
 import { project, viewFor } from "../src/render/iso.js";
 import { serialize, type BattleState } from "../src/sim/index.js";
+import { freezeMotion, settleMotion } from "./helpers.js";
 
 const SHOTS = "visual-artifacts/screenshots";
 
@@ -548,8 +549,23 @@ test.describe("playable — the static proof sheet", () => {
 
   const PAD = 10;
 
-  /** Screenshot the union of some elements' boxes (+ padding), full-page-relative. */
-  async function clipShot(page: Page, file: string, selectors: string[]): Promise<void> {
+  /**
+   * Screenshot the union of some elements' boxes (+ padding), full-page-relative.
+   *
+   * SETTLES THE BOARD FIRST. Several of these frames are taken immediately after a
+   * commit, which now starts a ~1.5 s cosmetic animation — without this they would capture
+   * an arbitrary instant of it, under captions that describe a board at rest, with every
+   * assertion in this file green. `at` overrides that for the one frame whose caption is
+   * about the blow itself.
+   */
+  async function clipShot(
+    page: Page,
+    file: string,
+    selectors: string[],
+    at: number | null = null,
+  ): Promise<void> {
+    if (at === null) await settleMotion(page);
+    else await freezeMotion(page, at);
     await page.evaluate(() => {
       window.scrollTo(0, 0);
     });
@@ -568,6 +584,7 @@ test.describe("playable — the static proof sheet", () => {
       fullPage: true,
       clip: { x, y, width: right - x, height: bottom - y },
     });
+    if (at !== null) await freezeMotion(page, null);
   }
 
   const STAGE = ".stage";
@@ -761,7 +778,10 @@ test.describe("playable — the static proof sheet", () => {
     await expect(page.locator(LOG_PANEL)).toContainText(
       `t${foldTick} · Archer · ${asRead(foldEntries[1]!.action)}`,
     );
-    await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL]);
+    // PINNED TO IMPACT. `docs/visual/p3-playable/README.md` captions this frame "damage
+    // popup, HP bar dropped" — true only while the numeral is still up, which it no
+    // longer is two seconds later. Frozen at t = 0 the caption stays true of the image.
+    await clipShot(page, "14-committed.png", [STAGE, LOG_PANEL], 0);
 
     // ── 15: an AI turn, with input inert. Reached by ending the player's turn; the
     // board still carries the damage the fold dealt, so the frame shows an AI turn IN
