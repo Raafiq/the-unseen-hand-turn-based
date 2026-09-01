@@ -222,6 +222,20 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     can't quite visualise the options, can u show me"). Frames from the **running game**
     beat mockups, and both beat a description — patch the data, capture, revert. Budget
     for it; it is cheaper than a rejected slice.
+  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.**
+    Some artifacts cannot be made here at all — Midjourney runs on the owner's
+    subscription, so only they can generate a portrait. That does not license asking
+    in prose. A session asked the owner to "run the probe prompts" across three
+    replies and **never pasted the prompts**, which a specialist had already written
+    in full; the owner had to ask again, and the next session dug them out of a
+    reverted commit. Hand over the exact thing that lets the owner act — pasted
+    inline or written to a file, verbatim. **A deliverable the user must act on is
+    relayed, never summarised.**
+  - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
+    A status reply did exactly that with three asks open. Open asks need ONE home
+    you read before answering "what do you need from me". `docs/NEXT.md` is that
+    home — it has **no OPEN — WAITING ON THE OWNER section yet**, so the first
+    session to bank an open ask creates it.
 - **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
