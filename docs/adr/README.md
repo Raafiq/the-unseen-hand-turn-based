@@ -36,3 +36,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0030](0030-the-ground-is-painted-not-tiled.md) | The battle map paints real ground, and carries no grid | Accepted | 2026-08-30 |
 | [0031](0031-the-span-is-real.md) | The span is real: one map where the water blocks | Accepted | 2026-08-30 |
 | [0032](0032-the-board-moves-and-never-blocks.md) | The board moves, and the motion never blocks: option B, non-blocking | Accepted | 2026-09-01 |
+| [0033](0033-the-stat-panel-shows-only-what-the-sim-models.md) | The battle-map stat panel shows only what the sim models: no MP, no Level | Accepted | 2026-09-01 |
