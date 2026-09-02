@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
+import { FIELD_THEME, RING_FILL_ALPHA } from "../src/render/iso.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
 // Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
@@ -446,6 +447,111 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   for (const id of ["end-turn", "timeline", "preview", "status", "unit-card"]) {
     await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
   }
+});
+
+/**
+ * THE LEGEND MUST QUOTE THE PAINT (defect found 2026-09-01, fixed 2026-09-02).
+ *
+ * `index.html` told every player that the tiles the active unit may walk to are AMBER
+ * (`#e2a948`), for the whole life of painted ground. The campaign board paints them
+ * `FIELD_THEME.highlight`, a pale blue — `game.ts` hands `draw` that theme whenever the
+ * encounter carries terrain, which is all five battles. The amber is `DARK_THEME`'s: it
+ * is right on `/viewer.html` and on nothing here. The turn-ring swatch was amber too,
+ * against a gold ring. It survived because NOTHING in the tree compared a legend swatch
+ * to the theme it describes; the only test that mentioned the legend asserted its text.
+ *
+ * WHAT EACH HALF REACHES THROUGH TO — the two rows fail differently, so they are proved
+ * differently:
+ *
+ *   - move / ring: the swatch's COMPUTED colour against the theme object the renderer is
+ *     handed. `iso.test.ts` holds the other link of that chain — that `theme.highlight`
+ *     is the fill which actually reaches the canvas for a range tile.
+ *   - party / foe: the swatch against the CANVAS PIXELS. A unit token is an opaque fill,
+ *     so its colour survives to the frame and can be counted. Comparing those two rows
+ *     to `TEAM_COLOR` instead would be an A/B between two callers of the same helper,
+ *     which cannot see the helper being wrong; a pixel can.
+ *
+ * DELIBERATELY NOT ASSERTED: the move swatch against a pixel. `FIELD_THEME.highlight` is
+ * 70% alpha over six painted ground tones, so no raw value of it exists anywhere in the
+ * frame — `iso.test.ts`'s recording context is where that colour is checked.
+ *
+ * The mutation this is written against: put `#e2a948` back on either swatch, rebuild,
+ * and the matching expect goes red. Run 2026-09-02.
+ */
+test("legend: every swatch is the colour the board actually paints", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // A settled board: no hit flash whitening a token, no ring mid-sweep.
+  await settleMotion(page);
+
+  const seen = await page.evaluate(
+    (want) => {
+      // Both sides of every comparison are normalized by the SAME engine, so the test
+      // never has to predict how Chrome serializes an alpha.
+      const probe = document.createElement("div");
+      document.body.append(probe);
+      const norm = (css: string): string => {
+        probe.style.backgroundColor = "";
+        probe.style.backgroundColor = css;
+        return getComputedStyle(probe).backgroundColor;
+      };
+      const sw = (key: string): CSSStyleDeclaration => {
+        const node = document.querySelector(`[data-testid="legend"] [data-sw="${key}"]`);
+        if (node === null) throw new Error(`no legend swatch "${key}"`);
+        return getComputedStyle(node);
+      };
+      const swatch = {
+        party: sw("party").backgroundColor,
+        foe: sw("foe").backgroundColor,
+        move: sw("move").backgroundColor,
+        ringFill: sw("ring").backgroundColor,
+        ringEdge: sw("ring").borderTopColor,
+      };
+      const wanted = {
+        move: norm(want.highlight),
+        ringFill: norm(want.active + want.ringAlpha),
+        ringEdge: norm(want.active),
+      };
+      probe.remove();
+
+      // How many pixels of the live board are exactly this colour?
+      const canvas = document.querySelector("canvas[data-testid=grid]") as HTMLCanvasElement;
+      const px = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+      const count = (css: string): number => {
+        const m = /^rgba?\((\d+), (\d+), (\d+)/.exec(css);
+        if (m === null) throw new Error(`unparsable swatch colour ${css}`);
+        const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        let n = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i] === r && px[i + 1] === g && px[i + 2] === b && px[i + 3] === 255) n += 1;
+        }
+        return n;
+      };
+      return {
+        swatch,
+        wanted,
+        onBoard: { party: count(swatch.party), foe: count(swatch.foe) },
+      };
+    },
+    { highlight: FIELD_THEME.highlight, active: FIELD_THEME.active, ringAlpha: RING_FILL_ALPHA },
+  );
+
+  // The defect itself, and its sibling.
+  expect(seen.swatch.move).toBe(seen.wanted.move);
+  expect(seen.swatch.ringEdge).toBe(seen.wanted.ringEdge);
+  expect(seen.swatch.ringFill).toBe(seen.wanted.ringFill);
+
+  // Friend and foe: the legend names two colours and the board wears both of them.
+  // MEASURED on battle one, 2026-09-02: 1033 party pixels (two tokens) and 518 foe (one).
+  // The floor is a thirteenth of a single token — clear of antialiasing, nowhere near a
+  // knife edge, and 0 the moment a swatch names a colour the board does not paint
+  // (mutation-checked with the party swatch one bit off, `#4f8cfe`).
+  expect(seen.swatch.party).not.toBe(seen.swatch.foe);
+  expect(seen.onBoard.party).toBeGreaterThan(40);
+  expect(seen.onBoard.foe).toBeGreaterThan(40);
 });
 
 /**

@@ -26,7 +26,7 @@ import {
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
-import { draw, pickTile, FIELD_THEME } from "./iso.js";
+import { draw, pickTile, FIELD_THEME, RING_FILL_ALPHA } from "./iso.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
 import {
   logHtml,
@@ -117,6 +117,9 @@ const SCREEN_LABEL: Record<Screen, string> = {
 
 /** Team colours match the engine viewer's legend: team 0 blue, everyone else red. */
 const TEAM_COLOR = ["#4f8cff", "#e2603c", "#8ad17a", "#c58bff"];
+/** A team the palette has no entry for. One fallback, so the legend cannot quote a second. */
+const UNKNOWN_TEAM_COLOR = "#9aa4bb";
+const teamColor = (teamId: number): string => TEAM_COLOR[teamId] ?? UNKNOWN_TEAM_COLOR;
 
 /** The one bundled portrait asset. Resolved once so a missing key fails at boot, not mid-battle. */
 const PORTRAIT_PLACEHOLDER: string = (() => {
@@ -150,7 +153,7 @@ function look(): LookUp {
     const job = jobs[id];
     return {
       label: names[id] ?? id,
-      color: TEAM_COLOR[unit.teamId] ?? "#9aa4bb",
+      color: teamColor(unit.teamId),
       ...(job !== undefined ? { job: jobLabel(job) } : {}),
       portrait: { url: PORTRAIT_PLACEHOLDER, key: "placeholder" },
     };
@@ -444,7 +447,7 @@ function paintBoard(): void {
     // Friend vs foe, on the BOARD — not only in the timeline chips. Without this the
     // campaign's units all fall through to one grey and a player cannot tell their
     // party from the enemy by looking at the grid.
-    unitColor: (u) => TEAM_COLOR[u.teamId] ?? "#9aa4bb",
+    unitColor: (u) => teamColor(u.teamId),
     motion: motion.sample(),
   });
 }
@@ -822,6 +825,49 @@ function buildHelp(): void {
   }
 }
 buildHelp();
+
+/**
+ * Paint the legend's swatches from the BOARD'S OWN CONSTANTS (defect fixed 2026-09-02).
+ *
+ * The legend told every player who ever started a battle that the tiles they may walk to
+ * are AMBER. They are pale blue: this file hands `draw` the `FIELD_THEME` whenever the
+ * encounter has terrain, which is all five of them, and the amber belongs to
+ * `DARK_THEME` — the engine viewer's palette, correct on `viewer.html` and nowhere here.
+ * The turn-ring swatch was amber too against a gold ring. Nothing was wrong with the code
+ * that drew the board; the stylesheet simply held a second opinion, and no test in the
+ * tree compared a swatch to the theme it describes, so it survived the whole life of
+ * painted ground (ADR-0030).
+ *
+ * So the swatches now carry no colour of their own — `index.html` declares none. Each is
+ * set here from the same value the renderer is handed, which makes drift impossible
+ * rather than merely unlikely.
+ *
+ * A SWATCH SHOWS THE PAINT, NOT THE COMPOSITE. `FIELD_THEME.highlight` carries its own
+ * alpha (`b3`) and the board composites it over six painted ground tones, so there is no
+ * single "how it looks on the field" to show; a swatch picking one would be a hand-chosen
+ * lie about the other five. The swatch is therefore the theme string verbatim, left for
+ * the browser to composite over the dark board card — which is one more reason that card
+ * stays dark (see the note beside `.card.board` in `index.html`).
+ *
+ * Called once, like {@link buildHelp}: the legend is static markup and none of these
+ * constants change at runtime.
+ */
+function paintLegend(): void {
+  const sw = (key: string): HTMLElement => {
+    const node = document.querySelector<HTMLElement>(`[data-testid="legend"] [data-sw="${key}"]`);
+    if (node === null) throw new Error(`legend swatch "${key}" is missing from the page`);
+    return node;
+  };
+  sw("party").style.background = teamColor(0);
+  sw("foe").style.background = teamColor(1);
+  sw("move").style.background = FIELD_THEME.highlight;
+  // `drawUnit` strokes the active ring in `theme.active` and fills the disc with the
+  // same colour at `RING_FILL_ALPHA`. The swatch is that disc, both halves.
+  const ring = sw("ring");
+  ring.style.borderColor = FIELD_THEME.active;
+  ring.style.background = FIELD_THEME.active + RING_FILL_ALPHA;
+}
+paintLegend();
 
 const helpDialog = el<HTMLDialogElement>("help");
 // `showModal` gives focus trapping and Escape-to-close for free; the fallback keeps the

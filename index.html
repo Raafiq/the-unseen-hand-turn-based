@@ -195,8 +195,14 @@
       /* ── legend / status / timeline (board chrome — all on the dark card) ─── */
       .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: .86rem; color: var(--ink-dk-faint); }
       .legend span { display: inline-flex; align-items: center; gap: 7px; }
+      /* NO COLOUR LIVES HERE. Every swatch's fill (and the ring's border) is painted by
+         `paintLegend()` in `src/render/game.ts` from the very constants `draw` is
+         handed, so the legend cannot quote a colour the board does not use. It did for
+         the whole life of painted ground: amber here, pale blue on the field.
+         `currentColor` is only the pre-script fallback — the battle screen does not
+         exist without the script. */
       .legend .sw { width: 11px; height: 11px; flex: none; display: inline-block; border: 1px solid rgba(0,0,0,.4); }
-      .legend .sw.ring { border: 2px solid #e2a948; background: rgba(226,169,72,.27); border-radius: 50%; }
+      .legend .sw.ring { border: 2px solid currentColor; background: none; border-radius: 50%; }
 
       #status { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-left: auto; font-family: var(--roman); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dk-soft); }
       #status b { color: var(--ink-dk-faint); font-weight: 600; }
@@ -568,11 +574,12 @@
           </div>
           <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
           <div id="timeline" class="timeline" data-testid="timeline"></div>
+          <!-- Swatch colours are set from the board's own theme by `paintLegend()`. -->
           <div class="legend" data-testid="legend">
-            <span><i class="sw" style="background:#4f8cff"></i>Your party</span>
-            <span><i class="sw" style="background:#e2603c"></i>Enemies</span>
-            <span><i class="sw" style="background:#e2a948"></i>Where the active unit can walk</span>
-            <span><i class="sw ring"></i>Whose turn it is</span>
+            <span><i class="sw" data-sw="party"></i>Your party</span>
+            <span><i class="sw" data-sw="foe"></i>Enemies</span>
+            <span><i class="sw" data-sw="move"></i>Where the active unit can walk</span>
+            <span><i class="sw ring" data-sw="ring"></i>Whose turn it is</span>
           </div>
         </div>
         <div class="cols">

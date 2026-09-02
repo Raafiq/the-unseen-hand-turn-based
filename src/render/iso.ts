@@ -343,6 +343,19 @@ function alphaHex(v: number): string {
   return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
 }
 
+/** How opaque the active-unit ring's disc is at full sweep, 0..255. */
+const RING_FILL = 0x44;
+
+/**
+ * The alpha suffix the active-unit ring fills its disc with, at full sweep — so
+ * `theme.active + RING_FILL_ALPHA` is literally the fill `drawUnit` paints.
+ *
+ * Exported because the campaign legend's turn-ring swatch quotes that fill. A
+ * hand-copied `rgba(...,.27)` in a stylesheet is exactly how that legend spent the whole
+ * life of painted ground describing a colour the board does not paint.
+ */
+export const RING_FILL_ALPHA = alphaHex(RING_FILL);
+
 function diamond(ctx: CanvasRenderingContext2D, c: Position): void {
   ctx.beginPath();
   ctx.moveTo(c.x, c.y - TILE_H / 2);
@@ -845,7 +858,7 @@ function drawUnit(
     const sweep = Math.max(0, Math.min(1, mo?.ringSweep ?? 1));
     ctx.beginPath();
     ctx.arc(cx, top.y, 15, 0, Math.PI * 2);
-    ctx.fillStyle = ring + (sweep >= 1 ? "44" : alphaHex(0x44 * sweep));
+    ctx.fillStyle = ring + (sweep >= 1 ? RING_FILL_ALPHA : alphaHex(RING_FILL * sweep));
     ctx.fill();
     ctx.beginPath();
     ctx.arc(cx, top.y, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sweep);

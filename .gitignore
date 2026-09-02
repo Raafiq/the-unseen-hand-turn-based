@@ -46,3 +46,7 @@ Thumbs.db
 # Written at SessionStart by .claude/hooks/record-designated-branch.sh; read by
 # .claude/hooks/guard-designated-branch.sh. Per-session, never shared.
 .claude/.session-branch
+
+# Single-use commit/push approval token, written only after the owner says go in words;
+# read and consumed by .claude/hooks/guard-git-write.sh. Never shared, never committed.
+.claude/.git-go
