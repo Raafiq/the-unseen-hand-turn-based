@@ -97,7 +97,9 @@ Fantasy was the runner-up and is not to be reopened without a new decision.
 **Why FFT won:** its muted ochre and dusty-blue palette is native to the game's
 parchment shell (ADR-0028), where Granblue's saturated jewel tones fight it on
 every screen. It also held together across two very different jobs — a hooded
-wizard and a headbanded archer read as the same game.
+wizard and a headbanded archer read as the same game. **Both of those were
+pre-lock runs**: they are evidence for the style choice, not art in the set (see
+"Which runs predate the lock" below).
 
 **The one word that unlocked it:** `anime character illustration for a Japanese
 tactics RPG`. Two earlier FFT attempts failed in opposite directions without it —
@@ -141,6 +143,13 @@ A control run proved it. The priest prompt was run **without** a style reference
 drifted badly: the same style tail produced European devotional painting, soft and
 nearly ink-free, unmistakably a different illustrator from the archer. Re-run with an
 **archer frame locked in the Style Reference slot**, it snapped back into the set.
+
+**WHICH RUNS PREDATE THE LOCK — owner, 2026-09-02.** `knight-female` and
+`wizard-female` were generated **before** the archer went into the Style Reference
+slot. Only the **archer** (which is the reference) and the **priest** were run with it
+locked, and only those two are art in the set. Both pre-lock frames must be re-run
+before their output is used anywhere; the prompt text is the record, the image is not.
+Same table in `portrait-prompts.md`'s header.
 
 **What the reference carries, and what it does not** — this matches the official
 Style Reference page and was confirmed here:

@@ -25,22 +25,44 @@ owner must act on is relayed, never summarised** — do not shorten anything bel
 Ask 4 is listed **first** because it is the only one that can be *lost* rather than merely
 delayed. The numbers are kept as they are because other sections cite them by number.
 
-### Ask 4 — download the four reference images. THIS ONE HAS A DEADLINE NOBODY SET.
+### Ask 4 — save two images, re-run three prompts. THIS ONE HAS A DEADLINE NOBODY SET.
 
-**Four images, and they exist only in the owner's browser:** the **archer** currently
-locked in the Style Reference slot, plus the approved **knight**, **wizard** and **priest**
-(all female).
+**Save two images. They exist only in the owner's browser:** the **archer** currently
+locked in the Style Reference slot, and the approved **priest** (both female).
 
-**Why this is urgent and not merely pending.** Twelve Midjourney images were shared into
-the last session as inline attachments and **not one was written to disk**. The prompts
-survive in the repo; the images do not. **A style reference is an image, not text** — the
-prompts alone cannot recover the look, so if the archer is lost the eight probe runs behind
-it become unreproducible and the remaining twelve portraits lose the only thing keeping
+**~~Four approved images.~~ Two.** Owner, 2026-09-02: `knight-female` and `wizard-female`
+were generated **before** the archer went into the Style Reference slot. Neither is in the
+set. Do not save either as reference art and do not treat either as signed off.
+
+**Three Midjourney runs are owed**, all from
+`.claude/skills/midjourney/references/portrait-prompts.md`, unchanged, **with the archer
+locked**:
+
+| Run | Why |
+|---|---|
+| `knight-female` | pre-lock; its old frame is not in the set |
+| `wizard-female` | pre-lock; its old frame is not in the set |
+| `knight-male` | never run — no male portrait exists in this style |
+
+That is also the "knight both genders first" test the set was scoped around: judge the two
+knights at **28 pixels** before buying the rest — **twelve**, not fourteen: archer and
+priest are already in the set.
+
+**What a pre-lock run costs is measured, not guessed.** The priest, run without a
+reference, came back as European devotional painting — unmistakably a different
+illustrator from the archer — and snapped back into the set only once the archer was
+locked (`project-prompts.md`, "The style reference IS needed").
+
+**Why saving the archer is urgent and not merely pending.** Twelve Midjourney images were
+shared into the last session as inline attachments and **not one was written to disk**. The
+prompts survive in the repo; the images do not. **A style reference is an image, not text**
+— the prompts alone cannot recover the look, so if the archer is lost the eight probe runs
+behind it become unreproducible and the remaining portraits lose the only thing keeping
 them one set.
 
-They land in `docs/visual/portraits/reference/`, named and documented per **part 1 of the
-next slice** below. **No agent can do this** — Midjourney is unreachable from this sandbox
-and the files are on the owner's machine.
+The two saved images land in `docs/visual/portraits/reference/`, named and documented per
+**part 1 of the next slice** below. **No agent can do any of this** — Midjourney is
+unreachable from this sandbox and the files are on the owner's machine.
 
 ### Ask 1 — the 16 portrait prompts, running now
 
@@ -58,17 +80,20 @@ and the files are on the owner's machine.
 **The prompts live in `.claude/skills/midjourney/references/portrait-prompts.md`.** Hand
 that file over verbatim — do not re-derive, re-wrap or "improve" a block. Four of them
 (`knight-female`, `wizard-female`, `archer-female`, `priest-female`) are the **exact text
-the owner already ran and approved**, recovered from the transcript; rewriting them
-discards the evidence.
+the owner already ran**, recovered from the transcript; rewriting them discards the
+evidence. **Only `archer-female` and `priest-female` produced art in the set** — the other
+two were run before the style reference was locked and are re-runs, not done work (ask 4).
 
 Four things go with the file:
 
 - **Judge at 28 px, not at full size.** The turn-order strip re-crops the art that small,
   where only the headgear silhouette survives. The silhouette table at the end of the
   prompts file predicts sixteen outlines and **nothing in it has been measured**.
-- **Run `knight-male` and `knight-female` first**, judge them, and only then buy the other
-  fourteen. **No male portrait has ever been run in this style** — the style reference is a
-  young female archer, and a reference carries neither subject nor proportion.
+- **Run `knight-male` and `knight-female` first**, judge them, and only then buy the
+  remaining ~~fourteen~~ **twelve** (archer and priest are done; `wizard-female` is one of
+  the twelve, because its old frame predates the style lock). **No male portrait has ever
+  been run in this style** — the style reference is a young female archer, and a reference
+  carries neither subject nor proportion.
 - **The eight male blocks delete exactly the word `man,` from the `--no` list.** `--no` is
   judged word by word, so `--no man` on a male subject asks the model not to draw him.
   `beard` and `stubble` stay, which keeps the cast clean-shaven and young.
@@ -107,7 +132,8 @@ reversal — it shows option B's placement, not what ships.
 ### Ask 3 — portraits: where does the team colour go?
 
 **Still not answerable here, but the blocker has moved.** ~~Downstream of ask 1: no
-approved art exists.~~ **Four approved frames DO exist** — they are just not in the repo,
+approved art exists.~~ **Two approved frames DO exist** — archer and priest, ~~four~~ (the
+knight and wizard frames predate the style lock, ask 4) — they are just not in the repo,
 which is ask 4. A rendered comparison needs a real portrait **in the tree**, and `PORTRAITS`
 in `campaign-data.ts` still holds exactly one entry: `placeholder`. So this is now blocked
 on **ask 4 plus one committed crop**, not on the sixteen paid runs: the comparison becomes
@@ -126,8 +152,8 @@ possible the moment a single real file lands under `data/campaign/story/portrait
 before any paid run. Then the sixteen portraits, then two small fixes riding along.
 
 **The stat plate SHIPPED on 2026-09-01** (ADR-0033, `docs/10` AC-V22). See the landing
-section below. Two live defects came with it; one is part 3b, the other still needs
-`art-director` and is not in this slice.
+section below. Two live defects came with it: the legend swatch (part 3b) **is fixed**, and
+the plate's own colours still need `art-director` and are not in this slice.
 
 ### Part 1 — store the reference art. NOTHING RUNS BEFORE THIS.
 
@@ -142,13 +168,20 @@ New committed directory `docs/visual/portraits/reference/`:
 | File | What it is |
 |---|---|
 | `STYLE-REFERENCE-archer.png` | the image locked in the owner's Style Reference slot |
-| `approved-knight-female.png` | approved 2026-09-01 |
-| `approved-wizard-female.png` | approved 2026-09-01 |
-| `approved-priest-female.png` | approved 2026-09-01 |
+| `approved-priest-female.png` | approved 2026-09-01, run **with** the archer locked |
+| ~~`approved-knight-female.png`~~ | **do not commit** — pre-lock run, not in the set (owner, 2026-09-02) |
+| ~~`approved-wizard-female.png`~~ | **do not commit** — pre-lock run, not in the set (owner, 2026-09-02) |
 | `README.md` | per file: the asset key whose prompt produced it, pointing into `.claude/skills/midjourney/references/portrait-prompts.md`, and the date |
 
+**Two files, not four.** The knight and wizard frames were generated before the archer
+went into the Style Reference slot, so they are not part of the set; committing them is
+exactly the failure this section exists to prevent. Their prompts stay in the prompts file
+and get re-run (ask 4).
+
 The README must say of the style reference that it is the input to **every** remaining run
-and must not be replaced without regenerating the whole set.
+and must not be replaced without regenerating the whole set. It must also record, per
+file, **whether the archer was locked when it was run** — that is the difference between
+art in the set and art that looks close.
 
 **Why `docs/visual/` and not `data/campaign/story/portraits/`.** These are **evidence, not
 shipped assets**: nothing imports them, they are full-size originals rather than the 96×116
@@ -159,7 +192,7 @@ there is no `import.meta.glob` anywhere in the tree — so a stray file in that 
 invisible to every check in the repo. That is an argument for keeping the two kinds of file
 apart, not a guard against mixing them.
 
-**BLOCKED ON THE OWNER — they must download the four frames.** No agent here can reach
+**BLOCKED ON THE OWNER — they must download the two frames.** No agent here can reach
 Midjourney.
 
 ### Part 2 — the sixteen portraits
@@ -214,20 +247,23 @@ Two more things to record, neither of them work:
   engine viewer's absent-portrait branch — `main.ts`'s `UNIT_META` carries neither job nor
   portrait — is what keeps that path exercised in shipped product.
 
-### Part 3 — two fixes riding along
+### Part 3 — two fixes riding along. BOTH LANDED 2026-09-02 (`61f062c`).
 
-**3a. `.gitignore` does not cover `.claude/.git-go`.** Line 44 covers `.claude/.retro-done`
-and line 48 `.claude/.session-branch`; the commit-approval token is missing. A future
-`git add -A` would commit a live token. One line.
+**3a. ~~`.gitignore` does not cover `.claude/.git-go`.~~ Done** — `.gitignore:52`.
 
-**3b. The legend's move-range swatch** — written up in the stat-plate landing section
-below, **not duplicated here**, and promoted into this slice. One thing is missing from
-that write-up: **nothing in the tree compares a legend swatch to a theme constant**, which
-is why it survived the whole life of painted ground. Re-checked 2026-09-02 — the only test
-that mentions the legend (`e2e/campaign.spec.ts:433-436`) asserts its text, never a colour.
-So the fix owes a test comparing the swatch to the theme value, or the next theme change
-breaks it again silently. Check the whole legend in one pass: the turn-ring swatch at
-`index.html:199` is amber too, against a board ring of `#ffd968`.
+**3b. ~~The legend's move-range swatch is the wrong colour.~~ Fixed.** `paintLegend()` in
+`game.ts` now sets every swatch from the same theme constants `draw()` is handed;
+`index.html` declares no swatch colour at all. ~~Nothing in the tree compares a legend
+swatch to a theme constant.~~ `e2e/campaign.spec.ts` now carries "legend: every swatch is
+the colour the board actually paints", mutation-verified four ways. Browser specs 47 → 48.
+
+**Deliberately not asserted:** the move swatch against a canvas pixel. At 70% alpha its raw
+value exists nowhere in a frame; `iso.test.ts:783` holds that link instead. **Still open as
+an appearance call:** the swatch shows the raw theme string composited over the dark board
+card, which is the same hue as but not a match for the range slab over sunlit grass.
+
+**No AC was minted for this.** AC-V21 stays **RESERVED** for the motion layer; **AC-V23 is
+the next free viewer letter** (`docs/10` §6 currently ends at AC-V22).
 
 ### NOT in this slice
 
@@ -237,6 +273,7 @@ breaks it again silently. Check the whole legend in one pass: the turn-ring swat
 | Cursor-follow | Parked, not cancelled. The seam is `unitCardHtml`'s `focusUnitId` — see the landing section. |
 | The 28-pixel legibility comparison across the set | **Still never run.** The silhouette table predicts sixteen outlines and measures none. Do it on the first two knights. |
 | `telemetry.test.ts` reading the real clock | Test code, routed to `qe-tester` — see the flake below. |
+| **The action menu** | **Specced 2026-09-02 and DEFERRED by the owner to the NEXT session.** The spec is not in the repo — see the section below, and read the two defects it found before re-deriving anything. |
 
 **Owner order, unchanged since 2026-08-30.**
 
@@ -364,6 +401,67 @@ AC-V22 and the AC-V21 reservation and changed nothing else in §6.
 
 ---
 
+## DEFERRED to the NEXT session — the action menu, and the two defects it found
+
+**The owner deferred the action menu on 2026-09-02.** It was specced in that session and
+**the spec is not in the repo**: it lives in the session transcript and in one scratchpad
+file outside the tree —
+`/tmp/claude-0/-home-user-the-unseen-hand-turn-based/9a1b4ca8-4bc0-5d70-ab01-5124e93dd80e/scratchpad/action-menu-spec.md`
+(23 KB, written 2026-09-02). **A scratchpad is session-scoped and is not expected to
+survive**, so treat that path as a long shot, not a backup. **The spec must be re-derived
+or recovered before work starts** — do not assume any of it survived, and do not
+reconstruct it from this section, which records findings rather than a design.
+
+What the spec claimed of itself, for whoever re-derives it: `[BASELINE]` (FFT's own menu,
+the one-click flow being the deviation), owned by `docs/10` §3 and §6 from **AC-V23**,
+moving **no combat constant**, with AoE explicitly `[DEFERRED]`.
+
+**The two defects below outlive the spec.** They are findings about shipped code, not about
+the menu. **Both re-derived against the tree by `docs-steward` on 2026-09-02** — line
+numbers checked, not relayed. Neither is a test failure; nothing goes red today.
+
+### (1) The game picks the player's ability. No gesture selects one.
+
+| Link in the chain | Evidence |
+|---|---|
+| The viewer offers one ability per target | `targetOptions` (`src/render/preview.ts:216`) takes the **first** match in `unit.abilities` array order, documented there as deterministic |
+| `basic.attack` is always index 0 for a campaign unit | `projectAbilities` (`src/sim/build.ts:294`) seeds it into the map first and returns `[...byId.values()]` — insertion order |
+| The basic swing is **melee whatever the weapon is** | `basicAttackFrom` (`src/sim/state.ts:454-467`) hard-codes `range {h:1,v:1}`; equipment is deferred (`docs/05` §4) |
+| So the archer swings up close | Briar's whole `learned` list is `["aim.aimed-shot"]`, range `{h:5,v:3}` (`data/campaign/camp-the-first-march.json`). Adjacent, both are in range and the swing wins; at 2+ tiles only the shot is in range |
+| And the geomancer swings instead of casting | Vance's `learned` is `["geomancy.pitfall"]` — range `{h:3,v:1}`, instant, no AoE, authored **power 43**, against the placeholder weapon's `wp: 8` (`build.ts:100`). **The damage ordering is NOT asserted here** — `magic` and `paWp` are different formulas — but the player never gets to make the choice either way |
+| Nothing lets the player choose | The only act path is `commitAct` (`src/render/session.ts:590`), which takes the `TargetOption` a click produced. `game.ts` names no ability id anywhere |
+
+**Do not write this up as a pure bug — the ordering is argued for in the tree.**
+`demo.ts:159-168` states it is deliberate **for the engine viewer**: one skill each, and
+`basic.attack` at index 0 so an adjacent foe is struck with the weapon, "the Archer's
+speedWp swing genuinely out-damages its own shot up close". That argument was made about a
+hand-authored two-ability demo roster. It is not an argument about a campaign unit with a
+secondary command, a support and a growing `learned` list. **What is missing is the choice
+itself**, and `docs/10` §5 does not state that limitation — it says the action set is
+"whatever the loadout projects" and lists demo-roster limits only. A menu slice owes
+`docs/10` §5 a sentence and probably an AC (**AC-V23 is the next free letter**).
+
+### (2) The party's only healer cannot heal.
+
+| Link in the chain | Evidence |
+|---|---|
+| `white-magic.cure` is an area heal | `"aoe": {"h":1,"v":1}` — `data/base-pack.json:453` |
+| The viewer refuses every area ability | `isClickTargetable` (`src/render/preview.ts:198-205`) returns false when `aoe !== null` — AoE preview is deferred, `docs/10` §4 |
+| Cure is the priest's only action | Ottoline's `learned` is exactly `["white-magic.cure"]` (`data/campaign/camp-the-first-march.json`), and `targetOptions` offers an ally only a `heal`-formula ability, so `basic.attack` cannot fill the gap. **She has no heal in the shipped game** |
+| The sim is fine | `driver.ts:515` branches to `resolveAbilityAoe` and resolves the box around the aim tile. This is a **viewer refusal, not a rules limit** |
+
+**A false comment sits on top of this and is code, so it is not fixed here.**
+`isClickTargetable`'s docstring says *"On the shipped roster team 0 projects exactly one
+action (`basic.attack`), so nothing playable is hidden by this filter"*. That is false for
+the campaign roster: every party member projects the swing **plus** a learned action, and
+the filter is hiding the only heal in the game. **Route to `viewer-engineer`** with the fix.
+
+**Both gaps are the player's alone.** `targetOptions` and `isClickTargetable` exist only in
+`src/render`; `ai.ts` chooses from the sim's own projection, so an AI-controlled unit is
+never narrowed by either.
+
+---
+
 ## LANDED 2026-09-01 — the stat plate (ADR-0033, `docs/10` AC-V22)
 
 A plate sits bottom-left over the battle canvas and describes the unit acting next:
@@ -382,24 +480,22 @@ campaign board and the engine viewer — through one renderer.
 is bottom-left from three rendered options; the plate follows the acting unit; every
 portrait key is `placeholder` this slice.
 
-### TWO LIVE DEFECTS, FOUND AND NOT FIXED. Both need `art-director`.
+### TWO LIVE DEFECTS. ~~Both need `art-director`.~~ (a) IS FIXED; (b) IS STILL OPEN.
 
-Neither is a test failure. Both are appearance calls, which is why neither was fixed here
-— `CLAUDE.md`: when the decision is about appearance, render it before asking.
+Neither was a test failure. Both are appearance calls, which is why neither was fixed in
+the stat-plate slice — `CLAUDE.md`: when the decision is about appearance, render it
+before asking.
 
-**(a) The campaign legend's move-range swatch is the wrong colour, and has been on every
-shipped battle.** `index.html:574` paints the "Where the active unit can walk" swatch
-`#e2a948` — amber. The campaign board paints that range `#8fd0ffb3`, a pale blue
-(`FIELD_THEME.highlight`, `src/render/iso.ts:146`). The legend has never matched the board
-since painted ground landed (ADR-0030): `game.ts` passes `FIELD_THEME` whenever terrain is
-present, which is all five battles, while the amber belongs to `DARK_THEME` — the engine
-viewer's palette. `viewer.html:194` is correct for its own page.
-
-Do not "just change the hex". The legend's turn ring (`index.html:199`) is amber too and
-the board's active ring is `#ffd968`; check the whole legend against `FIELD_THEME` in one
-pass, and open `visual-artifacts/playtest/map-battle-1..5.png` afterwards. **Nothing
-asserts a legend swatch against the theme it describes** — that is the reason this lived
-for the whole life of painted ground.
+**(a) ~~The campaign legend's move-range swatch is the wrong colour, and has been on every
+shipped battle.~~ FIXED 2026-09-02 (`61f062c`), and it was two rows, not one.** The legend
+painted `DARK_THEME` — the engine viewer's palette — while every campaign battle draws
+`FIELD_THEME`: the "Where the active unit can walk" swatch and the turn-ring swatch were
+both `#e2a948` amber since painted ground landed (ADR-0030). `paintLegend()` in `game.ts`
+now sets all four rows from the constants `draw()` is handed, and `index.html` declares no
+swatch colour. ~~Nothing asserts a legend swatch against the theme it describes.~~
+`e2e/campaign.spec.ts` asserts it now — move and ring rows against `FIELD_THEME`, party and
+foe rows against **counted canvas pixels**, because an A/B between two callers of the same
+constant cannot see a bug in the constant.
 
 **(b) The plate's colours were never designed.** `.unit-card` in `index.html` inherits
 `.card.board`'s tones: `#1d1710` fill, `#4a3a24` border. It reads as board chrome sitting

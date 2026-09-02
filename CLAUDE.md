@@ -248,7 +248,13 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     A specialist later found they existed nowhere in the repo and **reconstructed them
     from prose notes** — text the owner would have paid to run. They survived only in the
     transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
-    the settings: verbatim, into a file, immediately.
+    the settings: verbatim, into a file, immediately. **And record the SETTINGS, not only
+    the prompt — the same rule, one level up.** Two of those four (knight-female,
+    wizard-female) turned out on 2026-09-02 to predate the style-reference lock and are
+    **not** in the set; only the archer and the priest are. The prompts were recovered
+    intact and still could not tell anyone that, because which reference was loaded is a
+    setting and nobody wrote it down. Six sites then read "four approved images" as
+    "four usable portraits". Record what the run was configured with.
   - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
     A status reply did exactly that with three asks open. Open asks need ONE home
     you read before answering "what do you need from me". `docs/NEXT.md`'s

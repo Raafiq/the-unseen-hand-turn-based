@@ -17,7 +17,8 @@
 > Run these with the **archer style reference locked** in the Style Reference slot, and
 > with Raw + 5:6 set as defaults (the flags are still written out, so the blocks work
 > standalone). Run **knight-male and knight-female first**, judge them at 28 pixels wide,
-> and only then buy the other fourteen.
+> and only then buy the remaining twelve — `archer-female` and `priest-female` are
+> already in the set (see the block below).
 
 ## The male tail — one word deleted, and why
 
@@ -36,12 +37,32 @@ that prompt's `--no`, not re-wording the subject.
 ---
 
 > **The four `*-female` prompts below for knight, wizard, archer and priest are the
-> EXACT text the owner ran and approved on 2026-09-01**, recovered from the session
+> EXACT text the owner ran ~~and approved~~ on 2026-09-01**, recovered from the session
 > transcript. They replaced reconstructions. They are not stylistically uniform with
-> the twelve authored blocks — that is deliberate: they are the record of what
-> actually produced approved art, and rewriting them would discard the evidence.
+> the twelve authored blocks — that is deliberate: they are the record of what was
+> actually run, and rewriting them would discard the evidence. **The text claim still
+> holds and the blocks stay byte-locked. The ART claim does not: two of the four are
+> not in the set.**
+>
+> **Only two of the four carry approved art in the locked style — owner, 2026-09-02.**
+>
+> | Prompt | Run with the archer locked in Style Reference? | Its art |
+> |---|---|---|
+> | `archer-female` | it **is** the style reference | **approved, in the set** |
+> | `priest-female` | yes | **approved, in the set** |
+> | `knight-female` | **no — run before the lock** | **not in the set. Re-run it.** |
+> | `wizard-female` | **no — run before the lock** | **not in the set. Re-run it.** |
+>
+> ~~All four produced approved art.~~ Do **not** commit `knight-female` or
+> `wizard-female` output into `docs/visual/portraits/reference/` and do not treat
+> either image as signed off. What an unlocked run costs is measured, not guessed:
+> `project-prompts.md` ("The style reference IS needed") records the priest, run
+> without a reference, coming back as European devotional painting — unmistakably a
+> different illustrator from the archer — and snapping back into the set only once the
+> archer was locked. Re-run both prompts unchanged, with the archer locked.
+>
 > Note `knight-female` and `wizard-female` carry `soft rounded cheekbones`, which the
-> probe record warns reads young. It was approved anyway under the young-cast decision.
+> probe record warns reads young. It was accepted anyway under the young-cast decision.
 
 ## knight
 
