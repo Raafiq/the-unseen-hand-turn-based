@@ -1,4 +1,4 @@
-<!-- written-against: 17a30c6 -->
+<!-- written-against: 61c7bb7 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -16,11 +16,31 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## OPEN — WAITING ON THE OWNER
 
-**Read this before telling the owner "nothing is pending".** Three asks are outstanding.
+**Read this before telling the owner "nothing is pending".** Four asks are outstanding.
 
 Each one carries the material needed to answer it. The session that opened them asked
 twice with nothing attached, and that is what made them useless. **A deliverable the
 owner must act on is relayed, never summarised** — do not shorten anything below.
+
+Ask 4 is listed **first** because it is the only one that can be *lost* rather than merely
+delayed. The numbers are kept as they are because other sections cite them by number.
+
+### Ask 4 — download the four reference images. THIS ONE HAS A DEADLINE NOBODY SET.
+
+**Four images, and they exist only in the owner's browser:** the **archer** currently
+locked in the Style Reference slot, plus the approved **knight**, **wizard** and **priest**
+(all female).
+
+**Why this is urgent and not merely pending.** Twelve Midjourney images were shared into
+the last session as inline attachments and **not one was written to disk**. The prompts
+survive in the repo; the images do not. **A style reference is an image, not text** — the
+prompts alone cannot recover the look, so if the archer is lost the eight probe runs behind
+it become unreproducible and the remaining twelve portraits lose the only thing keeping
+them one set.
+
+They land in `docs/visual/portraits/reference/`, named and documented per **part 1 of the
+next slice** below. **No agent can do this** — Midjourney is unreachable from this sandbox
+and the files are on the owner's machine.
 
 ### Ask 1 — the 16 portrait prompts, running now
 
@@ -86,11 +106,12 @@ reversal — it shows option B's placement, not what ships.
 
 ### Ask 3 — portraits: where does the team colour go?
 
-**Downstream of ask 1. Still not answerable here.** A rendered comparison needs a real
-portrait **in the repo**, and `PORTRAITS` in `campaign-data.ts` holds exactly one entry:
-`placeholder`. Approved art exists on the owner's side; none of it has been committed.
-The comparison becomes possible the moment one file lands under
-`data/campaign/story/portraits/`.
+**Still not answerable here, but the blocker has moved.** ~~Downstream of ask 1: no
+approved art exists.~~ **Four approved frames DO exist** — they are just not in the repo,
+which is ask 4. A rendered comparison needs a real portrait **in the tree**, and `PORTRAITS`
+in `campaign-data.ts` still holds exactly one entry: `placeholder`. So this is now blocked
+on **ask 4 plus one committed crop**, not on the sixteen paid runs: the comparison becomes
+possible the moment a single real file lands under `data/campaign/story/portraits/`.
 
 | Route | Count | Risk |
 |---|---|---|
@@ -99,17 +120,123 @@ The comparison becomes possible the moment one file lands under
 
 ---
 
-## THE NEXT SLICE — portrait art lands, then the plate is dressed
+## THE NEXT SLICE — the portraits land, in three parts
+
+**Approved by the owner, 2026-09-02.** Part 1 is a file commit and it goes **first**,
+before any paid run. Then the sixteen portraits, then two small fixes riding along.
 
 **The stat plate SHIPPED on 2026-09-01** (ADR-0033, `docs/10` AC-V22). See the landing
-section below. Two live defects came with it and neither is fixed; both need
-`art-director`.
+section below. Two live defects came with it; one is part 3b, the other still needs
+`art-director` and is not in this slice.
 
-**Blocked on ask 1: no portrait file is in the repo.** Every unit wears the one bundled
-placeholder. When the art arrives the slice is: commit the sixteen files, replace the
-single-entry `PORTRAITS` table with a job x gender lookup, and let the "Portrait pending"
-caption disappear by itself — it keys off the **asset key**, so no render change is
-needed.
+### Part 1 — store the reference art. NOTHING RUNS BEFORE THIS.
+
+**Twelve Midjourney images were shared into the last session as inline attachments and not
+one was written to disk.** The prompts survived in the repo; the images did not. The archer
+now locked as the style reference exists **only in the owner's browser**. A style reference
+is an image, not text — if it is lost the prompts cannot recover it, and the eight probe
+runs behind it stop being reproducible.
+
+New committed directory `docs/visual/portraits/reference/`:
+
+| File | What it is |
+|---|---|
+| `STYLE-REFERENCE-archer.png` | the image locked in the owner's Style Reference slot |
+| `approved-knight-female.png` | approved 2026-09-01 |
+| `approved-wizard-female.png` | approved 2026-09-01 |
+| `approved-priest-female.png` | approved 2026-09-01 |
+| `README.md` | per file: the asset key whose prompt produced it, pointing into `.claude/skills/midjourney/references/portrait-prompts.md`, and the date |
+
+The README must say of the style reference that it is the input to **every** remaining run
+and must not be replaced without regenerating the whole set.
+
+**Why `docs/visual/` and not `data/campaign/story/portraits/`.** These are **evidence, not
+shipped assets**: nothing imports them, they are full-size originals rather than the 96×116
+crops the game serves, and `docs/visual/` is committed, not gitignored, and already holds
+thirteen slice directories. Note what would *not* happen if they went under `data/`:
+`campaign-data.ts`'s boot check reads `Object.keys(PORTRAITS)`, a hand-authored map, and
+there is no `import.meta.glob` anywhere in the tree — so a stray file in that directory is
+invisible to every check in the repo. That is an argument for keeping the two kinds of file
+apart, not a guard against mixing them.
+
+**BLOCKED ON THE OWNER — they must download the four frames.** No agent here can reach
+Midjourney.
+
+### Part 2 — the sixteen portraits
+
+The owner runs the 16 paste-ready prompts in
+`.claude/skills/midjourney/references/portrait-prompts.md`; the style reference is already
+locked. **Knight, both genders, first.** Download both and compare at **28 pixels** before
+running the other seven jobs. Two portraits is a cheap test of whether the locked style
+survives a subject change; fourteen is not.
+
+**Untested: no male portrait has ever been run in this style**, and the locked reference is
+a young woman. If a male run comes back female, add the single word `woman` to that
+prompt's `--no` list rather than re-wording the subject.
+
+Then the wiring:
+
+| Step | Where |
+|---|---|
+| Crop each to **96×116** — the placeholder's exact size | `data/campaign/story/portraits/<job>-<gender>.png`; the keys are the prompt block titles |
+| Build the job x gender → key table | `PORTRAITS` in `src/render/campaign-data.ts` |
+| Resolve a unit to its key | `look()` in `src/render/game.ts`, which hard-codes `"placeholder"` for everyone today |
+
+**`--ar 5:6` is the nearest aspect Midjourney offers** and 96×116 is not exactly 5:6, so
+expect a small crop. The CSS frame is 72×86 with `object-fit: cover`, so a materially
+different ratio crops the face.
+
+**A `.png` import fails `npm run typecheck`.** `src/vite-env.d.ts` declares `*.svg` and
+nothing else. Add a `*.png` block in the same commit. (Measured 2026-09-02.)
+
+**Three tripwires WILL go red, and that is them working, not a regression.**
+
+1. `campaign-data.ts`'s boot-time `portraitCoverage` check **throws** on a
+   bundled-but-unnamed asset.
+2. `campaign-shell.test.ts:872-879` asserts both sides equal exactly `["placeholder"]`.
+3. **The story pack is the other side of tripwire 1, and nobody has decided what it should
+   say.** `camp-the-first-march.story.json` names four characters — Vance, Kest, Briar,
+   Ottoline — and all four carry `"asset": "placeholder"`. Sixteen bundled keys that none
+   of them names is exactly the `extra` case that throws at boot. The slice must either
+   give those four real job x gender keys or change what the check covers. **That is a
+   decision, not a mechanical fix — surface it before writing code.**
+
+Move all three deliberately in the same commit and say in the message why each moved.
+
+Two more things to record, neither of them work:
+
+- The `"Portrait pending"` caption **self-retires**: `statCardHtml` keys it on
+  `portrait.key === "placeholder"` and `panels.test.ts` covers all three states — absent,
+  pending, real. ~~So no render change is needed.~~ **True of the caption only** —
+  `look()` still has to resolve a key, which is a render change. **Verify the caption in a
+  frame rather than assuming it.**
+- **The placeholder stays.** It is the honest fallback for a unit with no portrait, and the
+  engine viewer's absent-portrait branch — `main.ts`'s `UNIT_META` carries neither job nor
+  portrait — is what keeps that path exercised in shipped product.
+
+### Part 3 — two fixes riding along
+
+**3a. `.gitignore` does not cover `.claude/.git-go`.** Line 44 covers `.claude/.retro-done`
+and line 48 `.claude/.session-branch`; the commit-approval token is missing. A future
+`git add -A` would commit a live token. One line.
+
+**3b. The legend's move-range swatch** — written up in the stat-plate landing section
+below, **not duplicated here**, and promoted into this slice. One thing is missing from
+that write-up: **nothing in the tree compares a legend swatch to a theme constant**, which
+is why it survived the whole life of painted ground. Re-checked 2026-09-02 — the only test
+that mentions the legend (`e2e/campaign.spec.ts:433-436`) asserts its text, never a colour.
+So the fix owes a test comparing the swatch to the theme value, or the next theme change
+breaks it again silently. Check the whole legend in one pass: the turn-ring swatch at
+`index.html:199` is amber too, against a board ring of `#ffd968`.
+
+### NOT in this slice
+
+| Item | Why |
+|---|---|
+| Redesigning the stat plate to read as an FFT window | Needs real portraits to judge against. After, not with. |
+| Cursor-follow | Parked, not cancelled. The seam is `unitCardHtml`'s `focusUnitId` — see the landing section. |
+| The 28-pixel legibility comparison across the set | **Still never run.** The silhouette table predicts sixteen outlines and measures none. Do it on the first two knights. |
+| `telemetry.test.ts` reading the real clock | Test code, routed to `qe-tester` — see the flake below. |
 
 **Owner order, unchanged since 2026-08-30.**
 
