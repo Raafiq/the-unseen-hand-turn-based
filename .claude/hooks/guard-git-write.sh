@@ -85,7 +85,13 @@ commit and push — that boilerplate is what this guard exists to stop.
 
 Once the owner has actually said go:
   printf '%s\\n' $1 > $token
-and retry. The token is single-use and expires after ${TOKEN_MAX_AGE_MIN} minutes, so one
+and retry.
+
+WRITE THE TOKEN IN A SEPARATE Bash CALL. This hook is a PreToolUse gate — it reads your
+command BEFORE the shell runs it, so \`printf ... > $token && git $1\` is still refused:
+the file does not exist yet when the hook looks for it. Two calls, not one.
+
+The token is single-use and expires after ${TOKEN_MAX_AGE_MIN} minutes, so one
 go-ahead buys one action."
   if [ "$DECISION" = "ask" ]; then
     jq -n --arg r "$reason" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$r}}'

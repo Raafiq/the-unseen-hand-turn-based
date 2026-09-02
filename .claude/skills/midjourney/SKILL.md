@@ -31,7 +31,7 @@ mark anything not in `references/` as `[UNVERIFIED]`.
 | Captured | **2026-09-01** |
 | Model version at capture | **V8.2** |
 | Captured by | the repo owner, pasting page HTML into a session |
-| Pages | Getting Started, Parameter List, Raw, Style Reference, Aspect Ratio, No, Style Creator, Personalization, Moodboards |
+| Pages | Getting Started, Parameter List, Raw, Style Reference, Aspect Ratio, No, Style Creator, Personalization, Moodboards, Variety/Chaos, Stylize |
 
 **A version bump silently invalidates a parameter list.** If the owner reports a
 version past V8.2, treat every `[OFFICIAL]` mark here as `[UNVERIFIED]` until the
@@ -48,6 +48,30 @@ Both were live in `docs/NEXT.md` and both would have cost the owner real money.
    describes something Midjourney does not do. `--sref random` gives you a
    *random library* style, not your image's style.
 
+## Two kinds of source, and you need both
+
+| Question | Where the answer is |
+|---|---|
+| What does this flag do? What is its syntax? | **`references/` only.** Never a blog. |
+| Why does the model ignore me, or default to a stereotype? | **community practice** — the official pages do not cover it |
+
+The official docs are authoritative on the API and **silent on the model's biases**. It
+took eight runs here to learn that a coif makes a knight read male three times running,
+and that `large expressive eyes` turns an adult into a fourteen-year-old. Neither is in
+any doc, and re-reading the reference would never have found them.
+
+**Two levers found by searching practitioner write-ups, not by reading the docs:**
+
+- **Word position.** Midjourney weights the **start** of a prompt more heavily. Gender,
+  and anything the model resists, belongs in the first clause.
+- **Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
+  weights are allowed. The official No page says `--no` is worth only **-0.5**, so
+  `man::-1` would push twice as hard.
+  ⚠️ **UNVERIFIED.** The Multi-Prompts & Weights page
+  (`/hc/en-us/articles/32658968492557`) is not captured. **Ask the owner for it before
+  writing any `::` syntax** — guessing at syntax is exactly what put `--style raw` into
+  `docs/NEXT.md`.
+
 ## Reference files
 
 Read the one you need. Do not read them all.
@@ -62,7 +86,39 @@ Read the one you need. Do not read them all.
 | `references/style-creator.md` | building your own `--sref` codes, and its three costs |
 | `references/personalization.md` | `--p`, Global Profile, moodboards |
 | `references/getting-started.md` | the web app, the Imagine bar, the settings panel |
+| `references/chaos.md` | `--chaos` / Variety |
+| `references/stylize.md` | `--stylize`, and when to move it off 100 |
 | `references/project-prompts.md` | **this project's** probe prompts and portrait template |
+
+## ⚠️ If the page you need is not here, ASK THE OWNER FOR IT
+
+**Do not fill the gap with a web search, and do not reason from training data.**
+Both are how `--style raw` and "hand back the winner's style code" got into this
+repo — each was confidently wrong, and each would have cost a paid 16-image run.
+
+Only the owner can reach `docs.midjourney.com`. Ask like this:
+
+> I need the **<page name>** page to answer this. It is at
+> `docs.midjourney.com/hc/en-us/articles/<id>-<Slug>`. Paste it as plain text or
+> raw HTML — the parameter tables are what matter, the marketing copy is not.
+
+Then **add it to `references/`** with the same header block (source page, capture
+date, model version) so the next session does not have to ask again.
+
+Name the exact page. "Send me the docs" wastes a round trip; the side menu below
+has every article and its URL.
+
+### Pages NOT captured yet
+
+Version · Quality · Upscalers · Variations · Remix · Seeds · Repeat ·
+Permutations · Multi-Prompts & Weights · Image Prompts · Edit Model · Editor ·
+Describe · Text Generation · Tile · Weird · Zoom Out · Pan · Draft &
+Conversational Modes · GPU Speed · Stealth · Image Size & Resolution ·
+Prompt Basics · Art of Prompting · Modifying Your Creations · Creating on Web ·
+Legacy Features · every Discord page · every policy page
+
+**`Version` is the most likely one to need**, because the whole capture is pinned
+to V8.2 and nothing here can tell you when that changes.
 
 ## How to lock a style across a set
 

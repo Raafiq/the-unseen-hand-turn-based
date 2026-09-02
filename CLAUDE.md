@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 928 tests, 44 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 947 tests, 47 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -205,6 +205,15 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
 - **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill, propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
 - **When the sandbox cannot reach an API, a CI runner can.** The proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`, `/deployments` and blocks `*.github.io` — but a temporary workflow step querying them with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Reach for it before guessing.
+- **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** The
+  CI-runner trick above covers APIs; it does not cover documentation. A session built a
+  whole Midjourney lesson out of 2026 blog posts because `docs.midjourney.com` 403s at the
+  proxy. The owner asked "you are unable to access it?", pasted ten official pages, and
+  **two of the relayed facts were wrong** — one of them describing a workflow the tool
+  cannot perform, which would have cost a paid run of sixteen images. Web search about a
+  fast-moving tool is stale by default. Name the exact page and its URL, say plain text or
+  raw HTML is fine, then **save it into a skill's `references/`** so the next session does
+  not have to ask again (`.claude/skills/midjourney/` is the worked example).
 - **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** The harness forbids opening a PR unasked, so the human often opens it — and GitHub fills the body from the head commit message: hard-wrapped, no headings, trailers leaked. If you did not open the PR, find it and **replace an auto-filled body** (auto-filled iff it equals the head commit message) with: lede, review-artifact link, a `Claim / the bug it hides / caught by` evidence table, what is deliberately **not** asserted, the checks (cf. PR #35, #36). Re-fetch the stored body to confirm nothing mangled. No hook can catch this.
 - **Visual proof in a PR.** Commit frames/video under `docs/visual/<slice>/` and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>`; re-fetch afterwards to check for mangling. Do **not** embed images in API-posted comments (that path corrupts URLs and comments cannot be edited by the tooling). For motion: a filmstrip contact-sheet PNG (ffmpeg `fps=N,scale,tile`) plus an H.264 `run.mp4` and GIF (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static`). Playable video lives on the Pages gallery after merge.
   - **[STALE — the repo has been PUBLIC since 2026-08-09]** The old mobile findings were private-repo-specific: `raw.githubusercontent.com` now returns **200**, and the claim that the GitHub mobile app inlines no image and plays no committed video is now an **unverified hypothesis**. Re-measure on-device before relying on it; don't delete it until something replaces it.
@@ -233,7 +242,13 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     in full; the owner had to ask again, and the next session dug them out of a
     reverted commit. Hand over the exact thing that lets the owner act — pasted
     inline or written to a file, verbatim. **A deliverable the user must act on is
-    relayed, never summarised.**
+    relayed, never summarised.** **And the mirror: once the owner ACTS on it, record
+    the exact input verbatim, in the same turn.** Eight Midjourney probe runs produced
+    four approved images, and the four prompts behind them were written only into chat.
+    A specialist later found they existed nowhere in the repo and **reconstructed them
+    from prose notes** — text the owner would have paid to run. They survived only in the
+    transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
+    the settings: verbatim, into a file, immediately.
   - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
     A status reply did exactly that with three asks open. Open asks need ONE home
     you read before answering "what do you need from me". `docs/NEXT.md`'s
