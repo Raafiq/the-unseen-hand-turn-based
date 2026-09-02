@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
 import { FIELD_THEME, RING_FILL_ALPHA } from "../src/render/iso.js";
 import { mkdir } from "node:fs/promises";
@@ -883,6 +883,124 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
   await page.getByTestId("scene-story-all").click();
   await expect(figure).toBeHidden();
   await expect(img).toHaveCount(0);
+});
+
+/**
+ * THE FRAME AND THE ASSET IN IT, COMPARED — the one check nothing here could make.
+ *
+ * A build with 3:4 portrait art dropped into the old ≈5:6 frames passed 947 unit tests
+ * and 48 browser specs while `object-fit: cover` clipped 5.2% off the top of every head.
+ * Nothing in this repo could see it: the frames are CSS numbers, the art is a file, and
+ * no test compared them. Every other portrait assertion here ("an img exists", "the
+ * caption tracks the key", "naturalWidth > 0") is satisfied by a badly cropped face.
+ *
+ * SO THE ASSERTION REACHES THROUGH TO TWO INDEPENDENT SOURCES. The frame comes from
+ * `getBoundingClientRect()` — what the browser actually laid out, after the cascade, the
+ * breakpoint and `box-sizing` — and the aspect it is compared against comes from
+ * `naturalWidth/naturalHeight`, which is read out of the decoded FILE. Comparing two CSS
+ * numbers to each other would prove only that they agree with themselves.
+ *
+ * ALL THREE FRAMES, because a check on one reads as a check on the set and there were
+ * SIX sizing sites. The scene portrait at full width, the same frame past the 620px
+ * breakpoint (a separate width, and the grid column it sits in IS that width), and the
+ * battle plate's, which is the only frame that CROPS and therefore the only one where a
+ * mismatch eats a face rather than moving a box.
+ *
+ * THE TOLERANCE IS 2%, and it is sized to separate two specific real numbers rather than
+ * to be lenient. Midjourney returns "3:4" as 944 x 1264 = 0.7468, a 0.42% miss from the
+ * frame it is going into, which trims about 2.7px off each edge of a 1264px file — under
+ * the bound, deliberately, because the frame is the authority (see `--portrait-ratio` in
+ * index.html). The defect being closed is the old 72 x 86 frame against that same art:
+ * 0.8372 vs 0.7468 is a 12.1% miss, six times the bound. Nothing between 2% and 12%
+ * is a shape anyone would author on purpose.
+ */
+const PORTRAIT_ASPECT_TOLERANCE = 0.02;
+
+/** What the browser laid out, and what the decoded file says it is. Two sources. */
+async function frameFacts(
+  img: Locator,
+): Promise<{ w: number; h: number; natW: number; natH: number; left: number; right: number }> {
+  return await img.evaluate((el) => {
+    const i = el as HTMLImageElement;
+    const r = i.getBoundingClientRect();
+    return { w: r.width, h: r.height, natW: i.naturalWidth, natH: i.naturalHeight, left: r.left, right: r.right };
+  });
+}
+
+/** Assert one laid-out frame carries its asset without squashing or cropping it. */
+async function expectFrameMatchesAsset(img: Locator, where: string): Promise<void> {
+  // Decoding is async even for a data: URI, and an undecoded image reports
+  // naturalWidth 0 — which would make every ratio below 0/0 and pass. Wait for the
+  // file to have a size before reading it.
+  await expect
+    .poll(async () => await img.evaluate((el) => (el as HTMLImageElement).naturalWidth), {
+      message: `${where}: the asset never decoded`,
+    })
+    .toBeGreaterThan(0);
+
+  const f = await frameFacts(img);
+  // Guard the guard: 0/0 would sail through every ratio comparison below.
+  expect(f.natW, `${where}: the asset has no intrinsic width — it did not decode`).toBeGreaterThan(0);
+  expect(f.natH, `${where}: the asset has no intrinsic height`).toBeGreaterThan(0);
+  expect(f.w, `${where}: the frame laid out at zero width`).toBeGreaterThan(0);
+  expect(f.h, `${where}: the frame laid out at zero height`).toBeGreaterThan(0);
+
+  const frame = f.w / f.h;
+  const asset = f.natW / f.natH;
+  const drift = Math.abs(frame / asset - 1);
+  expect(
+    drift,
+    `${where}: frame ${f.w.toFixed(2)}x${f.h.toFixed(2)} is ${frame.toFixed(4)} but the ` +
+      `asset is ${f.natW}x${f.natH} = ${asset.toFixed(4)} — ${(drift * 100).toFixed(1)}% out, ` +
+      `so cover is cropping (or a fit is squashing) it`,
+  ).toBeLessThanOrEqual(PORTRAIT_ASPECT_TOLERANCE);
+}
+
+test("portraits: every frame matches the aspect of the asset it holds", async ({ page }) => {
+  // Arithmetic on the bound itself, so "2%" cannot quietly become a number that accepts
+  // the very defect this test names. Not evidence about the page — evidence about the
+  // threshold, which is the half a reader cannot check by eye.
+  const delivered = 944 / 1264; // what Midjourney actually returns for "3:4"
+  expect(Math.abs(0.75 / delivered - 1)).toBeLessThan(PORTRAIT_ASPECT_TOLERANCE);
+  expect(Math.abs(72 / 86 / delivered - 1)).toBeGreaterThan(PORTRAIT_ASPECT_TOLERANCE);
+
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-scene")).toBeVisible();
+
+  const sceneImg = page.getByTestId("scene-story-portrait").locator("img");
+  await expect(sceneImg).toHaveCount(1);
+  await expectFrameMatchesAsset(sceneImg, "scene portrait at 1000px");
+
+  // Past the 620px breakpoint the frame is set by a SECOND width. A ratio change that
+  // landed in one rule and not the other is exactly the half-landed case that is
+  // invisible otherwise.
+  await page.setViewportSize({ width: 360, height: 780 });
+  await expectFrameMatchesAsset(sceneImg, "scene portrait at 360px");
+  await page.setViewportSize({ width: 1000, height: 780 });
+
+  // The battle plate — the only frame with `object-fit: cover`, so the only one where a
+  // mismatch is a cropped face rather than a taller box.
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  const plateFigure = page.locator("#unit-card .uc-portrait");
+  const plateImg = plateFigure.locator("img");
+  await expect(plateImg).toHaveCount(1);
+  await expectFrameMatchesAsset(plateImg, "battle plate portrait");
+
+  // AND IT SITS INSIDE ITS OWN RULES. `box-sizing: border-box` leaves the figure a 70px
+  // content box behind its 1px rules, so an image declared at the figure's outer 72px
+  // hung 1px past the right rule — shipped, in every plate frame, until this test.
+  const figure = await plateFigure.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right };
+  });
+  const img = await frameFacts(plateImg);
+  // Inside the RULE, not merely inside the element: the bound is the figure's edge moved
+  // in by its 1px border, so a frame that reaches the outer edge is already a failure.
+  expect(img.left, "the plate portrait overlaps or crosses its left rule").toBeGreaterThanOrEqual(figure.left + 0.5);
+  expect(img.right, "the plate portrait overlaps or crosses its right rule").toBeLessThanOrEqual(figure.right - 0.5);
 });
 
 /**

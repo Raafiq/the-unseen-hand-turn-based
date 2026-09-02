@@ -1,13 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 116" width="96" height="116" role="img" aria-label="Portrait pending">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 128" width="96" height="128" role="img" aria-label="Portrait pending">
   <!-- The honest placeholder: a ruled empty frame, and NOT a silhouette, a monogram or a
        keyed colour — every one of those reads as a deliberate art choice rather than as
        missing art.
        It carries NO WORDS. It said "PORTRAIT PENDING" in its first version, which printed
        the caption twice on screen (found by opening the frame, not by a test). The words
        belong in the <figcaption> beside it, where a screen reader announces them and
-       contrast.spec.ts can measure them; text inside an SVG is neither. -->
-  <rect width="96" height="116" fill="#e2cfa0"/>
-  <rect x="4.5" y="4.5" width="87" height="107" fill="none" stroke="#8a6524" stroke-width="1"/>
-  <rect x="8.5" y="8.5" width="79" height="99" fill="none" stroke="#8a6524" stroke-width="1" opacity=".45"/>
-  <path d="M14 14 L82 102 M82 14 L14 102" stroke="#8a6524" stroke-width="1" opacity=".22"/>
+       contrast.spec.ts can measure them; text inside an SVG is neither.
+       THE RATIO IS 3:4, MATCHING THE PORTRAIT RATIO TOKEN IN index.html, and it has to
+       stay matched. (Its name holds a double hyphen, which is why it is not written out
+       here: an XML comment may not contain one, and an SVG carrying it does not parse.
+       The image then decodes to nothing, naturalWidth reports 0, and the frame stands
+       empty — how this very file broke while being written.) This was 96 x 116 (≈5:6) while the frames were the same shape; the day the
+       frames moved to 3:4, `object-fit: cover` on an unchanged placeholder would have
+       scaled it to fill and eaten 3.7px off each side — taking the left and right rules
+       with them, so the honest empty frame would have read as a broken one. -->
+  <rect width="96" height="128" fill="#e2cfa0"/>
+  <rect x="4.5" y="4.5" width="87" height="119" fill="none" stroke="#8a6524" stroke-width="1"/>
+  <rect x="8.5" y="8.5" width="79" height="111" fill="none" stroke="#8a6524" stroke-width="1" opacity=".45"/>
+  <path d="M14 14 L82 114 M82 14 L14 114" stroke="#8a6524" stroke-width="1" opacity=".22"/>
 </svg>

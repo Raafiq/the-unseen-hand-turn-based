@@ -793,7 +793,7 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    motion slice (`dc2b84c`) added the reduced-motion spec, **and then to 47** when the
    stat-window overlay added `e2e/overlay.spec.ts` (2) and one opaque-plate guard in
    `contrast.spec.ts`, **and then to 48** when the legend-swatch colour test landed in
-   `campaign.spec.ts`. Current counts: **947 unit tests, 48 browser specs in 9 files.**
+   `campaign.spec.ts`. Current counts: **947 unit tests, 49 browser specs in 9 files.**
 
 ---
 
