@@ -59,7 +59,13 @@ import {
 
 // ---- Presentation metadata (render-only; keyed by sim ids) -----------------
 
-const JOB_LABEL: Record<string, string> = {
+/**
+ * Job id → display label. EXPORTED because it is now an assertable claim: the
+ * fallback below (`prettify`) turns "geomancer" into "Geomancer" all by itself, so a
+ * missing entry is invisible in the OUTPUT. Only a key-set comparison against the
+ * shipped registry can see one, and `panels.test.ts` makes it.
+ */
+export const JOB_LABEL: Record<string, string> = {
   knight: "Knight",
   monk: "Monk",
   wizard: "Wizard",
@@ -119,7 +125,8 @@ const prettify = (id: string): string =>
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
-const jobLabel = (id: string): string => JOB_LABEL[id] ?? prettify(id);
+/** A job's display label, falling back to a de-kebabbed id. Shared with `game.ts`. */
+export const jobLabel = (id: string): string => JOB_LABEL[id] ?? prettify(id);
 const skillsetLabel = (id: string): string => SKILLSET_LABEL[id] ?? prettify(id);
 const abilityLabel = (id: string): string => ABILITY_LABEL[id] ?? prettify(id);
 const traitLabel = (id: string): string => TRAIT_LABEL[id] ?? prettify(id);

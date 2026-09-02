@@ -28,8 +28,15 @@ import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
 import { draw, pickTile, FIELD_THEME } from "./iso.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
-import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
-import { mountPrep, type PrepHandle } from "./prep.js";
+import {
+  logHtml,
+  previewHtml,
+  statusHtml,
+  timelineHtml,
+  unitCardHtml,
+  type LookUp,
+} from "./panels.js";
+import { jobLabel, mountPrep, type PrepHandle } from "./prep.js";
 import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
@@ -111,19 +118,45 @@ const SCREEN_LABEL: Record<Screen, string> = {
 /** Team colours match the engine viewer's legend: team 0 blue, everyone else red. */
 const TEAM_COLOR = ["#4f8cff", "#e2603c", "#8ad17a", "#c58bff"];
 
-/** Presentation for the CURRENT battle, derived from the shell's own record names. */
+/** The one bundled portrait asset. Resolved once so a missing key fails at boot, not mid-battle. */
+const PORTRAIT_PLACEHOLDER: string = (() => {
+  const url = PORTRAITS["placeholder"];
+  if (url === undefined) throw new Error("no placeholder portrait is bundled");
+  return url;
+})();
+
+/**
+ * Presentation for the CURRENT battle, derived from the shell's own record names.
+ *
+ * `job` and `portrait` feed the mini stat card. Job comes from the SAME placement walk
+ * the names do (`deployedRecords`), so the card can never caption one unit's name with
+ * another's job. It is spread conditionally rather than defaulted: a slot with no record
+ * shows no job row at all, which is the honest answer, and `exactOptionalPropertyTypes`
+ * makes `job: undefined` a compile error.
+ *
+ * EVERY UNIT GETS THE `placeholder` KEY, deliberately — no portrait art exists yet
+ * (`PORTRAITS` holds exactly one entry, and `campaign-data.ts`'s boot check plus the
+ * `["placeholder"]` tripwire in `campaign-shell.test.ts` both police that). The card
+ * captions it "portrait pending" off the KEY, so the day a real job x gender table lands
+ * the caption disappears for the units that have art without any change here.
+ */
 function look(): LookUp {
   const names = shell.unitNames();
+  const jobs = shell.unitJobs();
   const state = shell.session?.state;
   return (id) => {
     const unit = state?.units.find((u) => u.id === id);
     if (!unit) return undefined;
+    const job = jobs[id];
     return {
       label: names[id] ?? id,
       color: TEAM_COLOR[unit.teamId] ?? "#9aa4bb",
+      ...(job !== undefined ? { job: jobLabel(job) } : {}),
+      portrait: { url: PORTRAIT_PLACEHOLDER, key: "placeholder" },
     };
   };
 }
+
 
 /**
  * One mounted scene per story host, kept OUT of the DOM so a repaint cannot reset how
@@ -457,6 +490,7 @@ function renderBattle(): void {
   syncMotion(session);
   paintBoard();
   el("timeline").innerHTML = timelineHtml(session.state, lk);
+  el("unit-card").innerHTML = unitCardHtml(session.state, lk);
   el("status").innerHTML = statusHtml(session, lk);
   el("preview").innerHTML = previewHtml(session, lk);
   el("log").innerHTML = logHtml(session.state, lk, "No turns yet — move or strike to begin.");

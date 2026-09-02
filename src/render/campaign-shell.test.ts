@@ -894,3 +894,54 @@ describe("AC-M9: the shipped portraits are honest about not existing yet", () =>
     expect(lines.some((l) => l.who === null && l.portrait === null)).toBe(true);
   });
 });
+
+describe("unitJobs — the deployed record's job, keyed the way a battle is", () => {
+  /** A shell standing in battle 1, the only place either accessor answers anything. */
+  function inBattle(): CampaignShell {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    return s;
+  }
+
+  it("keys on the battle SLOT id, for a party member AND an enemy", () => {
+    // THE DISCRIMINATING PAIR. `loadEncounter` names units after `placement.slotId`
+    // ("blue-vance"), never after the record id ("pc-vance"), so a map keyed on the
+    // record answers `undefined` for every unit standing on the field while looking
+    // perfectly populated. The ENEMY is here because the walk spans `def.cast` as well
+    // as `save.party`, and a party-only walk would leave every foe's job blank.
+    // MUTATION RUN: keyed the map on `p.unit.recordId` — red on both key assertions.
+    const s = inBattle();
+    const jobs = s.unitJobs();
+    const ids = s.session!.state.units.map((u) => u.id);
+
+    expect(jobs["blue-vance"]).toBe("geomancer");
+    expect(jobs["red-brigand-1"]).toBe("knight");
+    expect(jobs["pc-vance"]).toBeUndefined();
+    // …and every key is a unit that is genuinely on the field.
+    expect(Object.keys(jobs).every((k) => ids.includes(k))).toBe(true);
+  });
+
+  it("answers for exactly the same slots as unitNames", () => {
+    // ONE WALK, TWO ACCESSORS. Two independent walks over `placements` would each look
+    // correct alone and drift the day one of them grew a filter — a card captioned with
+    // a name and no job, or with another unit's job.
+    // MUTATION RUN: dropped `...this.def.cast` from the walk `unitJobs` reads — red
+    // here (names kept the enemies, jobs lost them) as well as on the enemy assertion
+    // above.
+    const s = inBattle();
+    expect(Object.keys(s.unitJobs()).sort()).toEqual(Object.keys(s.unitNames()).sort());
+    expect(Object.keys(s.unitJobs()).length).toBeGreaterThan(1);
+  });
+
+  it("is empty outside a battle", () => {
+    const s = shell();
+    expect(s.unitJobs()).toEqual({});
+    s.newGame();
+    passScene(s);
+    // On the briefing there is no encounter loaded yet, so there is nothing to answer.
+    expect(s.unitJobs()).toEqual({});
+    expect(s.unitNames()).toEqual({});
+  });
+});

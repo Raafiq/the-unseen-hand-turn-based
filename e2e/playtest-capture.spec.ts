@@ -42,11 +42,20 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
    * of whatever was on screen instead. Cropped to the canvas because these frames exist
    * to judge the painted ground, and a full page puts four fifths of its pixels into
    * panels that are identical in every one of them.
+   *
+   * THE STAT CARD IS HIDDEN FOR THESE FIVE FRAMES ONLY. It is DOM sitting on top of the
+   * canvas in the lower-left corner, so it covers roughly a third of the painted ground —
+   * and these are the only view a human gets of a hand-authored map. It is restored
+   * immediately, and the full-screen `shot()` frames keep it: the plate belongs on the
+   * player's screen, just not over the thing these frames exist to judge.
    */
   const board = async (name: string) => {
     await expect(page.getByTestId("screen-battle")).toBeVisible();
     await settleMotion(page);
+    const card = page.locator("#unit-card");
+    await card.evaluate((el) => ((el as HTMLElement).style.visibility = "hidden"));
     await page.locator("canvas").first().screenshot({ path: `${SHOTS}/${name}.png` });
+    await card.evaluate((el) => ((el as HTMLElement).style.visibility = ""));
     console.log(`captured ${name}`);
   };
 

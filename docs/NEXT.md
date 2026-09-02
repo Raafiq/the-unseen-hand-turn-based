@@ -1,4 +1,4 @@
-<!-- written-against: da57993 -->
+<!-- written-against: 61c7bb7 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -16,65 +16,73 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 
 ## OPEN — WAITING ON THE OWNER
 
-**Read this before telling the owner "nothing is pending".** Three asks are outstanding.
+**Read this before telling the owner "nothing is pending".** Four asks are outstanding.
 
 Each one carries the material needed to answer it. The session that opened them asked
 twice with nothing attached, and that is what made them useless. **A deliverable the
 owner must act on is relayed, never summarised** — do not shorten anything below.
 
-### Ask 1 — run the Midjourney style probe
+Ask 4 is listed **first** because it is the only one that can be *lost* rather than merely
+delayed. The numbers are kept as they are because other sections cite them by number.
 
-Midjourney runs on the owner's subscription. No agent here can call it, so the prompts are
-the only thing we can hand over. **Paste all three verbatim.**
+### Ask 4 — download the four reference images. THIS ONE HAS A DEADLINE NOBODY SET.
 
-The subject is a female knight on purpose. It stresses metal, cloth, hair and skin at
-once, and it tests the failure most likely to wreck half the set: the model reading
-"woman" as glamour rather than as a soldier.
+**Four images, and they exist only in the owner's browser:** the **archer** currently
+locked in the Style Reference slot, plus the approved **knight**, **wizard** and **priest**
+(all female).
 
-```
-1. [CEL - closest to the reference]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-anime cel illustration, clean thin warm-brown ink line, three flat shading tones, no
-gradient on the skin, three-quarter turn to the left with eyes toward the viewer, head
-fills two thirds of the frame, cropped at the collarbone, flat even light, muted earth
-palette of tan skin and dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
+**Why this is urgent and not merely pending.** Twelve Midjourney images were shared into
+the last session as inline attachments and **not one was written to disk**. The prompts
+survive in the repo; the images do not. **A style reference is an image, not text** — the
+prompts alone cannot recover the look, so if the archer is lost the eight probe runs behind
+it become unreproducible and the remaining twelve portraits lose the only thing keeping
+them one set.
 
-2. [GOUACHE - sits closer to the parchment shell]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-opaque gouache on toned paper, visible brush facets, soft edges, no ink outline,
-three-quarter turn to the left with eyes toward the viewer, head fills two thirds of the
-frame, cropped at the collarbone, flat even light, muted earth palette of tan skin and
-dull steel, flat pale sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
+They land in `docs/visual/portraits/reference/`, named and documented per **part 1 of the
+next slice** below. **No agent can do this** — Midjourney is unreachable from this sandbox
+and the files are on the owner's machine.
 
-3. [INK AND WASH - hardest line, strongest at 28px]
-head and collar portrait of a woman mercenary knight, short dark hair under an open steel
-coif, plain riveted gorget, dull woad-blue padded gambeson collar, weathered and scarred,
-ink and watercolour, hard confident ink line of varying weight, colour washed inside the
-line and breaking at the edges, dry-brush texture, paper grain, three-quarter turn to the
-left with eyes toward the viewer, head fills two thirds of the frame, cropped at the
-collarbone, flat even light, muted earth palette of tan skin and dull steel, flat pale
-sand-tan background colour #e9d7a8
---ar 5:6 --style raw --no scenery, rim light, glow, lens flare, armour below the
-shoulders, glamour, lipstick, jewellery, text, watermark
-```
+### Ask 1 — the 16 portrait prompts, running now
 
-Three notes go with the prompts:
+**The style probe is DONE.** ~~Run the three-way style probe and pick a medium.~~ Settled
+2026-09-01:
 
-- **Judge the winner at 28 px, not at full size.** The turn-order strip re-crops the same
-  art that small, where only the headgear silhouette survives.
-- **What comes back is the winner's style reference code** (`--sref`). It then goes into
-  all 16 prompts unchanged. Without a fixed style reference the set will not look like
-  one game.
-- **The flags are UNVERIFIED against Midjourney v8.1.** `--ar`, `--style raw`, `--no` and
-  `--sref` are from earlier versions and nothing here has confirmed them. Every prompt
-  reads correctly with the flags stripped. Ask the owner to correct a flag rather than
-  guessing.
+| Settled | Value |
+|---|---|
+| Style | **Final Fantasy Tactics / Akihiko Yoshida** |
+| Style reference | the approved **archer** image, uploaded and **locked** in the Style Reference slot |
+| Cast age | **young, 20s-30s** — owner decision, 2026-09-01 |
+| Prompts | **16 written and ready** — 8 jobs x 2 genders |
+| Who runs them | **the owner.** Midjourney is on their subscription; no agent here can call it |
+
+**The prompts live in `.claude/skills/midjourney/references/portrait-prompts.md`.** Hand
+that file over verbatim — do not re-derive, re-wrap or "improve" a block. Four of them
+(`knight-female`, `wizard-female`, `archer-female`, `priest-female`) are the **exact text
+the owner already ran and approved**, recovered from the transcript; rewriting them
+discards the evidence.
+
+Four things go with the file:
+
+- **Judge at 28 px, not at full size.** The turn-order strip re-crops the art that small,
+  where only the headgear silhouette survives. The silhouette table at the end of the
+  prompts file predicts sixteen outlines and **nothing in it has been measured**.
+- **Run `knight-male` and `knight-female` first**, judge them, and only then buy the other
+  fourteen. **No male portrait has ever been run in this style** — the style reference is a
+  young female archer, and a reference carries neither subject nor proportion.
+- **The eight male blocks delete exactly the word `man,` from the `--no` list.** `--no` is
+  judged word by word, so `--no man` on a male subject asks the model not to draw him.
+  `beard` and `stubble` stay, which keeps the cast clean-shaven and young.
+- **The style tail is copied byte-for-byte into all sixteen blocks.** It is the only thing
+  keeping sixteen paid runs looking like one game.
+
+**There is now a `midjourney` skill — use it before writing any prompt.**
+`docs.midjourney.com` is **egress-blocked in this sandbox** (403 at the proxy, whole
+domain), so no agent here can read the official docs. `.claude/skills/midjourney/` holds a
+local copy of twelve pages. Web-searching instead is what produced two wrong flags that
+shipped in an earlier handoff: `--style raw` (the correct flag is **`--raw`**) and
+`armour below the shoulders` inside `--no`, which on a female subject reads as "no armour"
+plus "no shoulders". Both are corrected in the prompts file and both are verified against
+V8.2 from official pages the owner pasted in on 2026-09-01.
 
 ### Ask 2 — the turn plate is mostly hidden behind the damage number
 
@@ -98,8 +106,12 @@ reversal — it shows option B's placement, not what ships.
 
 ### Ask 3 — portraits: where does the team colour go?
 
-**Downstream of ask 1. It cannot be answered yet.** A rendered comparison needs at least
-one real portrait to exist, and none does. Do not present this as answerable now.
+**Still not answerable here, but the blocker has moved.** ~~Downstream of ask 1: no
+approved art exists.~~ **Four approved frames DO exist** — they are just not in the repo,
+which is ask 4. A rendered comparison needs a real portrait **in the tree**, and `PORTRAITS`
+in `campaign-data.ts` still holds exactly one entry: `placeholder`. So this is now blocked
+on **ask 4 plus one committed crop**, not on the sixteen paid runs: the comparison becomes
+possible the moment a single real file lands under `data/campaign/story/portraits/`.
 
 | Route | Count | Risk |
 |---|---|---|
@@ -108,9 +120,123 @@ one real portrait to exist, and none does. Do not present this as answerable now
 
 ---
 
-## THE NEXT SLICE — portraits, then the mini stat window
+## THE NEXT SLICE — the portraits land, in three parts
 
-**Blocked on ask 1: no portrait art exists.** Everything else about the slice is settled.
+**Approved by the owner, 2026-09-02.** Part 1 is a file commit and it goes **first**,
+before any paid run. Then the sixteen portraits, then two small fixes riding along.
+
+**The stat plate SHIPPED on 2026-09-01** (ADR-0033, `docs/10` AC-V22). See the landing
+section below. Two live defects came with it; one is part 3b, the other still needs
+`art-director` and is not in this slice.
+
+### Part 1 — store the reference art. NOTHING RUNS BEFORE THIS.
+
+**Twelve Midjourney images were shared into the last session as inline attachments and not
+one was written to disk.** The prompts survived in the repo; the images did not. The archer
+now locked as the style reference exists **only in the owner's browser**. A style reference
+is an image, not text — if it is lost the prompts cannot recover it, and the eight probe
+runs behind it stop being reproducible.
+
+New committed directory `docs/visual/portraits/reference/`:
+
+| File | What it is |
+|---|---|
+| `STYLE-REFERENCE-archer.png` | the image locked in the owner's Style Reference slot |
+| `approved-knight-female.png` | approved 2026-09-01 |
+| `approved-wizard-female.png` | approved 2026-09-01 |
+| `approved-priest-female.png` | approved 2026-09-01 |
+| `README.md` | per file: the asset key whose prompt produced it, pointing into `.claude/skills/midjourney/references/portrait-prompts.md`, and the date |
+
+The README must say of the style reference that it is the input to **every** remaining run
+and must not be replaced without regenerating the whole set.
+
+**Why `docs/visual/` and not `data/campaign/story/portraits/`.** These are **evidence, not
+shipped assets**: nothing imports them, they are full-size originals rather than the 96×116
+crops the game serves, and `docs/visual/` is committed, not gitignored, and already holds
+thirteen slice directories. Note what would *not* happen if they went under `data/`:
+`campaign-data.ts`'s boot check reads `Object.keys(PORTRAITS)`, a hand-authored map, and
+there is no `import.meta.glob` anywhere in the tree — so a stray file in that directory is
+invisible to every check in the repo. That is an argument for keeping the two kinds of file
+apart, not a guard against mixing them.
+
+**BLOCKED ON THE OWNER — they must download the four frames.** No agent here can reach
+Midjourney.
+
+### Part 2 — the sixteen portraits
+
+The owner runs the 16 paste-ready prompts in
+`.claude/skills/midjourney/references/portrait-prompts.md`; the style reference is already
+locked. **Knight, both genders, first.** Download both and compare at **28 pixels** before
+running the other seven jobs. Two portraits is a cheap test of whether the locked style
+survives a subject change; fourteen is not.
+
+**Untested: no male portrait has ever been run in this style**, and the locked reference is
+a young woman. If a male run comes back female, add the single word `woman` to that
+prompt's `--no` list rather than re-wording the subject.
+
+Then the wiring:
+
+| Step | Where |
+|---|---|
+| Crop each to **96×116** — the placeholder's exact size | `data/campaign/story/portraits/<job>-<gender>.png`; the keys are the prompt block titles |
+| Build the job x gender → key table | `PORTRAITS` in `src/render/campaign-data.ts` |
+| Resolve a unit to its key | `look()` in `src/render/game.ts`, which hard-codes `"placeholder"` for everyone today |
+
+**`--ar 5:6` is the nearest aspect Midjourney offers** and 96×116 is not exactly 5:6, so
+expect a small crop. The CSS frame is 72×86 with `object-fit: cover`, so a materially
+different ratio crops the face.
+
+**A `.png` import fails `npm run typecheck`.** `src/vite-env.d.ts` declares `*.svg` and
+nothing else. Add a `*.png` block in the same commit. (Measured 2026-09-02.)
+
+**Three tripwires WILL go red, and that is them working, not a regression.**
+
+1. `campaign-data.ts`'s boot-time `portraitCoverage` check **throws** on a
+   bundled-but-unnamed asset.
+2. `campaign-shell.test.ts:872-879` asserts both sides equal exactly `["placeholder"]`.
+3. **The story pack is the other side of tripwire 1, and nobody has decided what it should
+   say.** `camp-the-first-march.story.json` names four characters — Vance, Kest, Briar,
+   Ottoline — and all four carry `"asset": "placeholder"`. Sixteen bundled keys that none
+   of them names is exactly the `extra` case that throws at boot. The slice must either
+   give those four real job x gender keys or change what the check covers. **That is a
+   decision, not a mechanical fix — surface it before writing code.**
+
+Move all three deliberately in the same commit and say in the message why each moved.
+
+Two more things to record, neither of them work:
+
+- The `"Portrait pending"` caption **self-retires**: `statCardHtml` keys it on
+  `portrait.key === "placeholder"` and `panels.test.ts` covers all three states — absent,
+  pending, real. ~~So no render change is needed.~~ **True of the caption only** —
+  `look()` still has to resolve a key, which is a render change. **Verify the caption in a
+  frame rather than assuming it.**
+- **The placeholder stays.** It is the honest fallback for a unit with no portrait, and the
+  engine viewer's absent-portrait branch — `main.ts`'s `UNIT_META` carries neither job nor
+  portrait — is what keeps that path exercised in shipped product.
+
+### Part 3 — two fixes riding along
+
+**3a. `.gitignore` does not cover `.claude/.git-go`.** Line 44 covers `.claude/.retro-done`
+and line 48 `.claude/.session-branch`; the commit-approval token is missing. A future
+`git add -A` would commit a live token. One line.
+
+**3b. The legend's move-range swatch** — written up in the stat-plate landing section
+below, **not duplicated here**, and promoted into this slice. One thing is missing from
+that write-up: **nothing in the tree compares a legend swatch to a theme constant**, which
+is why it survived the whole life of painted ground. Re-checked 2026-09-02 — the only test
+that mentions the legend (`e2e/campaign.spec.ts:433-436`) asserts its text, never a colour.
+So the fix owes a test comparing the swatch to the theme value, or the next theme change
+breaks it again silently. Check the whole legend in one pass: the turn-ring swatch at
+`index.html:199` is amber too, against a board ring of `#ffd968`.
+
+### NOT in this slice
+
+| Item | Why |
+|---|---|
+| Redesigning the stat plate to read as an FFT window | Needs real portraits to judge against. After, not with. |
+| Cursor-follow | Parked, not cancelled. The seam is `unitCardHtml`'s `focusUnitId` — see the landing section. |
+| The 28-pixel legibility comparison across the set | **Still never run.** The silhouette table predicts sixteen outlines and measures none. Do it on the first two knights. |
+| `telemetry.test.ts` reading the real clock | Test code, routed to `qe-tester` — see the flake below. |
 
 **Owner order, unchanged since 2026-08-30.**
 
@@ -124,15 +250,24 @@ one real portrait to exist, and none does. Do not present this as answerable now
    fails CI on a drop. Leave `docs/06`, `docs/08` §1a and `docs/11` §3 exactly as they
    read.
 
-### What the mini stat window is
+### What the mini stat window is — SHIPPED, and it is not what this said
 
-The **expanded bottom row of the turn-order rail**, not a separate widget. It carries a
+~~The **expanded bottom row of the turn-order rail**, not a separate widget. It carries a
 portrait, HP, MP, CT, Bravery/Faith and a job + level row, modelled on the reference
-panel.
+panel.~~
 
-Portraits come first because the panel's layout depends on the crop. The panel can be
-built against the shipped `placeholder.svg` (96×116, aspect 5:6). **Keep that aspect** —
-the reference panel uses it.
+**Superseded 2026-09-01 by ADR-0033.** Three things in that sentence turned out wrong:
+
+- It is a **separate overlay** on the canvas, bottom-left, not a row of the turn rail.
+  `panels.test.ts` asserts the rail emits no card and the card emits no chips — one unit
+  painted twice, once under the board and once on it, is what that prevents.
+- **MP and Level are not on it.** The sim models neither, and printing either is the
+  "Crit 0%" failure (ADR-0021, AC-J10).
+- **"CT" is not on it.** The plate says **"Clock"**; `e2e/campaign.spec.ts` bans the
+  jargon in that region.
+
+Still true: the placeholder is 96×116, **aspect 5:6, and the aspect is load-bearing** —
+the CSS frame is 72×86 with `object-fit: cover`, so art at another ratio crops.
 
 ### Explicitly NOT green-lit (owner, 2026-09-01)
 
@@ -157,8 +292,9 @@ that one fact was the whole fault, and no amount of palette work would have foun
 | 1 | **Painted ground on the battle map** — textured grass, worn dirt, cut rock, water, props, no grid. | **LANDED 2026-08-30** (ADR-0030, AC-V18/V19), all five battles. | See the traps below. The engine demo page still draws the flat look, and that is what keeps AC-V18's A/B possible — do not paint it. |
 | 2 | **Paint the other four battles.** | **LANDED 2026-08-30** — all five painted. | Coverage is now bidirectional: a sixth battle cannot ship unpainted, and a map keyed to a renamed battle fails. Props are kept off unit start tiles by a guard. |
 | 3 | **Unit presentation.** Still flat kite tokens with a facing pip. | **DEFERRED by the owner, 2026-08-30** | Deliberately bundled with **portrait art**: the owner will decide the token when they hand over the portrait reference images. Three treatments are drawn (kite / heraldic shield / standing figure). Do not pick one under cover of another slice, and do not ask again before the references arrive. |
-| 4 | **Motion and feedback** — hit reactions, turn transitions. | **LANDED 2026-09-01** (ADR-0032 + its amendment). Hit reaction, turn plate, damage numeral on the struck unit's head for 1.5 s, board size restored. | This layer owns the **first frame loop and the first clock on the drawing path** in `src/render`. See its traps below. **`docs/10` has no acceptance criterion for any of it — AC-V21 is free.** |
-| 6 | **Portraits, then the mini stat window.** The next slice. | **not started — blocked on ask 1 above** | 8 jobs x 2 genders. Enemies are human only and reuse the set. No portrait art exists; build the panel against `placeholder.svg` (96×116, aspect 5:6 — keep it). Portraits first: the panel's layout depends on the crop. |
+| 4 | **Motion and feedback** — hit reactions, turn transitions. | **LANDED 2026-09-01** (ADR-0032 + its amendment). Hit reaction, turn plate, damage numeral on the struck unit's head for 1.5 s, board size restored. | This layer owns the **first frame loop and the first clock on the drawing path** in `src/render`. See its traps below. **`docs/10` has no acceptance criterion for any of it. AC-V21 is now RESERVED for it in `docs/10` §6 — held, not free.** |
+| 6 | **The stat plate on the battle board.** | **LANDED 2026-09-01** (ADR-0033, AC-V22). Portrait, name, job, HP cur/max, Clock, Brave, Faith, bottom-left over the canvas. | Built against the placeholder. **Two live defects shipped with it — see the landing section.** Its colours were never designed. |
+| 7 | **Portrait art — 16 files.** | **not started — blocked on ask 1 above** | 8 jobs x 2 genders. Enemies are human only and reuse the set. Prompts are written; the owner runs them. Aspect **5:6**, and the frame crops anything else. |
 | 5 | **Terrain rules on the other four maps.** | **PARKED by the owner** — battle 4 only, 2026-08-30 | Battles 1, 2, 3 and 5 keep the difficulty they were tuned for, and the six balance test battles are **not touched at all**, so the variety score stays comparable. (They are *not* flat, and never were: `enc-the-high-ground` has heights 0–3 and `enc-the-breach` 4 blocked tiles, both since the P2 benchmark slice. What keeps the score comparable is that nothing changed.) Do not widen this without asking. |
 
 **Two rules bind every one of these.**
@@ -178,11 +314,15 @@ that one fact was the whole fault, and no amount of palette work would have foun
 it certifies nothing. They are written down because nothing else records them. **The
 owner's order above stands** — these are not a slice and none of them is green-lit.
 
-**All three re-checked against the tree on 2026-09-01 and all three still hold.** A was
-re-measured, because the motion slice changed `HEADROOM` 72 → 54 and so changed the camera
-scale the gap is described in terms of: at 900×600 the scale is now **1.7188** and the
-unscaled point still returns `null`; at the shipped 900×440 it is **1.2805** and the same
-point still returns `{x: 1, y: 2}`. The wording below is unchanged and still accurate.
+**All three re-checked against the tree again on 2026-09-01, after the stat plate landed,
+and all three still hold.** What was re-derived this pass, so the next reader does not have
+to trust it: **A** — `iso.test.ts:324` is still `not.toEqual({x: 4, y: 3})`, so `null` still
+satisfies the miss half. **B** — nothing in `iso.test.ts` mentions `wallLeft` or
+`wallRight`; the only references in the tree are the two in `iso.ts` that draw them. **C** —
+`getImageData` appears **once** in the whole tree (`e2e/campaign.spec.ts:813`), and that is
+the sky-corner read already excluded below. The earlier re-measurement of A after the motion
+slice (`HEADROOM` 72 → 54, scale 1.7188 at 900×600 and 1.2805 at the shipped 900×440) still
+stands and was not repeated.
 
 | # | Gap | Where | Why it proves nothing |
 |---|---|---|---|
@@ -190,7 +330,7 @@ point still returns `{x: 1, y: 2}`. The wording below is unchanged and still acc
 | **B** | Side-face culling has no test at all | `paintTerrainTile` in `src/render/iso.ts` | A cliff face is cut only where the ground drops: the LEFT face against the neighbour at `(x, y+1)`, the RIGHT against `(x+1, y)`, each skipped when the drop is ≤ 0. Nothing asserts it, so a renderer that drew every side face unconditionally — or never drew one — stays green. `iso.test.ts`'s recording 2D context already records `wallLeft`/`wallRight` fill strings, so it can see this. **Use a purpose-built fixture**: `camp-b4-the-broken-span` is the only shipped map with relief (heights 0 and 2, 45 blocked tiles). |
 | **C** | Nothing reads a pixel off the finished picture | every canvas test | Canvas tests assert what the code **asked** to draw — recorded `fillStyle` writes and their order. The range panel's legibility is asserted (`"the range panel separates from every ground it can sit on"`), but against `compositeOver`, a source-over blend **re-implemented inside the test**: it models the composite rather than reading it. So the model and the canvas can disagree — over the mottle and detail scatter, over antialiasing, over the panel's own edge stroke — with nothing going red. Only `base` tones and bare ground are covered; the panel over a prop, a unit token or a status chip is unmeasured. `contrast.spec.ts` measures DOM text and cannot see a canvas at all. |
 
-**What C is NOT.** Two claims that would have belonged here are already covered, and
+**What C is NOT.** Three claims that would have belonged here are already covered, and
 recording them again would be wrong:
 
 - `e2e/campaign.spec.ts` **does** sample a real canvas pixel — one corner, asserting the
@@ -199,10 +339,125 @@ recording them again would be wrong:
 - The panel's thin WCAG margins over sand and water **are** now judged, by CIEDE2000
   separation floors rather than a luminance ratio, with the historical failures kept as
   non-degeneracy cases (`9cc4890`).
+- The reduced-motion spec in `e2e/campaign.spec.ts` **does** compare the real canvas — two
+  whole-canvas `toDataURL()` strings, equal under `reduce` and unequal without it. That is
+  an equality between two frames, not a reading of any colour, so it cannot judge
+  legibility. Do not cite it as coverage for C, and do not list it as a gap either.
+
+### A FLAKE, found 2026-09-01, not fixed — route to `qe-tester`
+
+`telemetry.test.ts`, `"replaces a log it cannot read rather than repairing it"` (line 264)
+asserts `log.events[0]?.at` is exactly **0**. That field is `Date.now()` minus the
+recorder's own start, and the test **does not inject a clock** even though `Recorder`
+accepts one (`opts.now`, `telemetry.ts:207`). On a loaded box the real clock ticks between
+construction and the call, `at` comes back **1**, and the test fails.
+
+Observed once in a full `npm run check` and **not reproducible** in three isolated runs of
+the file, which is exactly what a load-dependent flake looks like. The fix is one argument:
+pass a fixed `now`. Nothing about the recorder is wrong. **This is test code — do not fix
+it from a docs slice.**
 
 **A carries a doc consequence.** `docs/10`'s AC-V19 was **weakened** to "not the same
 tile" to match what the test asserts. If A is fixed, tighten that wording back in the same
-slice. `docs/10` is deliberately untouched here.
+slice. **AC-V19's wording is deliberately untouched** by the stat-plate slice, which added
+AC-V22 and the AC-V21 reservation and changed nothing else in §6.
+
+---
+
+## LANDED 2026-09-01 — the stat plate (ADR-0033, `docs/10` AC-V22)
+
+A plate sits bottom-left over the battle canvas and describes the unit acting next:
+portrait, name, job, HP current/max, Clock, Brave, Faith. Both pages carry it — the
+campaign board and the engine viewer — through one renderer.
+
+| Piece | Where |
+|---|---|
+| `StatCard` model, `statCard()`, `unitCardHtml()`, `UnitLook` widened with `job` and `portrait` | `src/render/panels.ts` |
+| `deployedRecords()` → `unitNames()` / `unitJobs()`, one walk | `src/render/campaign-shell.ts` |
+| Wiring | `src/render/game.ts` (campaign), `src/render/main.ts` (viewer) |
+| `.board-stage` + `#unit-card` | `index.html`, `viewer.html` |
+| Tests | `src/render/panels.test.ts`, `e2e/overlay.spec.ts`, `e2e/contrast.spec.ts` |
+
+**Four owner decisions, 2026-09-01, all in ADR-0033:** MP and Level are absent; placement
+is bottom-left from three rendered options; the plate follows the acting unit; every
+portrait key is `placeholder` this slice.
+
+### TWO LIVE DEFECTS, FOUND AND NOT FIXED. Both need `art-director`.
+
+Neither is a test failure. Both are appearance calls, which is why neither was fixed here
+— `CLAUDE.md`: when the decision is about appearance, render it before asking.
+
+**(a) The campaign legend's move-range swatch is the wrong colour, and has been on every
+shipped battle.** `index.html:574` paints the "Where the active unit can walk" swatch
+`#e2a948` — amber. The campaign board paints that range `#8fd0ffb3`, a pale blue
+(`FIELD_THEME.highlight`, `src/render/iso.ts:146`). The legend has never matched the board
+since painted ground landed (ADR-0030): `game.ts` passes `FIELD_THEME` whenever terrain is
+present, which is all five battles, while the amber belongs to `DARK_THEME` — the engine
+viewer's palette. `viewer.html:194` is correct for its own page.
+
+Do not "just change the hex". The legend's turn ring (`index.html:199`) is amber too and
+the board's active ring is `#ffd968`; check the whole legend against `FIELD_THEME` in one
+pass, and open `visual-artifacts/playtest/map-battle-1..5.png` afterwards. **Nothing
+asserts a legend swatch against the theme it describes** — that is the reason this lived
+for the whole life of painted ground.
+
+**(b) The plate's colours were never designed.** `.unit-card` in `index.html` inherits
+`.card.board`'s tones: `#1d1710` fill, `#4a3a24` border. It reads as board chrome sitting
+on the board rather than as an FFT window over it. Nothing here is wrong, and nothing is
+designed either. **Constraint on any redesign:** the fill must stay **opaque and flat**.
+`e2e/contrast.spec.ts` measures against a single declared stop and cannot sample a canvas,
+so a gradient or any alpha silently invalidates every contrast claim on the battle screen
+(AC-V22(g)).
+
+### CURSOR-FOLLOW IS PARKED, NOT CANCELLED
+
+The owner wants a control that inspects any unit. Cursor-follow was built, rendered and
+set aside; the plate follows the acting unit instead.
+
+**The seam is `unitCardHtml(state, look, focusUnitId?)` in `src/render/panels.ts`.** Pass
+nothing and the plate describes the forecast lead; pass a unit id and it describes that
+unit. Resolution — "who is the player looking at" — belongs to whatever owns the pointer or
+the selection, and does not exist yet.
+
+**No shipped page passes an id, so `panels.test.ts` is the only thing keeping the seam
+honest.** Its A/B renders the same state with and without a focus id and asserts the two
+name different units with different HP — the dead-slot shape otherwise, where a parameter
+is type-checked, validated and ignored. Three behaviours are pinned there and a future
+inspect control inherits all three: the override wins, an id naming nobody falls back to
+the lead rather than blanking, and a focused unit is never captioned "casting".
+
+Deleting the parameter costs the feature its landing site.
+
+### Traps this slice bought
+
+0. **THE PLATE IS DOM BETWEEN THE POINTER AND LIVE TILES.** `pointer-events: none` is the
+   only thing keeping the board clickable in that corner. Without it there is no error, no
+   red test and nothing on screen to see. `e2e/overlay.spec.ts` asserts it through the
+   browser's own hit test and then a real click. **At the shipped corner the plate covers
+   only empty sky**, so the spec moves it over a discovered unit tile first — a
+   click-through test left at the shipped position is vacuous and passes whatever the CSS
+   says.
+0. **THE HIT TEST RETURNS A DESCENDANT, NOT THE HOST.** With `pointer-events` deleted,
+   `elementFromPoint` returned `i` (the HP bar fill) on the viewer and `p` (the HP row) on
+   the campaign board. Assert `"canvas"`, never a specific wrong tag.
+0. **A TRANSLUCENT PLATE MEASURES GREEN AND READS UNREADABLE.** `contrast.spec.ts` walks
+   the DOM and composites onto the plate's parent, `.card.board`. The player reads the
+   plate over the **canvas**, which no DOM walk can sample. The opacity assertion is the
+   only thing that says what the file is actually measuring.
+0. **THE MP TRIPWIRE IS THE POINT, NOT THE KEY-SET TEST.** "The card names no MP" stays
+   green forever, including the day MP ships and the omission becomes a lie.
+   `panels.test.ts` asserts `UnitStateSchema`'s keys hold no `mp` and fails then. Level is
+   deliberately not duplicated — `docs/02` AC-J10 owns it.
+0. **`chip()` IN `panels.ts` IS STILL UNESCAPED.** The card's label and job now go through
+   `esc`; the turn-rail chip does not. Pre-existing, out of that slice's scope, recorded
+   here rather than silently fixed. Unit names come from campaign data today, so nothing is
+   attacker-controlled.
+0. **THE VIEWER'S PLATE IS THE LIVE CASE FOR "GENUINELY ABSENT".** `main.ts` hands the
+   renderer its hand-authored `UNIT_META`, which carries no job and no portrait. Do not
+   "fix" that by giving the viewer placeholders — it is what proves the two optional rows
+   render as missing rather than blank.
+0. **THE VIEWER'S PLATE OPACITY IS UNASSERTED.** `viewer.html` paints `var(--surface-2)`
+   and only `index.html`'s plate is measured. Stated in AC-V22 rather than left implied.
 
 ---
 
@@ -225,7 +480,7 @@ the source, and chose option A: numeral on the head, overlap allowed, no avoidan
 anywhere. `HEADROOM` 72 → 54 gave every board its area back — **+5.0% to +6.9% camera
 scale** across the five shipped maps at 900×440.
 
-### THE GAP: `docs/10` has no acceptance criterion for any of this. AC-V21 is free.
+### THE GAP: `docs/10` has no acceptance criterion for any of this. AC-V21 is RESERVED.
 
 This is the reverse of the usual failure. The **tests** are strong; the **spec** is
 missing. `docs/` outranks the code, so today a slice could retune the whole motion layer
@@ -245,7 +500,9 @@ gap**:
 | The ~58 s per-battle motion ceiling | **no** | — |
 | Whether any of it is **legible** | **no** | nothing reads a canvas pixel (gap C above) |
 
-**Route:** write AC-V21 against what is asserted, then either give the last two rows an AC
+**Route:** `qe-tester` with `viewer-engineer`. The letter is **held** by a named reservation in
+`docs/10` §6 — a line saying what it is for and who owes it — so nobody mints AC-V21 for
+something else. Write it against what is asserted, then either give the last two rows an AC
 plus a test (`qe-tester`) or mark them explicitly aspirational. Prose stating a number no
 test checks is worse than no number.
 
@@ -437,8 +694,9 @@ migration. ADR-0030 expected a schema bump here and was wrong.
    dropped 43 → 42 when the guard stopped being a spec; that was the fix, not a regression.
    **It went back to 43** — the adversarial-review slice (`c1507dc`) added the
    page-to-terrain canvas assertion in `campaign.spec.ts` — **and then to 44**, when the
-   motion slice (`dc2b84c`) added the reduced-motion spec. Current counts: **928 unit
-   tests, 44 browser specs in 8 files.**
+   motion slice (`dc2b84c`) added the reduced-motion spec, **and then to 47** when the
+   stat-window overlay added `e2e/overlay.spec.ts` (2) and one opaque-plate guard in
+   `contrast.spec.ts`. Current counts: **947 unit tests, 47 browser specs in 9 files.**
 
 ---
 

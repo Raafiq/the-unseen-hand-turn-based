@@ -50,6 +50,22 @@ const GROUNDS = {
   parchment: ["rgb(242, 230, 196)", "rgb(220, 195, 143)"],
   board: ["rgb(29, 23, 16)", "rgb(13, 9, 6)"],
   table: ["rgb(36, 27, 16)", "rgb(11, 8, 5)"],
+  /**
+   * The mini stat card's plate — a FLAT opaque fill, unlike every other ground here.
+   *
+   * It has to be opaque, and the reason is this file's own algorithm. The walk below
+   * composites a translucent layer onto the SHEET its element sits in, and the card's
+   * sheet is `.card.board`. The thing a player actually reads the card against is the
+   * CANVAS, which is the card's SIBLING and which no DOM walk can sample — a canvas has
+   * no background colour, only pixels. So a see-through plate would be scored against
+   * the dark board card while sitting over grass, sky or water: a green run and an
+   * unreadable card, which is exactly the shape of evidence this repo forbids.
+   *
+   * Because the fill IS opaque, the walk finds it by itself and this entry is never
+   * consulted as a fallback. It is here as the DECLARED value the test below compares
+   * the live one against — the same duplicate-and-guard the three grounds above use.
+   */
+  plate: ["rgb(29, 23, 16)"],
 } as const;
 
 type Finding = { where: string; text: string; ratio: number; need: number; color: string; on: string };
@@ -267,5 +283,57 @@ test("contrast: the battle screen, which is the one dark sheet", async ({ page }
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // The stat card is on this screen, so its name, job, HP numbers and stat labels are
+  // among the elements measured above. They are the only text on the page whose ground
+  // is neither parchment nor the board card.
+  await expect(page.getByTestId("unit-card")).toBeVisible();
   await screenPasses(page, 15);
+});
+
+/**
+ * The stat card's plate is OPAQUE — the precondition the measurement above depends on.
+ *
+ * WITHOUT THIS the file is quietly wrong rather than red. `failures()` would keep
+ * returning `[]` for a translucent card, because it would composite the card onto the
+ * dark board card behind it and get a perfectly good ratio, while the player reads the
+ * same text over whatever the canvas painted. Asserting the opacity is the only way
+ * this file can say what it is actually measuring.
+ *
+ * MUTATION TO RUN: give `.unit-card` an `rgba(…, .6)` background in index.html. The
+ * `alpha` assertion goes red; `screenPasses` above stays green, which is the point.
+ */
+test("contrast: the stat card sits on an OPAQUE plate of the declared colour", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  const card = page.getByTestId("unit-card");
+  await expect(card).toBeVisible();
+
+  const paint = await card.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { color: cs.backgroundColor, image: cs.backgroundImage };
+  });
+  // `rgb(...)` with no fourth channel is how a computed style spells alpha 1. An
+  // `rgba(...)` string here means the plate is see-through.
+  expect(paint.color, "the stat card's plate is translucent").toBe(GROUNDS.plate[0]);
+  // A gradient or image would put text on a ground that varies across the plate, which
+  // the single declared stop above could no longer describe.
+  expect(paint.image).toBe("none");
+
+  // AND the elements that actually hold the text must resolve to that plate rather than
+  // painting their own fills — otherwise the declared ground describes nothing they use.
+  const owners = await card.evaluate((root) =>
+    Array.from(root.querySelectorAll("*"))
+      .filter((el) =>
+        Array.from(el.childNodes).some(
+          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim().length > 0,
+        ),
+      )
+      .map((el) => getComputedStyle(el).backgroundColor),
+  );
+  expect(owners.length, "the card rendered no text at all").toBeGreaterThanOrEqual(4);
+  expect(owners.every((c) => c === "rgba(0, 0, 0, 0)")).toBe(true);
 });

@@ -164,6 +164,16 @@ commit-click, and computed for the **staged** position, the player SHALL see:
     the target first (a corpse does not counter — "kill it before it swings back" is a
     real read the panel must support). A `preemptive` reaction leads with the fact that it
     **cancels the act**, because every number above that row is then moot.
+11. **The acting unit itself, on a plate over the board** (ADR-0033, AC-V22) — portrait,
+    name, job, HP current **and** max, Clock, Brave, Faith. It describes whoever the
+    forecast says acts next, resolving a maturing charge back to the unit that cast it.
+    **MP and Level are ABSENT, not zero**: the sim has no MP field, and `UnitRecord.level`
+    is defaulted, never raised and never read (ADR-0021, guarded by `docs/02` **AC-J10**).
+    Reversing ADR-0021 puts this row back on the table. The plate prints **"Clock"**, never
+    "CT" — engine jargon is banned from this surface by `e2e/campaign.spec.ts`'s
+    learnability spec. It is an overlay, so it SHALL decline pointer events and SHALL be
+    opaque; a see-through plate is measured against its DOM parent while the player reads
+    it over the canvas.
 
 `[ENHANCEMENT]` The Zodiac / Faith contribution line (`zodiacCompatibility` is already
 exported, and the total already includes it). `docs/04` §3 requires surfacing hidden
@@ -359,6 +369,105 @@ degenerate fixture where all orderings coincide).
   blocks everywhere. A companion check asserts no unit **starts** on a blocked tile or in
   painted water — reachable by editing terrain alone, since a battle's placements and its
   paint live in different files. **Met** (ADR-0031).
+
+- **AC-V21 — RESERVED for the motion layer (ADR-0032). Not free, not yet written.** The
+  board's motion — hit reaction, turn plate, damage numeral, the reduced-motion branch —
+  shipped 2026-09-01 with strong tests and no acceptance criterion. This letter is held
+  for it so nobody mints it for something else. **Owed by:** `qe-tester` with the
+  `viewer-engineer`, scoped in `docs/NEXT.md` under "AC-V21 is RESERVED". Two of its
+  claims — the ~58 s per-battle motion ceiling, and whether any of the motion is
+  **legible** — have no test today and must land as an AC with a test or be marked
+  explicitly aspirational.
+
+- **AC-V22 (the stat plate shows only what the sim models):** The battle board SHALL carry
+  a plate describing the unit the forecast says acts **next**, and it SHALL print only
+  values the sim models. **Met** (ADR-0033).
+
+  **(a) It follows the forecast lead.** The plate SHALL read the timeline's lead actor,
+  never `state.units[0]`. *Discriminator:* the fixture MUST be a state where those two are
+  **different units**, and MUST assert they are different — deploy order is the scheduler's
+  tie-break key, so on a fixture where the two coincide a plate wired to either one
+  produces identical markup and certifies nothing. When the lead is a maturing **charge**,
+  the plate SHALL resolve it back through `chargeQueue.sourceUnitId` to the casting unit
+  and say it is casting; that fixture MUST also store a different unit first.
+
+  **(b) MP and Level are ABSENT, not zero** (pillar 4, ADR-0021). *Discriminator:* **two
+  assertions, and neither substitutes for the other** — an exact key-set equality on the
+  card model, which cannot see a hard-coded `Lv 1` in a template string, **and** a regex
+  over the rendered markup, which cannot see a field renamed into existence. A **tripwire**
+  SHALL fail the day the sim starts modelling MP, because the omission is honest only while
+  the engine models nothing: this criterion is otherwise the kind that rots green. Level is
+  deliberately **not** re-guarded here — `docs/02` **AC-J10** owns it, and a second copy
+  would rot separately.
+
+  **(c) It says "Clock", not "CT".** Engine jargon is banned from this surface;
+  `e2e/campaign.spec.ts`'s learnability spec is the authority and a unit-level echo is
+  permitted as a fast signal, not as the proof.
+
+  **(d) HP prints both numbers.** Current **and** max, as integers, not a bar alone.
+  *Discriminator:* a fixture whose current and max differ and whose ratio is not a round
+  percentage, so replacing the numbers with a percentage goes red. Clock, Brave and Faith
+  MUST carry three **distinct** values, so a renderer printing one in another's slot fails.
+
+  **(e) Job and portrait are genuinely optional.** *Discriminator:* an **A/B on the built
+  object** — the same state through two lookups, one carrying the field and one not —
+  asserting the field is absent (not defaulted to a dash) and that **everything else is
+  byte-identical**. A card that type-checked the field and then defaulted it looks correct
+  from one side alone. The "portrait pending" caption SHALL track the **asset key**, not
+  the URL, and the fixture MUST cover **three** states in one test — no portrait, the
+  `placeholder` key, and any other key. Two states pass under a caption that is simply
+  always on, or always off.
+
+  **(f) The plate never eats a click.** It is DOM over live tiles, so it SHALL decline
+  pointer events. *Discriminator:* park the plate over a point that resolves to a **real
+  tile** — discovered through the page's own `pickTile` against the **live** state, never
+  hard-coded — then assert the browser's own hit test returns the canvas **and** that a
+  real click there moves the tile cursor. The target tile MUST differ from where the cursor
+  already sits, or "the cursor is here afterwards" was true before the click. At the
+  shipped corner the plate covers only empty sky, so a click-through test left there is
+  vacuous.
+
+  **(g) The plate is OPAQUE, and this is a precondition of the contrast measurement, not a
+  taste call.** `e2e/contrast.spec.ts` cannot sample a canvas — a canvas has no background
+  colour, only pixels — so it composites a translucent layer onto the plate's DOM parent,
+  the dark board card, while the player reads the text over grass, sky or water. A
+  see-through plate therefore measures green and reads unreadable. The computed background
+  SHALL be a colour with **no alpha channel** and **no background image**, and the elements
+  holding the text SHALL paint no fill of their own, or the declared ground describes
+  nothing they use.
+
+  **(h) The plate is one surface, and it never collapses.** The turn rail SHALL emit no
+  plate and the plate SHALL emit no rail chips — they land in two different hosts, so a
+  duplicated copy would paint the same unit twice, once under the board and once on it,
+  with every other assertion still green. With nobody queued to act the plate SHALL still
+  render **non-empty text**: an element that collapses to nothing moves everything under
+  it, which has shipped here once already. Markup alone is not enough — an element with no
+  text has no height.
+
+  **(i) The "which unit" seam stays wired.** `unitCardHtml` SHALL keep an optional focus
+  parameter: absent, the plate describes the forecast lead; given a unit id in the state,
+  it describes that unit. This is the landing site for the future inspect control
+  (cursor-follow, parked by the owner 2026-09-01, ADR-0033). **No shipped page passes an
+  id**, so a test is the only thing keeping it honest. *Discriminator:* an **A/B on the
+  rendered output** — the same state with and without a focus id MUST name different units
+  **and** show different HP. A parameter that is type-checked, validated and then ignored
+  leaves both sides byte-identical, which is what a dead slot looks like. A focus id naming
+  nobody SHALL fall back to the lead rather than blanking, and a focused unit SHALL never
+  be captioned as casting.
+
+  **NOT ASSERTED, said here rather than left implied:**
+
+  - **The placement.** "Bottom-left" is an owner call from three rendered options
+    (ADR-0033) and nothing pins it. The tests assert only that the plate sits inside the
+    canvas rectangle, and the campaign half checks the vertical bounds only. Moving the
+    plate to another corner over the board goes green.
+  - **The engine viewer's plate opacity.** The opacity assertion runs on the campaign page.
+    `viewer.html` paints `var(--surface-2)`; nothing checks it resolves opaque.
+  - **Legibility over the board.** Nothing reads a pixel off the finished canvas (`docs/NEXT.md`
+    gap C). The claim is "opaque, and its text clears WCAG AA against that opaque plate" —
+    weaker than "readable over what was painted underneath", and deliberately stated as
+    such.
+  - **The colours.** The plate inherits `.card.board`; no criterion governs how it looks.
 
 ## 7. Required module shape
 

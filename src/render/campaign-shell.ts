@@ -331,26 +331,48 @@ export class CampaignShell {
   }
 
   /**
-   * battle unit id → the NAME of the record deployed in that slot.
+   * battle unit id → the ROSTER RECORD deployed in that slot.
+   *
+   * ONE WALK, and every per-slot accessor below is expressed over it. `unitNames` and
+   * `unitJobs` answer about the same slot for the same record by construction, so they
+   * cannot drift into disagreeing about who is standing there — two independent walks
+   * over `placements` would each look correct alone.
    *
    * Data, not presentation: `loadEncounter` names units after the placement's `slotId`
-   * ("blue-vance"), and a page that wanted to print "Vance" would otherwise have to
-   * parse that id — a naming convention masquerading as a lookup. Built from the
-   * encounter's placements against the def's own records, so it is correct for any slot
-   * naming at all. Empty outside a battle.
+   * ("blue-vance"), NOT after the record's id ("pc-vance"), and a page that wanted to
+   * print "Vance" would otherwise have to parse that id — a naming convention
+   * masquerading as a lookup. The lookup spans `party` AND `cast`, so enemies resolve
+   * exactly as party members do. Empty outside a battle.
    */
-  unitNames(): Record<string, string> {
-    if (!this.encounter || !this.save) return {};
-    const byId = new Map(
-      [...this.save.party, ...this.def.cast].map((r) => [r.id, r.name] as const),
-    );
-    const names: Record<string, string> = {};
+  private deployedRecords(): Map<string, UnitRecord> {
+    const out = new Map<string, UnitRecord>();
+    if (!this.encounter || !this.save) return out;
+    const byId = new Map([...this.save.party, ...this.def.cast].map((r) => [r.id, r] as const));
     for (const p of this.encounter.placements) {
       if (p.unit.kind !== "ref") continue;
-      const name = byId.get(p.unit.recordId);
-      if (name !== undefined) names[p.slotId] = name;
+      const record = byId.get(p.unit.recordId);
+      if (record !== undefined) out.set(p.slotId, record);
     }
+    return out;
+  }
+
+  /** battle unit id → the NAME of the record deployed in that slot. Empty outside a battle. */
+  unitNames(): Record<string, string> {
+    const names: Record<string, string> = {};
+    for (const [slotId, record] of this.deployedRecords()) names[slotId] = record.name;
     return names;
+  }
+
+  /**
+   * battle unit id → the JOB ID of the record deployed in that slot (e.g. "geomancer").
+   *
+   * A raw sim id, not a label: the render layer owns the mapping to "Geomancer"
+   * (`prep.ts`'s `jobLabel`), the same way it owns team colours. Empty outside a battle.
+   */
+  unitJobs(): Record<string, string> {
+    const jobs: Record<string, string> = {};
+    for (const [slotId, record] of this.deployedRecords()) jobs[slotId] = record.currentJob;
+    return jobs;
   }
 
   /** True once the live battle is decided and waiting to be banked. */

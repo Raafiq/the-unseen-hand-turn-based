@@ -27,6 +27,41 @@
       .stage { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
       canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border-radius: 10px; cursor: crosshair; }
       canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+      /* ── the unit card, ON the board ───────────────────────────────────────
+         The SAME renderer the campaign page uses (`panels.ts:unitCardHtml`) over
+         this page's hand-authored `UNIT_META`, which carries NO job and NO
+         portrait — so this is the live case for both optional rows being
+         genuinely absent rather than blank. DOM over the canvas, never painted
+         into it, and `pointer-events: none` so it cannot eat a tile click.
+         Opaque for the same reason the campaign's is: a translucent plate over a
+         painted board is unreadable in ways nothing here can measure.
+         The corner was a decision about the game page (bottom-left, owner's call
+         of 2026-09-01); this one just follows it. */
+      .board-stage { position: relative; }
+      #unit-card { position: absolute; left: 12px; bottom: 12px; pointer-events: none; z-index: 2; }
+      .unit-card { display: flex; align-items: flex-start; gap: 12px; width: 250px;
+                   padding: 10px 12px 11px; color: var(--ink);
+                   background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+                   box-shadow: 0 8px 22px rgba(0,0,0,.5); }
+      .uc-empty { margin: 0; font-size: .82rem; color: var(--ink-faint); }
+      .uc-portrait { margin: 0; width: 72px; flex: none; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+      .uc-portrait img { display: block; width: 72px; height: 86px; object-fit: cover; }
+      .uc-portrait figcaption.pending { font-family: var(--mono); font-size: .5rem; letter-spacing: .06em;
+                     text-transform: uppercase; color: var(--ink-faint); text-align: center; padding: 3px 2px; }
+      .uc-body { min-width: 0; flex: 1; }
+      .uc-name { margin: 0; font-size: .95rem; line-height: 1.25; overflow-wrap: anywhere; }
+      .uc-job { display: block; font-family: var(--mono); font-size: .6rem; letter-spacing: .08em;
+                text-transform: uppercase; color: var(--ink-faint); margin-top: 2px; }
+      .uc-casting { display: inline-block; font-size: .72rem; color: var(--accent); margin-left: 6px; }
+      .uc-hp { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: .84rem;
+               font-variant-numeric: tabular-nums; color: var(--ink); }
+      .uc-bar { flex: 1; height: 7px; min-width: 56px; background: #10141f; border: 1px solid var(--border);
+                border-radius: 4px; overflow: hidden; display: block; }
+      .uc-bar i { display: block; height: 100%; background: var(--c); }
+      .uc-stats { display: flex; flex-wrap: wrap; gap: 3px 12px; margin: 7px 0 0; font-family: var(--mono);
+                  font-size: .58rem; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); }
+      .uc-stats b { font-size: .8rem; letter-spacing: 0; color: var(--ink); margin-left: 4px; font-weight: 600; }
       .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
       button[disabled] { opacity: .42; cursor: not-allowed; }
       .reason { margin-top: 12px; font-family: var(--mono); font-size: .82rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-soft); }
@@ -125,9 +160,12 @@
       </header>
 
       <div class="stage">
-        <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
-                role="application"
-                aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
+        <div class="board-stage">
+          <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
+                  role="application"
+                  aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
+          <div id="unit-card"></div>
+        </div>
         <div class="controls">
           <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
           <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
