@@ -192,8 +192,44 @@ export interface TargetOption {
  *     and exposing the cast needs the mid-turn outcome UI docs/10 §5 defers.
  *   - `aoe !== null`            — AoE preview is DEFERRED (docs/10 §4); offering
  *     the act without its preview would commit blind.
- * On the shipped roster team 0 projects exactly one action (`basic.attack`), so
- * nothing playable is hidden by this filter (docs/10 §5 states that limitation).
+ *
+ * WHAT THE `aoe` CLAUSE COSTS, AND IT IS REACHABLE IN THE SHIPPED CAMPAIGN. It
+ * rejects 16 of the 46 `type: "action"` abilities in `data/base-pack.json`: every
+ * `black-magic.*`, `white-magic.cure` and `.cura`, `aim.volley`,
+ * `geomancy.sandstorm`, and all six `summon.*`. The campaign roster runs straight
+ * into it. Ottoline's `learned` list in `data/campaign/camp-the-first-march.json`
+ * is exactly `["white-magic.cure"]`, and cure carries `aoe {h:1,v:1}`, so she
+ * projects `basic.attack` plus one ability this filter throws away. Battles 3, 4
+ * and 5 each author four team-0 placements and the party holds four records, so
+ * `setDeployment` can only field all of them: she is on the board from battle 3
+ * with no way to bench her. The consequence a player meets is that clicking an
+ * ally offers her nothing — `targetOptions` needs a `heal` ability for an ally —
+ * so THE PARTY'S ONLY LEARNED HEAL CANNOT BE CAST BY A HUMAN. The other three PCs
+ * learn single-target skills (`geomancy.pitfall`, `punch-art.wave-fist`,
+ * `aim.aimed-shot`), which all pass.
+ *
+ * THE SIM RESOLVES THIS ACT; THE REFUSAL IS HERE. `applyCommand` sends an instant
+ * area act to `resolveAbilityAoe` (`src/sim/driver.ts`, the `ability.aoe !== null`
+ * branch, ~line 515), which heals allies and spares foes inside the box
+ * (`src/sim/aoe.test.ts`, "targeted policy"). The balance probe casts cure down
+ * that path in the shipped campaign — measured with `runCampaign` over
+ * `data/campaign`: `abilityUsage` holds `white-magic.cure` twice in battle 3 and
+ * six times in battle 5, and no enemy record learns it, so every cast is
+ * Ottoline's. A human gets none of them, because `targetOptions` never offers the
+ * option and `Session` therefore never builds the command. Lifting the clause
+ * means shipping the AoE preview `docs/10` §4 defers, in this file.
+ *
+ * The `speed` clause is subsumed today: all 10 charged actions in the pack are
+ * also AoE, so it rejects nothing the `aoe` clause has not already rejected.
+ *
+ * THE TEXT THAT STOOD HERE WAS FALSE. It read "on the shipped roster team 0
+ * projects exactly one action (`basic.attack`), so nothing playable is hidden by
+ * this filter". Neither roster matches: all four campaign PCs project a job skill,
+ * and the engine viewer's team-0 Archer carries `aim.aimed-shot`. `docs/10` §5's
+ * limitation list is about the DEMO roster and names no area act at all. `demo.ts`
+ * argues that keeping `basic.attack` at index 0 is deliberate — the demo Archer's
+ * swing out-damages its own shot up close — and that argument is about that
+ * two-ability demo roster, not a defence of what the campaign priest gets.
  */
 function isClickTargetable(ability: BattleAbility): boolean {
   return (
