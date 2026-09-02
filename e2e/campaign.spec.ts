@@ -440,7 +440,10 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   // Checked across ALL FOUR surfaces, not just the button: the first pass reworded the
   // button and left the preview panel two inches below still reading "CT AFTER", which
   // is worse than not fixing it — the two controls then disagreed on vocabulary.
-  for (const id of ["end-turn", "timeline", "preview", "status"]) {
+  // `unit-card` joined this list when the card moved OUT of the timeline and onto the
+  // board: the loop used to cover it transitively, and dropping it would have shrunk the
+  // check without shrinking anything visible — a subset reading as the set.
+  for (const id of ["end-turn", "timeline", "preview", "status", "unit-card"]) {
     await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
   }
 });

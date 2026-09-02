@@ -26,7 +26,14 @@ import type { Position } from "../sim/index.js";
 import { UNIT_META } from "./demo.js";
 import { draw, pickTile } from "./iso.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
-import { logHtml, previewHtml, statusHtml, timelineHtml, type LookUp } from "./panels.js";
+import {
+  logHtml,
+  previewHtml,
+  statusHtml,
+  timelineHtml,
+  unitCardHtml,
+  type LookUp,
+} from "./panels.js";
 import { mountPrepDemo } from "./prep.js";
 import { Session, type Phase } from "./session.js";
 import type { ViewerApi } from "./viewer-api.js";
@@ -39,6 +46,7 @@ const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("2d canvas context unavailable");
 
 const timelineEl = document.getElementById("timeline") as HTMLElement;
+const unitCardEl = document.getElementById("unit-card") as HTMLElement;
 const statusEl = document.getElementById("status") as HTMLElement;
 const logEl = document.getElementById("log") as HTMLElement;
 const previewEl = document.getElementById("preview") as HTMLElement;
@@ -132,6 +140,11 @@ function render(): void {
 
 function renderTimeline(): void {
   timelineEl.innerHTML = timelineHtml(session.state, look);
+  // The SAME renderer the campaign uses, over this page's hand-authored `UNIT_META` —
+  // which carries no job and no portrait. That is why the card is on this page at all:
+  // it is the live case for the two optional rows being genuinely ABSENT rather than
+  // blank, and `panels.test.ts`'s A/B on it would be the only witness otherwise.
+  unitCardEl.innerHTML = unitCardHtml(session.state, look);
 }
 
 function renderStatus(): void {

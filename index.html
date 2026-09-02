@@ -213,6 +213,69 @@
       canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border: 1px solid #3a2d1c; cursor: crosshair; }
       canvas:focus-visible { outline: 2px solid var(--accent-lit); outline-offset: 3px; }
 
+      /* ── the unit card, ON the board (docs/10 §4) ──────────────────────────
+         Final Fantasy Tactics puts the unit window on the map, not in a strip
+         under it. This is DOM absolutely positioned OVER the canvas and it is
+         never painted INTO it: text drawn on a canvas is invisible to
+         contrast.spec.ts, to axe and to every assertion in this suite, which is
+         the "the suite cannot see the screen" failure this repo has shipped
+         three times. The canvas keeps its own width/height attributes — the
+         projection and `pickTile` share them, so resizing one silently offsets
+         every click.
+
+         THE PLATE IS OPAQUE, and that is load-bearing rather than a taste call.
+         contrast.spec.ts composites a translucent layer onto the SHEET its text
+         sits in — here the dark board card — and the canvas is a SIBLING it can
+         never sample. A see-through plate would be scored against the board's
+         ground while the player reads it against grass, sky or water: green and
+         unreadable at the same time. `e2e/contrast.spec.ts` asserts the opacity
+         and the exact colour directly, so re-toning this without telling it is
+         a red test rather than a silent hole.
+
+         POINTER-EVENTS: NONE, because the card carries no controls and covers
+         live tiles. Without it every click under the plate is swallowed and the
+         board simply stops responding in one corner. */
+      .board-stage { position: relative; }
+      #unit-card { position: absolute; left: 12px; bottom: 12px; pointer-events: none; z-index: 2; }
+
+      .unit-card { display: flex; align-items: flex-start; gap: 12px; width: 272px;
+                   padding: 10px 13px 11px; color: var(--ink-dk);
+                   background: #1d1710; border: 1px solid #4a3a24;
+                   box-shadow: 0 8px 22px rgba(0,0,0,.55), inset 0 0 0 1px rgba(214,172,102,.13); }
+      .unit-card[data-state="none"] { width: 272px; }
+      .uc-empty { margin: 0; font-size: .84rem; font-style: italic; color: var(--ink-dk-soft); }
+      /* Sized by the stylesheet, not by the asset, so real art dropped in later
+         inherits the frame instead of dictating it — as `.portrait` already is. */
+      .uc-portrait { margin: 0; width: 72px; flex: none; border: 1px solid var(--border-strong);
+                     background: #12100a; }
+      .uc-portrait img { display: block; width: 72px; height: 86px; object-fit: cover; }
+      .uc-portrait figcaption.pending { font-family: var(--roman); font-size: .44rem;
+                     letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dk-soft);
+                     text-align: center; padding: 3px 2px; border-top: 1px solid #4a3a24; }
+      .uc-body { min-width: 0; flex: 1; }
+      .uc-name { margin: 0; font-size: .98rem; line-height: 1.25; color: var(--ink-dk);
+                 overflow-wrap: anywhere; }
+      .uc-name b { font-family: var(--display); font-weight: 500; letter-spacing: .01em; }
+      .uc-job { display: block; font-family: var(--roman); font-size: .55rem; font-weight: 600;
+                letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dk-soft);
+                margin-top: 2px; }
+      .uc-casting { display: inline-block; font-size: .72rem; font-style: italic;
+                    color: var(--warn-lit); margin-left: 6px; }
+      .uc-hp { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: .86rem;
+               font-variant-numeric: lining-nums tabular-nums; color: var(--ink-dk); }
+      /* The bar is a SECOND channel, never the only one: the numbers beside it are the
+         fact. No text sits on the fill — the contrast walk reads an element's own
+         background, not a child's varying-width overlay. */
+      .uc-bar { flex: 1; height: 7px; min-width: 60px; background: #0f0c07;
+                border: 1px solid #4a3a24; display: block; }
+      .uc-bar i { display: block; height: 100%; background: var(--c); }
+      .uc-stats { display: flex; flex-wrap: wrap; gap: 3px 12px; margin: 7px 0 0;
+                  font-family: var(--roman); font-size: .53rem; font-weight: 600;
+                  letter-spacing: .13em; text-transform: uppercase; color: var(--ink-dk-soft); }
+      .uc-stats b { font-family: var(--mono); font-size: .84rem; font-weight: 600;
+                    letter-spacing: 0; color: var(--ink-dk); margin-left: 4px;
+                    font-variant-numeric: lining-nums tabular-nums; }
+
       /* ── the marginal note (status / reason line) ────────────────────────── */
       .reason { margin-top: 14px; font-size: .95rem; font-style: italic; padding: 8px 0 0; border-top: 1px solid rgba(138,101,36,.34); color: var(--ink-faint); }
       .card.board .reason { border-top-color: #3a2d1c; color: var(--ink-dk-faint); }
@@ -488,9 +551,14 @@
       <!-- BATTLE -->
       <section id="screen-battle" data-testid="screen-battle" hidden>
         <div class="card board">
-          <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
-                  role="application"
-                  aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
+          <!-- The stage is the positioning context for the unit card, which sits in the
+               board's lower-left corner (owner's call, 2026-09-01). -->
+          <div class="board-stage">
+            <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
+                    role="application"
+                    aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
+            <div id="unit-card"></div>
+          </div>
           <div class="controls">
             <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
             <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
