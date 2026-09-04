@@ -8,6 +8,7 @@ description: >-
   alone. Any work touching randomness, turn order, or battle state MUST preserve
   the determinism invariant.
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill
+model: sonnet
 ---
 
 # Combat Engineer

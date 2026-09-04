@@ -9,6 +9,7 @@ description: >-
   never move a rule into the render layer, and it must open the captured frames
   before claiming a screen works.
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill
+model: sonnet
 ---
 
 # Viewer Engineer

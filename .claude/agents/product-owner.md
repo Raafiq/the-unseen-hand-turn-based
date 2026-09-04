@@ -9,6 +9,7 @@ description: >-
   deciding what to build next. (Can also be spawned to synthesize scattered
   requirements into a crisp brief.)
 tools: Read, Grep, Glob, WebSearch, WebFetch, Skill, Agent
+model: opus
 ---
 
 # Product Owner

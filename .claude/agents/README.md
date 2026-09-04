@@ -11,20 +11,24 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 
 ## Roster
 
-| Agent | Owns | Active | Key skills/docs |
-|---|---|---|---|
-| `product-owner` | Vision, requirements, prioritization, delegation, human liaison | now | all docs; `decision-record` |
-| `systems-designer` | Jobs/abilities/hybrids/economy/balance design | now | `game-design`, `brainstorm`, `grill-me`; `docs/02/03/07` |
-| `fft-fidelity` | FFT baseline accuracy; verify constants vs BMG/FFHacktics | now | `docs/01`; web research |
-| `reviewer` | Adversarial review of designs/specs/PRs | now | `grill-me`; acceptance criteria |
-| `combat-engineer` | Pure/headless sim core, scheduler, determinism | now | `sim-determinism-guard`; `docs/05` |
-| `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `src/render/CLAUDE.md`; `docs/10` |
-| `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | ADR-0028/0030; `index.html` tokens |
-| `docs-steward` | The written record — docs, ADRs, Acceptance Criteria, `docs/NEXT.md` — and auditing it for drift | now | `docs/` outranks the code; `decision-record` |
-| `release-engineer` | Branches, commits, PR bodies, CI to green, the Pages deploy | now | `pages.yml`; the check-runs API |
-| `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `docs/05` schemas, `docs/01` fidelity |
-| `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `docs/*` acceptance criteria |
-| `playtester` | Player-experience critique; spawn **2–3** with distinct personas | now | `docs/03` archetypes, `docs/00` |
+| Agent | Owns | Active | Seat | Key skills/docs |
+|---|---|---|---|---|
+| `product-owner` | Vision, requirements, prioritization, delegation, human liaison | now | `opus` | all docs; `decision-record` |
+| `systems-designer` | Jobs/abilities/hybrids/economy/balance design | now | `opus` | `game-design`, `brainstorm`, `grill-me`; `docs/02/03/07` |
+| `fft-fidelity` | FFT baseline accuracy; verify constants vs BMG/FFHacktics | now | `sonnet` | `docs/01`; web research |
+| `reviewer` | Adversarial review of designs/specs/PRs | now | `opus` | `grill-me`; acceptance criteria |
+| `combat-engineer` | Pure/headless sim core, scheduler, determinism | now | `sonnet` | `sim-determinism-guard`; `docs/05` |
+| `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `sonnet` | `src/render/CLAUDE.md`; `docs/10` |
+| `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | `opus` | ADR-0028/0030; `index.html` tokens |
+| `docs-steward` | The written record — docs, ADRs, Acceptance Criteria, `docs/NEXT.md` — and auditing it for drift | now | `sonnet` | `docs/` outranks the code; `decision-record` |
+| `release-engineer` | Branches, commits, PR bodies, CI to green, the Pages deploy | now | `sonnet` | `pages.yml`; the check-runs API |
+| `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `sonnet` | `docs/05` schemas, `docs/01` fidelity |
+| `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `sonnet` | `docs/*` acceptance criteria |
+| `playtester` | Player-experience critique; spawn **2–3** with distinct personas | now | `sonnet` | `docs/03` archetypes, `docs/00` |
+
+**Seat** is the agent's default `model:`, set by the routing table in `CLAUDE.md` (open
+judgment → `opus`, specced execution → `sonnet`). Override per spawn when the task is more
+open or more mechanical than the agent's usual work. Never `fable`.
 
 **Every agent is active.** The roster was written on 2026-07-30 against a repo with no
 code, and four of them still said "until the stack is locked" / "pre-code" / "play on
