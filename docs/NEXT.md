@@ -403,6 +403,7 @@ docs slice.**
 | The board moves on a commit | 2026-09-01 | ADR-0032 + amendment |
 | The stat plate, bottom-left over the canvas | 2026-09-01 | ADR-0033, AC-V22 |
 | The record audited; `check:counts` reached CI | 2026-09-01 | `91f9739`, `86f8319` |
+| Every subagent has a model seat; `check:agents` guards it | 2026-09-04 | `a32dbf2`, PR #54 |
 
 **AC-V21 is RESERVED for the motion layer** and held by a named line in `docs/10` §6. What
 is already asserted, verified 2026-09-01 — do not repeat any of it as a gap: the numeral's
@@ -418,6 +419,8 @@ explicitly aspirational. Route: `qe-tester` with `viewer-engineer`.
 any redesign: the fill stays opaque and flat.** `e2e/contrast.spec.ts` measures against a
 single declared stop and cannot sample a canvas, so a gradient or any alpha silently
 invalidates every contrast claim on the battle screen (AC-V22(g)).
+
+**Landmine from the seat slice (main, PR #54).** `.claude/.session-branch` was found reading `main` in a session whose designated branch was not `main`; the branch guard then blocks the push until it is fixed by hand (`echo <branch> > .claude/.session-branch`). Cause unknown, self-test passed — if it recurs, that is the second data point.
 
 **Cursor-follow is parked, not cancelled.** The seam is
 `unitCardHtml(state, look, focusUnitId?)`. No shipped page passes an id, so

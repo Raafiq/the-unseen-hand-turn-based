@@ -8,6 +8,7 @@ description: >-
   `src/render/campaign-data.ts` rather than under `data/`. Keeps content
   consistent with the design docs and the FFT fidelity contract.
 tools: Read, Edit, Write, Grep, Glob, Skill
+model: sonnet
 ---
 
 # Content Author

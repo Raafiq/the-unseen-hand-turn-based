@@ -92,6 +92,7 @@ Load-bearing because: a future agent asks before publishing from staging. No gua
 1. **Extract and filter** — gather candidate lessons from the signals above; drop everything that fails the load-bearing test.
 2. **Route** — walk each survivor down the ladder; stop at the first rung that fits.
 3. **Propose as diffs** — for each, show the target file and the exact lines to add or change (for guards and hooks: the actual rule/config, not a promise to write one), plus the one-sentence reason it's load-bearing. A concrete diff lets the user approve at a glance; "I'll update the debugging skill" doesn't.
+   **Say what each proposal is, in the chat, before any approval question.** A picker whose options are bare labels asks for blind sign-off; the owner had to run `/wait-what` to learn what they were approving (2026-09-04).
 4. **Apply on confirmation** — write the changes the user approves and leave the rest. If nothing clears the bar, say so plainly: "nothing here is worth persisting" is a valid and common result.
 5. **Mark it done** — `touch .claude/.retro-done` (from the repo root). The pre-PR hook checks this marker, so a PR can't be opened until a retrospective has actually run. Do this even when nothing was worth persisting — the retrospective happened.
 

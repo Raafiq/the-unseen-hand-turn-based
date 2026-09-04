@@ -9,6 +9,7 @@ description: >-
   not exist yet, not the default. Reports experience, not code fixes, and must
   say plainly that an agent's read is not a human's.
 tools: Read, Grep, Glob, Skill
+model: sonnet
 ---
 
 # Playtester
