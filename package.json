@@ -19,10 +19,11 @@
     "state": "vite-node scripts/gen-state.mts",
     "test:visual": "npm run build && playwright test",
     "gallery": "node scripts/build-gallery.mjs",
-    "check": "npm run typecheck && npm run lint && npm run check:rng && npm run check:handoff && npm run check:story && npm run test && npm run check:counts",
+    "check": "npm run typecheck && npm run lint && npm run check:rng && npm run check:handoff && npm run check:story && npm run test && npm run check:counts && npm run check:assets",
     "check:handoff": "bash scripts/check-handoff.sh",
     "check:story": "bash scripts/check-story-literals.sh",
-    "check:counts": "node scripts/check-counts.mjs"
+    "check:counts": "node scripts/check-counts.mjs",
+    "check:assets": "node scripts/check-assets.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
