@@ -1,4 +1,4 @@
-<!-- written-against: 3927c38 -->
+<!-- written-against: f7e8375 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -21,33 +21,39 @@ eyeballed, on images that are committed but that no test reads.
 
 ## OPEN — WAITING ON THE OWNER
 
-**Read this before telling the owner "nothing is pending".** Three Midjourney re-runs are
-open and nothing else needs them. Each carries the material to act on; **a deliverable the
-owner acts on is relayed verbatim, never summarised.**
+**Read this before telling the owner "nothing is pending".** Three things need the owner.
 
-| Run | Why it is open | Block to hand over |
-|---|---|---|
-| `wizard-female` | hood up. `wizard-f.png` has **0% background on its top row** (measured) — the hood is cut on three edges | `reframe-prompts.md` Block 4 |
-| `knight-female` | age. The 2026-09-02 age probe read **16–22**, not the mid-thirties asked for (eyeballed, owner + session) | Block 2 |
-| `priest-female` | age. `priest-f.png` reads **11–13** (eyeballed) | Block 3 |
+### 1. SQUASH-merge this branch. Not a normal merge. (The single most important instruction here.)
 
-**Each run is then outpainted at 3:4 in the Editor** — recipe in "The Midjourney method
-changed" below. Put `--ar 3:4` in the Editor's prompt box: the first outpaint omitted it
-and landed on 3:4 by luck, and 3:4 is what the frame now expects.
+Seven Midjourney 2×2 grids sit in this branch's **history** (`659ff71`, `1c3b841`), removed
+from HEAD. A normal merge carries their blobs into `main` permanently — ~59 MB git can never
+delta away. A squash-merge lands only the HEAD tree, so the grids never reach `main`.
+`check:assets` blocks re-adding a grid; it cannot undo a merge that already shipped one.
 
-**The framing language inside those three blocks is superseded.** Their **age and hood**
-edits still stand. Say both things when handing the blocks over; do not rewrite a block.
+### 2. Keep local copies of the two good knight grids.
 
-**Not open, so do not re-raise it:** ~~save the approved images~~ — six PNGs are committed
-under `docs/visual/portraits/reference/` (`archer-f`, `archer-f-4`, `knight-f`, `knight-m`,
-`priest-f`, `wizard-f`). ~~`knight-male` is never-run~~ — `knight-m.png` is in the tree.
-~~Four approved images~~ — **two**: only `archer-female` and `priest-female` were run with
-the style reference locked (owner, 2026-09-02).
+`knight-f-4-2` and `knight-m-4-2` — the chosen quadrants of the regenerated knight grids —
+were removed from git and live only on the owner's drive. They are the source the shipped
+knight crops get cut from. Lose them and the knight runs must be paid again.
 
-**Small and unassigned:** that reference directory has **no README**, so nothing in the
-tree says which image was run with the reference locked. That fact lives in the commit
-messages of `61a3036` and `4c8bfba` and in this file. Recording which reference a run
-loaded is the lesson `CLAUDE.md` took on 2026-09-02; the directory does not yet keep it.
+### 3. The remaining portrait runs — owner's paid Midjourney runs.
+
+| Run | Note |
+|---|---|
+| monk, thief, geomancer, summoner (both genders) | run from the original prompts, generated with headroom |
+| priest-female | age re-run first (`priest-f.png` reads **11–13**, eyeballed), then headroom |
+| wizard-female | hood-up first (`wizard-f.png` top row is **0% background**, measured — the hood is cut), then headroom |
+
+Prompts: `.claude/skills/midjourney/references/portrait-prompts.md` and `reframe-prompts.md`.
+**Their per-block framing wording is superseded by the monk recipe** (generate-with-headroom,
+below) — say so when handing them over; the age and hood edits in `reframe-prompts.md` still
+stand.
+
+**Done — do not re-raise:** archer (the locked style reference), knight-male and
+knight-female are generated and measured good (see the method section). `knight-female` is no
+longer an open age re-run; its age now reads **~16–19** (eyeballed). Which style reference
+each committed single used is recorded in
+`docs/visual/portraits/reference/README.md` — that gap is closed.
 
 ### Still open, unchanged — the turn plate under the damage numeral
 
@@ -121,6 +127,31 @@ for remote branches missing locally; any further retrospective edits.
 
 ---
 
+## LANDED 2026-09-04 — the asset-storage policy (`f7e8375`)
+
+**Media over 3 MiB cannot be committed.** `scripts/check-assets.mjs` (wired into `npm run
+check` as `check:assets`) fails on any tracked media file over the cap, reading the real
+tracked tree via `git ls-files`, not a curated list. A size cap, not a name pattern, so the
+next big asset (texture atlas, audio, video) is caught too. Mutation-verified by hand
+(staging a 8.9 MiB grid → exit 1; removing → exit 0); it is a standalone script, not a
+vitest test, so the counts are unchanged.
+
+Three homes for three kinds of file, recorded in
+`docs/visual/portraits/reference/README.md`:
+
+| Kind | Example | Home |
+|---|---|---|
+| **Shipped** — the game imports it | a ~15 KB WebP crop | `data/campaign/story/portraits/`, in git |
+| **Source** — the Midjourney master | a ~9 MB 2×2 grid | owner's drive or a GitHub Release — **never git** |
+| **Evidence** — a proof frame a PR links | a single upscale, a motion clip | `docs/visual/`, kept small |
+
+`.gitignore` covers `docs/visual/portraits/reference/*-4*.png` so `git add -A` cannot re-add
+a grid by reflex. Five single upscales stay under `reference/` as interim source
+(`archer-f`, `knight-f`, `knight-m`, `priest-f`, `wizard-f`), one anchor per job, all under
+the cap; **`archer-f.png` (the locked style reference) is kept for good**, the rest until the
+shipped WebP crops land. **Revisit triggers, recorded in the commit:** published site > 300
+MB, egress > 50 GB/month, or audio/video arriving.
+
 ## LANDED 2026-09-02 — six commits on `claude/next-work-slice-kh442z`
 
 | Commit | What landed |
@@ -184,32 +215,37 @@ contains no mention of aspect, 3:4 or 5:6). The spec ships with no doc behind it
 
 ---
 
-## THE MIDJOURNEY METHOD CHANGED — this is the part most likely to be lost
+## THE MIDJOURNEY METHOD — generate with headroom, then crop. Most likely to be lost.
 
-**Headroom is bought by outpainting in Midjourney's Editor, not by prompt wording.** Three
-paid runs went into wording that tried to buy space above the head — `waist-up`, a margin
-clause, a named-feature clause, a named-gap clause — and the best of them still put the
-headband on the top edge.
+**Headroom is generated in-prompt, not outpainted.** Generate at `--ar 3:4 --raw` with the
+**monk recipe** framing (waist-up, a margin clause in the second position, a named feature
+*above the crown*), then crop the chosen quadrant to the shipped frame. The monk recipe is
+the proven one in `reframe-prompts.md`; the per-block framing wording predates it.
 
-**The recipe, and it worked in one step:** open the image in the **Editor**, scale it down
-inside the canvas, prompt the fill with the **background colour**, put **`--ar 3:4`** in
-the prompt box, Submit Edit. Measured on the archer: palette held to **within 1/255**, no
-seam, and the face was not repainted. Result committed as
-`docs/visual/portraits/reference/archer-f-4.png`.
+**Outpaint was tried and dropped — do not retry it.** Outpainting the head-room in
+Midjourney's Editor measured worse: visible seams, and only ~20% of the added canvas came
+back as clean paper (the rest painted as hair). Generate-with-headroom needs no second paid
+step and has no seam.
 
-| Fact | Why it matters | Source |
-|---|---|---|
-| **Zoom Out is the wrong tool** | "Zooming out currently uses V6.1" even on newer versions, so it paints the new border in an **older model** than the set. It was recommended from memory before the page was read — the third flag in this repo's history to come back wrong that way. | `references/raw/zoom-out.html` |
-| **The Edit Model is the right tool** | Runs on V8.1/8.2 and is explicitly compatible with Style References; the Editor expands the canvas beyond the original frame. | `references/raw/edit-model.html` |
-| **`::` prompt weights do not exist in V8.2** | The page is badged "not supported in V7 or V8.2"; compatible versions end at 6.1. So `child::-1` as an age lever is **impossible**, and `project-prompts.md`'s "Not yet tried: prompt weights" is answered: not tried, not possible. | `references/raw/multi-prompts-weights.html` |
-| **`--no red` is exactly `red::-0.5`** | `--no` is a weak nudge, not a ban. That settles a standing puzzle: two of four wizard frames came back with lip colour despite `--no lipstick`, written up as "not reliably honoured". It is honoured; it is weak. | same page |
-| **The framing clause is dead** | The remaining portraits run from the **original** prompts and get framed afterwards. `reframe-prompts.md`'s five blocks are superseded **for framing only**; their age and hood edits stand. | `2ca76d1` |
+**The probe passed.** Regenerating knight-male and knight-female with the monk framing came
+back **7 of 8 frames clean** (measured), style holds against the archer reference
+(eyeballed), and knight-female's age now reads **~16–19** (eyeballed). Their grids are on the
+owner's drive; **no shipped crop is cut or wired yet**.
 
-**Drift to close, and it is prose:** none of `portrait-prompts.md`, `reframe-prompts.md` or
-`project-prompts.md` mentions the Editor or outpainting (grepped 2026-09-02).
-`portrait-prompts.md`'s PROVEN VARIANTS section still tells a reader to "decide the framing
-question first" and warns that running the blocks as they stand splits the set. That
-warning was true before the outpaint and reads live. Route to `docs-steward`.
+**Settings for every run:** `--ar 3:4 --raw`, four images per run, `archer-f.png` locked in
+the Style Reference slot. Recorded in `docs/visual/portraits/reference/README.md`.
+
+**Two prompt facts that still hold** (from the pages the owner pasted, `2ca76d1`):
+
+- **`::` prompt weights do not exist in V8.2** — `child::-1` as an age lever is impossible.
+- **`--no red` is exactly `red::-0.5`** — a weak nudge, not a ban, so `--no lipstick` is
+  honoured but weak (this is why two wizard frames still showed lip colour).
+
+**Drift to close, and it is prose (route to `docs-steward`):** `portrait-prompts.md`'s PROVEN
+VARIANTS still tells a reader to "decide the framing question first, then run" (line 82) and
+warns that the un-reframed blocks split the set. Under the monk recipe the framing question
+is settled; that warning reads live and is now stale. The per-block framing clauses should
+be replaced with the monk margin clause rather than each block deciding its own.
 
 **Raw HTML was saved rather than distilled notes, deliberately** — distilling is where the
 last two wrong flags entered. `docs.midjourney.com` is egress-blocked here; the owner
@@ -275,23 +311,25 @@ into a slice about aspect. Nothing asserts a plate-vs-board height relation.
 - **A frame/asset mismatch was invisible to the whole suite.** 3:4 art in the old ≈5:6
   frame clipped every head and passed 947 unit tests and 48 browser specs. That is why the
   aspect spec exists.
-- **Outpaint fill does not convert to headroom one-for-one.** Of **122 px** of canvas added
-  at the top, only **19–31 px** came back as clean paper; the rest became hair.
-- **3:4 does not create headroom.** It was adopted because it is what the art is in and it
-  stops the crop. Headroom is the outpaint's job.
+- **Outpaint fill does not convert to headroom one-for-one — this is why it was dropped.**
+  Of **122 px** of canvas added at the top, only **19–31 px** came back as clean paper; the
+  rest became hair. Headroom is now generated in-prompt (the monk recipe), not outpainted.
+- **3:4 alone does not create headroom.** The frame ratio stops the crop; the *framing* (the
+  monk margin clause) is what buys space above the head.
 - **The hood blue is a slate, not the party blue** — 8.0% of pixels, 22% mean / 31% peak
   saturation, against `#4f8cff` at 69%.
 - **Vite inlines an asset under 4 KB as a `data:` URI.** The placeholder is 1025 bytes, so
   a spec pinning a hashed filename flakes the day real art crosses the limit. Assert the
   shape loosely and lean on `naturalWidth`.
-- **A `.png` import fails `npm run typecheck`.** `src/vite-env.d.ts` declares `*.svg` only;
-  add a `*.png` block in the same commit as the first import.
+- **A non-SVG asset import fails `npm run typecheck`.** `src/vite-env.d.ts` declares `*.svg`
+  only; the shipped crops are **WebP** (asset policy), so add a `*.webp` block in the same
+  commit as the first import.
 
 ### The portrait wiring, when the art arrives
 
 | Step | Where |
 |---|---|
-| Crop each to the placeholder's size — now **96×128** | `data/campaign/story/portraits/<job>-<gender>.png`; keys are the prompt block titles |
+| Crop the chosen quadrant to the placeholder's size — now **96×128** — as **WebP** (asset policy, `f7e8375`) | `data/campaign/story/portraits/<job>-<gender>.webp`; keys are the prompt block titles |
 | Build the job × gender → key table | `PORTRAITS` in `src/render/campaign-data.ts` |
 | Resolve a unit to its key | `look()` in `src/render/game.ts`, which hard-codes `"placeholder"` today |
 
@@ -310,8 +348,10 @@ And **the placeholder stays**: it is the honest fallback, and the engine viewer'
 absent-portrait branch (`main.ts`'s `UNIT_META` carries neither job nor portrait) is what
 keeps that path exercised in shipped product.
 
-**Evidence images live in `docs/visual/portraits/reference/`, not under `data/`.** Nothing
-imports them, they are full-size originals, and `docs/visual/` is committed. Note what
+**Interim source images live in `docs/visual/portraits/reference/`, not under `data/`.**
+Five single upscales (one anchor per job, all under the 3 MiB cap) plus a `README.md`
+recording each one's prompt and locked style reference. Nothing imports them; `docs/visual/`
+is committed. The shipped crops go under `data/campaign/story/portraits/` as WebP. Note what
 would *not* happen under `data/`: the boot check reads `Object.keys(PORTRAITS)`, a
 hand-authored map, and there is no `import.meta.glob` in the tree — a stray file there is
 invisible to every check in the repo.
