@@ -14,10 +14,15 @@
 > looking like one game. Do not improve it, re-wrap it or trim it. **One deliberate
 > exception, see "The male tail" below.**
 >
+> **Read "PROVEN VARIANTS — run and judged 2026-09-02" below before running any block.**
+> Two blocks now have proven variants with different wording, and the framing one changed
+> the shot type. The sixteen blocks still carry the old close-up framing.
+>
 > Run these with the **archer style reference locked** in the Style Reference slot, and
 > with Raw + 5:6 set as defaults (the flags are still written out, so the blocks work
 > standalone). Run **knight-male and knight-female first**, judge them at 28 pixels wide,
-> and only then buy the other fourteen.
+> and only then buy the remaining twelve — `archer-female` and `priest-female` are
+> already in the set (see the block below).
 
 ## The male tail — one word deleted, and why
 
@@ -36,12 +41,171 @@ that prompt's `--no`, not re-wording the subject.
 ---
 
 > **The four `*-female` prompts below for knight, wizard, archer and priest are the
-> EXACT text the owner ran and approved on 2026-09-01**, recovered from the session
+> EXACT text the owner ran ~~and approved~~ on 2026-09-01**, recovered from the session
 > transcript. They replaced reconstructions. They are not stylistically uniform with
-> the twelve authored blocks — that is deliberate: they are the record of what
-> actually produced approved art, and rewriting them would discard the evidence.
+> the twelve authored blocks — that is deliberate: they are the record of what was
+> actually run, and rewriting them would discard the evidence. **The text claim still
+> holds and the blocks stay byte-locked. The ART claim does not: two of the four are
+> not in the set.**
+>
+> **Only two of the four carry approved art in the locked style — owner, 2026-09-02.**
+>
+> | Prompt | Run with the archer locked in Style Reference? | Its art |
+> |---|---|---|
+> | `archer-female` | it **is** the style reference | **approved, in the set** |
+> | `priest-female` | yes | **approved, in the set** |
+> | `knight-female` | **no — run before the lock** | **not in the set. Re-run it.** |
+> | `wizard-female` | **no — run before the lock** | **not in the set. Re-run it.** |
+>
+> ~~All four produced approved art.~~ Do **not** commit `knight-female` or
+> `wizard-female` output into `docs/visual/portraits/reference/` and do not treat
+> either image as signed off. What an unlocked run costs is measured, not guessed:
+> `project-prompts.md` ("The style reference IS needed") records the priest, run
+> without a reference, coming back as European devotional painting — unmistakably a
+> different illustrator from the archer — and snapping back into the set only once the
+> archer was locked. Re-run both prompts unchanged, with the archer locked.
+>
 > Note `knight-female` and `wizard-female` carry `soft rounded cheekbones`, which the
-> probe record warns reads young. It was approved anyway under the young-cast decision.
+> probe record warns reads young. It was accepted anyway under the young-cast decision.
+
+## PROVEN VARIANTS — run and judged 2026-09-02
+
+**Read this before any of the sixteen blocks below.** Two variants were run on
+2026-09-02. Their wording is not the wording in the blocks, and one of them is now the
+framing the set should use.
+
+**The sixteen blocks carry the OLD framing.** Every one of them opens with a close-up
+clause — `extreme close-up head portrait` (4 blocks) or `head and collar portrait` (12).
+The framing probe below passed with a different opening, `waist-up portrait`, plus a
+margin clause. **Running the remaining eleven blocks as they stand will split the set**:
+some portraits with air around the head, some with the head jammed into the edges.
+Decide the framing question first, then run.
+
+The sixteen blocks are byte-locked and are **not** edited here. Changing them is a
+separate decision; this section records what was run and what it proved.
+
+| Probe | What it changed | Result |
+|---|---|---|
+| A — `knight-female` | age words only, framing untouched | **PARTIAL** — read older, not old enough |
+| B — `monk-female` | framing only | **PASSED** — 3 of 4 frames |
+
+### Settings both runs used
+
+Recorded because the prompt text alone cannot say what the run was configured with —
+that is exactly how four "approved" images lost track of which reference was loaded.
+
+| Setting | Value |
+|---|---|
+| Style Reference slot | `docs/visual/portraits/reference/archer-f.png`, **locked, unchanged** |
+| Images per run | 4 |
+| Aspect ratio / model | `--ar 5:6 --raw`, written in each block |
+| `--no` list | as written in each block |
+
+### Probe A — `knight-female`, the AGE probe. Result: PARTIAL.
+
+Owner ran this. The block's subject read 12-14; this came back reading roughly **16-22**.
+Not the mid-thirties asked for.
+
+**The finding: `veteran` and `cheekbones defined under thin sun-worn skin` did NOT
+masculinise.** All four frames were unmistakably female. That matters because the record
+warns that severe words read male in this style, so the age fix was expected to cost
+gender legibility. It did not.
+
+Framing is unchanged from the shipped block — still a tight close-up. This run tested age
+only. Settings: archer style reference locked, 4 images.
+
+```
+extreme close-up head portrait of a grown adult woman in her mid thirties, a
+veteran female mercenary knight, bare-headed with no helmet, a long adult face,
+cheekbones defined under thin sun-worn skin, fine lines at the corners of her
+eyes and faint shadows beneath them, her face weathered and lined with a scar
+across one cheek, short dark hair, a plain riveted gorget with fine gold trim,
+deep woad-blue padded gambeson collar, calm steady gaze,
+Final Fantasy Tactics portrait art in the style of Akihiko Yoshida, anime character
+illustration for a Japanese tactics RPG, delicate dry ink line of varying weight, thin
+watercolour wash inside the line, lightly simplified features with restrained shading,
+muted desaturated ochre and dusty blue palette, three-quarter turn to the left with eyes
+toward the viewer, flat pale sand-tan background colour #e9d7a8
+--ar 5:6 --raw --no scenery, lens flare, glow, glamour, lipstick, chibi, man, beard, stubble, photorealism, photograph, border, frame, text, watermark
+```
+
+### Probe B — `monk-female`, the FRAMING probe. Result: PASSED.
+
+Owner ran this. Three of four frames showed real sand-tan background above and beside the
+head, the topknot complete and clear of the top edge, and the head no longer filling the
+frame. One of four clipped the topknot.
+
+**This is the first portrait this project has produced with negative space around the
+head** — the precondition for a readable silhouette at the turn-order rail's 28-pixel
+crop. Every earlier portrait lacked it: the top row of all five committed portraits is
+0-45% background, with the topmost ink at row 0. (That measurement was taken in the art
+pass on 2026-09-02; it is relayed here, not re-measured.)
+
+Settings: archer style reference locked, 4 images.
+
+```
+waist-up portrait of a woman framed loosely with a wide margin of empty flat
+background above her head and on both sides, a female bare-fisted monk in her
+twenties, her dark hair shaved close at the sides and drawn into one short
+topknot standing upright on the crown, the whole topknot well clear of the top
+edge of the picture, her whole face visible and lit, a sleeveless coarse undyed
+linen jacket with a wide open collar and an ochre cord knotted at the throat, a
+grown woman's face with a calm steady gaze and a slender neck,
+Final Fantasy Tactics portrait art in the style of Akihiko Yoshida, anime character
+illustration for a Japanese tactics RPG, delicate dry ink line of varying weight,
+thin watercolour wash inside the line, lightly simplified features with restrained
+shading, muted desaturated ochre and dusty blue palette, aloof distant expression,
+three-quarter turn to the left with eyes toward the viewer, flat pale sand-tan
+background colour #e9d7a8
+--ar 5:6 --raw --no scenery, lens flare, glow, glamour, lipstick, chibi, man, beard, stubble, photorealism, photograph, border, frame, text, watermark
+```
+
+### The framing recipe, isolated
+
+Apply to any job. It is one instruction said three ways, which is this record's own
+technique for something the model resists — and the crop was resisted for eight runs.
+
+| Part | The words | Job |
+|---|---|---|
+| 1. Shot type | `waist-up portrait` | replaces `extreme close-up` / `head and collar` |
+| 2. Margin clause | `framed loosely with a wide margin of empty flat background above her head and on both sides` | asks for the empty space directly |
+| 3. Named feature | `the whole topknot well clear of the top edge of the picture` | names the one thing that gets clipped |
+
+Part 3 changes per job: the straw hat for `geomancer-female`, the horns for
+`summoner-male`, the cap point for `wizard-male`. Name the tallest silhouette feature
+that block already promises, and say it must clear the top edge.
+
+### ~~STOP FIGHTING THE CROP~~ — superseded 2026-09-02
+
+`project-prompts.md` records "Framing instructions are not worth a paid run", earned when
+eight runs ignored `cropped at the collarbone` and `fills the frame edge to edge`.
+**Probe B falsifies the general form.** Those were single passive clauses buried mid-prompt.
+A shot type in the first clause, plus a margin clause, plus the named feature, is honoured
+3 times in 4. The old rule stands only for a one-off crop instruction, which is still not
+worth a run.
+
+### Two words to avoid
+
+`narrow tired gaze` / `narrow tired eyes` **reads male in this style** and was nearly put
+back into a draft on 2026-09-02. It is listed with `hard set jaw`, `aloof distant
+expression` and `in her forties` under "Severe words read male" in `project-prompts.md`.
+
+`calm steady gaze` is the safe alternative and is what **both** passing runs above used.
+
+Note the shipped `knight-female` block still contains `a narrow tired gaze`. It is
+byte-locked and stays; Probe A is the variant that replaced it.
+
+### What this does not settle
+
+- **Eleven blocks are un-reframed** — monk-female and knight-female have proven variants;
+  archer-female and priest-female are already art in the set; the other twelve blocks
+  (including the two whose art must be re-run) have never been run with the new framing.
+- **Age is unsolved.** Probe A moved 12-14 to 16-22. Nothing yet produces a mid-thirties face.
+- **3 of 4 is the measured yield**, not 4 of 4. Budget a reroll per job.
+- **The 28-pixel comparison has still not been run.** Negative space is the precondition
+  for a readable silhouette, not proof of one.
+
+---
 
 ## knight
 

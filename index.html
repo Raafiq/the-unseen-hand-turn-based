@@ -62,6 +62,29 @@
         --roman: "Cinzel", "Trajan Pro", Georgia, serif;
         --display: "Grenze Gotisch", "Palatino Linotype", Palatino, serif;
 
+        /* ── the portrait frame's aspect, in ONE place ──────────────────────
+           EVERY portrait frame on this page derives its height from this, so a
+           frame and the art it holds cannot drift apart one site at a time.
+           There were SIX sizing sites and a half-landed ratio change is worse
+           than none: nothing in the suite could see a frame/asset mismatch, and
+           a build with 3:4 art in the old ≈5:6 frame clipped 5.2% off every
+           head with 947 tests and 48 browser specs green.
+
+           WHY 3/4 EXACTLY, AND NOT THE DELIVERED 0.7468. Midjourney's "3:4" at
+           this size comes back 944 x 1264 = 0.74684 — its own rounding, not a
+           ratio anyone chose. `object-fit: cover` in a true 3:4 frame therefore
+           trims 0.42% of that art's height, about 2.7px of 1264 at each edge:
+           invisible, and an order of magnitude below anything that touches a
+           face. Locking the CSS to one delivery's rounding would freeze a
+           vendor artifact that changes with the next model or upscale, and it
+           costs the integer frame heights (72 -> 96, 96 -> 128) that keep the
+           hairline rules crisp. So the FRAME is the authority and the art is
+           allowed to be a fraction off it — which is what the tolerance in
+           `e2e/campaign.spec.ts`'s frame/asset check is sized for.
+           `data/campaign/story/portraits/placeholder.svg` is authored to this
+           same ratio; if you change the value here, re-author that too. */
+        --portrait-ratio: 3 / 4;
+
         /* Blotching, ALREADY masked to the margins inside the SVG itself. A sheet
            stained edge to edge makes every line of text sit on a different tone;
            holding it to the edges keeps the material reading as age, not noise.
@@ -195,8 +218,14 @@
       /* ── legend / status / timeline (board chrome — all on the dark card) ─── */
       .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: .86rem; color: var(--ink-dk-faint); }
       .legend span { display: inline-flex; align-items: center; gap: 7px; }
+      /* NO COLOUR LIVES HERE. Every swatch's fill (and the ring's border) is painted by
+         `paintLegend()` in `src/render/game.ts` from the very constants `draw` is
+         handed, so the legend cannot quote a colour the board does not use. It did for
+         the whole life of painted ground: amber here, pale blue on the field.
+         `currentColor` is only the pre-script fallback — the battle screen does not
+         exist without the script. */
       .legend .sw { width: 11px; height: 11px; flex: none; display: inline-block; border: 1px solid rgba(0,0,0,.4); }
-      .legend .sw.ring { border: 2px solid #e2a948; background: rgba(226,169,72,.27); border-radius: 50%; }
+      .legend .sw.ring { border: 2px solid currentColor; background: none; border-radius: 50%; }
 
       #status { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-left: auto; font-family: var(--roman); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dk-soft); }
       #status b { color: var(--ink-dk-faint); font-weight: 600; }
@@ -245,10 +274,17 @@
       .unit-card[data-state="none"] { width: 272px; }
       .uc-empty { margin: 0; font-size: .84rem; font-style: italic; color: var(--ink-dk-soft); }
       /* Sized by the stylesheet, not by the asset, so real art dropped in later
-         inherits the frame instead of dictating it — as `.portrait` already is. */
+         inherits the frame instead of dictating it — as `.portrait` already is.
+         WIDTH IS 100%, NOT 72px: `box-sizing: border-box` makes the figure's content
+         box 70px wide once its 1px rules are taken out, so an image declared at the
+         figure's OUTER width stuck 1px past the right rule in every plate frame ever
+         shipped. A percentage cannot overflow its own frame. Height comes from
+         `--portrait-ratio` rather than a second literal, so this frame cannot drift
+         away from the scene's. */
       .uc-portrait { margin: 0; width: 72px; flex: none; border: 1px solid var(--border-strong);
                      background: #12100a; }
-      .uc-portrait img { display: block; width: 72px; height: 86px; object-fit: cover; }
+      .uc-portrait img { display: block; width: 100%; height: auto;
+                         aspect-ratio: var(--portrait-ratio); object-fit: cover; }
       .uc-portrait figcaption.pending { font-family: var(--roman); font-size: .44rem;
                      letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dk-soft);
                      text-align: center; padding: 3px 2px; border-top: 1px solid #4a3a24; }
@@ -413,11 +449,16 @@
       .scene-body[data-art="no"] > .portrait { display: none; }
       .portrait[data-state="none"] { visibility: hidden; }
       /* The frame is sized in the stylesheet, not by the asset, so real art dropped in
-         later inherits the layout instead of dictating it. */
+         later inherits the layout instead of dictating it — which `height: auto` alone
+         did NOT do: it made the asset dictate the frame, so a differently-shaped file
+         silently changed this column's height. `aspect-ratio` is what makes the
+         comment above true, and `cover` is what keeps the frame filled when the art is
+         a fraction off it. */
       .portrait { margin: 0; width: 96px; flex: none;
                   border: 1px solid var(--border-strong);
                   box-shadow: inset 0 0 0 2px rgba(234,218,174,.3); }
-      .portrait img { display: block; width: 100%; height: auto; }
+      .portrait img { display: block; width: 100%; height: auto;
+                      aspect-ratio: var(--portrait-ratio); object-fit: cover; }
       /* Real DOM text, deliberately: the same words are drawn inside the SVG, but text
          in an SVG is neither announced by a screen reader nor measurable by
          contrast.spec.ts. This caption is keyed on the asset being the placeholder, so
@@ -425,6 +466,9 @@
       .portrait figcaption.pending { font-family: var(--roman); font-size: .52rem;
                   letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
                   text-align: center; padding: 5px 3px; border-top: 1px solid var(--border); }
+      /* `grid-template-columns: auto 1fr` above means THE PORTRAIT COLUMN'S WIDTH IS
+         THE FRAME'S WIDTH — the two numbers below are the only thing setting it, and
+         the height follows from `--portrait-ratio`. Nothing else here encodes a size. */
       @media (max-width: 620px) {
         .scene-body { grid-template-columns: 1fr; }
         .portrait { width: 76px; }
@@ -568,11 +612,12 @@
           </div>
           <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
           <div id="timeline" class="timeline" data-testid="timeline"></div>
+          <!-- Swatch colours are set from the board's own theme by `paintLegend()`. -->
           <div class="legend" data-testid="legend">
-            <span><i class="sw" style="background:#4f8cff"></i>Your party</span>
-            <span><i class="sw" style="background:#e2603c"></i>Enemies</span>
-            <span><i class="sw" style="background:#e2a948"></i>Where the active unit can walk</span>
-            <span><i class="sw ring"></i>Whose turn it is</span>
+            <span><i class="sw" data-sw="party"></i>Your party</span>
+            <span><i class="sw" data-sw="foe"></i>Enemies</span>
+            <span><i class="sw" data-sw="move"></i>Where the active unit can walk</span>
+            <span><i class="sw ring" data-sw="ring"></i>Whose turn it is</span>
           </div>
         </div>
         <div class="cols">

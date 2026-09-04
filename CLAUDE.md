@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 947 tests, 47 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 947 tests, 49 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -269,7 +269,13 @@ put Fable in every specialist.
     A specialist later found they existed nowhere in the repo and **reconstructed them
     from prose notes** — text the owner would have paid to run. They survived only in the
     transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
-    the settings: verbatim, into a file, immediately.
+    the settings: verbatim, into a file, immediately. **And record the SETTINGS, not only
+    the prompt — the same rule, one level up.** Two of those four (knight-female,
+    wizard-female) turned out on 2026-09-02 to predate the style-reference lock and are
+    **not** in the set; only the archer and the priest are. The prompts were recovered
+    intact and still could not tell anyone that, because which reference was loaded is a
+    setting and nobody wrote it down. Six sites then read "four approved images" as
+    "four usable portraits". Record what the run was configured with.
   - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
     A status reply did exactly that with three asks open. Open asks need ONE home
     you read before answering "what do you need from me". `docs/NEXT.md`'s

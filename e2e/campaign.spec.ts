@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
+import { FIELD_THEME, RING_FILL_ALPHA } from "../src/render/iso.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
 // Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
@@ -449,6 +450,111 @@ test("learnability: the board explains itself and the buttons drop engine jargon
 });
 
 /**
+ * THE LEGEND MUST QUOTE THE PAINT (defect found 2026-09-01, fixed 2026-09-02).
+ *
+ * `index.html` told every player that the tiles the active unit may walk to are AMBER
+ * (`#e2a948`), for the whole life of painted ground. The campaign board paints them
+ * `FIELD_THEME.highlight`, a pale blue — `game.ts` hands `draw` that theme whenever the
+ * encounter carries terrain, which is all five battles. The amber is `DARK_THEME`'s: it
+ * is right on `/viewer.html` and on nothing here. The turn-ring swatch was amber too,
+ * against a gold ring. It survived because NOTHING in the tree compared a legend swatch
+ * to the theme it describes; the only test that mentioned the legend asserted its text.
+ *
+ * WHAT EACH HALF REACHES THROUGH TO — the two rows fail differently, so they are proved
+ * differently:
+ *
+ *   - move / ring: the swatch's COMPUTED colour against the theme object the renderer is
+ *     handed. `iso.test.ts` holds the other link of that chain — that `theme.highlight`
+ *     is the fill which actually reaches the canvas for a range tile.
+ *   - party / foe: the swatch against the CANVAS PIXELS. A unit token is an opaque fill,
+ *     so its colour survives to the frame and can be counted. Comparing those two rows
+ *     to `TEAM_COLOR` instead would be an A/B between two callers of the same helper,
+ *     which cannot see the helper being wrong; a pixel can.
+ *
+ * DELIBERATELY NOT ASSERTED: the move swatch against a pixel. `FIELD_THEME.highlight` is
+ * 70% alpha over six painted ground tones, so no raw value of it exists anywhere in the
+ * frame — `iso.test.ts`'s recording context is where that colour is checked.
+ *
+ * The mutation this is written against: put `#e2a948` back on either swatch, rebuild,
+ * and the matching expect goes red. Run 2026-09-02.
+ */
+test("legend: every swatch is the colour the board actually paints", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // A settled board: no hit flash whitening a token, no ring mid-sweep.
+  await settleMotion(page);
+
+  const seen = await page.evaluate(
+    (want) => {
+      // Both sides of every comparison are normalized by the SAME engine, so the test
+      // never has to predict how Chrome serializes an alpha.
+      const probe = document.createElement("div");
+      document.body.append(probe);
+      const norm = (css: string): string => {
+        probe.style.backgroundColor = "";
+        probe.style.backgroundColor = css;
+        return getComputedStyle(probe).backgroundColor;
+      };
+      const sw = (key: string): CSSStyleDeclaration => {
+        const node = document.querySelector(`[data-testid="legend"] [data-sw="${key}"]`);
+        if (node === null) throw new Error(`no legend swatch "${key}"`);
+        return getComputedStyle(node);
+      };
+      const swatch = {
+        party: sw("party").backgroundColor,
+        foe: sw("foe").backgroundColor,
+        move: sw("move").backgroundColor,
+        ringFill: sw("ring").backgroundColor,
+        ringEdge: sw("ring").borderTopColor,
+      };
+      const wanted = {
+        move: norm(want.highlight),
+        ringFill: norm(want.active + want.ringAlpha),
+        ringEdge: norm(want.active),
+      };
+      probe.remove();
+
+      // How many pixels of the live board are exactly this colour?
+      const canvas = document.querySelector("canvas[data-testid=grid]") as HTMLCanvasElement;
+      const px = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+      const count = (css: string): number => {
+        const m = /^rgba?\((\d+), (\d+), (\d+)/.exec(css);
+        if (m === null) throw new Error(`unparsable swatch colour ${css}`);
+        const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        let n = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i] === r && px[i + 1] === g && px[i + 2] === b && px[i + 3] === 255) n += 1;
+        }
+        return n;
+      };
+      return {
+        swatch,
+        wanted,
+        onBoard: { party: count(swatch.party), foe: count(swatch.foe) },
+      };
+    },
+    { highlight: FIELD_THEME.highlight, active: FIELD_THEME.active, ringAlpha: RING_FILL_ALPHA },
+  );
+
+  // The defect itself, and its sibling.
+  expect(seen.swatch.move).toBe(seen.wanted.move);
+  expect(seen.swatch.ringEdge).toBe(seen.wanted.ringEdge);
+  expect(seen.swatch.ringFill).toBe(seen.wanted.ringFill);
+
+  // Friend and foe: the legend names two colours and the board wears both of them.
+  // MEASURED on battle one, 2026-09-02: 1033 party pixels (two tokens) and 518 foe (one).
+  // The floor is a thirteenth of a single token — clear of antialiasing, nowhere near a
+  // knife edge, and 0 the moment a swatch names a colour the board does not paint
+  // (mutation-checked with the party swatch one bit off, `#4f8cfe`).
+  expect(seen.swatch.party).not.toBe(seen.swatch.foe);
+  expect(seen.onBoard.party).toBeGreaterThan(40);
+  expect(seen.onBoard.foe).toBeGreaterThan(40);
+});
+
+/**
  * The playtest log is WIRED (docs/plans step B1) — the A/B that separates a live
  * recorder from a dead one.
  *
@@ -777,6 +883,124 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
   await page.getByTestId("scene-story-all").click();
   await expect(figure).toBeHidden();
   await expect(img).toHaveCount(0);
+});
+
+/**
+ * THE FRAME AND THE ASSET IN IT, COMPARED — the one check nothing here could make.
+ *
+ * A build with 3:4 portrait art dropped into the old ≈5:6 frames passed 947 unit tests
+ * and 48 browser specs while `object-fit: cover` clipped 5.2% off the top of every head.
+ * Nothing in this repo could see it: the frames are CSS numbers, the art is a file, and
+ * no test compared them. Every other portrait assertion here ("an img exists", "the
+ * caption tracks the key", "naturalWidth > 0") is satisfied by a badly cropped face.
+ *
+ * SO THE ASSERTION REACHES THROUGH TO TWO INDEPENDENT SOURCES. The frame comes from
+ * `getBoundingClientRect()` — what the browser actually laid out, after the cascade, the
+ * breakpoint and `box-sizing` — and the aspect it is compared against comes from
+ * `naturalWidth/naturalHeight`, which is read out of the decoded FILE. Comparing two CSS
+ * numbers to each other would prove only that they agree with themselves.
+ *
+ * ALL THREE FRAMES, because a check on one reads as a check on the set and there were
+ * SIX sizing sites. The scene portrait at full width, the same frame past the 620px
+ * breakpoint (a separate width, and the grid column it sits in IS that width), and the
+ * battle plate's, which is the only frame that CROPS and therefore the only one where a
+ * mismatch eats a face rather than moving a box.
+ *
+ * THE TOLERANCE IS 2%, and it is sized to separate two specific real numbers rather than
+ * to be lenient. Midjourney returns "3:4" as 944 x 1264 = 0.7468, a 0.42% miss from the
+ * frame it is going into, which trims about 2.7px off each edge of a 1264px file — under
+ * the bound, deliberately, because the frame is the authority (see `--portrait-ratio` in
+ * index.html). The defect being closed is the old 72 x 86 frame against that same art:
+ * 0.8372 vs 0.7468 is a 12.1% miss, six times the bound. Nothing between 2% and 12%
+ * is a shape anyone would author on purpose.
+ */
+const PORTRAIT_ASPECT_TOLERANCE = 0.02;
+
+/** What the browser laid out, and what the decoded file says it is. Two sources. */
+async function frameFacts(
+  img: Locator,
+): Promise<{ w: number; h: number; natW: number; natH: number; left: number; right: number }> {
+  return await img.evaluate((el) => {
+    const i = el as HTMLImageElement;
+    const r = i.getBoundingClientRect();
+    return { w: r.width, h: r.height, natW: i.naturalWidth, natH: i.naturalHeight, left: r.left, right: r.right };
+  });
+}
+
+/** Assert one laid-out frame carries its asset without squashing or cropping it. */
+async function expectFrameMatchesAsset(img: Locator, where: string): Promise<void> {
+  // Decoding is async even for a data: URI, and an undecoded image reports
+  // naturalWidth 0 — which would make every ratio below 0/0 and pass. Wait for the
+  // file to have a size before reading it.
+  await expect
+    .poll(async () => await img.evaluate((el) => (el as HTMLImageElement).naturalWidth), {
+      message: `${where}: the asset never decoded`,
+    })
+    .toBeGreaterThan(0);
+
+  const f = await frameFacts(img);
+  // Guard the guard: 0/0 would sail through every ratio comparison below.
+  expect(f.natW, `${where}: the asset has no intrinsic width — it did not decode`).toBeGreaterThan(0);
+  expect(f.natH, `${where}: the asset has no intrinsic height`).toBeGreaterThan(0);
+  expect(f.w, `${where}: the frame laid out at zero width`).toBeGreaterThan(0);
+  expect(f.h, `${where}: the frame laid out at zero height`).toBeGreaterThan(0);
+
+  const frame = f.w / f.h;
+  const asset = f.natW / f.natH;
+  const drift = Math.abs(frame / asset - 1);
+  expect(
+    drift,
+    `${where}: frame ${f.w.toFixed(2)}x${f.h.toFixed(2)} is ${frame.toFixed(4)} but the ` +
+      `asset is ${f.natW}x${f.natH} = ${asset.toFixed(4)} — ${(drift * 100).toFixed(1)}% out, ` +
+      `so cover is cropping (or a fit is squashing) it`,
+  ).toBeLessThanOrEqual(PORTRAIT_ASPECT_TOLERANCE);
+}
+
+test("portraits: every frame matches the aspect of the asset it holds", async ({ page }) => {
+  // Arithmetic on the bound itself, so "2%" cannot quietly become a number that accepts
+  // the very defect this test names. Not evidence about the page — evidence about the
+  // threshold, which is the half a reader cannot check by eye.
+  const delivered = 944 / 1264; // what Midjourney actually returns for "3:4"
+  expect(Math.abs(0.75 / delivered - 1)).toBeLessThan(PORTRAIT_ASPECT_TOLERANCE);
+  expect(Math.abs(72 / 86 / delivered - 1)).toBeGreaterThan(PORTRAIT_ASPECT_TOLERANCE);
+
+  await page.goto("/");
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("screen-scene")).toBeVisible();
+
+  const sceneImg = page.getByTestId("scene-story-portrait").locator("img");
+  await expect(sceneImg).toHaveCount(1);
+  await expectFrameMatchesAsset(sceneImg, "scene portrait at 1000px");
+
+  // Past the 620px breakpoint the frame is set by a SECOND width. A ratio change that
+  // landed in one rule and not the other is exactly the half-landed case that is
+  // invisible otherwise.
+  await page.setViewportSize({ width: 360, height: 780 });
+  await expectFrameMatchesAsset(sceneImg, "scene portrait at 360px");
+  await page.setViewportSize({ width: 1000, height: 780 });
+
+  // The battle plate — the only frame with `object-fit: cover`, so the only one where a
+  // mismatch is a cropped face rather than a taller box.
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  const plateFigure = page.locator("#unit-card .uc-portrait");
+  const plateImg = plateFigure.locator("img");
+  await expect(plateImg).toHaveCount(1);
+  await expectFrameMatchesAsset(plateImg, "battle plate portrait");
+
+  // AND IT SITS INSIDE ITS OWN RULES. `box-sizing: border-box` leaves the figure a 70px
+  // content box behind its 1px rules, so an image declared at the figure's outer 72px
+  // hung 1px past the right rule — shipped, in every plate frame, until this test.
+  const figure = await plateFigure.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right };
+  });
+  const img = await frameFacts(plateImg);
+  // Inside the RULE, not merely inside the element: the bound is the figure's edge moved
+  // in by its 1px border, so a frame that reaches the outer edge is already a failure.
+  expect(img.left, "the plate portrait overlaps or crosses its left rule").toBeGreaterThanOrEqual(figure.left + 0.5);
+  expect(img.right, "the plate portrait overlaps or crosses its right rule").toBeLessThanOrEqual(figure.right - 0.5);
 });
 
 /**

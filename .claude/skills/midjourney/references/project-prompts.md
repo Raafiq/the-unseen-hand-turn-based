@@ -97,7 +97,9 @@ Fantasy was the runner-up and is not to be reopened without a new decision.
 **Why FFT won:** its muted ochre and dusty-blue palette is native to the game's
 parchment shell (ADR-0028), where Granblue's saturated jewel tones fight it on
 every screen. It also held together across two very different jobs — a hooded
-wizard and a headbanded archer read as the same game.
+wizard and a headbanded archer read as the same game. **Both of those were
+pre-lock runs**: they are evidence for the style choice, not art in the set (see
+"Which runs predate the lock" below).
 
 **The one word that unlocked it:** `anime character illustration for a Japanese
 tactics RPG`. Two earlier FFT attempts failed in opposite directions without it —
@@ -128,7 +130,10 @@ background colour #e9d7a8
   This is also the 28-pixel fix: a portrait that is 70% cloth is a blob at rail size.
 - **Severe words read male in this style.** `hard set jaw`, `narrow tired eyes`,
   `aloof distant expression` and `in her forties` each pushed masculine. Prefer
-  `calm steady gaze`, `soft rounded cheekbones`, `a slender neck`.
+  `calm steady gaze`, `soft rounded cheekbones`, `a slender neck`. **`calm steady gaze`
+  is what both 2026-09-02 probes used, and both came back unmistakably female.** The
+  age probe also showed `veteran` and `cheekbones defined under thin sun-worn skin` do
+  **not** push male, so ageing a face need not cost gender legibility.
 - **`--no lipstick` is not reliably honoured.** Two of four wizard frames came back
   with visible lip colour. Reroll or crop; it is not worth a prompt change.
 - **Give every job a distinct headgear silhouette.** Hood, headband, bare, cap. At
@@ -141,6 +146,13 @@ A control run proved it. The priest prompt was run **without** a style reference
 drifted badly: the same style tail produced European devotional painting, soft and
 nearly ink-free, unmistakably a different illustrator from the archer. Re-run with an
 **archer frame locked in the Style Reference slot**, it snapped back into the set.
+
+**WHICH RUNS PREDATE THE LOCK — owner, 2026-09-02.** `knight-female` and
+`wizard-female` were generated **before** the archer went into the Style Reference
+slot. Only the **archer** (which is the reference) and the **priest** were run with it
+locked, and only those two are art in the set. Both pre-lock frames must be re-run
+before their output is used anywhere; the prompt text is the record, the image is not.
+Same table in `portrait-prompts.md`'s header.
 
 **What the reference carries, and what it does not** — this matches the official
 Style Reference page and was confirmed here:
@@ -187,9 +199,14 @@ headwear. Do not spend runs re-wording a helmeted prompt.
 
 - **Word position matters.** Midjourney weights the start of a prompt more heavily.
   Gender belongs in the first clause.
-- **STOP FIGHTING THE CROP.** Every run ignored "cropped at the collarbone" and
-  "fills the frame edge to edge". It does not matter — we crop to 96x116 ourselves,
-  for free. Framing instructions are not worth a paid run.
+- **~~STOP FIGHTING THE CROP.~~ PARTLY SUPERSEDED 2026-09-02.** Every run ignored
+  "cropped at the collarbone" and "fills the frame edge to edge", and the rule read
+  ~~"framing instructions are not worth a paid run"~~. **A framing probe on 2026-09-02
+  passed, 3 frames of 4.** What changed: the shot type moved into the **first clause**
+  (`waist-up portrait`), plus a margin clause, plus the one tall feature named as having
+  to clear the top edge — the same instruction three ways. The old rule now holds only
+  for a single passive crop clause buried mid-prompt; that is still not worth a run.
+  Recipe and the run text: `portrait-prompts.md`, "PROVEN VARIANTS".
 
 ### The prompt that worked
 
@@ -225,7 +242,14 @@ Official best practice: with a reference locked, style words in the prompt fight
 The probe's "anime cel illustration, clean thin warm-brown ink line, three flat
 shading tones" does **not** carry over.
 
-### Template
+### Template — NEVER USED. Kept as record only.
+
+**`head fills two thirds of the frame` is in NONE of the sixteen shipped blocks.** It
+survives only here and in the three Stage-1 probe blocks above, all superseded. The
+sixteen blocks in `portrait-prompts.md` are driven by their opening clause instead:
+`extreme close-up head portrait` (4 blocks) or `head and collar portrait` (12). That is
+the real framing lever, and the 2026-09-02 probe replaced it with `waist-up portrait`
+plus a margin clause. Do not build a new prompt from this template.
 
 ```
 head and collar portrait of a <SUBJECT>, <COSTUME>, weathered and scarred,

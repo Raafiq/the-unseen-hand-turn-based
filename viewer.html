@@ -45,10 +45,15 @@
                    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
                    box-shadow: 0 8px 22px rgba(0,0,0,.5); }
       .uc-empty { margin: 0; font-size: .82rem; color: var(--ink-faint); }
-      .uc-portrait { margin: 0; width: 72px; flex: none; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-      .uc-portrait img { display: block; width: 72px; height: 86px; object-fit: cover; }
-      .uc-portrait figcaption.pending { font-family: var(--mono); font-size: .5rem; letter-spacing: .06em;
-                     text-transform: uppercase; color: var(--ink-faint); text-align: center; padding: 3px 2px; }
+      /* NO `.uc-portrait` RULES HERE, DELIBERATELY. This page's `UNIT_META` carries no
+         portrait (see the note above — that absence is the point of the card being
+         here at all), so `statCardHtml` emits no <figure> and every rule for one was
+         dead styling — a 72 x 86 frame that nothing draws. Left behind, it would have
+         sat at the placeholder's old ≈5:6 while the campaign page moved to 3:4, and no
+         screenshot, spec or eye could ever have caught the difference. One page owns
+         the portrait frame now, and it is index.html. If a portrait is ever given to a unit here, it will
+         render unstyled at the asset's own size, which is loud rather than quietly
+         wrong; style it then, off index.html's `--portrait-ratio`. */
       .uc-body { min-width: 0; flex: 1; }
       .uc-name { margin: 0; font-size: .95rem; line-height: 1.25; overflow-wrap: anywhere; }
       .uc-job { display: block; font-family: var(--mono); font-size: .6rem; letter-spacing: .08em;
