@@ -8,6 +8,7 @@ description: >-
   doc is not untidiness, it is a wrong instruction to every future agent. Writes
   prose only; never edits code, data or tests.
 tools: Read, Edit, Write, Grep, Glob, Bash, Skill
+model: sonnet
 ---
 
 # Docs Steward

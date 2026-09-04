@@ -8,6 +8,7 @@ description: >-
   non-trivial or when someone asks "is this actually good / what am I missing".
   Reports findings ranked by severity; does not fix.
 tools: Read, Grep, Glob, Bash, Skill
+model: opus
 ---
 
 # Reviewer (adversarial)

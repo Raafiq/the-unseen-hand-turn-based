@@ -9,6 +9,7 @@ description: >-
   frames, mockups and **Midjourney prompts the owner can run** — the owner
   hands the generated images back. It does not edit shipped source.
 tools: Read, Write, Bash, Grep, Glob, Skill
+model: opus
 ---
 
 # Art Director
