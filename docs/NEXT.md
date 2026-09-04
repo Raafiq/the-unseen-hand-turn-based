@@ -1,4 +1,4 @@
-<!-- written-against: 61c7bb7 -->
+<!-- written-against: a32dbf2 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -363,6 +363,22 @@ slice. **AC-V19's wording is deliberately untouched** by the stat-plate slice, w
 AC-V22 and the AC-V21 reservation and changed nothing else in §6.
 
 ---
+
+## LANDED 2026-09-04 — every subagent has a seat
+
+`CLAUDE.md` "Model routing" names the rule; every file in `.claude/agents/` carries a
+`model:` default (open judgment → `opus`, specced execution → `sonnet`); `npm run
+check:agents` fails the build on a missing seat or on `fable`. Aliases, not pinned IDs:
+post-release research found no measured drift of a released model, and Opus 4.8 carries
+an open ~1.5% broken-tool-call rate. **Unverified:** that the `model:` line is honoured
+at spawn — three Claude Code issues say it can be ignored, and subagents run undercover
+here, so it cannot be measured from this sandbox.
+
+**Landmine.** `.claude/.session-branch` read `main` in a session whose designated branch
+was not `main`, and the branch guard blocked the push until it was corrected by hand
+(`echo <branch> > .claude/.session-branch`). Where the wrong value came from is
+**unknown** — the record hook writes HEAD at startup and self-tested correctly. If it
+recurs, that is the second data point; diagnose then, not before.
 
 ## LANDED 2026-09-01 — the stat plate (ADR-0033, `docs/10` AC-V22)
 
