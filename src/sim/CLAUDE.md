@@ -1,6 +1,6 @@
 # `src/sim/` — the pure headless simulation
 
-Rules for **editing sim code**. The root `CLAUDE.md` still governs — read it for the pillars, the locked decisions, the evidence principle and the scope-time rules (an N-bump, a rename) you need *before* changing files. This file holds what only bites once you are in here.
+Rules for **editing sim code**. The root `CLAUDE.md` still governs — read it for the pillars, the locked decisions, the evidence principle and the scope-time rule (a rename) you need *before* changing files. This file holds what only bites once you are in here.
 
 **The invariant above all others:** determinism is P0 (`docs/05` §3, ADR-0004). One seeded PRNG drives every roll in a declared order — no unseeded randomness, no wall-clock, no unordered map/set iteration that affects an outcome. `npm run check:rng` greps this folder for the obvious violations; a clean run is necessary, not sufficient. **No imports from `src/render`, ever** (ADR-0007).
 
@@ -37,7 +37,7 @@ The root's **evidence principle** — a measurement must be able to come out the
 - **An identity can be propped up by an UNMODELED COST.** `reraise-cleric` rides on unenforced MP (`holy` 56 vs the cleric's 24), so MP enforcement will *lower* the variety score (5→4). Disclose such contingencies in the ADR and the constant's docstring, and assert the **specific** signature action (`holy`, not any `white-magic.*`) so a test cannot pass on the unmodeled variant.
 - **A gate row cannot tell "LOST" from "COULD NOT END".** A mechanic that removes a reason to attack a unit can livelock a fight — charm did it twice, each surfacing only as `outcome: "timeout"`. Read the turn log of a non-clear before blaming the build. Corollary: **the sites you deliberately do NOT change are hypotheses** — two of three "charm doesn't affect this" calls were wrong, and only an integrated run said so.
 
-> **Changing `DIVERSITY_TARGET_N`, or moving a build EXCLUDED↔MEASURABLE, is a scope-time decision — see the root `CLAUDE.md`.** It moves the `gauntlet.ts` manifest, an ADR-0014 amendment, `docs/06` AC-E2 (authoritative, outranks the ADR), `docs/08` §1a, `docs/11` §3 and a regenerated `npm run state`, all in the same slice.
+**An N-bump moves ALL the gate's records together.** When `DIVERSITY_TARGET_N` changes or a build moves EXCLUDED↔MEASURABLE, sync in the same slice: the `gauntlet.ts` manifest, an ADR-0014 amendment, **`docs/06` AC-E2 (authoritative, outranks the ADR)**, **`docs/08` §1a's phase checklist**, **`docs/11` §3's M0 status table**, and a regenerated `npm run state`. The last three are authored, not derived, and each has gone stale in the past. (This is the scope-time rule the root `CLAUDE.md` used to carry; it moved here on 2026-09-05.)
 
 ## Commands
 

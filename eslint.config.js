@@ -31,6 +31,9 @@ export default tseslint.config(
       "visual-artifacts/**",
       "test-results/**",
       "playwright-report/**",
+      // Owner-local, git-ignored tooling (Markdown Preview Enhanced setup); not project code.
+      ".crossnote/**",
+      "mpe-setup/**",
     ],
   },
   js.configs.recommended,

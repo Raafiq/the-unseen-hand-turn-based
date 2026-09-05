@@ -51,8 +51,11 @@ Thumbs.db
 # read and consumed by .claude/hooks/guard-git-write.sh. Never shared, never committed.
 .claude/.git-go
 
-# Midjourney 2x2 grids are SOURCE, not shipped assets — kept on the owner's drive or a
+# Midjourney 2x2 grids are SOURCE, not shipped assets - kept on the owner's drive or a
 # GitHub Release, never committed (scripts/check-assets.mjs enforces the size cap; this
 # just stops `git add -A` re-adding one). Commit the chosen crop + its prompt instead.
 docs/visual/portraits/reference/*-4.png
 docs/visual/portraits/reference/*-4-*.png
+
+.crossnote
+mpe-setup
