@@ -56,6 +56,15 @@ the old thing that look entirely plausible.
 
 Never present an option you have not seen rendered — including one Midjourney drew.
 
+**Motion is delivered live, not as a still.** A PNG of an animation cannot be judged; the
+owner asked *"can i see the animate"* and the still frames had to be redone as a live page
+(2026-09-05). Ship a CSS-only HTML page or a GIF alongside any frame that moves.
+
+**An arrowhead on a curve is computed, never hand-placed.** The first rotate-card arrow
+was rejected on sight because its head was a loose triangle beside the arc. Build the head
+from the path's end point and end tangent (or an SVG marker), and check in the frame that
+its base sits on the curve.
+
 ## Midjourney v8.1 — you can now ask for pictures
 
 The owner subscribes to **Midjourney v8.1**. You cannot call it; the owner runs it. So a
