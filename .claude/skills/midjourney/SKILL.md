@@ -170,3 +170,27 @@ Midjourney runs on the owner's subscription. **No agent here can call it.** So t
 deliverable is always **the exact prompt text, pasted in full** — never a summary,
 never "run the probe prompts". A session once asked three times without ever
 pasting them.
+
+## Handing prompts to the owner (moved here from the root `CLAUDE.md`, 2026-09-05)
+
+  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.**
+    Some artifacts cannot be made here at all — Midjourney runs on the owner's
+    subscription, so only they can generate a portrait. That does not license asking
+    in prose. A session asked the owner to "run the probe prompts" across three
+    replies and **never pasted the prompts**, which a specialist had already written
+    in full; the owner had to ask again, and the next session dug them out of a
+    reverted commit. Hand over the exact thing that lets the owner act — pasted
+    inline or written to a file, verbatim. **A deliverable the user must act on is
+    relayed, never summarised.** **And the mirror: once the owner ACTS on it, record
+    the exact input verbatim, in the same turn.** Eight Midjourney probe runs produced
+    four approved images, and the four prompts behind them were written only into chat.
+    A specialist later found they existed nowhere in the repo and **reconstructed them
+    from prose notes** — text the owner would have paid to run. They survived only in the
+    transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
+    the settings: verbatim, into a file, immediately. **And record the SETTINGS, not only
+    the prompt — the same rule, one level up.** Two of those four (knight-female,
+    wizard-female) turned out on 2026-09-02 to predate the style-reference lock and are
+    **not** in the set; only the archer and the priest are. The prompts were recovered
+    intact and still could not tell anyone that, because which reference was loaded is a
+    setting and nobody wrote it down. Six sites then read "four approved images" as
+    "four usable portraits". Record what the run was configured with.
