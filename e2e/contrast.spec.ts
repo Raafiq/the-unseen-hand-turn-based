@@ -66,6 +66,16 @@ const GROUNDS = {
    * the live one against — the same duplicate-and-guard the three grounds above use.
    */
   plate: ["rgb(29, 23, 16)"],
+  /**
+   * The rotate gate's card — like the plate, a FLAT opaque fill rather than a gradient.
+   *
+   * It has to be flat for the same reason: the card is a sibling of nothing this walk
+   * can sample, sitting on the table gradient, and `sheetOf()` does not recognise it as
+   * a sheet (it is neither `.card` nor `.panel` nor a `dialog`). Because the fill is
+   * opaque the walk finds it by itself, so this entry is the DECLARED value the test at
+   * the bottom of this file compares the live one against.
+   */
+  gate: ["rgb(233, 215, 168)"],
 } as const;
 
 type Finding = { where: string; text: string; ratio: number; need: number; color: string; on: string };
@@ -336,4 +346,69 @@ test("contrast: the stat card sits on an OPAQUE plate of the declared colour", a
   );
   expect(owners.length, "the card rendered no text at all").toBeGreaterThanOrEqual(4);
   expect(owners.every((c) => c === "rgba(0, 0, 0, 0)")).toBe(true);
+});
+
+/**
+ * The PORTRAIT ROTATE GATE (AC-V30) — a screen no other case here can reach, because it
+ * exists only on a touch device held upright.
+ *
+ * THE NODE COUNT IS ASSERTED EXACTLY, not as a floor, and that is the discriminating
+ * half. This card holds exactly three text-bearing elements — the primary line, the
+ * button, and the persistent rotation-lock line; the turning-phone figure is SVG and
+ * carries no text, and the dead-end hint is `hidden` until a press — while the game
+ * beneath it is `display: none`.
+ * A gate that merely COVERED the page would leave the campaign's own text laid out and
+ * measured — every screen this file already checks, plus a stack of elements composited
+ * against the wrong ground — and the count would run to three figures. So "2" is
+ * simultaneously the measurement guard and the proof that nothing is rendering
+ * underneath.
+ */
+test.describe("contrast: the portrait rotate gate", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("contrast: the rotate gate's card", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("rotate-gate")).toBeVisible();
+
+    // THREE: the primary line, the button, and the persistent rotation-lock line. The
+    // turning-phone figure is SVG and holds no text; the dead-end hint is `hidden`
+    // until a press.
+    expect(await textNodeCount(page), "the gate is not the only thing rendered").toBe(3);
+    expect(await failures(page)).toEqual([]);
+  });
+
+  /**
+   * The card is OPAQUE and the colour is the declared one — the precondition the
+   * measurement above depends on, exactly as the stat plate's is.
+   *
+   * WITHOUT THIS the file is quietly wrong rather than red. The walk composites a
+   * translucent card onto the TABLE gradient and gets a fine ratio, while the player
+   * reads the same text over whatever the game beneath happens to be painting.
+   *
+   * MUTATION TO RUN: give `.rotate-card` an `rgba(233, 215, 168, .6)` background. This
+   * test goes red; the one above stays green, which is the point.
+   */
+  test("contrast: the rotate card is an OPAQUE sheet of the declared colour", async ({ page }) => {
+    await page.goto("/");
+    const card = page.locator(".rotate-card");
+    await expect(card).toBeVisible();
+
+    const paint = await card.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { color: cs.backgroundColor, image: cs.backgroundImage };
+    });
+    // `rgb(...)` with no fourth channel is how a computed style spells alpha 1.
+    expect(paint.color, "the rotate card is translucent").toBe(GROUNDS.gate[0]);
+    expect(paint.image, "a gradient would vary the ground across the card").toBe("none");
+
+    // The dead-end hint is measured too, once it is revealed — it is the smallest and
+    // faintest text on the card, so it is the line most likely to fail the bar, and it
+    // is invisible to the case above by design.
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>("[data-testid='rotate-hint']")!.hidden = false;
+    });
+    await expect(page.getByTestId("rotate-hint")).toBeVisible();
+    expect(await textNodeCount(page), "the hint did not render").toBe(4);
+    expect(await failures(page)).toEqual([]);
+  });
 });

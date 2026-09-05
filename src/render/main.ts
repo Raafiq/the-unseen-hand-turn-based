@@ -34,6 +34,7 @@ import {
   unitCardHtml,
   type LookUp,
 } from "./panels.js";
+import { wireLandscapeButton } from "./orientation.js";
 import { mountPrepDemo } from "./prep.js";
 import { Session, type Phase } from "./session.js";
 import type { ViewerApi } from "./viewer-api.js";
@@ -358,3 +359,8 @@ refresh();
 // battle; wholly independent of the battle state above.
 const prepBody = document.getElementById("prep-body");
 if (prepBody) mountPrepDemo(prepBody);
+
+// AC-V32: the rotate gate's one button. The gate itself is pure CSS (AC-V30) — this
+// only adds the best-effort fullscreen + landscape lock, which needs a user gesture and
+// is a no-op wherever the APIs are absent (iOS Safari).
+wireLandscapeButton(document, window.screen);

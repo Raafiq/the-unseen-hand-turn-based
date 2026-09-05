@@ -1,4 +1,4 @@
-<!-- written-against: f7e8375 -->
+<!-- written-against: 7c74743 -->
 
 # NEXT — the handoff a machine can't derive
 
@@ -13,6 +13,16 @@ a departing session knows: **what the next slice is, why, and what will bite.**
 > false one before, and carried a second one until 2026-09-02: it said the action-menu
 > spec existed only in a scratchpad. It is in the repo, at `docs/proposals/action-menu.md`.
 
+**The previous stamp, `f7e8375`, is unresolvable** — that branch was squash-merged into
+`main` as PR #55 (now `7c74743`), so the commit itself no longer exists anywhere `git`
+can find it. This is the expected shape of a squash-merge, not a broken stamp; re-derive
+from `7c74743` rather than trying to locate the old one. **Every other commit hash cited
+below for the 2026-09-02 and 2026-09-04 slices** (`61f062c`, `81b1692`, `4c8bfba`,
+`61a3036`, `2ca76d1`, `3927c38`) **squash-merged the same way and is equally
+unresolvable** (checked: none `git cat-file -t`s). What each commit *did* still happened
+and is described accurately; only the hash to `git show` it by is gone. Don't spend time
+hunting for them.
+
 **Reading marks used below.** *Measured* = a number a tool produced. *Eyeballed* = a human
 or an agent looked at an image and judged. Age and framing verdicts on portraits are all
 eyeballed, on images that are committed but that no test reads.
@@ -23,20 +33,19 @@ eyeballed, on images that are committed but that no test reads.
 
 **Read this before telling the owner "nothing is pending".** Three things need the owner.
 
-### 1. SQUASH-merge this branch. Not a normal merge. (The single most important instruction here.)
+**Resolved, dropped from this list:** the squash-merge instruction that used to open this
+section. It was about the branch carrying seven Midjourney 2×2 grids in its history
+(`659ff71`, `1c3b841`); that branch squash-merged as PR #55, landed as `7c74743`, and
+neither commit is reachable from `main` today (checked: `git log --oneline --all` finds
+no trace of either hash). The grids never reached `main`. Nothing to re-raise.
 
-Seven Midjourney 2×2 grids sit in this branch's **history** (`659ff71`, `1c3b841`), removed
-from HEAD. A normal merge carries their blobs into `main` permanently — ~59 MB git can never
-delta away. A squash-merge lands only the HEAD tree, so the grids never reach `main`.
-`check:assets` blocks re-adding a grid; it cannot undo a merge that already shipped one.
-
-### 2. Keep local copies of the two good knight grids.
+### 1. Keep local copies of the two good knight grids.
 
 `knight-f-4-2` and `knight-m-4-2` — the chosen quadrants of the regenerated knight grids —
 were removed from git and live only on the owner's drive. They are the source the shipped
 knight crops get cut from. Lose them and the knight runs must be paid again.
 
-### 3. The remaining portrait runs — owner's paid Midjourney runs.
+### 2. The remaining portrait runs — owner's paid Midjourney runs.
 
 | Run | Note |
 |---|---|
@@ -54,6 +63,19 @@ knight-female are generated and measured good (see the method section). `knight-
 longer an open age re-run; its age now reads **~16–19** (eyeballed). Which style reference
 each committed single used is recorded in
 `docs/visual/portraits/reference/README.md` — that gap is closed.
+
+### 3. Play it on a real phone — iOS and Android.
+
+The mobile-landscape slice (below) ships a rotate gate and a best-effort orientation lock,
+tested only in Chromium's device emulation. Nobody has pressed the lock button on a real
+phone. Play the site on both an iPhone and an Android phone, held upright then turned
+sideways, and report back:
+
+- Does the rotate gate appear in portrait, and does turning the phone sideways reach the
+  game (with or without the lock button doing anything)?
+- On the button: does it visibly rotate/fullscreen the page, do nothing, or show the
+  fallback hint line ("Your browser cannot rotate the screen for you.")?
+- In landscape, are the board's tiles actually tappable with a finger — not just visible?
 
 ### Still open, unchanged — the turn plate under the damage numeral
 
@@ -98,10 +120,12 @@ defect 1 below). The legend is now *correct* and the owner judges it **redundant
 labels two colours the board paints unconditionally, because there is no choice for them to
 be a consequence of. The menu is the missing half of the action economy.
 
-**AC letters.** `docs/10` §6 ends at **AC-V22**; **AC-V21 is RESERVED** for the motion
-layer. **AC-V23 is the next free letter and the menu spec claims V23–V29** — anything else
-minted there collides. That includes the frame/asset criterion the 3:4 slice ships without
-(see below): pick a letter after V29, or mint it only if the menu spec is dropped.
+**AC letters.** **AC-V21 is RESERVED** for the motion layer, and **AC-V23 through AC-V29
+are RESERVED for this menu spec** — anything else minted in that range collides. The
+mobile-landscape slice (below) minted **AC-V30, AC-V31, AC-V32** after AC-V22, so the
+range is not contiguous: V23–V29 sit unminted in the middle, still reserved for this menu.
+That includes the frame/asset criterion the 3:4 slice ships without (see below): pick a
+letter after V32, or mint it only if the menu spec is dropped.
 
 **One decision the spec leaves open (its Q5).** The campaign page exposes **no tile-click
 seam**, so a browser spec cannot drive target selection without raw canvas clicks, which
@@ -124,6 +148,59 @@ encounter or scheduler slice unless the owner asks.
 
 **Declined, so nobody re-proposes them as new** (owner, 2026-09-01): a SessionStart warning
 for remote branches missing locally; any further retrospective edits.
+
+---
+
+## LANDED 2026-09-05 — mobile is landscape-only (ADR-0034, uncommitted at write time)
+
+**The game is playable on a phone, in landscape only.** Portrait is gated, not supported.
+Two independent best-effort mechanisms, neither of which can force a real device:
+
+1. **A rotate gate.** A touch device held in portrait sees a full-viewport card — "Please
+   rotate your device" over an `aria-hidden` phone icon that turns 0 to 90 degrees on a CSS
+   loop inside a static quarter-turn arrow (parked static at 90 degrees under
+   `prefers-reduced-motion: reduce`, asserted by computed transform, not by the CSS source)
+   — instead of the game; the game is hidden and unfocusable underneath. **The icon exists
+   because text alone does not cross languages** (owner direction, 2026-09-05). Keyed on
+   `(orientation: portrait) and (pointer: coarse)` — touch + portrait, **no size bound**, so
+   a tablet held upright is gated too, by owner intent (`docs/10` AC-V30, ADR-0034).
+2. **A landscape fit.** At 844×390 with touch emulation, the board canvas, the stat plate
+   and the action controls are all visible with no scrolling; the board keeps its 900:440
+   ratio; the stat plate shrinks (`docs/10` AC-V31).
+3. **A lock attempt plus a hint.** The gate's button, "Play in landscape", requests
+   fullscreen, then `screen.orientation.lock('landscape')`, both feature-detected and
+   silent on failure. A persistent line, "If the screen does not follow, switch off
+   rotation lock.", always shows; when either call fails, the card additionally reveals
+   "Your browser cannot rotate the screen for you." A web manifest declares
+   `orientation: "landscape"`, linked from both pages and asserted by a browser test that
+   fetches it (`docs/10` AC-V32).
+
+New: `src/render/orientation.ts` (+`orientation.test.ts`), `e2e/mobile.spec.ts`,
+`public/manifest.webmanifest`, `docs/adr/0034-mobile-is-landscape-only-a-gate-not-a-lock.md`.
+The rotate card's copy and icon changed after this slice's first pass — this section
+describes the shipped version. Counts at head: **958 unit tests, 76 browser specs in 10
+files.**
+
+**Landmines the engineer and reviewer named, none of them red today:**
+
+- **`dvh` is untested under a retracting mobile toolbar.** Both pages fall back
+  `vh` → `dvh`, but no test runs on a real browser chrome that shrinks after load —
+  Chromium's emulator doesn't reproduce it.
+- **The board's height budget is a fixed CSS constant** — `calc(100vh - 96px)` on the
+  campaign page, `calc(100dvh - 150px)` on the viewer — not derived from the header's
+  actual height. A viewer `<h1>` that wraps to two lines at a narrow width pushes the
+  board down by exactly the overflow, and nothing goes red: AC-V31 only measures the
+  three required elements against the viewport, not the budget's own arithmetic.
+- **The manifest ships with no icon set.** Asserted deliberately (`AC-V32`): no platform
+  will offer an install prompt until icons exist.
+- **Nobody has played this on a real phone.** Every claim above is Chromium device
+  emulation. iOS Safari has never run it — real-device behaviour is explicitly
+  unverified in both `docs/10` AC-V32 and ADR-0034's Limits section. See OPEN item 3.
+- **The stat plate covers about 31% of the board's width** at 844×390 (measured:
+  188px plate / 599px board). Whether that is too much is an **art-director call, not
+  yet made** — nobody has looked at it as a design decision, only as a fit constraint.
+- **AC-V23 through AC-V29 remain reserved** for `docs/proposals/action-menu.md`. This
+  slice minted V30–V32 around that gap rather than through it.
 
 ---
 
@@ -162,7 +239,7 @@ MB, egress > 50 GB/month, or audio/video arriving.
 | `2ca76d1` | Five more Midjourney pages as raw HTML. Two of them changed the plan. |
 | `3927c38` | The portrait frame is 3:4, declared once, with a test that sees a frame/asset mismatch. |
 
-Counts at head: **947 unit tests, 49 browser specs in 9 files.**
+Counts at head: **958 unit tests, 76 browser specs in 10 files.**
 
 ### The legend (`61f062c`)
 

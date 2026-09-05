@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Unseen Hand — The First March</title>
+    <!-- Relative href on purpose: the Pages deploy serves this under /<repo>/
+         (vite `base` comes from PAGES_BASE), and an absolute "/manifest.webmanifest"
+         would 404 there while working perfectly in local preview. The manifest
+         itself ships NO icons — none exist yet — so an install prompt will not
+         appear; `display` and `orientation` still apply to a home-screen launch. -->
+    <link rel="manifest" href="manifest.webmanifest" />
     <style>
       /* ── The material ──────────────────────────────────────────────────────
          Aged parchment on a dark table. Everything below is CSS and one inline
@@ -198,7 +204,16 @@
       button[disabled]::before { display: none; }
       button[hidden] { display: none; }
       button:focus-visible { outline: 2px solid var(--accent-lit); outline-offset: 2px; }
-      @media (prefers-reduced-motion: reduce) { button, button::before { transition: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        button, button::before { transition: none; }
+        /* The rotate card's phone parks at the finished 90 degrees rather than
+           looping — the reduced-motion answer to "show a turn" is to show the
+           turn's RESULT, not to hide the instruction.
+           ID-QUALIFIED ON PURPOSE: this query sits ABOVE the gate's own block, and
+           `.rotate-fig .phone` there would win on source order at equal specificity.
+           The id makes the override hold wherever the two end up. */
+        #rotate-gate .phone { animation: none; transform: rotate(90deg); }
+      }
 
       .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 20px; }
 
@@ -508,6 +523,150 @@
       .logbox p { margin: 0; font-size: .9rem; color: var(--ink-dk-soft); line-height: 1.5; }
       .logbox textarea { width: 100%; margin-top: 10px; min-height: 120px; background: rgba(255,248,226,.4); color: var(--ink-soft);
                          border: 1px solid var(--border); border-radius: 0; padding: 10px; font-family: var(--sans); font-size: .8rem; }
+
+      /* ══ PHONE, HELD SIDEWAYS ══════════════════════════════════════════════
+         The scope is deliberately narrow: this game is playable on a phone in
+         LANDSCAPE. Portrait phone layout is out of scope and is GATED rather
+         than half-supported — a 900x440 board squeezed into a 390px column is
+         a board nobody can read, and shipping it would look like support.
+
+         TOUCH BEHAVIOUR FIRST, AND IT IS UNCONDITIONAL — no media query, by
+         design. A drag across the board is a tile interaction and never a page
+         scroll: on a phone, on a tablet and on a touch-screen laptop alike.
+         Without `touch-action: none` the first finger-drag on the canvas pans
+         the document and the pointermove hover never arrives. Gating this on a
+         phone breakpoint would leave exactly the devices that are NOT sent to
+         the rotate gate — tablets, 2-in-1s — with a board that scrolls the page
+         out from under the finger. `manipulation` drops the 300ms
+         double-tap-zoom delay on every button, everywhere, for the same reason. */
+      canvas#grid { touch-action: none; }
+      button { touch-action: manipulation; }
+
+      /* ── AC-V30: the rotate gate ───────────────────────────────────────────
+         ONE media query, no resize listener. `(pointer: coarse)` is the half
+         that keeps a desktop browser out of it: a narrow desktop window is
+         `pointer: fine` at any aspect, so dragging a window tall never gates
+         the game. Verified in this repo's Chromium — an emulated phone
+         (isMobile + hasTouch) matches `coarse`, a 700x900 desktop viewport
+         matches `fine`.
+
+         `.wrap` is `display: none`, not covered. A covered page still holds
+         focusable buttons: tab reaches them, a screen reader reads them, and
+         `.click()` fires them. Hiding the subtree is what makes "the game
+         beneath is unreachable" true rather than merely visually so. */
+      #rotate-gate { display: none; }
+      /* The turn itself. Long dwells at each end so the card reads as an
+         instruction rather than a spinner; the reduced-motion branch below parks
+         it at the finished 90 degrees, which is the state being asked for. */
+      @keyframes tuh-turn {
+        0%, 14%   { transform: rotate(0deg); }
+        32%, 78%  { transform: rotate(90deg); }
+        92%, 100% { transform: rotate(0deg); }
+      }
+      @media (orientation: portrait) and (pointer: coarse) {
+        .wrap { display: none; }
+        #rotate-gate {
+          display: flex; position: fixed; inset: 0; z-index: 100;
+          align-items: center; justify-content: center; padding: 24px;
+          background: var(--bg);
+          background-image: radial-gradient(130% 100% at 40% -15%, #241b10 0%, #14100a 55%, var(--bg-2) 100%);
+        }
+        .rotate-card {
+          background: var(--surface); color: var(--ink);
+          border: 1px solid var(--border-strong);
+          box-shadow: inset 0 0 0 3px rgba(234,218,174,.14), inset 0 0 0 4px rgba(138,101,36,.3),
+                      0 14px 40px rgba(0,0,0,.6);
+          padding: 30px 26px; max-width: 22rem; text-align: center;
+        }
+        /* ── the turning phone, inside a static gold arc ──────────────────
+           CSS-ONLY, no script and no rAF: the gate is reached before any of the
+           game's own state exists, and a JS-driven loop here would be one more
+           thing that can fail on the one screen whose entire job is telling a
+           stuck player what to do. */
+        .rotate-fig { position: relative; width: 196px; height: 140px; margin: 0 auto 20px; }
+        .rotate-fig .arc { position: absolute; inset: 0; width: 196px; height: 140px; }
+        .rotate-fig .phone { position: absolute; left: 50%; top: 50%; width: 50px; height: 84px;
+                             margin: -42px 0 0 -25px; overflow: visible; transform-origin: 50% 50%;
+                             animation: tuh-turn 4s cubic-bezier(.6, 0, .25, 1) infinite; }
+
+        .rotate-card p { margin: 0 0 20px; font-size: 1.06rem; color: var(--ink); }
+        /* Same specificity as the rule above, so ORDER decides: keep these after it. */
+        .rotate-card .rotate-sub { margin: 16px auto 0; font-size: .84rem; color: var(--ink-soft);
+                                   max-width: 19rem; text-wrap: balance; }
+        /* Revealed only after a press that did not rotate the screen (AC-V32). It is
+           `hidden` in the markup rather than absent so the copy lives with the rest of
+           the page's player-facing text — and so every measurement taken before a
+           press (contrast, axe, the node counts) sees the card a player first meets. */
+        .rotate-card .rotate-hint { margin: 18px 0 0; font-size: .84rem; color: var(--ink-soft); }
+        .rotate-card .rotate-hint[hidden] { display: none; }
+      }
+
+      /* ── AC-V31: the landscape fit ─────────────────────────────────────────
+         A phone lying on its side has roughly 390 CSS pixels of height for a
+         board, four buttons and a stat plate. Two things have to give:
+
+         1. THE BOARD IS SIZED BY HEIGHT, not only by width. `width: 100%` alone
+            makes a 900:440 board 393px tall at this viewport — taller than the
+            whole screen — so the canvas becomes `width: auto` under a
+            `max-height` budget and shrinks along its own intrinsic ratio. The
+            ratio is never overridden here: `pickTile` inverts through the same
+            projection `draw` paints with, and a canvas stretched off 900:440
+            would offset every tap by a factor nothing goes red for.
+         2. THE 272px STAT PLATE SHRINKS. At a 640px-wide board it would eat 43%
+            of the map. It is the same markup and the same opaque background —
+            only narrower, with a smaller portrait frame (still on
+            `--portrait-ratio`, so it cannot drift from the scene's).
+
+         `dvh` is stated after `vh` so a browser without it keeps the fallback;
+         on a phone with a retracting toolbar `vh` overshoots. */
+      @media (orientation: landscape) and (pointer: coarse) and (max-height: 560px) {
+        body { font-size: 15px; }
+        .wrap { max-width: none; padding: 8px 10px 14px; }
+        .card, .panel { padding: 12px 14px; }
+        .card.board { padding: 8px 8px 10px; }
+
+        canvas#grid {
+          width: auto; height: auto; max-width: 100%;
+          max-height: calc(100vh - 96px);
+          max-height: calc(100dvh - 96px);
+          margin: 0 auto;
+        }
+        /* THE STAGE MUST SHRINK TO THE BOARD, not stay full width. `#unit-card` is
+           positioned against `.board-stage`; once the canvas is narrower than its card
+           and centred, a full-width stage leaves the plate floating on the dark margin
+           beside the map instead of sitting on it. Found by opening the frame — every
+           bounding-box assertion was green. */
+        .board-stage { width: fit-content; margin-inline: auto; }
+
+        .controls { margin-top: 8px; gap: 6px; }
+        button { font-size: .66rem; letter-spacing: .09em; padding: 7px 12px 7px 22px; }
+        button::before { left: 8px; }
+        #status { gap: 4px 12px; font-size: .6rem; }
+
+        /* The plate: same information, less room. */
+        #unit-card { left: 8px; bottom: 8px; }
+        .unit-card, .unit-card[data-state="none"] { width: 188px; gap: 9px; padding: 7px 9px 8px; }
+        .uc-portrait { width: 48px; }
+        .uc-name { font-size: .84rem; }
+        .uc-hp { margin-top: 6px; font-size: .78rem; }
+        .uc-bar { min-width: 34px; }
+        .uc-stats { gap: 2px 9px; margin-top: 5px; }
+
+        /* Everything below the fold is still reachable by scrolling; it just may
+           not be on screen at once. Only the board, the plate and the commands
+           are promised (AC-V31). */
+        .reason { margin-top: 10px; padding-top: 6px; font-size: .88rem; }
+        .timeline { margin-top: 10px; gap: 6px; }
+        .legend { margin-top: 10px; font-size: .78rem; gap: 4px 12px; }
+        .cols { margin-top: 12px; gap: 12px; }
+        /* The help disc is `position: fixed`, so on a 390px-tall screen it sits
+           on the board's lower-right corner. Smaller and tighter into the
+           corner; it stays reachable, which is the point of it being fixed. */
+        /* TOP-right, not bottom-right. At 390px tall the fixed disc lands on the
+           status readout ("TICK / TURNS / ACTIVE / PHASE / SEED") and hides the end of
+           it; the top-right corner is dark card margin beside the board. */
+        button.help-btn { width: 36px; height: 36px; right: 8px; top: 8px; bottom: auto; font-size: .95rem; }
+      }
     </style>
   </head>
   <body>
@@ -519,6 +678,43 @@
         <feDisplacementMap in="SourceGraphic" in2="n" scale="14" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
     </svg>
+    <!-- AC-V30: the rotate gate. It is a SIBLING of `.wrap`, not a child, because
+         the media query hides `.wrap` outright — a gate inside the thing it hides
+         would go with it. It is in the DOM on every device and shown by CSS alone;
+         there is no resize listener and no JS branch that can disagree with the
+         media query. -->
+    <div id="rotate-gate" data-testid="rotate-gate" role="dialog" aria-modal="true"
+         aria-label="Rotate your device">
+      <div class="rotate-card">
+        <div class="rotate-fig" aria-hidden="true">
+          <!-- Static gold arc over the top, left to right, ending in an arrowhead; the
+               phone is the only thing that moves. Quarter arc r58 about the phone's
+               centre (98,70) — the path its top-left corner takes on a 90 degree
+               clockwise turn, -120.8deg to -30.8deg. The head is built from the arc's
+               END point and its tangent, so the head's base midpoint IS 147.8,40.3 and
+               it sits ON the curve rather than beside it. -->
+          <svg class="arc" viewBox="0 0 196 140" fill="none">
+            <path d="M68.3 20.2 A58 58 0 0 1 147.8 40.3" stroke="#5f4210" stroke-width="4"
+                  stroke-linecap="round" fill="none"/>
+            <path d="M156 54 L141.4 44.1 L154.3 36.5 Z" fill="#5f4210"/>
+          </svg>
+          <svg class="phone" viewBox="0 0 50 84" fill="none">
+            <rect x="2" y="2" width="46" height="80" rx="7" fill="#f2e6c4"
+                  stroke="#2c2114" stroke-width="3"/>
+            <rect x="7.5" y="10" width="35" height="64" rx="2" fill="#2c2114" opacity=".82"/>
+            <rect x="19" y="5.5" width="12" height="2.4" rx="1.2" fill="#2c2114" opacity=".55"/>
+            <rect x="18" y="77" width="14" height="2.4" rx="1.2" fill="#2c2114" opacity=".55"/>
+          </svg>
+        </div>
+        <p>Please rotate your device</p>
+        <button type="button" id="btn-landscape" data-testid="rotate-go">Play in landscape</button>
+        <!-- PERSISTENT, not conditional. The rotation-lock advice is the one thing that
+             helps on every device, so it stands whether or not the button worked. -->
+        <p class="rotate-sub">If the screen does not follow, switch off rotation lock.</p>
+        <p class="rotate-hint" data-testid="rotate-hint" hidden>Your browser cannot rotate the
+          screen for you.</p>
+      </div>
+    </div>
     <div class="wrap">
       <div id="save-error" class="reason" data-testid="save-error" role="alert" hidden></div>
 

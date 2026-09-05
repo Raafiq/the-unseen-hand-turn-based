@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Unseen Hand — Engine Viewer (P0)</title>
+    <!-- Relative href: the Pages deploy serves this under /<repo>/, so an absolute
+         path would 404 there and work in local preview. No icons ship yet. -->
+    <link rel="manifest" href="manifest.webmanifest" />
     <style>
       :root {
         --bg: #0e1220;
@@ -151,16 +154,167 @@
       .stat-row .v { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
       .stat-row li.up .v { color: var(--accent); }
       .stat-row li.up .v::after { content: " ▲"; font-size: .62em; vertical-align: middle; }
+
+      /* ══ PHONE, HELD SIDEWAYS ══════════════════════════════════════════════
+         The same two rules the campaign page ships (AC-V30 / AC-V31), on this
+         page's dark palette. The gate's card keeps the CAMPAIGN's parchment
+         tones deliberately: it is the one surface a player meets before the
+         game, and it should look the same whichever page they landed on.
+
+         Touch behaviour is UNCONDITIONAL, no media query, by design: a drag on the
+         board is a tile interaction and never a page scroll, on a phone, a tablet
+         or a touch-screen laptop alike. Gating it on a phone breakpoint would leave
+         exactly the devices that are NOT sent to the rotate gate with a board that
+         scrolls the page out from under the finger. */
+      canvas#grid { touch-action: none; }
+      button { touch-action: manipulation; }
+
+      /* ── AC-V30: the rotate gate. ONE media query, no resize listener.
+         `(pointer: coarse)` keeps a narrow desktop window out of it: a desktop
+         viewport is `pointer: fine` at any aspect. `.wrap` is `display: none`
+         rather than covered, so nothing under the card is tappable, focusable
+         or readable by a screen reader. */
+      #rotate-gate { display: none; }
+      /* The turn itself. Long dwells at each end so the card reads as an instruction
+         rather than a spinner; the reduced-motion branch below parks it at the finished
+         90 degrees, which is the state being asked for. */
+      @keyframes tuh-turn {
+        0%, 14%   { transform: rotate(0deg); }
+        32%, 78%  { transform: rotate(90deg); }
+        92%, 100% { transform: rotate(0deg); }
+      }
+      @media (orientation: portrait) and (pointer: coarse) {
+        .wrap { display: none; }
+        #rotate-gate {
+          display: flex; position: fixed; inset: 0; z-index: 100;
+          align-items: center; justify-content: center; padding: 24px;
+          background: #14100a;
+        }
+        .rotate-card {
+          background: #e9d7a8; color: #2c2114;
+          border: 1px solid rgba(138,101,36,.72); border-radius: 14px;
+          box-shadow: 0 14px 40px rgba(0,0,0,.6);
+          padding: 30px 26px; max-width: 22rem; text-align: center;
+        }
+        /* ── the turning phone, inside a static gold arc ──────────────────
+           CSS-ONLY, no script and no rAF: this card is reached before any of the
+           page's own state exists. */
+        .rotate-fig { position: relative; width: 196px; height: 140px; margin: 0 auto 20px; }
+        .rotate-fig .arc { position: absolute; inset: 0; width: 196px; height: 140px; }
+        .rotate-fig .phone { position: absolute; left: 50%; top: 50%; width: 50px; height: 84px;
+                             margin: -42px 0 0 -25px; overflow: visible; transform-origin: 50% 50%;
+                             animation: tuh-turn 4s cubic-bezier(.6, 0, .25, 1) infinite; }
+
+        .rotate-card p { margin: 0 0 20px; font-size: 1.02rem; }
+        /* Same specificity as the rule above, so ORDER decides: keep these after it. */
+        .rotate-card .rotate-sub { margin: 16px auto 0; font-size: .82rem; color: #55401f;
+                                   max-width: 19rem; text-wrap: balance; }
+        /* Revealed only after a press that did not rotate the screen (AC-V32). */
+        .rotate-card .rotate-hint { margin: 18px 0 0; font-size: .82rem; color: #55401f; }
+        .rotate-card .rotate-hint[hidden] { display: none; }
+        .rotate-card button { background: #8a2b22; border-color: #571712; color: #f7ecd6; }
+      }
+      /* This page had NO reduced-motion query before; the rotate card is the first
+         motion on it. The phone parks at the finished 90 degrees rather than looping —
+         the reduced-motion answer to "show a turn" is to show the turn's RESULT.
+         ID-QUALIFIED to match index.html's, where the override has to outrank a rule
+         that comes later in the file. */
+      @media (prefers-reduced-motion: reduce) {
+        #rotate-gate .phone { animation: none; transform: rotate(90deg); }
+      }
+
+      /* ── AC-V31: the landscape fit. The board is sized by HEIGHT as well as
+         width — `width: 100%` alone makes a 900:440 board 393px tall at a
+         844x390 viewport. The canvas keeps its intrinsic ratio: `pickTile`
+         inverts through the projection `draw` paints with, and a stretched
+         canvas offsets every tap by a constant nothing goes red for. The 250px
+         stat plate shrinks; at a ~640px board it would otherwise cover 40% of
+         the map. */
+      @media (orientation: landscape) and (pointer: coarse) and (max-height: 560px) {
+        .wrap { max-width: none; padding: 8px 10px 14px; }
+        header { margin-bottom: 10px; }
+        /* The two long explanatory paragraphs are the page's manual, not its
+           controls; below the board they cost a screen of scrolling before the
+           game is reachable. Hidden here, still present on every other device. */
+        header p:not(.eyebrow):not(.playlink) { display: none; }
+        /* The LINK to the campaign survives — hiding it would strand a phone on the
+           developer page. Only its trailing description goes, which is three of the
+           header's five lines at this width. */
+        .playlink .note, header .eyebrow { display: none; }
+        .playlink { font-size: .82rem; }
+        h1 { font-size: 1.02rem; margin: 0 0 4px; }
+        .stage { padding: 8px; border-radius: 10px; }
+
+        canvas#grid {
+          width: auto; height: auto; max-width: 100%;
+          max-height: calc(100vh - 150px);
+          max-height: calc(100dvh - 150px);
+          margin: 0 auto;
+        }
+        /* The stage shrinks to the board: `#unit-card` is positioned against
+           `.board-stage`, so a full-width stage leaves the plate on the margin beside
+           the map rather than on it. */
+        .board-stage { width: fit-content; margin-inline: auto; }
+
+        .controls { margin-top: 8px; gap: 6px; }
+        button { font-size: .78rem; padding: 7px 12px; }
+        #status { gap: 4px 10px; font-size: .68rem; }
+
+        #unit-card { left: 8px; bottom: 8px; }
+        .unit-card { width: 178px; gap: 8px; padding: 7px 9px 8px; }
+        .uc-name { font-size: .84rem; }
+        .uc-hp { margin-top: 6px; font-size: .78rem; }
+        .uc-bar { min-width: 34px; }
+        .uc-stats { gap: 2px 9px; margin-top: 5px; }
+
+        .reason { margin-top: 10px; }
+        .timeline { margin-top: 10px; gap: 6px; }
+        .cols { margin-top: 12px; gap: 12px; }
+      }
     </style>
   </head>
   <body>
+    <!-- AC-V30: the rotate gate, a SIBLING of `.wrap` because the media query hides
+         `.wrap` outright. Shown by CSS alone — no resize listener to disagree with. -->
+    <div id="rotate-gate" data-testid="rotate-gate" role="dialog" aria-modal="true"
+         aria-label="Rotate your device">
+      <div class="rotate-card">
+        <div class="rotate-fig" aria-hidden="true">
+          <!-- Static gold arc over the top, left to right, ending in an arrowhead; the
+               phone is the only thing that moves. Quarter arc r58 about the phone's
+               centre (98,70) — the path its top-left corner takes on a 90 degree
+               clockwise turn. The head is built from the arc's END point and its
+               tangent, so its base midpoint IS 147.8,40.3 and it sits ON the curve. -->
+          <svg class="arc" viewBox="0 0 196 140" fill="none">
+            <path d="M68.3 20.2 A58 58 0 0 1 147.8 40.3" stroke="#5f4210" stroke-width="4"
+                  stroke-linecap="round" fill="none"/>
+            <path d="M156 54 L141.4 44.1 L154.3 36.5 Z" fill="#5f4210"/>
+          </svg>
+          <svg class="phone" viewBox="0 0 50 84" fill="none">
+            <rect x="2" y="2" width="46" height="80" rx="7" fill="#f2e6c4"
+                  stroke="#2c2114" stroke-width="3"/>
+            <rect x="7.5" y="10" width="35" height="64" rx="2" fill="#2c2114" opacity=".82"/>
+            <rect x="19" y="5.5" width="12" height="2.4" rx="1.2" fill="#2c2114" opacity=".55"/>
+            <rect x="18" y="77" width="14" height="2.4" rx="1.2" fill="#2c2114" opacity=".55"/>
+          </svg>
+        </div>
+        <p>Please rotate your device</p>
+        <button type="button" id="btn-landscape" data-testid="rotate-go">Play in landscape</button>
+        <!-- PERSISTENT: the rotation-lock advice helps on every device, so it stands
+             whether or not the button worked. -->
+        <p class="rotate-sub">If the screen does not follow, switch off rotation lock.</p>
+        <p class="rotate-hint" data-testid="rotate-hint" hidden>Your browser cannot rotate the
+          screen for you.</p>
+      </div>
+    </div>
     <div class="wrap">
       <header>
         <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
         <h1>Play a turn — CT scheduler &amp; isometric grid, live</h1>
-        <p class="playlink"><a href="./">▶ Play the campaign — <b>The First March</b></a>
-          · five battles, a party that keeps what it earns, saved in this browser.
-          This page is the <b>engine viewer</b>: one demo battle with every internal number on show.</p>
+        <p class="playlink"><a href="./">▶ Play the campaign — <b>The First March</b></a><span
+          class="note"> · five battles, a party that keeps what it earns, saved in this browser.
+          This page is the <b>engine viewer</b>: one demo battle with every internal number on
+          show.</span></p>
         <p>The real headless sim, running in your browser. <b>You command Team A.</b> On your turn, click a highlighted tile to <b>stage a move</b> (nothing touches the sim yet — cancel is free), then click an enemy to <b>strike from there</b>: one command, one turn, <b>−100 CT</b>. Or <b>End Turn</b> to pay only for what you used. Every number in the <b>Resolution preview</b> — hit %, the facing arc that produced it, the exact damage, the CT price — is computed before you commit. Press <b>Play enemy turn</b> to watch the AI resolve one. Everything is deterministic from the seed — the AI advances on that click, never on a timer, so the same seed always replays the same battle.</p>
       </header>
 

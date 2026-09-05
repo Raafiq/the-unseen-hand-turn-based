@@ -37,6 +37,7 @@ import {
   type LookUp,
 } from "./panels.js";
 import { jobLabel, mountPrep, type PrepHandle } from "./prep.js";
+import { wireLandscapeButton } from "./orientation.js";
 import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
@@ -996,3 +997,8 @@ const api: GameApi = {
 window.tuhGame = api;
 
 refresh();
+
+// AC-V32: the rotate gate's one button. The gate itself is pure CSS (AC-V30) — this
+// only adds the best-effort fullscreen + landscape lock, which needs a user gesture and
+// is a no-op wherever the APIs are absent (iOS Safari).
+wireLandscapeButton(document, window.screen);
