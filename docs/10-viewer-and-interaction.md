@@ -374,7 +374,7 @@ degenerate fixture where all orderings coincide).
   board's motion — hit reaction, turn plate, damage numeral, the reduced-motion branch —
   shipped 2026-09-01 with strong tests and no acceptance criterion. This letter is held
   for it so nobody mints it for something else. **Owed by:** `qe-tester` with the
-  `viewer-engineer`, scoped in `docs/NEXT.md` under "AC-V21 is RESERVED". Two of its
+  `viewer-engineer`, tracked in `docs/defects.md` §5 as gap D. Two of its
   claims — the ~58 s per-battle motion ceiling, and whether any of the motion is
   **legible** — have no test today and must land as an AC with a test or be marked
   explicitly aspirational.
@@ -463,8 +463,8 @@ degenerate fixture where all orderings coincide).
     plate to another corner over the board goes green.
   - **The engine viewer's plate opacity.** The opacity assertion runs on the campaign page.
     `viewer.html` paints `var(--surface-2)`; nothing checks it resolves opaque.
-  - **Legibility over the board.** Nothing reads a pixel off the finished canvas (`docs/NEXT.md`
-    gap C). The claim is "opaque, and its text clears WCAG AA against that opaque plate" —
+  - **Legibility over the board.** Nothing reads a pixel off the finished canvas (`docs/defects.md`
+    §5, gap C). The claim is "opaque, and its text clears WCAG AA against that opaque plate" —
     weaker than "readable over what was painted underneath", and deliberately stated as
     such.
   - **The colours.** The plate inherits `.card.board`; no criterion governs how it looks.

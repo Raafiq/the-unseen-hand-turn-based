@@ -37,3 +37,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0031](0031-the-span-is-real.md) | The span is real: one map where the water blocks | Accepted | 2026-08-30 |
 | [0032](0032-the-board-moves-and-never-blocks.md) | The board moves, and the motion never blocks: option B, non-blocking | Accepted | 2026-09-01 |
 | [0033](0033-the-stat-panel-shows-only-what-the-sim-models.md) | The battle-map stat panel shows only what the sim models: no MP, no Level | Accepted | 2026-09-01 |
+| [0034](0034-portraits-are-generated-in-gpt-image-2-not-midjourney.md) | Portraits are generated in GPT Image 2, not Midjourney; every character is in their twenties | Accepted | 2026-09-05 |

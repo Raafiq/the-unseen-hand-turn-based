@@ -64,9 +64,16 @@ any doc, and re-reading the reference would never have found them.
 
 - **Word position.** Midjourney weights the **start** of a prompt more heavily. Gender,
   and anything the model resists, belongs in the first clause.
-- **Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
-  weights are allowed. The official No page says `--no` is worth only **-0.5**, so
-  `man::-1` would push twice as hard.
+- ~~**Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
+  weights are allowed, so `man::-1` would push twice as hard as `--no`.~~
+  **Corrected 2026-09-02 from the captured page** (`references/raw/multi-prompts-weights.html`):
+  `::` weights are **not supported in V7 or V8.2**; compatible versions end at 6.1.
+  `child::-1` as an age lever is impossible. `--no red` is exactly `red::-0.5`, a weak
+  nudge and not a ban, which is why `--no lipstick` was honoured only weakly.
+  Two more from the same capture: **Zoom Out runs V6.1** even on newer versions, so it
+  paints the new border in an older model than the set (`references/raw/zoom-out.html`);
+  the **Edit Model** (V8.1/8.2, Style Reference compatible) is the tool for expanding a
+  canvas (`references/raw/edit-model.html`).
   ⚠️ **UNVERIFIED.** The Multi-Prompts & Weights page
   (`/hc/en-us/articles/32658968492557`) is not captured. **Ask the owner for it before
   writing any `::` syntax** — guessing at syntax is exactly what put `--style raw` into

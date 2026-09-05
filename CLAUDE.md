@@ -146,7 +146,8 @@ Invoke by name:
 - `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
   project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
   about it is stale — two wrong flags reached `docs/NEXT.md` that way. Read the skill first.
-  Portraits now come from GPT Image 2 (ADR-0034); the skill still holds the character briefs.
+  Portraits now come from GPT Image 2 (ADR-0034), styled against four owner-supplied
+  `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
 
 ## Agent team (`.claude/agents/`)
@@ -187,6 +188,7 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
   not approval. The hook cannot stop you writing the token yourself; it is there to make
   the action deliberate, not to make it impossible.
 - **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill, propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point.
+  **`docs/NEXT.md` holds ONLY the next slice** (user, 2026-09-06: it had grown to 843 lines and was "so bloated with unnecessary information"). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
 - **When the sandbox cannot reach an API, a CI runner can.** A temporary workflow step querying it with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Details in the `pages-deploy` skill.
 - **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** The
@@ -227,6 +229,7 @@ Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `comb
     **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
 - **Present implementation plans as a readable HTML artifact** (via the `lavish` skill — there is no `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
+- **Environment facts that cost real time to learn.** Scratch probes go in `coverage/` (gitignored, inside the repo) because `vite-node` resolves imports against the Vite root. A mutation verdict from a build that did not typecheck is not a verdict, and `git checkout` cannot restore an untracked file, so copy the file aside first. A pushed branch with no PR can read as lost: `git fetch origin` and check `origin/<branch>` before concluding anything. GitHub auto-merge is not enabled; watch the checks and merge.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
 
 ## Write plainly (user directive, 2026-08-12)

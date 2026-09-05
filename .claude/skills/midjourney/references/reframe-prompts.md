@@ -3,6 +3,10 @@
 **Draft by `art-director`, 2026-09-02. Supersedes revision 1 entirely.**
 Nothing here is committed and no repo file was edited. The owner runs these.
 
+> **Historical, 2026-09-05.** Portraits come from GPT Image 2 (ADR-0034) and the style lock is `docs/visual/portraits/reference/style-ref-1..4.png`, not the archer.
+> Every `archer-f.png` in this file means the Midjourney archer, now `HEAD:docs/visual/portraits/reference/archer-f.png`; the working-tree file of that name is a GPT output.
+> The measurements here still stand as evidence for the switch.
+
 **Revision 1's archer control run FAILED.** That failure is the most useful thing this
 slice has produced and the whole framing recipe is rewritten below because of it.
 
@@ -110,7 +114,7 @@ spend it on the margin clause, not the shot type.**
 
 ## BLOCK 1 — `archer-female`. RUN THIS ONE. NOTHING ELSE.
 
-**The style reference does not change.** `docs/visual/portraits/reference/archer-f.png`
+**~~The style reference does not change.~~** (It did, on 2026-09-05; see the note at the top.) `docs/visual/portraits/reference/archer-f.png`
 stays locked in the Style Reference slot. This block produces a **portrait**. Do not drag
 the result into the slot. Same image in the slot for this run and every run after it.
 
