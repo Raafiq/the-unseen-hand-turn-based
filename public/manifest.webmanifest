@@ -1,0 +1,11 @@
+{
+  "name": "The Unseen Hand — The First March",
+  "short_name": "Unseen Hand",
+  "description": "A turn-based tactics campaign: five battles, a party that keeps what it earns.",
+  "display": "standalone",
+  "orientation": "landscape",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#14100a",
+  "theme_color": "#14100a"
+}

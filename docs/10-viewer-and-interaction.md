@@ -379,6 +379,10 @@ degenerate fixture where all orderings coincide).
   **legible** — have no test today and must land as an AC with a test or be marked
   explicitly aspirational.
 
+- **AC-V23 through AC-V29 — RESERVED for the action-menu proposal**
+  (`docs/proposals/action-menu.md`, deferred 2026-09-02). Not free; mint nothing in this
+  range until that spec lands or is dropped.
+
 - **AC-V22 (the stat plate shows only what the sim models):** The battle board SHALL carry
   a plate describing the unit the forecast says acts **next**, and it SHALL print only
   values the sim models. **Met** (ADR-0033).
@@ -468,6 +472,53 @@ degenerate fixture where all orderings coincide).
     weaker than "readable over what was painted underneath", and deliberately stated as
     such.
   - **The colours.** The plate inherits `.card.board`; no criterion governs how it looks.
+
+- **AC-V30 (rotate gate)** `[ENHANCEMENT]`: On a touch device in portrait, a full-viewport
+  card SHALL cover the page, and the game beneath SHALL be hidden and unfocusable. In
+  landscape, or on a non-touch device at any aspect ratio, the card SHALL be absent and the
+  game unchanged. The card's primary line is **"Please rotate your device"**, above an
+  `aria-hidden` figure — a phone icon that turns 0 to 90 degrees on a CSS loop inside a
+  static quarter-turn arrow. Under `prefers-reduced-motion: reduce` the phone SHALL be
+  static at 90 degrees (the loop's finished state) rather than animating. The gate is
+  keyed on touch + portrait alone, with **no size bound** — a tablet held upright is gated
+  the same as a phone, by owner intent, not as a gap to close later. *Discriminator:* a
+  fixture emulating a touch device toggled between portrait and landscape must show
+  opposite outcomes, and a non-touch fixture narrowed to a portrait aspect ratio must show
+  the card absent both times — otherwise a plain max-width query masquerading as a touch
+  check would pass the first half and wrongly gate desktop users on the second. For the
+  motion half, a fixture with motion allowed and one with `prefers-reduced-motion: reduce`
+  must disagree on the icon's **computed** `animation-name` and `transform` — reading the
+  CSS source (an `animation` property is declared) cannot tell a running loop from a
+  reduced-motion override that only wins by specificity.
+
+- **AC-V31 (landscape fit)** `[ENHANCEMENT]`: At 844×390 with touch emulation, the board
+  canvas, the stat panel (ADR-0033) and the action controls SHALL each be visible without
+  scrolling, and the board SHALL keep its 900:440 aspect ratio. The timeline, the legend
+  and any other panel MAY sit below the fold. *Discriminator:* measure each of the three
+  required elements' bounding boxes against the viewport rectangle rather than trusting the
+  absence of a scrollbar, since a scrollbar can be suppressed while content still overflows
+  off-screen.
+
+- **AC-V32 (lock attempt)** `[ENHANCEMENT]`: The gate card's button, labelled **"Play in
+  landscape"**, SHALL call `requestFullscreen` then `screen.orientation.lock('landscape')`,
+  both feature-detected. A persistent line, **"If the screen does not follow, switch off
+  rotation lock."**, SHALL show on the card at all times, whether or not the button has
+  been pressed. Where either call is missing or throws, the button SHALL resolve without an
+  unhandled error and the card SHALL then also reveal a hint line, **"Your browser cannot
+  rotate the screen for you."** — hidden until that point, so the player is told only once
+  the attempt is known to have failed. A web manifest declaring `orientation: "landscape"`
+  SHALL be linked from both `index.html` and `viewer.html`, and SHALL be asserted by a
+  browser test reading the fetched file, not by the presence of the `<link>` alone. The
+  manifest ships with **no icon set**, so it is not installable on any platform yet — that
+  omission is deliberate for this slice, not a defect. *Discriminator:* a fixture stubbing
+  both APIs as absent, and a second stubbing both as present but rejecting, must both leave
+  the page in a normal, error-free state showing the post-failure hint; a third stubbing
+  both as granted must leave that hint hidden while the persistent rotation-lock line shows
+  in all three. **Real-device behaviour is unverified.** iOS Safari implements neither
+  call; on Android the lock only fires after the tap and the manifest's orientation only
+  applies once installed. No test here can confirm the lock actually rotates a real phone —
+  only that the calls are attempted, their failure is swallowed, and the player is told
+  what to do next.
 
 ## 7. Required module shape
 
@@ -561,6 +612,32 @@ commit a shot.
 same reason `session.ts` is**, so `docs/11` AC-M1's "title screen to ending" is a unit
 test rather than only a browser one. All persistent IO lives in
 `src/render/storage.ts`; `src/sim/campaign.ts` never learns where a save is kept.
+
+### 7b. Mobile is landscape only (ADR-0034)
+
+`[ENHANCEMENT]` The viewer was tested only at the desktop baseline (1000×780, board canvas
+900×440) until this slice. The owner decided the game becomes playable on phones in
+**landscape only** — portrait is out of scope, not deferred. A browser cannot force device
+orientation, so the design is two independent, best-effort mechanisms rather than one:
+
+1. **A rotate gate.** A touch device held in portrait sees a full-viewport card instead of
+   the game; the game is hidden and unfocusable underneath. The gate is meant to fire for
+   "touch device, portrait" and never for a desktop window that happens to be narrow and
+   tall. It is keyed off a media query — `(orientation: portrait) and (pointer: coarse)` as
+   shipped — named as the current implementation, not the rule, since a Chromium emulation
+   gap may force a max-width fallback. The card leads with "Please rotate your device"
+   above an `aria-hidden` figure — a phone icon turning 0 to 90 degrees on a CSS loop
+   inside a static quarter-turn arrow — because text alone does not cross languages. Under
+   `prefers-reduced-motion: reduce` the phone parks at 90 degrees instead of looping.
+2. **A lock attempt.** The gate card's button, "Play in landscape", requests fullscreen,
+   then calls `screen.orientation.lock('landscape')`; both are feature-detected and fail
+   silently. A persistent line, "If the screen does not follow, switch off rotation lock.",
+   is always shown; a hint, "Your browser cannot rotate the screen for you.", is revealed
+   only once the attempt is known to have failed. A web manifest declares
+   `orientation: "landscape"` and is linked from both pages.
+
+Neither mechanism can be relied on alone: see AC-V30/31/32 and ADR-0034's Limits section
+for what each browser actually honors.
 
 ## 8. Determinism risks specific to this layer
 

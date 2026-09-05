@@ -102,3 +102,64 @@ test("a11y: the engine viewer", async ({ page }) => {
   await expect(page.getByTestId("grid")).toBeVisible();
   expect(await scan(page)).toEqual([]);
 });
+
+/**
+ * The PORTRAIT ROTATE GATE (AC-V30) — the one screen no other case in this file can
+ * reach, because it exists only on a touch device held upright.
+ *
+ * HOW MUCH AXE ACTUALLY LOOKED AT IS THE POINT HERE. A checker that declines to check
+ * still reports pass, so a count is asserted rather than inferred from a green run —
+ * and it is asserted as an A/B against the SAME page rotated into landscape rather than
+ * against a hard-coded floor. Portrait: the game is `display: none` and axe evaluates a
+ * handful of nodes. Landscape: the gate is gone and the game renders, and axe evaluates
+ * several times as many. A gate that merely COVERED the page instead of hiding it would
+ * score the same in both, which is exactly the defect AC-V30 is about.
+ *
+ * DECLINED CHECKS, STATED: axe returns `bypass` as incomplete on this card (it cannot
+ * decide a skip-link on a page with one landmark-less dialog). That is the only rule it
+ * refuses, and the assertion below pins the set so a NEW refusal cannot arrive silently.
+ * `color-contrast` is disabled file-wide; `contrast.spec.ts` measures the card instead.
+ */
+test.describe("a11y: the portrait rotate gate", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  /** Nodes axe evaluated and held, plus the rules it refused to decide. */
+  async function reach(page: Page): Promise<{ nodes: number; declined: string[] }> {
+    const results = await new AxeBuilder({ page })
+      .withTags(TAGS)
+      .disableRules(UNMEASURABLE_HERE)
+      .analyze();
+    return {
+      nodes: results.passes.reduce((n, r) => n + r.nodes.length, 0),
+      declined: results.incomplete.map((r) => r.id).sort(),
+    };
+  }
+
+  for (const path of ["/", "/viewer.html"]) {
+    test(`a11y: the rotate gate on ${path}`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByTestId("rotate-gate")).toBeVisible();
+      await expect(page.locator(".wrap")).toBeHidden();
+      expect(await scan(page)).toEqual([]);
+
+      const gated = await reach(page);
+      expect(gated.declined, "axe started refusing a new rule on the gate").toEqual(["bypass"]);
+      // Measured 2026-09-05: 17 on `/`, 15 on `/viewer.html`. The floor says axe really
+      // examined the card rather than an empty document.
+      expect(gated.nodes, "axe evaluated almost nothing on the gate").toBeGreaterThanOrEqual(10);
+
+      // ROTATE, and scan the same page again. This is the control the count above is
+      // read against.
+      await page.setViewportSize({ width: 844, height: 390 });
+      await expect(page.getByTestId("rotate-gate")).toBeHidden();
+      await expect(page.locator(".wrap")).toBeVisible();
+      expect(await scan(page)).toEqual([]);
+
+      const open = await reach(page);
+      expect(
+        open.nodes,
+        "the gate scanned as much as the open game — it is covering the page, not hiding it",
+      ).toBeGreaterThan(gated.nodes * 2);
+    });
+  }
+});
