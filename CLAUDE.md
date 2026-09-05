@@ -113,7 +113,7 @@ Stack locked at P0 (ADR-0007): headless `src/sim/` + thin `src/render/`. **npm, 
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | typecheck + lint + check:rng + check:handoff + check:story + test + check:counts. **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
+| `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
@@ -174,6 +174,27 @@ The judgement call is the *scoping*, not the doing. A slice usually needs two or
 specialists in sequence; sequencing them and reconciling what they hand back is the job.
 
 Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
+
+## Model routing (user directive, 2026-09-04)
+
+**Pick the subagent model yourself; do not ask.** Opus if the model still has to work
+out what to do. Sonnet if a decision is made and needs faithful execution. Haiku if text
+is transformed with no judgment.
+
+| Seat | Use it for |
+| --- | --- |
+| `opus` | Default orchestrator seat. Any subagent whose task is still **open**: architecture, a bug that does not reproduce, unclear blast radius. |
+| `sonnet` | Default for a **well-specced** subagent: thoughtful prose, code specced to the file and function, digesting a long document down to what matters. |
+| `haiku` | Mechanical edits, format conversion, structured extraction. 200k window. |
+| `fable` | The **top-level seat only**, and only when the owner started the session on it. Never a subagent, never a `model:` in an agent definition, never a `model` override on a spawn. Delegate earlier and compact harder than on Opus. |
+
+Every file in `.claude/agents/` carries a `model:` default chosen by this table (open
+judgment → `opus`; specced execution → `sonnet`). **That default is the floor, not the
+rule.** When a spawn's task is more open than the agent's usual work — a `combat-engineer`
+chasing a bug that will not reproduce — override upward with the Agent tool's `model`
+parameter. When it is purely mechanical, override down to `haiku`. Before 2026-09-04 no
+agent named a model, so every subagent inherited the top seat, which on a Fable session
+put Fable in every specialist.
 
 ## Tooling & workflow
 

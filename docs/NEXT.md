@@ -11,7 +11,7 @@ Green at the stamp: 947 tests, 49 browser specs (`npm run check`).
 
 ## OPEN - WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Two asks are open.
+Read this before telling the owner "nothing is pending". Two asks are open, and one merge instruction.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
@@ -21,6 +21,8 @@ Read this before telling the owner "nothing is pending". Two asks are open.
 Ask E, why PNG: at 96x128 a crop is a few tens of KB either way, and a lossless file stays byte-comparable to the reference it was cut from.
 Three sites disagree today: `reference/README.md` step 3 (WebP, struck), `scripts/check-assets.mjs` header ("WebP/SVG"), and the spec table below (`<ext>`).
 The slice lands all three with the same answer.
+
+**Merge the PR by SQUASH, never a merge commit.** Eight Midjourney grid blobs (61.5 MiB, measured 2026-09-06 with `git rev-list --objects`) sit in this branch's history at `659ff71` and `1c3b841`, removed in `f7e8375` and absent from `main`; a normal merge carries them into `main` for good.
 
 ---
 

@@ -7,6 +7,7 @@ description: >-
   whether something is balanced, fun, or worth adding. Produces design proposals
   grounded in the house rules; does not write code.
 tools: Read, Grep, Glob, WebSearch, WebFetch, Skill
+model: opus
 ---
 
 # Systems Designer

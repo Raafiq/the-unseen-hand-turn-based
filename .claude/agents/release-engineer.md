@@ -7,6 +7,7 @@ description: >-
   the only role that pushes on the project's behalf. Use it whenever the question
   is "is this actually shipped?" rather than "is this correct?".
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, mcp__github__pull_request_read, mcp__github__update_pull_request, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_check_runs, mcp__github__actions_get, mcp__github__actions_list, mcp__github__get_job_logs, mcp__github__list_commits, mcp__github__add_issue_comment, mcp__github__subscribe_pr_activity, mcp__github__unsubscribe_pr_activity
+model: sonnet
 ---
 
 # Release Engineer

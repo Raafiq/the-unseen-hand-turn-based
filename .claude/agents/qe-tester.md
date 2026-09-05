@@ -8,6 +8,7 @@ description: >-
   test pass whether or not the claim is true?". It reports coverage and defects;
   it does not design, balance, or fix.
 tools: Read, Bash, Grep, Glob, Skill
+model: sonnet
 ---
 
 # QE Tester
