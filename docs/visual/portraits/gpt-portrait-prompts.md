@@ -3,7 +3,7 @@
 v4 of the lineage recorded in `reference/gpt-probe-prompts.md` (v1, v2) and in this file's history (v3).
 Authored 2026-09-05 by `art-director` under two owner decisions of the same evening:
 "I have new image for references instead, style-ref-1.png ... style-ref-4.png. I'm also thinking that we may have too many jobs now. Will reduce in future. So for now we keep to the basic jobs - knight, archer, thief, wizard, priest" and, earlier, "i'm not keen that they are all posed the same way with roughly the same expressions and features. We should vary it a bit."
-Every character below is in their twenties (ADR-0034).
+Every character below is in their twenties (ADR-0035).
 
 ## What v4 changes against v3
 

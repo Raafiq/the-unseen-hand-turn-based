@@ -1,6 +1,6 @@
 # The 16 portrait prompts — 8 jobs x 2 genders
 
-> **Superseded for portraits, 2026-09-05:** the sixteen portraits are generated in GPT Image 2, not Midjourney, and every character is in their twenties ([ADR-0034](../../../../docs/adr/0034-portraits-are-generated-in-gpt-image-2-not-midjourney.md)); the GPT prompts are in `docs/visual/portraits/gpt-portrait-prompts.md`.
+> **Superseded for portraits, 2026-09-05:** the sixteen portraits are generated in GPT Image 2, not Midjourney, and every character is in their twenties ([ADR-0035](../../../../docs/adr/0035-portraits-are-generated-in-gpt-image-2-not-midjourney.md)); the GPT prompts are in `docs/visual/portraits/gpt-portrait-prompts.md`.
 > The blocks below are kept unedited as the character briefs the GPT prompts translate from.
 > **The archer is no longer the style lock** (2026-09-05, later the same day): the lock is `docs/visual/portraits/reference/style-ref-1..4.png`, owner-supplied.
 > Every `archer-f.png` below means the Midjourney archer, now `HEAD:docs/visual/portraits/reference/archer-f.png`; the working-tree file of that name is a GPT output.

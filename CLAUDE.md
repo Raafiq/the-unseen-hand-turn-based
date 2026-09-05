@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 947 tests, 49 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 958 tests, 76 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -132,6 +132,8 @@ Notes:
   the record of a past defect and correcting them would falsify it. It also fails if it
   finds fewer than three live claims, because a guard that only checks the numbers it finds
   passes vacuously the day someone rewords every site. Mutation-verified four ways.
+- **`check:assets` reads the working tree, not the index.** A staged over-cap blob passes locally and fails CI.
+  Dense-hatch portrait PNGs land at 2.8-3.7 MB against the 3 MiB cap: re-encode losslessly (Pillow `optimize=True`, pixel-identical) before staging.
 - **`check:handoff`** runs on push events only — a `pull_request` event checks out a *merge* ref and would count base commits the branch never authored.
 - CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages.
 
@@ -146,7 +148,7 @@ Invoke by name:
 - `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
   project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
   about it is stale — two wrong flags reached `docs/NEXT.md` that way. Read the skill first.
-  Portraits now come from GPT Image 2 (ADR-0034), styled against four owner-supplied
+  Portraits now come from GPT Image 2 (ADR-0035), styled against four owner-supplied
   `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
 

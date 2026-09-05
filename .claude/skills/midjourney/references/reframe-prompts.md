@@ -3,7 +3,7 @@
 **Draft by `art-director`, 2026-09-02. Supersedes revision 1 entirely.**
 Nothing here is committed and no repo file was edited. The owner runs these.
 
-> **Historical, 2026-09-05.** Portraits come from GPT Image 2 (ADR-0034) and the style lock is `docs/visual/portraits/reference/style-ref-1..4.png`, not the archer.
+> **Historical, 2026-09-05.** Portraits come from GPT Image 2 (ADR-0035) and the style lock is `docs/visual/portraits/reference/style-ref-1..4.png`, not the archer.
 > Every `archer-f.png` in this file means the Midjourney archer, now `HEAD:docs/visual/portraits/reference/archer-f.png`; the working-tree file of that name is a GPT output.
 > The measurements here still stand as evidence for the switch.
 

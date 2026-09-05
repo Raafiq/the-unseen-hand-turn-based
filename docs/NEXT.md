@@ -5,7 +5,7 @@
 **Read this after `CLAUDE.md`.** The SessionStart hook prints the derived facts (branch, merge state, unpushed work).
 This file holds only what the next slice needs: what it is, what it waits on, and what will bite.
 If the hook says the stamp is stale, treat every claim here as a hypothesis and re-derive it.
-Green at the stamp: 947 tests, 49 browser specs (`npm run check`).
+Green at the stamp: 958 tests, 76 browser specs (`npm run check`).
 
 ---
 
@@ -17,6 +17,7 @@ Read this before telling the owner "nothing is pending". Two asks are open, and 
 |---|---|---|---|
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | E | Shipped crop format: PNG (**recommended**, lossless) or WebP | open, **blocks the slice** | The import, the `vite-env.d.ts` block and the README step |
+| F | Play the mobile-landscape gate (ADR-0034, `main`) on a real iPhone and a real Android phone: does the rotate gate appear in portrait, does the lock button do anything, are the board's tiles tappable in landscape | open, carried from `main`'s PR #56 handoff. Every claim about it is Chromium device emulation only | Closes the last unverified claim in `docs/10` AC-V32 |
 
 Ask E, why PNG: at 96x128 a crop is a few tens of KB either way, and a lossless file stays byte-comparable to the reference it was cut from.
 Three sites disagree today: `reference/README.md` step 3 (WebP, struck), `scripts/check-assets.mjs` header ("WebP/SVG"), and the spec table below (`<ext>`).
@@ -92,6 +93,7 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 | The ten v4 prompts, the v4 and v4.1 run records, the edit prompts the owner typed | `docs/visual/portraits/gpt-portrait-prompts.md` |
 | Why GPT Image 2 and not Midjourney; the paper decision; the age rule | ADR-0034 and its amendments |
 | The Midjourney method (Editor, Zoom Out, `::`, `--no`) and the character briefs | the `midjourney` skill |
+| The mobile-landscape gate, the orientation lock and their landmines (from `main`, ADR-0034) | ADR-0034, `docs/10` §7b, AC-V30..V32 |
 | Live defects and open test gaps | `docs/defects.md` |
 | Landed slices | `git log`, `npm run state` |
 | Engine, content, viewer and environment traps | `src/sim/CLAUDE.md`, `data/CLAUDE.md`, `src/render/CLAUDE.md`, root `CLAUDE.md` |

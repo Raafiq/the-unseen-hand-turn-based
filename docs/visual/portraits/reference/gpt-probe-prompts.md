@@ -4,7 +4,7 @@ This file is the reproducibility record for two probe runs on OpenAI GPT Image 2
 Run v1 produced `knight-f-gpt.png` and `knight-m-gpt.png`; run v2 produced `knight-f-gpt2.png` and `priest-f-gpt2.png`.
 ~~All four are in this directory, each 1145x1374 RGB (a 5:6 ratio).~~
 **Files moved, 2026-09-05 (later the same day):** the owner deleted the two v1 files and renamed the two v2 files to `knight-f.png` and `priest-f.png`, over the Midjourney singles of the same name.
-The v1 outputs exist nowhere in the repo now; their measurements survive in the Verdict below and in ADR-0034.
+The v1 outputs exist nowhere in the repo now; their measurements survive in the Verdict below and in ADR-0035.
 `archer-f.png` in this file means the **Midjourney** archer, the lock at the time; that file is now `HEAD:docs/visual/portraits/reference/archer-f.png`, and the working-tree `archer-f.png` is a GPT v3 output.
 The style lock changed on 2026-09-05 to `style-ref-1..4.png`; see `README.md` in this directory.
 The probe exists to compare GPT Image 2 against the Midjourney knights (`knight-f.png`, `knight-m.png` at HEAD) on the same brief.
@@ -15,7 +15,7 @@ GPT Image 2 v2 closed most of the style gap to the locked archer: foreground lin
 Skin is a shade darker and more saturated than the archer (32-34 from it, against an in-set Midjourney variance of 27); a v3 prompt pass owes "paler, less saturated tan, like the reference".
 GPT hit the asked background `#e9d7a8` within 5-11 units; that hex is the campaign page's parchment surface, and it is the Midjourney set that is off it.
 One v2 regression: the knight's collar lost its vertical quilting.
-The full table is in ADR-0034; the owner decided to switch on 2026-09-05 (ADR-0034, Ask 5).
+The full table is in ADR-0035; the owner decided to switch on 2026-09-05 (ADR-0035, Ask 5).
 
 The two prompts were authored on 2026-09-05 by the `art-director` agent.
 They are translations of the Midjourney `knight-female` and `knight-male` blocks in `.claude/skills/midjourney/references/portrait-prompts.md`.
@@ -77,7 +77,7 @@ v2 exists because v1 followed the prompt but lost the archer's scratchy line and
 The owner ran both v2 prompts on 2026-09-05 and delivered the outputs at 12:34-12:35 local time.
 The owner's words on the run: "we went with option 1".
 Option 1 was: run both v2 prompts in the ChatGPT app, "high thinking", `archer-f.png` attached as Image 1, the same as v1.
-The verdict is in the Verdict section at the top of this file and in ADR-0034.
+The verdict is in the Verdict section at the top of this file and in ADR-0035.
 
 ### Settings - v2, 2026-09-05
 

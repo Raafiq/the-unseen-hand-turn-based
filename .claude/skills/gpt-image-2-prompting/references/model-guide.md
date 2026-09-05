@@ -73,11 +73,15 @@ Prompting craft, not documented model behaviour. The model rewards visual facts;
 - Naming the line concretely worked: "broken, scratchy, varying in weight, short overlapping strokes" plus "hatching only in the shadows and hair" put v2 at foreground line energy 27.6 and 27.5 against the locked archer's 27.2.
 - "In the manner of X" plus "keep the medium, ink-line quality, texture and palette identical" (v1) did not: v1 measured 25.4 and lost the scratchy line.
 - The opener "Image 1 is an approved portrait from this game and the target for line, texture and colour: draw this one with the same hand, pen and paints. Do not copy its subject, face, hair, costume" beat "Use Image 1 (...) as style reference"; the v2 prompts are the measured form.
-- It obeys a background hex closely: 5-11 units off `#e9d7a8`, where the Midjourney set drifted 8.5 to 42.
+- With ONE reference attached it obeyed a background hex closely (5-11 units off `#e9d7a8`, v2 probe).
+  With four style references attached, the paper and palette follow the references and the hex is ignored (10 of 10 runs, 2026-09-06).
+  Ask for a hex only when no reference carries a paper.
+- Name style locks `style-ref-N.png` from the start.
+  The owner saves outputs straight over the plain `<job>-<gender>.png` names, so a lock parked under a plain name gets overwritten (the Midjourney archer was, 2026-09-05).
 - It draws a tidy anime eye with a solid iris and highlight dot regardless of line instructions; likely a model ceiling, invisible at 96 px.
 - Asking for "wash pooling" and "a rosy flush" pushed skin darker and more saturated (32-34 from the archer, saturation 136-141 against 116).
 - "Soft rounded cheekbones" reads as a child; every portrait character is in their twenties by the owner's rule.
-- The live 16-prompt set is `docs/visual/portraits/gpt-portrait-prompts.md`; run it as its "How to run" section says.
+- The live prompt set (ten portraits, v4.1) is `docs/visual/portraits/gpt-portrait-prompts.md`; run it as its "How to run" section says.
 
 ## 5. Iteration tip
 

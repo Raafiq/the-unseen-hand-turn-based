@@ -1,4 +1,4 @@
-# ADR-0034 - Portraits are generated in GPT Image 2, not Midjourney
+# ADR-0035 - Portraits are generated in GPT Image 2, not Midjourney
 
 - **Status:** Accepted
 - **Date:** 2026-09-05
