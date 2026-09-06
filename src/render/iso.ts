@@ -192,6 +192,20 @@ const MIN_ZOOM = 0.5;
 /** A small map must not be blown up past the point where the texture detail coarsens. */
 const MAX_ZOOM = 2.2;
 
+/**
+ * One tile's drawn size in CANVAS BACKING pixels, under the current camera.
+ *
+ * The settings drawer prints this in CSS px (docs/10 AC-V40) because board tiles are
+ * the one thing exempt from the 44 px touch floor (AC-V35) — roughly 30 x 15 CSS px at
+ * 640x300 — and nothing else can tell the owner how small they actually are on a real
+ * device. Derived from {@link viewFor}, so it moves with the camera rather than
+ * carrying a second opinion about it.
+ */
+export function tileSizeFor(state: BattleState, canvasW: number, canvasH: number): Position {
+  const { scale } = viewFor(state, canvasW, canvasH);
+  return { x: TILE_W * scale, y: TILE_H * scale };
+}
+
 /** Where the board sits on the canvas, and how big. */
 export interface View {
   /** Origin in WORLD units — the space `project` works in, before `scale` is applied. */

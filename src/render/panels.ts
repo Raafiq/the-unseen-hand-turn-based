@@ -20,6 +20,7 @@
 
 import type { ActiveActor, BattleState } from "../sim/index.js";
 import { ASSUMED_FUTURE_TURN_COST, forecast } from "./demo.js";
+import { abilityLabel } from "./prep.js";
 import type { TurnCost } from "./preview.js";
 import type { Session } from "./session.js";
 
@@ -297,6 +298,13 @@ export function statusHtml(session: Session, look: LookUp): string {
   );
 }
 
+/**
+ * An ability's display name, through `prep.ts`'s one table — the sheet used to print
+ * the raw id ("punch-art.wave-fist"), which wrapped to three lines AND named the
+ * ability differently from every other surface in the game.
+ */
+const abilityName = (id: string): string => esc(abilityLabel(id));
+
 const row = (k: string, v: string, cls = ""): string =>
   `<div class="prow ${cls}"><span class="pk">${k}</span><span class="pv">${v}</span></div>`;
 
@@ -317,53 +325,71 @@ export function previewHtml(session: Session, look: LookUp): string {
           `<p class="phint">Hover an enemy to see the exact hit %, damage and clock cost before you commit.</p>`
       : `<p class="phint">No unit is awaiting your input.</p>`;
   }
-  const hpBar = `${p.targetHpBefore} → ${p.targetHpAfter} / ${p.targetMaxHp}`;
   const statuses =
-    p.targetStatuses.length === 0
-      ? "none"
-      : p.targetStatuses.map((s) => `${s.id} (${s.kind})`).join(", ");
-  return (
-    row("Action", `${labelOf(look, p.actorId)} · ${p.abilityId} → ${labelOf(look, p.targetId)}`) +
-    row("Resolves from", `${p.moved ? "staged tile" : "current tile"} (${p.from.x},${p.from.y})`) +
-    row("Facing", `${p.facing.toUpperCase()} arc`) +
-    row("Hit chance", `${p.hitChance}%`) +
-    row(p.heal ? "Heal" : "Damage", `${p.magnitude}`) +
-    row("Target HP", hpBar, p.lethal ? "lethal" : "") +
-    (p.lethal ? row("Outcome", "LETHAL — the target is KO'd") : "") +
-    row("Zodiac", p.zodiac) +
-    row("Target statuses", statuses) +
-    // Only when the act actually applies one. An "Inflicts: none" row on every
-    // ordinary swing would be noise, and the absent-not-zero rule is about not
-    // asserting an unmodeled effect — it does not require printing an empty one.
-    (p.inflicts.length > 0
-      ? row("Inflicts on hit", p.inflicts.map((i) => `${i.id} (${i.kind})`).join(", "), "lethal")
-      : "") +
+    p.targetStatuses.length === 0 ? "none" : p.targetStatuses.map((s) => s.id).join(", ");
+  // ORDER IS DECISION ORDER, AND EVERY ROW IS ONE LINE. Both changed with the stage
+  // (ADR-0037). This set used to sit in a full-width desktop panel where all of it was
+  // on screen at once; it now lives in a 176-unit sheet, so two things had to give:
+  //
+  //   1. ORDER. The rows a player commits on go first — will it land, from what arc,
+  //      for how much, does it kill, what comes back at me, what does the turn cost.
+  //      Context (where it resolves from, the act's own name, Zodiac, statuses) sits
+  //      below them.
+  //   2. LENGTH. Every value is written to fit ONE line at 176 units. The measured
+  //      before/after is 489 units of content down to ~190: "Turn price" alone wrapped
+  //      to three lines and "Action" to two, which is what pushed the act's own name
+  //      off the bottom of the sheet in the first frame captured.
+  //
+  // NOTHING IS DROPPED. §4 items 2–8 and the Zodiac enhancement are all still printed;
+  // hit % and its facing arc share a row because the arc is *why* the number is what it
+  // is, and the price shares one with the slot it buys for the same reason.
+  const arc = p.facing.toUpperCase();
+  const price = `−${p.turn.cost} · ${p.turn.ctBefore}→${p.turn.ctAfter}`;
+  const slot =
+    p.turn.timelineSlot === null
+      ? "beyond 8"
+      : `${p.turn.timelineSlotExact ? "" : "≈ "}#${p.turn.timelineSlot + 1}`;
+  // THE MAGNITUDE AND WHAT IT LEAVES THE TARGET ON ARE ONE ROW, and the lethal verdict
+  // rides on it rather than taking a row of its own. Six rows is what the sheet holds
+  // (138 usable units at 21 each); a seventh is below the fold, so every row that can
+  // be folded into another without losing a value is.
+  const commitCritical =
+    row("Hit", `${p.hitChance}% · ${arc}`) +
+    row(
+      p.heal ? "Heal" : "Damage",
+      `${p.magnitude} · HP ${p.targetHpBefore}→${p.targetHpAfter}${p.lethal ? " · LETHAL" : ""}`,
+      p.lethal ? "lethal" : "",
+    ) +
     // The target's reaction, shown ONLY when one can actually trigger from here
     // (ADR-0019). Absent, never "Counter: 0%" — and it leads with the cancellation
     // when the reaction is Hamedo, because every number above this row is then moot.
     (p.counterRisk
       ? (p.counterRisk.cancelsAct
-          ? row("⚠ Blocked", `${p.counterRisk.abilityId} would CANCEL this act (${p.counterRisk.chance}%)`, "lethal")
+          ? row("⚠ Blocked", `${abilityName(p.counterRisk.abilityId)} cancels this`, "lethal")
           : "") +
         row(
-          p.counterRisk.cancelsAct ? "…and strikes back" : "⚠ Counter risk",
-          `${p.counterRisk.abilityId} · ${p.counterRisk.chance}% to trigger` +
-            ` · ${p.counterRisk.hitChance}% to hit you for ${p.counterRisk.magnitude}`,
+          p.counterRisk.cancelsAct ? "…hits back" : "⚠ Counter",
+          `${p.counterRisk.chance}% · ${p.counterRisk.hitChance}% for ${p.counterRisk.magnitude}` +
+            (p.counterRisk.lethal ? " · KILLS YOU" : ""),
           p.counterRisk.lethal ? "lethal" : "",
         ) +
-        (p.counterRisk.lethal ? row("Outcome", "the counter would KO YOU", "lethal") : "")
+        ""
       : "") +
-    row(
-      "Turn price",
-      `${p.moved ? "Move + Act" : "Act"} · −${p.turn.cost} clock` +
-        ` · clock ${p.turn.ctBefore} → ${p.turn.ctAfter}`,
-    ) +
-    row(
-      p.turn.timelineSlotExact ? "Next slot" : "Next slot (projected)",
-      p.turn.timelineSlot === null
-        ? "beyond the next 8 turns"
-        : `${p.turn.timelineSlotExact ? "" : "≈ "}#${p.turn.timelineSlot + 1} in the timeline`,
-    ) +
+    row("Turn", `${price} · ${slot}`);
+  return (
+    commitCritical +
+    row("Act", `${abilityName(p.abilityId)} → ${labelOf(look, p.targetId)}`) +
+    row("From", `${p.moved ? "staged" : "here"} (${p.from.x},${p.from.y})`) +
+    // ONE ROW, because two would not fit and both are facts about the same target.
+    // Neither is dropped: the Zodiac multiplier is `docs/04` §3's "surface the hidden
+    // multiplier" and the status list is §4 item 8.
+    row("Zodiac", `${p.zodiac} · ${statuses}`) +
+    // Only when the act actually applies one. An "Inflicts: none" row on every
+    // ordinary swing would be noise, and the absent-not-zero rule is about not
+    // asserting an unmodeled effect — it does not require printing an empty one.
+    (p.inflicts.length > 0
+      ? row("Inflicts", p.inflicts.map((i) => i.id).join(", "), "lethal")
+      : "") +
     // THIS LIST IS AN ASSERTION, and it has to shrink as capabilities land. It named
     // `status-on-hit` while the Inflicts row above was already live, and `reactions`
     // until ADR-0019 wired them — each one a claim the engine had stopped backing.

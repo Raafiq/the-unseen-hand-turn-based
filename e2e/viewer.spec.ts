@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { freezeMotion, settleMotion } from "./helpers.js";
+import { freezeMotion, openDrawer, settleMotion, watchStep } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
@@ -41,7 +41,11 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   await expect(canvas).toBeVisible();
   await expect(page.getByTestId("timeline")).toContainText("Next up");
   await expect(page.getByTestId("status")).toContainText("Turns 0");
-  await expect(page.getByTestId("preview")).toBeVisible();
+  // ADR-0038: the resolution sheet is an OVERLAY that exists only while a target is
+  // staged (AC-V34), so at rest there is nothing to see — which is the point. Its
+  // presence and its contents are asserted in `e2e/stage.spec.ts`, where a target is
+  // actually staged first.
+  await expect(page.getByTestId("preview-sheet")).toBeHidden();
   await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/01-initial.png`, fullPage: true });
   await page.waitForTimeout(INTRO_MS); // let the opening frame settle
@@ -49,7 +53,6 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   const startHp = await totalHp(page);
 
   const MAX_TURNS = 24;
-  const step = page.getByTestId("step");
   let taken = 0;
   // THE TWO GALLERY BEATS ARE CHOSEN BY STATE, NOT BY TURN INDEX. They used to be
   // hard-coded (i=5 "closing in", i=11 "combat") against one measured run, and both
@@ -74,7 +77,7 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   let combatShot = false;
   for (let i = 1; i <= MAX_TURNS; i++) {
     if ((await phase(page)) === "ENDED") break;
-    await step.click();
+    await watchStep(page);
     taken = await turns(page);
     await page.waitForTimeout(HOLD_MS); // hold each turn long enough to read
     const hpNow = await totalHp(page);
@@ -110,7 +113,10 @@ test("engine viewer: renders the grid and steps the CT clock deterministically",
   // Combat actually happened: total HP dropped from real damage.
   expect(await totalHp(page)).toBeLessThan(startHp);
 
-  // Reset restores turn 0 (state is rebuilt from the seed).
+  // Reset restores turn 0 (state is rebuilt from the seed). It lives in the stage's ☰
+  // menu since ADR-0037, alongside the turn log and the legend — `watchStep` above
+  // closes the drawer after each step, so it has to be opened again here.
+  await openDrawer(page, "menu");
   await page.getByTestId("reset").click();
   await page.waitForTimeout(HOLD_MS);
   await expect(page.getByTestId("status")).toContainText("Turns 0");

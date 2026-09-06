@@ -1,5 +1,11 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
+import {
+  prepEveryMember,
+  dismissScene,
+  freezeMotion,
+  settleMotion,
+  watchStep,
+} from "./helpers.js";
 import { FIELD_THEME, RING_FILL_ALPHA } from "../src/render/iso.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
@@ -79,7 +85,11 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await expect(page.getByTestId("timeline")).toContainText("Next up");
-  await expect(page.getByTestId("preview")).toBeVisible();
+  // ADR-0038: the resolution sheet is an OVERLAY that exists only while a target is
+  // staged (AC-V34's third state). At rest there is nothing to see — which is the
+  // point — so what is asserted here is that it is ABSENT. `e2e/stage.spec.ts` stages
+  // a target and asserts the contents.
+  await expect(page.getByTestId("preview-sheet")).toBeHidden();
   // Settled, so the caption "the battle screen" describes a board at rest rather than an
   // arbitrary frame of the commit animation. (Nothing has been committed here yet, so it
   // is a no-op today — kept because the frame moves the day a step is added above it.)
@@ -326,14 +336,19 @@ test("help: the ? panel opens from any screen and explains the mechanics", async
   await page.getByTestId("help-close").click();
   await expect(panel).toBeHidden();
 
-  // Reachable mid-battle too, not only from the title — a player asks "what is CT?"
-  // while looking at the clock, not before they have seen one.
+  // Reachable mid-battle too, not only from the title — a player asks "what is the
+  // clock?" while looking at one, not before they have seen it. On the BATTLE screen
+  // that is the stage's own top-right `?` (ADR-0037): the fixed disc is hidden there
+  // deliberately, because two help affordances on one screen is one too many and the
+  // disc is the one that would land on the board.
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
-  await page.getByTestId("help-open").click();
-  await expect(panel).toBeVisible();
+  await expect(page.getByTestId("help-open")).toBeHidden();
+  await page.getByTestId("hud-help").click();
+  await expect(page.getByTestId("help-drawer")).toBeVisible();
+  await expect(page.getByTestId("help-drawer")).toContainText("Confirm");
 });
 
 test("equipment: a granted weapon can be equipped, and it survives a reload", async ({ page }) => {
@@ -431,6 +446,9 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
 
+  // The legend moved into the stage's ☰ drawer (docs/10 §8b). Opened the way a player
+  // opens it, which is also the assertion that it is reachable at all.
+  await page.getByTestId("hud-menu").click();
   const legend = page.getByTestId("legend");
   await expect(legend).toBeVisible();
   await expect(legend).toContainText("Your party");
@@ -444,7 +462,11 @@ test("learnability: the board explains itself and the buttons drop engine jargon
   // `unit-card` joined this list when the card moved OUT of the timeline and onto the
   // board: the loop used to cover it transitively, and dropping it would have shrunk the
   // check without shrinking anything visible — a subset reading as the set.
-  for (const id of ["end-turn", "timeline", "preview", "status", "unit-card"]) {
+  // `unit-card` and `status` live in drawers now and `preview` in the target sheet;
+  // `toContainText` reads a hidden element's text, so the coverage is unchanged. The
+  // ACTOR TAB is new to this list — it is the surface a player looks at most.
+  await page.getByTestId("hud-settings").click(); // renders the status readout live
+  for (const id of ["end-turn", "timeline", "preview", "status", "unit-card", "actor-tab"]) {
     await expect(page.getByTestId(id)).not.toContainText(/\bCT\b/);
   }
 });
@@ -486,6 +508,10 @@ test("legend: every swatch is the colour the board actually paints", async ({ pa
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   // A settled board: no hit flash whitening a token, no ring mid-sweep.
   await settleMotion(page);
+  // The legend is in the ☰ drawer since ADR-0037; `getComputedStyle` on a
+  // `display: none` swatch returns nothing usable, so it has to be open.
+  await page.getByTestId("hud-menu").click();
+  await expect(page.getByTestId("legend")).toBeVisible();
 
   const seen = await page.evaluate(
     (want) => {
@@ -984,7 +1010,11 @@ test("portraits: every frame matches the aspect of the asset it holds", async ({
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
-  const plateFigure = page.locator("#unit-card .uc-portrait");
+  // The full stat card lives in the actor-tab drawer since ADR-0037 (the tab itself
+  // shows name and HP only, AC-V37).
+  await page.getByTestId("actor-tab").click();
+  await expect(page.getByTestId("unit-drawer")).toBeVisible();
+  const plateFigure = page.locator('[data-testid="unit-card"] .uc-portrait');
   const plateImg = plateFigure.locator("img");
   await expect(plateImg).toHaveCount(1);
   await expectFrameMatchesAsset(plateImg, "battle plate portrait");
@@ -1081,9 +1111,13 @@ test("reduced motion: the board animates by default and does not when it is aske
     await dismissScene(page);
     await page.getByTestId("deploy").click();
     await expect(page.getByTestId("screen-battle")).toBeVisible();
-    const lastRow = (): Promise<string> => page.locator("#log li").first().innerText();
+    // `textContent`, not `innerText`: the turn log lives in the ☰ drawer, which is
+    // closed between steps, and `innerText` of a hidden subtree is "" — indistinguishable
+    // from "no blow has landed".
+    const lastRow = (): Promise<string> =>
+      page.locator('[data-testid="turn-log"] li').first().textContent().then((t) => t ?? "");
     for (let i = 0; i < 12 && !/(?:hit|KO) /.test(await lastRow().catch(() => "")); i++) {
-      await page.getByTestId("step").click();
+      await watchStep(page);
     }
     expect(/(?:hit|KO) /.test(await lastRow()), "no blow landed to animate").toBe(true);
     const impact = await frameAt(0);

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
-import { dismissScene } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -85,16 +85,47 @@ test("a11y: the help panel", async ({ page }) => {
   expect(await scan(page)).toEqual([]);
 });
 
-test("a11y: the battle screen", async ({ page }) => {
+/**
+ * THE BATTLE STAGE (ADR-0037) — scanned at rest AND with every overlay open, and the
+ * NODE COUNT is asserted at each step rather than inferred from a green run.
+ *
+ * A CHECKER THAT DECLINES TO CHECK STILL REPORTS PASS. axe skips what is not rendered,
+ * so a `hidden` drawer contributes nothing and a run that never opened one is
+ * byte-identical to a run over a drawer full of unlabelled icon buttons. Each overlay
+ * is opened, and each is asserted to have ADDED nodes to axe's reach — which is the
+ * only thing that separates "axe examined this panel" from "axe never saw it".
+ */
+test("a11y: the battle stage, at rest and with every overlay open", async ({ page }) => {
+  await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
-  // The board card is the one surface that stayed dark, so it is the one place the
-  // ink/ground pairing differs from every other screen — worth its own case rather
-  // than trusting the parchment result to cover it.
+
+  const reach = async (): Promise<number> => {
+    const results = await new AxeBuilder({ page })
+      .withTags(TAGS)
+      .disableRules(UNMEASURABLE_HERE)
+      .analyze();
+    return results.passes.reduce((n, r) => n + r.nodes.length, 0);
+  };
+
   expect(await scan(page)).toEqual([]);
+  const atRest = await reach();
+  // MEASURED 2026-09-05: the stage at rest puts dozens of nodes in front of axe. The
+  // floor says it really examined the HUD rather than an empty document.
+  expect(atRest, "axe evaluated almost nothing on the stage").toBeGreaterThan(15);
+
+  for (const which of ["unit", "settings", "menu", "help", "actions"] as const) {
+    await openDrawer(page, which);
+    expect(await scan(page), `violations with the ${which} overlay open`).toEqual([]);
+    expect(
+      await reach(),
+      `opening the ${which} overlay added nothing to axe's reach — it never saw it`,
+    ).toBeGreaterThan(atRest);
+    await closeDrawer(page);
+  }
 });
 
 test("a11y: the engine viewer", async ({ page }) => {

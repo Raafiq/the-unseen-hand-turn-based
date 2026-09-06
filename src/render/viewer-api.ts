@@ -15,7 +15,7 @@
  */
 
 import type { BattleState, Command, Position } from "../sim/index.js";
-import type { ActPreview } from "./preview.js";
+import type { ActPreview, TurnCost } from "./preview.js";
 import type { Phase, TurnDraft } from "./session.js";
 
 export interface ViewerApi {
@@ -50,8 +50,19 @@ export interface ViewerApi {
   draft: () => TurnDraft | null;
   /** The recorded command log, in order — AC-V9 replays it. */
   commands: () => Command[];
+  /** Unwind ONE level of the draft (docs/10 §3). Emits no command. */
   cancel: () => void;
   endTurn: () => void;
+  /**
+   * COMMIT THE STAGED TARGET (ADR-0038) — the second of the two taps, and the only
+   * path from `TARGET_STAGED` that reaches the sim. A no-op with nothing staged.
+   *
+   * AC-V36's whole criterion is the command-log A/B across this and the target tap:
+   * the tap emits ZERO and this emits exactly one. The zero is the load-bearing half —
+   * "after Confirm a command exists" passes against the shipped pre-ADR behaviour,
+   * where the command was emitted on the tap.
+   */
+  confirm: () => void;
   /** The docs/10 §3 state-machine state. */
   phase: () => Phase;
   /**
@@ -62,6 +73,15 @@ export interface ViewerApi {
    * rule: you cannot even write `preview().crit` to print a fake zero.
    */
   preview: () => ActPreview | null;
+  /**
+   * THE PRICE OF *ACTING* THIS TURN, from the sim's own cost model.
+   *
+   * Exposed so a spec can assert the Actions sheet's header prints THIS number rather
+   * than an arithmetic of its own. The header computed `didMove ? 100 : 80` until
+   * 2026-09-05 — a combat constant restated in the render layer, which would have gone
+   * on quoting the old figure if `CT_COST_MOVE_AND_ACT` ever moved.
+   */
+  actCost: () => TurnCost | null;
   /** The transient illegal-click reason chip, or null. */
   reason: () => string | null;
   /**

@@ -128,7 +128,13 @@ const prettify = (id: string): string =>
 /** A job's display label, falling back to a de-kebabbed id. Shared with `game.ts`. */
 export const jobLabel = (id: string): string => JOB_LABEL[id] ?? prettify(id);
 const skillsetLabel = (id: string): string => SKILLSET_LABEL[id] ?? prettify(id);
-const abilityLabel = (id: string): string => ABILITY_LABEL[id] ?? prettify(id);
+/**
+ * An ability's display name, falling back to a de-kebabbed id. EXPORTED because the
+ * battle HUD's Actions sheet lists the same abilities this panel does (docs/10
+ * AC-V38); a second table would let the prep screen and the battle sheet call the
+ * same ability two different things.
+ */
+export const abilityLabel = (id: string): string => ABILITY_LABEL[id] ?? prettify(id);
 const traitLabel = (id: string): string => TRAIT_LABEL[id] ?? prettify(id);
 
 /**

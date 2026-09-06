@@ -1,0 +1,976 @@
+/* ══ THE BATTLE STAGE (ADR-0037, docs/10 §8) ═══════════════════════════════════
+   ONE stylesheet, imported by `hud.ts`, so both pages get byte-identical stage
+   chrome. The battle screen used to be authored twice — once in `index.html` and
+   once in `viewer.html` — and the two drifted (the engine viewer's landscape rules
+   and the campaign's were separate copies of the same idea). A shared file is what
+   makes AC-V42's "the stage's child set is identical" true by construction rather
+   than by discipline.
+
+   EVERY LENGTH BELOW IS IN STAGE UNITS. The stage element is 360 units tall and
+   `stage.ts` scales it uniformly, so `1px` here is one stage unit, not one CSS
+   pixel. At the narrowest supported viewport (640x300) the scale is 0.8333, which
+   is why every control is at least 54 units: 54 x 0.8333 = 45 CSS px, over the
+   44 px floor docs/10 AC-V35 measures AFTER the transform.
+
+   THE SKIN IS THE CAMPAIGN'S DARK TABLE (owner's pick, 2026-09-05: "skin B"). Gold
+   hairlines, parchment ink, Cinzel small caps on the controls, EB Garamond on the
+   numbers, square corners, and the campaign's RUBRICATED RED on the primary button
+   instead of a flat amber slab. index.html's battle sheet was already the one dark
+   surface on the campaign (ADR-0028 kept it that way) and the engine viewer is dark
+   throughout, so this is the material both pages already had, finished.
+
+   THE TEN SURFACES KEEP `rgb(29, 23, 16)` EXACTLY, and that is not a coincidence:
+   `e2e/contrast.spec.ts` declares that value as the one HUD ground and asserts every
+   surface paints it opaquely. Re-tone it and that file goes red, which is the point.
+   Everything else — hairlines, ink, type, corners — is what changed.
+
+   COST THIS SKIN CARRIES: it names Cinzel and EB Garamond, and `viewer.html` had no
+   `@font-face` for either, so the engine viewer silently fell back to Georgia while
+   the campaign rendered the real faces. Both pages now declare the four blocks; the
+   fonts live in `public/fonts`, and `e2e/stage.spec.ts` asserts `document.fonts` has
+   Cinzel loaded on BOTH pages, because "the file is declared" and "the browser loaded
+   it" are different claims. */
+
+/* THE BATTLE SECTION IS THE FIXED FRAME, the host is the measured box inside it.
+   Two elements rather than one, and the split is load-bearing: a section whose only
+   child is `position: fixed` collapses to zero height, and `toBeVisible()` — plus
+   every "is the battle screen up" check in the suite — reads that as hidden. The
+   section carries the viewport frame; the host carries the SMALL-viewport units. */
+[data-testid="screen-battle"]:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+}
+
+.tuh-host {
+  /* svh, deliberately: `dvh` re-lays-out every time a phone toolbar slides, which
+     would move the board mid-turn (docs/10 §8c, AC-V41). */
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100svw;
+  height: 100svh;
+  /* viewport-fit=cover puts content under a notch; pad it back out. Playwright
+     cannot emulate a cutout, so AC-V41 asserts this is DECLARED and nothing more. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  /* Transparent: the letterbox shows the page's own table (ADR-0028) or the
+     viewer's dark ground, so desktop keeps its material. */
+  background: transparent;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.tuh-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: 50% 50%;
+  /* width / height / transform are written by `stage.ts`; nothing here may set them. */
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+  user-select: none;
+
+  /* TWO STACKS, and which one a thing gets is a rule rather than a preference:
+     Cinzel small caps for LABELS (what a control is), EB Garamond for VALUES (what
+     the number says). A number set in caps with letter-spacing is slower to read and
+     this HUD is nothing but numbers. */
+  --tuh-text: "EB Garamond", Georgia, "Times New Roman", serif;
+  --tuh-roman: "Cinzel", "Trajan Pro", Georgia, serif;
+  font-family: var(--tuh-text);
+
+  /* `--hud-bg` IS DECLARED IN `e2e/contrast.spec.ts` AS `GROUNDS.plate`. Changing it
+     here without changing it there means the contrast walk measures a colour the page
+     stopped painting — so it is pinned, and the skin is everything on top of it. */
+  --hud-bg: rgb(29, 23, 16);
+  --hud-bg-2: rgb(46, 37, 25);
+  --hud-edge: rgb(138, 101, 36); /* gold leaf, not brown */
+  --hud-ink: rgb(230, 214, 171); /* the campaign's `--ink-dk`: parchment, not white */
+  --hud-ink-soft: rgb(171, 148, 104);
+  --hud-accent: rgb(184, 137, 47); /* `--accent-lit`: gold ON the dark table */
+  --hud-warn: rgb(194, 83, 73);
+  /* Rubrication — the campaign's command colour, for the one control that commits. */
+  --hud-red: rgb(130, 37, 29);
+  --hud-red-ink: rgb(242, 229, 196);
+  /* The rule under both bars and around every control. One value, so a hairline
+     cannot drift between the two. */
+  --hud-rule: rgb(106, 80, 39);
+}
+
+.tuh-stage * {
+  box-sizing: border-box;
+}
+
+/* BOTH PAGES DECORATE `button` GLOBALLY — index.html hangs a sanguine gradient and a
+   `::before` chevron on every one, viewer.html its own gold fill. The stage's buttons
+   are HUD chrome and must look the same on both, so the decoration is cancelled here
+   rather than each page being asked to remember. Class selectors outrank the bare
+   element selectors those rules use, so this is enough; an id would not be. */
+.tuh-stage button::before,
+.tuh-stage button::after {
+  content: none;
+  display: none;
+}
+
+/* ── zones ─────────────────────────────────────────────────────────────────── */
+
+/* A DOUBLE GOLD RULE at each edge of the well. The hairline stays a BORDER — a
+   gradient there would make `contrast.spec.ts`'s "no background-image" assertion red,
+   and that assertion is what stops a surface acquiring a ground the walk cannot
+   flatten. The second stroke is a box-shadow, which the walk does not read. */
+.tuh-top {
+  flex: none;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  background: var(--hud-bg);
+  border-bottom: 1px solid var(--hud-edge);
+  box-shadow: 0 2px 0 rgba(184, 137, 47, 0.28);
+}
+
+/* THE BOARD WELL IS THE PAGE'S OWN TABLE. Without it the space either side of the
+   canvas is flat `--hud-bg` and the board reads as a picture pasted onto a card; with
+   it the board sits IN something. ADR-0028's table gradient, verbatim. */
+.tuh-mid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: radial-gradient(120% 130% at 50% 35%, #241b10 0%, #14100a 60%, #0b0805 100%);
+}
+
+.tuh-board {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The canvas keeps its 900:440 backing-store ratio EXACTLY: 216 x 2.0454545 =
+   441.8182. `pickTile` inverts through the projection `draw` paints with, so a
+   canvas stretched off that ratio does not fail — it silently misses every tap
+   (src/render/CLAUDE.md, AC-V19). No border, for the same reason: a border-box
+   border would shave the content box and move the ratio. */
+.tuh-stage canvas {
+  display: block;
+  width: 441.8182px;
+  height: 216px;
+  border: 0;
+  background: rgb(13, 9, 6);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.tuh-stage canvas:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: -2px;
+}
+
+.tuh-bottom {
+  flex: none;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  background: var(--hud-bg);
+  border-top: 1px solid var(--hud-edge);
+  box-shadow: 0 -2px 0 rgba(184, 137, 47, 0.28);
+}
+
+/* ── controls ──────────────────────────────────────────────────────────────── */
+
+/* CONTROLS ARE LABELS, so they take the Cinzel stack in small caps. The values these
+   controls sit beside are EB Garamond — see the two custom properties above. Every
+   declaration here is stated rather than inherited, because index.html and viewer.html
+   both decorate bare `button` and the stage must look the same on the two. */
+.tuh-stage button {
+  font-family: var(--tuh-roman);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--hud-ink);
+  background: var(--hud-bg-2);
+  border: 1px solid var(--hud-rule);
+  border-radius: 0;
+  box-shadow: inset 0 1px 0 rgba(214, 172, 102, 0.16);
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 54px;
+  min-width: 54px;
+  padding: 4px 10px;
+  font-style: normal;
+  text-shadow: none;
+}
+
+/* A DISABLED CONTROL MUST READ DISABLED, and opacity alone does not do it: the RED
+   primary at 55% is still a red slab in gold caps, and the frame where End Turn is
+   refused with a shot aimed (docs/10 §3's `TARGET_STAGED` row) showed exactly that —
+   a control that looks like the thing to press. The fill goes to the flat ground, the
+   ink to the soft tone, the raised inset off, and the cursor to `default` rather than
+   `not-allowed`: this is a control that is not for you yet, not one that is broken.
+   `e2e/stage.spec.ts` asserts the computed background DIFFERS from the enabled one —
+   an opacity-only treatment reports the same `background-color` in both states. */
+.tuh-stage button:disabled,
+.tuh-stage .tuh-primary:disabled,
+.tuh-sheet-foot button:disabled {
+  opacity: 1;
+  cursor: default;
+  color: var(--hud-ink-soft);
+  background: var(--hud-bg);
+  border-color: rgba(106, 80, 39, 0.55);
+  box-shadow: none;
+}
+
+.tuh-stage button:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 2px;
+}
+
+/* GLYPHS, NOT LABELS: ☰ ? ⚙ ✕ ⋯ take the text stack at full size with no tracking.
+   Cinzel small caps on a glyph adds letter-spacing to a single character, which just
+   pushes it off centre. */
+.tuh-icon {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  font-family: var(--tuh-text);
+  font-size: 21px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--hud-accent);
+  padding: 0;
+}
+
+/* THE TWO CONTROLS THAT SPEND A TURN, in the campaign's rubricated red — End Turn and
+   Confirm are the same act from the player's side, so they wear the same colour.
+   Measured 7.5:1 against `--hud-red-ink`.
+
+   `.tuh-stage .tuh-primary`, not `.tuh-primary`: `.tuh-stage button` is (0,1,1) and was
+   winning, so the primary wore the ghost fill and nothing on the bar read as primary.
+   Caught by opening a frame; every box assertion was green, because this is a colour
+   and the suite cannot see colours. */
+.tuh-stage .tuh-primary,
+.tuh-sheet-foot button {
+  font-family: var(--tuh-roman);
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--hud-red-ink);
+  background: var(--hud-red);
+  border-color: rgb(87, 23, 18);
+  box-shadow: inset 0 1px 0 rgba(255, 190, 175, 0.22);
+}
+
+.tuh-stage .tuh-primary {
+  flex: 1;
+  min-width: 150px;
+  height: 60px;
+}
+
+.tuh-bottom .tuh-ghost {
+  flex: none;
+  height: 60px;
+  min-width: 96px;
+  font-size: 15px;
+}
+
+.tuh-actions-btn {
+  flex: none;
+  height: 60px;
+  min-width: 110px;
+  font-size: 15px;
+}
+
+/* ── the turn-order chip strip ─────────────────────────────────────────────── */
+
+.tuh-chips {
+  flex: 1;
+  min-width: 0;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  background: var(--hud-bg);
+  color: var(--hud-ink-soft);
+  font-size: 13px;
+}
+
+/* EXPANDED: the row becomes an overlay under the top bar and wraps, so the projected
+   chips a one-row strip clips are reachable. An overlay, not a taller bar — the bar's
+   height is load-bearing arithmetic (60 + 216 + 84 = 360). */
+/* BOUNDED AT 75 UNITS, and the number is arithmetic rather than taste: the board is
+   216 units tall, docs/10 §8b gives an overlay at most 35% of it, and 216 x 0.35 =
+   75.6. At 150 the expanded strip covered 57% of the board — measured, and red in
+   `stage.spec.ts`'s fourth AC-V34 state until this line landed. Two rows of chips fit
+   inside 75; a third scrolls, which is the honest trade for not eating the map. */
+.tuh-chips.expanded {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  top: 60px;
+  height: auto;
+  max-height: 75px;
+  overflow-y: auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-edge);
+  z-index: 7;
+}
+
+.tuh-chips .tl-label {
+  flex: none;
+  font-family: var(--tuh-roman);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hud-ink-soft);
+}
+
+.tuh-chips .chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 54px;
+  min-width: 54px;
+  padding: 0 9px;
+  border-radius: 0;
+  border: 1px solid var(--hud-rule);
+  background: var(--hud-bg-2);
+  color: var(--hud-ink);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tuh-chips .chip .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: none;
+}
+
+.tuh-chips .chip.lead {
+  border-color: var(--hud-accent);
+  box-shadow: 0 0 0 1px var(--hud-accent) inset;
+}
+
+.tuh-chips .chip.spell {
+  border-style: dashed;
+}
+
+/* A PROJECTED slot is not a fact (docs/10 §4 item 7). Dotted and hollow, never a
+   plain opacity fade — a faded chip is still measured as text a player reads, and the
+   contrast walk composites the DECLARED colour, not the faded one.
+ 
+   `opacity: 1` IS LOAD-BEARING. index.html carries `.chip.proj { opacity: .5 }` from
+   the pre-stage timeline, and (0,2,0) here beats it on specificity for colour and
+   background but this rule never SET opacity — so every projected chip has been
+   painting at half strength while `contrast.spec.ts` measured it at full. Dotted
+   against solid is the whole signal now, at the ink the walk actually checks. */
+.tuh-chips .chip.proj {
+  opacity: 1;
+  border-style: dotted;
+  border-color: rgba(184, 137, 47, 0.75);
+  color: var(--hud-ink-soft);
+  background: var(--hud-bg);
+}
+
+.tuh-chips .tl-split {
+  flex: none;
+  font-family: var(--tuh-roman);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hud-ink-soft);
+  padding-left: 7px;
+  border-left: 1px dashed rgba(138, 101, 36, 0.6);
+}
+
+/* ── the actor tab (laid out, never over the board) ────────────────────────── */
+
+/* `.tuh-stage .tuh-tab`, not `.tuh-tab`: `.tuh-stage button` is (0,1,1) and would
+   otherwise win, painting the tab in the button fill. Measured — `contrast.spec.ts`
+   read rgb(46,37,25) where the declared HUD ground is rgb(29,23,16). */
+.tuh-stage .tuh-tab {
+  font-family: var(--tuh-text);
+  border: 1px solid var(--hud-rule);
+  border-radius: 0;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(214, 172, 102, 0.13);
+  letter-spacing: 0;
+  text-transform: none;
+  flex: none;
+  align-self: center;
+  width: 118px;
+  height: 84px;
+  margin: 0 4px 0 6px;
+  padding: 7px 8px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-edge);
+  border-radius: 8px;
+  font-weight: 400;
+}
+
+.tuh-tab .tab-name {
+  font-family: var(--tuh-roman);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--hud-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tuh-tab .tab-hp {
+  font-size: 14px;
+  color: var(--hud-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuh-tab .tab-bar {
+  display: block;
+  height: 6px;
+  border: 1px solid var(--hud-rule);
+  border-radius: 0;
+  overflow: hidden;
+  background: rgb(16, 12, 8);
+}
+
+.tuh-tab .tab-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c, var(--hud-accent));
+}
+
+/* ── overlays ──────────────────────────────────────────────────────────────── */
+
+/* The preview sheet. 176 units wide is the number that keeps its overlap with the
+   canvas under docs/10 AC-V34's 35%-of-area budget at the NARROWEST stage (640
+   units, which is what a 1000x780 desktop window gets) — measured 30.8% there and
+   less everywhere else, because a wider stage pushes the board left of the sheet. */
+.tuh-sheet {
+  position: absolute;
+  right: 0;
+  top: 60px;
+  width: 176px;
+  height: 216px;
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-bg);
+  border-left: 1px solid var(--hud-edge);
+  color: var(--hud-ink);
+  z-index: 6;
+}
+
+.tuh-sheet[hidden],
+.tuh-drawer[hidden],
+.tuh-bottom-sheet[hidden],
+.tuh-toast[hidden] {
+  display: none;
+}
+
+.tuh-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.tuh-sheet-foot {
+  flex: none;
+  padding: 5px 6px 6px;
+  border-top: 1px solid rgba(138, 101, 36, 0.55);
+}
+
+/* Colour comes from the shared rule beside `.tuh-primary` — Confirm and End Turn are
+   the same act from the player's side, so they must not be two reds. */
+.tuh-sheet-foot button {
+  width: 100%;
+  height: 54px;
+}
+
+/* The untimed toast (docs/10 AC-V39). Opaque, because it sits over the painted
+   board and a translucent one is measured against its DOM parent, not the canvas. */
+.tuh-toast {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 92px;
+  max-width: 420px;
+  padding: 8px 14px;
+  border-radius: 0;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-edge);
+  color: var(--hud-ink);
+  font-size: 15px;
+  text-align: center;
+  z-index: 7;
+}
+
+.tuh-toast.warn {
+  border-color: var(--hud-warn);
+  color: var(--hud-warn);
+}
+
+.tuh-toast.fatal {
+  border-color: var(--hud-warn);
+  background: rgb(58, 27, 19);
+  color: rgb(255, 216, 210);
+}
+
+/* Drawers. Opaque and `hidden` when closed — hidden rather than merely covered, so
+   nothing behind them is focusable or announced (the AC-V30 lesson, applied here). */
+/* BETWEEN THE BARS, never over them. A full-height drawer covers the very ⚙ that
+   opened it AND the Cancel button under it, so both bars stop working the moment one
+   is open — found twice, by clicks that could not land. The bars are the way OUT of
+   every overlay, so they are the one thing an overlay may never eat. */
+.tuh-drawer {
+  position: absolute;
+  top: 60px;
+  bottom: 84px;
+  width: 288px;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  z-index: 8;
+}
+
+.tuh-drawer-left {
+  left: 0;
+  border-right: 1px solid var(--hud-edge);
+}
+
+.tuh-drawer-right {
+  right: 0;
+  border-left: 1px solid var(--hud-edge);
+}
+
+.tuh-drawer-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 5px;
+  border-bottom: 1px solid rgba(138, 101, 36, 0.55);
+}
+
+/* `font-family: inherit`, because index.html gives every `h2` its blackletter display
+   face and it bled into the drawer heading — legible, but a different game's type. The
+   stage owns one typeface. */
+.tuh-drawer-head h2 {
+  margin: 0;
+  font-family: var(--tuh-roman);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hud-accent);
+  font-weight: 600;
+}
+
+.tuh-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 7px 9px 10px;
+  font-size: 13px;
+  color: var(--hud-ink);
+}
+
+.tuh-drawer-body h3 {
+  margin: 10px 0 4px;
+  font-family: var(--tuh-roman);
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--hud-accent);
+}
+
+.tuh-drawer-body p {
+  margin: 0 0 5px;
+  color: var(--hud-ink);
+}
+
+.tuh-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.tuh-menu-list button {
+  width: 100%;
+  text-align: left;
+  height: 54px;
+}
+
+/* A statement, not a control. It must not wear the button treatment — a tappable-
+   looking thing that does nothing is worse than no thing at all. */
+.tuh-menu-list .tuh-menu-note {
+  margin: 0 0 2px;
+  font-family: var(--tuh-text);
+  font-size: 14px;
+  color: var(--hud-ink-soft);
+  line-height: 1.4;
+}
+
+/* The bottom action sheet: every learned ability, name and range. Above the action
+   bar, for the same reason the drawers are — the bar is how you close it. */
+.tuh-bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 84px;
+  max-height: 216px;
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-bg);
+  border-top: 1px solid var(--hud-edge);
+  color: var(--hud-ink);
+  z-index: 8;
+}
+
+.tuh-sheet-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 5px;
+  border-bottom: 1px solid rgba(138, 101, 36, 0.55);
+}
+
+.tuh-sheet-head h2 {
+  font-family: var(--tuh-roman);
+  color: var(--hud-accent);
+}
+
+.tuh-sheet-head .price {
+  font-family: var(--tuh-roman);
+  font-size: 13px;
+  color: var(--hud-ink-soft);
+}
+
+.tuh-ability-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tuh-ability-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 54px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(138, 101, 36, 0.42);
+  font-size: 15px;
+  color: var(--hud-ink);
+}
+
+/* THE RANGE IS METADATA AND STAYS IN THE TEXT FACE (art director's own note on skin
+   B). Cinzel small caps here gave the range the same visual weight as the ability's
+   NAME, and in a list you scan by name that is the wrong thing leading. It is soft ink
+   and a smaller size; it does not need caps as well. */
+.tuh-ability-list .ab-range {
+  flex: none;
+  font-family: var(--tuh-text);
+  font-size: 13px;
+  color: var(--hud-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The settings readout (docs/10 AC-V40). Monospaced so two viewports' numbers line
+   up when the owner photographs the screen. */
+/* MONOSPACE STAYS on the readout's figures: the owner photographs this panel on a
+   real device and compares two screens' numbers, and tabular columns are the whole
+   reason it is legible in a photo. Only its KEYS take the label face. */
+.tuh-readout {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--hud-ink);
+  line-height: 1.6;
+}
+
+.tuh-readout b {
+  font-family: var(--tuh-roman);
+  color: var(--hud-ink-soft);
+  font-weight: 600;
+}
+
+.tuh-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--tuh-text);
+  font-size: 14px;
+  color: var(--hud-ink);
+}
+
+.tuh-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tuh-legend i {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 0 solid transparent;
+  flex: none;
+}
+
+/* The turn log, in the menu drawer. */
+.tuh-drawer .log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--tuh-text);
+  font-size: 14px;
+  color: var(--hud-ink);
+}
+
+.tuh-drawer .log li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tuh-drawer .log .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.tuh-drawer .log .muted {
+  color: var(--hud-ink-soft);
+}
+
+/* The full stat card, in the unit drawer (ADR-0033's set, ADR-0037's placement).
+   STILL AN OPAQUE PLATE, and of the same declared colour `e2e/contrast.spec.ts`
+   names. The card no longer sits over the canvas, so the original reason (a
+   translucent plate scores green against its DOM parent while the player reads it
+   over grass) no longer bites — but the drawer behind it is opaque for that same
+   reason, and giving the card a ground of its own keeps the contrast walk measuring
+   what it says it measures. */
+.tuh-drawer .unit-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 9px;
+  color: var(--hud-ink);
+  background: var(--hud-bg);
+  background-image: none;
+  border: 1px solid var(--hud-rule);
+  box-shadow: inset 0 0 0 1px rgba(214, 172, 102, 0.13);
+  width: auto;
+}
+
+.tuh-drawer .uc-portrait {
+  flex: none;
+  width: 66px;
+  margin: 0;
+  border: 1px solid var(--hud-rule);
+  background: rgb(16, 12, 8);
+}
+
+.tuh-drawer .uc-portrait img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.tuh-drawer .uc-portrait .pending {
+  font-size: 10px;
+  text-align: center;
+  color: var(--hud-ink-soft);
+  padding: 2px 1px;
+}
+
+.tuh-drawer .uc-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.tuh-drawer .uc-name {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+/* The unit's NAME is a label — the one word this card is about. */
+.tuh-stage .tuh-drawer .uc-name b {
+  font-family: var(--tuh-roman);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tuh-drawer .uc-job {
+  display: block;
+  font-family: var(--tuh-roman);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--hud-ink-soft);
+  margin-top: 2px;
+}
+
+.tuh-drawer .uc-casting {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--hud-accent);
+  margin-left: 5px;
+}
+
+.tuh-drawer .uc-hp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 7px 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tuh-drawer .uc-bar {
+  flex: 1;
+  height: 7px;
+  min-width: 40px;
+  background: rgb(16, 12, 8);
+  border: 1px solid var(--hud-rule);
+  border-radius: 0;
+  overflow: hidden;
+  display: block;
+}
+
+.tuh-drawer .uc-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c);
+}
+
+.tuh-drawer .uc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  margin: 7px 0 0;
+  font-family: var(--tuh-roman);
+  font-size: 12px;
+  color: var(--hud-ink-soft);
+}
+
+/* The numbers themselves drop back to the text face — a stat block set entirely in
+   spaced caps is slower to read than the thing it is describing. */
+.tuh-drawer .uc-stats b {
+  font-family: var(--tuh-text);
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--hud-ink);
+  margin-left: 4px;
+}
+
+.tuh-drawer .uc-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hud-ink-soft);
+}
+
+/* The resolution preview's rows, inside the sheet. */
+/* TIGHT, because this panel scrolls. §4's set is ten-odd rows in 150 stage units, and
+   the ones a player commits on have to be above the fold — `previewHtml` orders them
+   for that, and this keeps a row to one line wherever it can. */
+.tuh-sheet .prow {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(138, 101, 36, 0.42);
+  font-size: 12px;
+}
+
+.tuh-sheet .prow:last-of-type {
+  border-bottom: none;
+}
+
+.tuh-sheet .prow .pk {
+  font-family: var(--tuh-roman);
+  color: var(--hud-ink-soft);
+  font-size: 11px;
+  flex: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tuh-sheet .prow .pv {
+  font-family: var(--tuh-text);
+  color: var(--hud-ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tuh-sheet .prow.lethal .pv {
+  color: var(--hud-warn);
+  font-weight: 700;
+}
+
+.tuh-sheet .phint {
+  margin: 6px 0 0;
+  font-family: var(--tuh-roman);
+  font-size: 11px;
+  color: var(--hud-ink-soft);
+}
+
+/* The page's own chrome is out of the way while the stage owns the screen. */
+/* WHILE THE STAGE OWNS THE SCREEN the page beneath must not scroll (AC-V33) and must
+   not contribute layout: the host is `position: fixed`, so everything else is just
+   padding nobody can see. The class goes on BOTH <html> and <body> — `overflow` on
+   the body alone leaves the document element able to scroll. */
+html.tuh-on-stage,
+body.tuh-on-stage {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* The page's own wrapper keeps a box while the stage covers it. Zero padding because
+   nothing in it is visible, but a full-viewport MIN-HEIGHT because the engine viewer's
+   `.wrap` would otherwise collapse to nothing — and "is the game beneath the rotate
+   gate visible?" (AC-V30) is asked of exactly that element. */
+body.tuh-on-stage .wrap {
+  padding: 0;
+  min-height: 100svh;
+}
+
+/* The fixed help disc is the stage's `?` button while the battle is on screen — two
+   help affordances on one screen is one too many, and the disc is the one that would
+   land on the board. It is untouched on every other screen. */
+body.tuh-on-stage .help-btn {
+  display: none;
+}

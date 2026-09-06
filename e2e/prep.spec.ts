@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openViewerPrep } from "./helpers.js";
 import { mkdir } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/screenshots";
@@ -18,6 +19,10 @@ test("prep viewer: equipping a Secondary command grows the castable command list
   await mkdir(SHOTS, { recursive: true });
 
   await page.goto("/viewer.html");
+  // ADR-0037 moved the battle onto a full-viewport stage that must not scroll, so this
+  // long panel became its own screen, reached from the stage's ☰ menu. Opening it the
+  // way a player does is also the assertion that it is still reachable at all.
+  await openViewerPrep(page);
 
   const prep = page.getByTestId("prep");
   await expect(prep).toBeVisible();
@@ -79,6 +84,7 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   await mkdir(SHOTS, { recursive: true });
 
   await page.goto("/viewer.html");
+  await openViewerPrep(page);
 
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
@@ -130,6 +136,7 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
 test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async ({ page }) => {
   await mkdir(SHOTS, { recursive: true });
   await page.goto("/viewer.html");
+  await openViewerPrep(page);
 
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
@@ -189,6 +196,7 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
  */
 test("prep viewer: an equip that does nothing SAYS it does nothing", async ({ page }) => {
   await page.goto("/viewer.html");
+  await openViewerPrep(page);
   await page.getByTestId("prep-stats").scrollIntoViewIfNeeded();
 
   const optionText = async (testId: string, value: string): Promise<string> =>

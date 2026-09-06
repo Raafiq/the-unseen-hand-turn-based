@@ -1,174 +1,150 @@
 /**
- * THE STAT CARD IS AN OVERLAY, AND AN OVERLAY CAN BREAK THE BOARD UNDER IT.
+ * OVERLAYS AND THE BOARD UNDER THEM — rewritten for ADR-0037.
  *
- * The card is DOM absolutely positioned on top of `<canvas id="grid">` — the FFT
- * placement — which means it sits between the player's pointer and live tiles. Two
- * properties keep that safe, and neither is visible to any other spec:
+ * THE FILE'S OLD CLAIM IS GONE, and it is worth saying why rather than deleting it
+ * quietly. Until 2026-09-05 the stat plate sat ON the canvas (ADR-0033 decision 2) and
+ * this file's whole job was proving it declined pointer events, because a plate that
+ * ate clicks stops the board responding in one corner with no error, no red test and
+ * nothing on screen to see. ADR-0037 superseded that placement: the plate became a
+ * laid-out tab beside the board, and AC-V34 now asserts — at five viewports, in three
+ * states — that NOTHING laid out overlaps the canvas at all.
  *
- *   1. `pointer-events: none`, so a click meant for a tile reaches the canvas. Without
- *      it the board silently stops responding in one corner: no error, no red test,
- *      nothing on screen to see. The suite cannot see the screen, so this is asserted
- *      through the browser's OWN hit-test and then through a real click.
- *   2. the plate is OPAQUE, asserted in `contrast.spec.ts` where the measurement that
- *      depends on it lives.
+ * WHAT STILL NEEDS THIS FILE. AC-V34 measures BOXES. It cannot see the browser's
+ * hit-test, and a zero-overlap layout can still be unclickable: a transparent
+ * full-stage element, a stray `z-index`, an overlay left mounted with
+ * `visibility: hidden` instead of `hidden`. So this file keeps the half no geometry
+ * assertion reaches — `elementFromPoint` and a REAL click, end to end, through the
+ * page's own cursor seam.
  *
- * WHY THE ENGINE VIEWER. This is the one page with a pixel seam (`window.tuh.cursor()`
- * reports the tile the last pick resolved to), so the click can be observed end to end
- * rather than inferred from a repaint. The campaign page carries the same CSS; its half
- * of the claim is the hit-test assertion, which needs no seam.
+ * WHY THE ENGINE VIEWER. It is the page with a pixel seam (`window.tuh.cursor()`
+ * reports the tile the last pick resolved to), so a click can be observed end to end
+ * rather than inferred from a repaint. The campaign carries the same stage, built by
+ * the same module; its half is the hit-test.
  */
 
 import { test, expect, type Page } from "@playwright/test";
 import { pickTile } from "../src/render/iso.js";
+import { dismissScene } from "./helpers.js";
 import type { BattleState } from "../src/sim/index.js";
 
 const CANVAS_W = 900;
 const CANVAS_H = 440;
 
 /**
- * Park the card over a point that resolves to a REAL TILE, and return that point.
+ * A canvas point that resolves to a REAL, EMPTY tile.
  *
- * WHY THE CARD IS MOVED. Measured on this build: at the shipped corner the plate covers
- * only empty sky. The demo board is a diamond whose drawn extent is x 124–776, y 80–406
- * in canvas pixels, and its lower-LEFT quadrant is background — so a click-through test
- * at the shipped position would be aimed at sky and would pass whatever `pointer-events`
- * said. That is the vacuous-fixture shape, so the plate is moved to somewhere it can
- * actually swallow something.
+ * EMPTY, and that changed with ADR-0037. The old version aimed at a UNIT's tile — the
+ * most expensive thing a swallowed click could cost — but a tap on a unit that is not
+ * a legal target now opens the read-only drawer instead of reaching `Session.onPick`
+ * (docs/10 §3), so the cursor deliberately does not move and this file's end-to-end
+ * observation would have been reading the wrong outcome. An empty tile still goes
+ * through the whole chain: pointer → `pickTile` → `hud.pick` → `onPick` → `cursor`.
  *
- * ONLY `left`/`top` ARE OVERRIDDEN. `pointer-events` still comes from the stylesheet,
- * which is the property under test — deleting it from the page turns this red.
+ * Found through the page's own `pickTile`, so "resolves to a tile" means exactly what
+ * it means to a real click, occlusion and all. `avoid` keeps the target off the tile
+ * the cursor already sits on: "the cursor is here afterwards" was already true before
+ * the click, and a test that cannot tell those apart proves nothing.
  */
-async function parkCardOverTheBoard(
+async function aimAtATile(
   page: Page,
   avoid: { x: number; y: number } | null,
 ): Promise<{ tile: { x: number; y: number }; at: { x: number; y: number } }> {
   const canvasBox = (await page.getByTestId("grid").boundingBox())!;
-  // THE LIVE STATE, not a freshly built demo. The viewer boots mid-battle and its units
-  // have already moved, so a fresh `makeDemoBattle()` names the wrong occupants — the
-  // first draft of this test clicked a tile the page said was (3,3) and the fixture said
-  // was (1,1). `getState()` is plain data and survives the structured clone intact.
+  // THE LIVE STATE, not a freshly built demo: the viewer boots mid-battle and its units
+  // have already moved, so a fresh `makeDemoBattle()` names the wrong occupants.
   const state = (await page.evaluate(() => window.tuh.getState())) as BattleState;
-  // CSS pixels → backing-store pixels. The canvas is laid out at `width: 100%`, so the
-  // two differ by however wide the window happens to be; `play.spec.ts`'s AC-V10 test
-  // documents the same conversion in the other direction.
   const toBacking = CANVAS_W / canvasBox.width;
 
-  // A unit's own tile, so the click lands on the most expensive thing a swallowed click
-  // could cost. Found through the page's own `pickTile`, so "resolves to a tile" means
-  // exactly what it means to a real click, occlusion and all.
   let found: { tile: { x: number; y: number }; at: { x: number; y: number } } | null = null;
   for (let by = 4; by < CANVAS_H && !found; by += 4) {
     for (let bx = 4; bx < CANVAS_W; bx += 4) {
       const tile = pickTile(state, bx, by, CANVAS_W, CANVAS_H);
       if (!tile) continue;
-      if (!state.units.some((u) => u.pos.x === tile.x && u.pos.y === tile.y)) continue;
-      // Never the tile the cursor is already on: the click would then be indetectable,
-      // since "the cursor is here afterwards" was already true before it.
+      if (state.units.some((u) => u.pos.x === tile.x && u.pos.y === tile.y)) continue;
       if (avoid && tile.x === avoid.x && tile.y === avoid.y) continue;
-      found = {
-        tile,
-        at: { x: canvasBox.x + bx / toBacking, y: canvasBox.y + by / toBacking },
-      };
+      found = { tile, at: { x: canvasBox.x + bx / toBacking, y: canvasBox.y + by / toBacking } };
       break;
     }
   }
-  expect(found, "no unit tile is reachable by pointer on the demo board").not.toBeNull();
-
-  // Centre the plate on that point.
-  const cardBox = (await page.locator("#unit-card .unit-card").boundingBox())!;
-  await page.locator("#unit-card").evaluate((el, box) => {
-    const host = el as HTMLElement;
-    host.style.left = `${box.left}px`;
-    host.style.top = `${box.top}px`;
-    host.style.bottom = "auto";
-    host.style.right = "auto";
-  }, {
-    left: found!.at.x - canvasBox.x - cardBox.width / 2,
-    top: found!.at.y - canvasBox.y - cardBox.height / 2,
-  });
-
-  // It really is on top of the point now — otherwise the assertions below test nothing.
-  const moved = (await page.locator("#unit-card .unit-card").boundingBox())!;
-  expect(found!.at.x).toBeGreaterThan(moved.x);
-  expect(found!.at.x).toBeLessThan(moved.x + moved.width);
-  expect(found!.at.y).toBeGreaterThan(moved.y);
-  expect(found!.at.y).toBeLessThan(moved.y + moved.height);
+  expect(found, "no empty tile is reachable by pointer on the demo board").not.toBeNull();
   return found!;
 }
 
-test("the stat card overlays the board and does not eat the clicks under it", async ({
-  page,
-}) => {
+test("the board takes a real click at rest — nothing invisible sits over it", async ({ page }) => {
+  await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/viewer.html");
   await expect(page.getByTestId("grid")).toBeVisible();
-  // SCROLL FIRST, and measure after. Both shipped boards sit below the fold at this
-  // viewport, and a synthesised click at a point the page has not scrolled to is simply
-  // not delivered — measured: the identical click resolves the tile after this line and
-  // does nothing before it. `play.spec.ts`'s AC-V10 test does the same for the same reason.
-  await page.getByTestId("grid").scrollIntoViewIfNeeded();
-  // A known start: `reset` clears the tile cursor, so "the cursor moved" below is a fact
-  // about this click rather than about whatever the page was doing when it loaded.
+  // A known start: `reset` parks the tile cursor on the active unit, so "the cursor
+  // moved" below is a fact about this click rather than about the boot state.
   await page.evaluate(() => window.tuh.reset());
-  const card = page.locator("#unit-card .unit-card");
-  await expect(card).toBeVisible();
-
-  // IT IS ACTUALLY ON THE CANVAS. Without this the whole file passes on a card that
-  // quietly fell back into the flow below the board, where nothing it does can matter.
-  const canvasBox = (await page.getByTestId("grid").boundingBox())!;
-  const cardBox = (await card.boundingBox())!;
-  expect(cardBox.y).toBeGreaterThanOrEqual(canvasBox.y);
-  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(canvasBox.y + canvasBox.height + 1);
-  expect(cardBox.x).toBeGreaterThanOrEqual(canvasBox.x);
 
   const before = await page.evaluate(() => window.tuh.cursor());
-  const { tile, at } = await parkCardOverTheBoard(page, before);
+  const { tile, at } = await aimAtATile(page, before);
 
-  // The browser's own hit-test, which is what routes a click. `elementFromPoint` returns
-  // the CANVAS only because the card declines pointer events.
+  // The browser's OWN hit-test, which is what routes a click. Anything transparent
+  // stretched over the stage answers here and nowhere else.
   const hit = await page.evaluate(
     (p) => document.elementFromPoint(p.x, p.y)?.tagName.toLowerCase() ?? "none",
     at,
   );
   expect(hit).toBe("canvas");
 
-  // And end to end: a real click at that point reaches `pickTile` → `Session.onPick`.
-  // MUTATION RUN (2026-09-01): deleted `pointer-events: none` from `#unit-card` in
-  // viewer.html — red here, and red on the campaign half below with index.html mutated
-  // the same way. The tag it returns is whatever DESCENDANT of the plate is topmost at
-  // that point, not the host: measured "i" (the HP bar's fill) on the viewer and "p"
-  // (the HP row) on the campaign board. Assert `"canvas"`, never a specific wrong tag.
-  //
-  // A BEFORE/AFTER, because `reset` parks the cursor on the active unit rather than
-  // clearing it: `cursor() === tile` alone could have been true before the click, so the
-  // target tile is chosen to differ from where the cursor already sits.
+  // …and end to end: a real click at that point reaches `pickTile` → the HUD → the
+  // session. The before/after is required because `reset` parks the cursor somewhere
+  // real; `cursor() === tile` alone could have been true before the click.
   expect(before).not.toEqual(tile);
   await page.mouse.click(at.x, at.y);
   expect(await page.evaluate(() => window.tuh.cursor())).toEqual(tile);
 });
 
-test("the campaign board carries the same overlay, and it declines pointer events", async ({
-  page,
-}) => {
+/**
+ * AN OPEN DRAWER *DOES* EAT THE BOARD, AND THAT IS THE DESIGN — it is an overlay the
+ * player just asked for, and Cancel/the bar are how they leave it. What must never
+ * happen is the drawer eating the BARS, because those are the way out.
+ *
+ * MUTATION RUN: set `.tuh-drawer { bottom: 0 }` in `stage.css` and rebuild — the
+ * action-bar assertion below goes red, and so do four cases in `stage.spec.ts` that
+ * time out trying to click Cancel. That is the defect this replaces: the first draft
+ * of the stage had exactly that rule.
+ */
+test("an open drawer never covers the bars that close it", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 300 });
+  await page.goto("/viewer.html");
+  await expect(page.getByTestId("grid")).toBeVisible();
+
+  await page.getByTestId("hud-menu").click();
+  await expect(page.getByTestId("menu-drawer")).toBeVisible();
+
+  const clear = async (testId: string): Promise<string> => {
+    const box = (await page.getByTestId(testId).boundingBox())!;
+    return page.evaluate(
+      (p) => document.elementFromPoint(p.x, p.y)?.getAttribute("data-testid") ?? "none",
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    );
+  };
+
+  // The topmost element at each control's own centre is that control — not the drawer.
+  expect(await clear("cancel"), "the drawer covers Cancel").toBe("cancel");
+  expect(await clear("end-turn"), "the drawer covers the primary button").toBe("end-turn");
+  expect(await clear("hud-menu"), "the drawer covers its own ☰").toBe("hud-menu");
+  expect(await clear("hud-settings"), "the drawer covers ⚙").toBe("hud-settings");
+
+  // …and it really was open the whole time, so none of the above is vacuous.
+  await expect(page.getByTestId("menu-drawer")).toBeVisible();
+});
+
+test("the campaign board carries the same stage, and it takes a click", async ({ page }) => {
+  await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
   await page.getByTestId("new-game").click();
-  // The prologue stands between the title and the briefing.
-  const scene = page.getByTestId("screen-scene");
-  if (await scene.isVisible()) await page.getByTestId("scene-continue").click();
+  await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
-  await page.getByTestId("grid").scrollIntoViewIfNeeded();
 
-  const card = page.locator("#unit-card .unit-card");
-  await expect(card).toBeVisible();
-  const canvasBox = (await page.getByTestId("grid").boundingBox())!;
-  const cardBox = (await card.boundingBox())!;
-  expect(cardBox.y).toBeGreaterThanOrEqual(canvasBox.y);
-  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(canvasBox.y + canvasBox.height + 1);
-
-  // Sampled at the card's own centre, so the point is inside the plate by construction.
+  const box = (await page.getByTestId("grid").boundingBox())!;
   const hit = await page.evaluate(
     (p) => document.elementFromPoint(p.x, p.y)?.tagName.toLowerCase() ?? "none",
-    { x: cardBox.x + cardBox.width / 2, y: cardBox.y + cardBox.height / 2 },
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
   );
   expect(hit).toBe("canvas");
 });

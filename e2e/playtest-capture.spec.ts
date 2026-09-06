@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { prepEveryMember, dismissScene, freezeMotion, settleMotion } from "./helpers.js";
+import {
+  prepEveryMember,
+  dismissScene,
+  freezeMotion,
+  settleMotion,
+  watchStep,
+} from "./helpers.js";
 import { mkdir, rm } from "node:fs/promises";
 
 const SHOTS = "visual-artifacts/playtest";
@@ -43,19 +49,16 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
    * to judge the painted ground, and a full page puts four fifths of its pixels into
    * panels that are identical in every one of them.
    *
-   * THE STAT CARD IS HIDDEN FOR THESE FIVE FRAMES ONLY. It is DOM sitting on top of the
-   * canvas in the lower-left corner, so it covers roughly a third of the painted ground —
-   * and these are the only view a human gets of a hand-authored map. It is restored
-   * immediately, and the full-screen `shot()` frames keep it: the plate belongs on the
-   * player's screen, just not over the thing these frames exist to judge.
+   * NOTHING IS HIDDEN FOR THESE FRAMES ANY MORE, and that is a real improvement
+   * rather than a dropped step. The stat plate used to sit ON the canvas and cover
+   * roughly a third of the painted ground, so it had to be blanked for the five map
+   * frames; under ADR-0037 nothing overlays the board at rest (AC-V34 measures exactly
+   * that at five viewports), so the canvas screenshot IS the map.
    */
   const board = async (name: string) => {
     await expect(page.getByTestId("screen-battle")).toBeVisible();
     await settleMotion(page);
-    const card = page.locator("#unit-card");
-    await card.evaluate((el) => ((el as HTMLElement).style.visibility = "hidden"));
     await page.locator("canvas").first().screenshot({ path: `${SHOTS}/${name}.png` });
-    await card.evaluate((el) => ((el as HTMLElement).style.visibility = ""));
     console.log(`captured ${name}`);
   };
 
@@ -87,7 +90,8 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await board("map-battle-1");
 
   // One enemy turn, so the board shows a fight in progress rather than the opening.
-  await page.getByTestId("step").click();
+  // The Step control moved into the stage's ☰ menu with ADR-0037.
+  await watchStep(page);
   await shot("05-battle-1-midfight", "screen-battle");
 
   // THE MOTION FRAMES. Nothing automated can judge these — no assertion in this suite
@@ -99,10 +103,14 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   // own record of what the sim did. It has to be the last one, not any one: a frame of
   // the impact treatment over a turn that only moved shows nothing at all. (`logHtml`
   // renders the six most recent entries newest-first, so row 0 is the latest.)
-  const lastRow = (): Promise<string> => page.locator("#log li").first().innerText();
+  // `textContent`, not `innerText`: the log lives in a drawer that is closed between
+  // steps, and `innerText` of a `display: none` subtree is the empty string — which
+  // would read exactly like "no blow has landed yet" and spin the loop out.
+  const lastRow = (): Promise<string> =>
+    page.locator('[data-testid="turn-log"] li').first().textContent().then((t) => t ?? "");
   const struck = async (): Promise<boolean> => /(?:hit|KO) /.test(await lastRow());
   for (let i = 0; i < 12 && !(await struck()); i++) {
-    await page.getByTestId("step").click();
+    await watchStep(page);
   }
   expect(await struck(), "no blow landed, so the motion frames would show nothing").toBe(true);
   await freezeMotion(page, 0);
