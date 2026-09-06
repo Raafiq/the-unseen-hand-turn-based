@@ -13,7 +13,7 @@
  * session. So elapsed time is measured here and cannot reach `BattleState`.
  */
 
-import type { Position, StoryBeat, UnitRecord } from "../sim/index.js";
+import type { StoryBeat, UnitRecord } from "../sim/index.js";
 import {
   ENCOUNTERS,
   PORTRAITS,
@@ -26,28 +26,18 @@ import {
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
-import { draw, pickTile, FIELD_THEME, RING_FILL_ALPHA } from "./iso.js";
+import { draw, FIELD_THEME, RING_FILL_ALPHA } from "./iso.js";
+import { mountHud, type HudHandle } from "./hud.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
-import {
-  logHtml,
-  previewHtml,
-  statusHtml,
-  timelineHtml,
-  unitCardHtml,
-  type LookUp,
-} from "./panels.js";
+import type { LookUp } from "./panels.js";
 import { jobLabel, mountPrep, type PrepHandle } from "./prep.js";
 import { wireLandscapeButton } from "./orientation.js";
 import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
-import type { Phase, Session } from "./session.js";
+import type { Session } from "./session.js";
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
-
-const canvas = el<HTMLCanvasElement>("grid");
-const ctx = canvas.getContext("2d");
-if (!ctx) throw new Error("2d canvas context unavailable");
 
 /**
  * `localStorage` can be missing entirely (a sandboxed frame). Fall back to an in-memory
@@ -84,14 +74,6 @@ const SCREEN_EL: Record<Screen, string> = {
   BATTLE: "screen-battle",
   AFTER_BATTLE: "screen-after",
   COMPLETED: "screen-completed",
-};
-
-const PHASE_TEXT: Record<Phase, string> = {
-  AWAIT_ACTOR: "Advancing the clock…",
-  PLAYER_IDLE: "Your turn — click a tile to move, or an enemy to strike",
-  MOVE_STAGED: "Move staged — click an enemy to strike from there, or End Turn",
-  AI_TURN: "Enemy turn — press Play enemy turn to watch it resolve",
-  ENDED: "Battle over",
 };
 
 /**
@@ -168,8 +150,6 @@ function look(): LookUp {
  */
 const scenes = new Map<string, SceneHandle>();
 
-let canvasFocused = false;
-
 /**
  * THE PAGE OWNS THE CLOCK (docs/10 §3a). `draw` stays a pure function of `(state, opts)`;
  * everything about elapsed time lives here and in `motion.ts`, and the only thing that
@@ -189,10 +169,52 @@ let motionFrame: number | null = null;
 
 // ─── painting ───────────────────────────────────────────────────────────────
 
+/**
+ * THE BATTLE SCREEN, BUILT ONCE (ADR-0037). `hud.ts` owns the stage, the zones and the
+ * controls; this page supplies the four things only it can answer — which session is
+ * live, what the units are called and coloured, how the board is painted (this page has
+ * authored terrain and a field theme; the engine viewer has neither), and where a
+ * finished battle leads.
+ */
+const hud: HudHandle = mountHud(el("stage-host"), {
+  session: () => shell.session ?? null,
+  look: () => look(),
+  refresh: () => refresh(),
+  paintBoard: () => paintBoard(),
+  // Named, so a HUD button files the same playtest row a `window.tuhGame` call does.
+  act: (name, run) => act(name, run),
+  legend: () => LEGEND_ROWS(),
+  help: () => HELP_TOPICS,
+  menu: () => [
+    // A NOTE, not a button. The save is written on every transition already
+    // (`campaign-shell.ts`), so a "Save" control would validate nothing and do nothing
+    // while looking exactly like a working one — and what a player actually wants to
+    // know before pressing Quit is that nothing is lost. docs/10 AC-V40 asks the ☰
+    // drawer to offer "save"; this is the honest form of that, and the deviation is
+    // deliberate rather than an omission.
+    { id: "menu-save", label: "Progress is saved automatically — quitting loses nothing" },
+    { id: "quit", label: "Quit to title", run: () => act("quit", () => shell.quitToTitle()) },
+    {
+      id: "btn-step",
+      label: shell.session?.phase === "AI_TURN" ? "Play the enemy turn ▸" : "Auto-play my turn ▸",
+      run: () => act("btn-step", () => shell.session?.step()),
+    },
+  ],
+  conclude: () => ({ label: "Continue ▸", run: () => act("btn-conclude", () => concludeAndLog()) }),
+});
+
 function renderScreens(): void {
   for (const s of SCREENS) {
     el(SCREEN_EL[s]).hidden = s !== shell.screen;
   }
+  // THE STAGE OWNS THE WHOLE VIEWPORT while a battle is up, so the page beneath it
+  // must not scroll (AC-V33); every other screen is an ordinary scrolling document.
+  const onStage = shell.screen === "BATTLE";
+  document.documentElement.classList.toggle("tuh-on-stage", onStage);
+  document.body.classList.toggle("tuh-on-stage", onStage);
+  // Re-measured AFTER the section is shown. A hidden host measures 0 x 0, and a
+  // geometry derived from that would letterbox the entire stage away.
+  if (onStage) hud.resize();
 }
 
 function renderTitle(): void {
@@ -435,7 +457,9 @@ function paintBoard(): void {
   // about where the fight is happening. The theme moves WITH the terrain: `FIELD_THEME`'s
   // blue range panels are unreadable on the dark slate the flat look paints.
   const terrain = encounterId === undefined ? undefined : terrainFor(encounterId);
-  draw(ctx!, session.state, canvas.width, canvas.height, {
+  const ctx = hud.canvas.getContext("2d");
+  if (!ctx) return;
+  draw(ctx, session.state, hud.canvas.width, hud.canvas.height, {
     ...(terrain ? { terrain, theme: FIELD_THEME } : {}),
     activeId: active?.id,
     activeControl:
@@ -443,7 +467,7 @@ function paintBoard(): void {
     range: session.moveTiles(),
     targets: session.targetTiles(),
     staged: session.stagedTile(),
-    cursor: canvasFocused ? session.cursor : null,
+    cursor: hud.canvasFocused() ? session.cursor : null,
     popups: session.popups,
     // Friend vs foe, on the BOARD — not only in the timeline chips. Without this the
     // campaign's units all fall through to one grey and a player cannot tell their
@@ -487,32 +511,16 @@ function pumpMotion(): void {
   motionFrame = requestAnimationFrame(tick);
 }
 
+/**
+ * The battle screen is THE STAGE (ADR-0037, docs/10 §8), and `hud.ts` owns every zone
+ * on it. What is left here is the two things only this page can answer — whether the
+ * page beneath may scroll, and where a finished battle leads.
+ */
 function renderBattle(): void {
   const session = shell.session;
   if (!session) return;
-  const lk = look();
   syncMotion(session);
-  paintBoard();
-  el("timeline").innerHTML = timelineHtml(session.state, lk);
-  el("unit-card").innerHTML = unitCardHtml(session.state, lk);
-  el("status").innerHTML = statusHtml(session, lk);
-  el("preview").innerHTML = previewHtml(session, lk);
-  el("log").innerHTML = logHtml(session.state, lk, "No turns yet — move or strike to begin.");
-
-  const playable = session.phase === "PLAYER_IDLE" || session.phase === "MOVE_STAGED";
-  const endTurnBtn = el<HTMLButtonElement>("btn-end-turn");
-  endTurnBtn.textContent = session.endTurnLabel();
-  endTurnBtn.disabled = !playable;
-  el<HTMLButtonElement>("btn-cancel").disabled = session.phase !== "MOVE_STAGED";
-  const stepBtn = el<HTMLButtonElement>("btn-step");
-  stepBtn.textContent = session.phase === "AI_TURN" ? "Play enemy turn ▸" : "Auto-play my turn ▸";
-  stepBtn.disabled = session.phase === "ENDED";
-  el<HTMLButtonElement>("btn-conclude").hidden = session.phase !== "ENDED";
-
-  const reason = el("reason");
-  const text = session.fatal ?? session.reason ?? session.outcome ?? PHASE_TEXT[session.phase];
-  reason.className = `reason ${session.fatal ? "fatal" : session.reason ? "warn" : "info"}`;
-  reason.textContent = text;
+  hud.render();
 }
 
 /**
@@ -737,70 +745,13 @@ function act(action: string, mutate: () => void): void {
 
 // ─── input ──────────────────────────────────────────────────────────────────
 
-function withSession(fn: (s: Session) => void): void {
-  guard(() => {
-    if (shell.session) fn(shell.session);
-  });
-}
-
-function toCanvasPoint(ev: { clientX: number; clientY: number }): Position {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: ((ev.clientX - rect.left) * canvas.width) / rect.width,
-    y: ((ev.clientY - rect.top) * canvas.height) / rect.height,
-  };
-}
-
-canvas.addEventListener("pointerdown", (ev) => {
-  if (ev.button === 2) return;
-  canvas.focus();
-  telemetry.action(shell.screen, "pick");
-  const p = toCanvasPoint(ev);
-  withSession((s) => s.onPick(pickTile(s.state, p.x, p.y, canvas.width, canvas.height)));
-});
-canvas.addEventListener("pointermove", (ev) => {
-  const p = toCanvasPoint(ev);
-  withSession((s) => s.onTileHover(pickTile(s.state, p.x, p.y, canvas.width, canvas.height)));
-});
-canvas.addEventListener("pointerleave", () => withSession((s) => s.onTileHover(null)));
-canvas.addEventListener("contextmenu", (ev) => {
-  ev.preventDefault();
-  withSession((s) => s.cancel());
-});
-canvas.addEventListener("focus", () => {
-  canvasFocused = true;
-  refresh();
-});
-canvas.addEventListener("blur", () => {
-  canvasFocused = false;
-  refresh();
-});
-
-/** Keyboard reachability (docs/04 §7): arrows walk a tile cursor, Enter picks, Esc cancels. */
-const CURSOR_STEP: Record<string, Position> = {
-  ArrowUp: { x: 0, y: -1 },
-  ArrowDown: { x: 0, y: 1 },
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-};
-canvas.addEventListener("keydown", (ev) => {
-  const stepVec = CURSOR_STEP[ev.key];
-  if (stepVec) {
-    ev.preventDefault();
-    withSession((s) => s.moveCursor(stepVec.x, stepVec.y));
-    return;
-  }
-  if (ev.key === "Enter" || ev.key === " ") {
-    ev.preventDefault();
-    telemetry.action(shell.screen, "pick");
-    withSession((s) => s.onPick(s.cursor));
-    return;
-  }
-  if (ev.key === "Escape") {
-    ev.preventDefault();
-    withSession((s) => s.cancel());
-  }
-});
+/**
+ * THE BOARD'S OWN INPUT LIVES IN `hud.ts` NOW — pointer, hover, right-click cancel,
+ * focus tracking and the arrow/Enter/Escape keys, all of it, shared with the engine
+ * viewer. `Session.onPick` is still the one tile-driven mutator a real `pointerdown`
+ * and the test seam both bottom out in (docs/10 §7); it is simply reached from one
+ * place instead of two near-identical ones.
+ */
 
 /**
  * The help panel (docs/11 M0 item 7). Built once from {@link HELP_TOPICS} — the content
@@ -853,22 +804,23 @@ buildHelp();
  * Called once, like {@link buildHelp}: the legend is static markup and none of these
  * constants change at runtime.
  */
-function paintLegend(): void {
-  const sw = (key: string): HTMLElement => {
-    const node = document.querySelector<HTMLElement>(`[data-testid="legend"] [data-sw="${key}"]`);
-    if (node === null) throw new Error(`legend swatch "${key}" is missing from the page`);
-    return node;
-  };
-  sw("party").style.background = teamColor(0);
-  sw("foe").style.background = teamColor(1);
-  sw("move").style.background = FIELD_THEME.highlight;
+function LEGEND_ROWS(): { sw?: string; color: string; edge?: string; label: string }[] {
   // `drawUnit` strokes the active ring in `theme.active` and fills the disc with the
-  // same colour at `RING_FILL_ALPHA`. The swatch is that disc, both halves.
-  const ring = sw("ring");
-  ring.style.borderColor = FIELD_THEME.active;
-  ring.style.background = FIELD_THEME.active + RING_FILL_ALPHA;
+  // same colour at `RING_FILL_ALPHA`, so the swatch quotes the paint rather than a
+  // literal beside it — the defect of 2026-09-01 was a legend naming amber over a
+  // board painted pale blue, and it survived because nothing compared the two.
+  return [
+    { sw: "party", color: teamColor(0), label: "Your party" },
+    { sw: "foe", color: teamColor(1), label: "Enemies" },
+    { sw: "move", color: FIELD_THEME.highlight, label: "Where the active unit can walk" },
+    {
+      sw: "ring",
+      color: FIELD_THEME.active + RING_FILL_ALPHA,
+      edge: FIELD_THEME.active,
+      label: "Whose turn it is",
+    },
+  ];
 }
-paintLegend();
 
 const helpDialog = el<HTMLDialogElement>("help");
 // `showModal` gives focus trapping and Escape-to-close for free; the fallback keeps the
@@ -895,14 +847,29 @@ on("btn-continue", () => shell.continueGame());
 on("btn-erase", () => shell.eraseSave());
 on("btn-deploy", () => shell.deploy());
 on("btn-brief-quit", () => shell.quitToTitle());
-on("btn-conclude", () => concludeAndLog());
 on("btn-next", () => shell.nextBattle());
 on("btn-retry", () => shell.retry());
 on("btn-after-quit", () => shell.quitToTitle());
 on("btn-done-title", () => shell.quitToTitle());
-on("btn-end-turn", () => shell.session?.endTurn());
-on("btn-cancel", () => shell.session?.cancel());
-on("btn-step", () => shell.session?.step());
+
+/**
+ * Escape on the BATTLE screen, from anywhere on it.
+ *
+ * SHALLOWEST FIRST, the same rule `main.ts` applies: an open drawer or sheet closes,
+ * and only once nothing is overlaid does Escape reach the draft. The alternative
+ * throws away a staged move the player never asked to lose while leaving the drawer
+ * they DID mean to close still open.
+ *
+ * Scoped to the battle screen so it cannot fight the scene player's own handler below,
+ * and skipped when the board itself has focus — `hud.ts` handles that case with the
+ * same ordering.
+ */
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || shell.screen !== "BATTLE") return;
+  if (ev.target === hud.canvas) return;
+  if (hud.closeOverlay()) return;
+  guard(() => shell.session?.cancel());
+});
 
 /**
  * Keyboard on the SCENE screen, and ONLY there.
@@ -957,6 +924,15 @@ const api: GameApi = {
       }
     }),
   battleOver: () => shell.battleOver(),
+  state: () => shell.session?.state ?? null,
+  clickTile: (x, y) => hud.pick({ x, y }),
+  confirm: () => act("confirm", () => shell.session?.confirm()),
+  cancel: () => act("cancel", () => shell.session?.cancel()),
+  endTurn: () => act("end-turn", () => shell.session?.endTurn()),
+  phase: () => shell.session?.phase ?? null,
+  commandCount: () => shell.session?.commands().length ?? 0,
+  stagedTarget: () => shell.session?.stagedTarget() ?? null,
+  reason: () => shell.session?.reason ?? null,
   conclude: () => act("btn-conclude", () => concludeAndLog()),
   next: () => act("btn-next", () => shell.nextBattle()),
   retry: () => act("btn-retry", () => shell.retry()),

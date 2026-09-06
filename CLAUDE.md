@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 958 tests, 76 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032) and a **stat panel** sits on the battle map, bottom-left, naming the acting unit (ADR-0033). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 976 tests, 135 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -174,6 +174,14 @@ This is stronger than "delegate when convenient" and it replaces it:
 
 The judgement call is the *scoping*, not the doing. A slice usually needs two or three
 specialists in sequence; sequencing them and reconciling what they hand back is the job.
+
+**Two cost rules (user, 2026-09-05).** (1) **Resume an agent only when the follow-up needs
+its memory.** A new task gets a new agent with a short brief. One `viewer-engineer` was
+resumed three times on one transcript and spent **600k tokens** replaying its own history;
+a fresh agent did the same follow-up in 47k. Tell every agent to pipe suite output through
+`tail`. (2) **One editing agent in the checkout at a time.** The art director and the
+engineer were both in `stage.css` the same hour; one reverted the other's file. Read-only
+agents may run alongside; editors run in sequence.
 
 Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
 

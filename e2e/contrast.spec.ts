@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { dismissScene } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -48,22 +48,25 @@ const AA = { normal: 4.5, large: 3 } as const;
  */
 const GROUNDS = {
   parchment: ["rgb(242, 230, 196)", "rgb(220, 195, 143)"],
-  board: ["rgb(29, 23, 16)", "rgb(13, 9, 6)"],
   table: ["rgb(36, 27, 16)", "rgb(11, 8, 5)"],
   /**
-   * The mini stat card's plate — a FLAT opaque fill, unlike every other ground here.
+   * THE STAGE'S HUD SURFACES — a FLAT opaque fill, unlike every other ground here, and
+   * the same colour the stat plate used to be (ADR-0037 moved the card, not its tone).
    *
-   * It has to be opaque, and the reason is this file's own algorithm. The walk below
-   * composites a translucent layer onto the SHEET its element sits in, and the card's
-   * sheet is `.card.board`. The thing a player actually reads the card against is the
-   * CANVAS, which is the card's SIBLING and which no DOM walk can sample — a canvas has
-   * no background colour, only pixels. So a see-through plate would be scored against
-   * the dark board card while sitting over grass, sky or water: a green run and an
-   * unreadable card, which is exactly the shape of evidence this repo forbids.
+   * They have to be opaque, and the reason is this file's own algorithm. The walk below
+   * composites a translucent layer onto the SHEET its element sits in — and the stage
+   * sits in NO sheet: its bars, tab, drawers, sheets and toast float over the CANVAS,
+   * which no DOM walk can sample (a canvas has no background colour, only pixels). A
+   * see-through bar would be scored against the table gradient while the player reads it
+   * over grass, sky or water: a green run and an unreadable HUD, which is exactly the
+   * shape of evidence this repo forbids.
    *
-   * Because the fill IS opaque, the walk finds it by itself and this entry is never
-   * consulted as a fallback. It is here as the DECLARED value the test below compares
-   * the live one against — the same duplicate-and-guard the three grounds above use.
+   * Because the fill IS opaque the walk finds it by itself, so this entry is never used
+   * as a fallback. It is the DECLARED value the tests below compare the live one
+   * against — the same duplicate-and-guard the two grounds above use.
+   *
+   * `GROUNDS.board` is GONE, not forgotten: `.card.board` no longer exists. The battle
+   * screen is the stage, and its dark ground is these surfaces plus the canvas.
    */
   plate: ["rgb(29, 23, 16)"],
   /**
@@ -93,12 +96,10 @@ async function groundsAreReal(page: Page): Promise<void> {
     };
     return {
       sheet: grab(".card:not(.board)") || grab(".panel"),
-      board: grab(".card.board"),
       body: getComputedStyle(document.body).backgroundImage,
     };
   });
   for (const c of GROUNDS.parchment) expect(painted.sheet, `parchment stop ${c}`).toContain(c);
-  for (const c of GROUNDS.board) expect(painted.board, `board stop ${c}`).toContain(c);
   for (const c of GROUNDS.table) expect(painted.body, `table stop ${c}`).toContain(c);
 }
 
@@ -148,7 +149,6 @@ async function failures(page: Page): Promise<Finding[]> {
     const sheetOf = (el: Element): { root: Element | null; stops: string[] } => {
       const root = el.closest(".card, .panel, dialog");
       if (!root) return { root: null, stops: [...grounds.table] };
-      if (root.classList.contains("board")) return { root, stops: [...grounds.board] };
       // The playtest aside deliberately drops the parchment and sits on the table.
       if (root.classList.contains("logbox")) return { root, stops: [...grounds.table] };
       return { root, stops: [...grounds.parchment] };
@@ -287,17 +287,38 @@ test("contrast: the help panel", async ({ page }) => {
   await screenPasses(page, 10);
 });
 
-test("contrast: the battle screen, which is the one dark sheet", async ({ page }) => {
+/**
+ * THE BATTLE SCREEN IS THE STAGE (ADR-0037), and every surface on it is dark HUD
+ * chrome rather than parchment — so it is measured zone by zone, with each overlay
+ * OPENED, because a `hidden` drawer contributes no text and would drop out of the walk
+ * silently. That is the whole risk here: "no findings" is what an unrendered screen
+ * reports too, which is why `screenPasses` takes a floor.
+ */
+test("contrast: the battle stage, at rest and with every overlay open", async ({ page }) => {
+  await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
-  // The stat card is on this screen, so its name, job, HP numbers and stat labels are
-  // among the elements measured above. They are the only text on the page whose ground
-  // is neither parchment nor the board card.
-  await expect(page.getByTestId("unit-card")).toBeVisible();
-  await screenPasses(page, 15);
+
+  // MEASURED 2026-09-05 at 851x324, not guessed: 18 text-bearing elements at rest, and
+  // 25 / 30 / 30 / 35 / 59 with the actions sheet, the unit drawer, the menu drawer,
+  // the settings drawer and the help drawer open. Each floor sits just under its own
+  // measurement, so a zone that stopped rendering is caught rather than absorbed by a
+  // margin — the 40-node slack this file used to carry on the briefing screen is the
+  // mistake being avoided.
+  await screenPasses(page, 16);
+
+  // …then each overlay in turn. The unit drawer carries the full ADR-0033 stat set, the
+  // settings drawer the readout, the menu drawer the turn log and the legend — none of
+  // which the at-rest pass can see, and each is new ink on a new ground.
+  const FLOORS = { actions: 23, unit: 28, menu: 28, settings: 33, help: 55 } as const;
+  for (const which of ["unit", "settings", "menu", "help", "actions"] as const) {
+    await openDrawer(page, which);
+    await screenPasses(page, FLOORS[which]);
+    await closeDrawer(page);
+  }
 });
 
 /**
@@ -309,8 +330,9 @@ test("contrast: the battle screen, which is the one dark sheet", async ({ page }
  * same text over whatever the canvas painted. Asserting the opacity is the only way
  * this file can say what it is actually measuring.
  *
- * MUTATION TO RUN: give `.unit-card` an `rgba(…, .6)` background in index.html. The
- * `alpha` assertion goes red; `screenPasses` above stays green, which is the point.
+ * MUTATION TO RUN: give `.tuh-drawer .unit-card` an `rgba(…, .6)` background in
+ * `stage.css`. The `alpha` assertion goes red; `screenPasses` above stays green, which
+ * is the point.
  */
 test("contrast: the stat card sits on an OPAQUE plate of the declared colour", async ({
   page,
@@ -319,6 +341,11 @@ test("contrast: the stat card sits on an OPAQUE plate of the declared colour", a
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // The full card lives in the actor tab's drawer since ADR-0037 (the tab shows name
+  // and HP only, AC-V37). Its plate is still opaque, and still for THIS file's reason:
+  // the drawer floats over the canvas, which no DOM walk can sample.
+  await openDrawer(page, "unit");
   const card = page.getByTestId("unit-card");
   await expect(card).toBeVisible();
 
@@ -363,6 +390,67 @@ test("contrast: the stat card sits on an OPAQUE plate of the declared colour", a
  * simultaneously the measurement guard and the proof that nothing is rendering
  * underneath.
  */
+/**
+ * EVERY LAID-OUT AND OVERLAID STAGE SURFACE IS OPAQUE — the precondition the whole
+ * battle-stage measurement above depends on, exactly as the rotate card's is.
+ *
+ * WITHOUT THIS the file is quietly wrong rather than red. `failures()` would keep
+ * returning `[]` for a translucent bar, because it would composite the bar onto the
+ * TABLE gradient behind it and get a perfectly good ratio, while the player reads the
+ * same text over whatever the canvas painted underneath.
+ *
+ * MUTATION TO RUN: give `.tuh-top` an `rgba(29, 23, 16, .6)` background in
+ * `stage.css`. This test goes red; the one above stays green, which is the point.
+ */
+test("contrast: every stage surface is an OPAQUE fill of the declared colour", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 851, height: 324 });
+  await page.goto("/viewer.html");
+  await expect(page.getByTestId("grid")).toBeVisible();
+  // Everything is opened first, because a `hidden` element reports no useful computed
+  // background and would silently drop out of the enumeration.
+  for (const which of ["unit", "settings", "menu", "help", "actions"] as const) {
+    await openDrawer(page, which);
+  }
+  await expect(page.getByTestId("reason")).toBeHidden();
+  await page.evaluate(() => window.tuh.clickTile(-9, -9)); // raise a toast to measure
+
+  const surfaces = await page.evaluate(() => {
+    const names = [
+      ".tuh-top",
+      ".tuh-bottom",
+      ".tuh-tab",
+      '[data-testid="menu-drawer"]',
+      '[data-testid="unit-drawer"]',
+      '[data-testid="settings-drawer"]',
+      '[data-testid="help-drawer"]',
+      '[data-testid="actions-sheet"]',
+      '[data-testid="preview-sheet"]',
+      '[data-testid="reason"]',
+    ];
+    return names.map((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { sel, color: "MISSING", image: "MISSING" };
+      const cs = getComputedStyle(el);
+      return { sel, color: cs.backgroundColor, image: cs.backgroundImage };
+    });
+  });
+
+  // The set is enumerated and asserted non-empty: a loop that found two surfaces
+  // passes vacuously.
+  expect(surfaces).toHaveLength(10);
+  for (const s of surfaces) {
+    expect(s.color, `${s.sel} is missing from the stage`).not.toBe("MISSING");
+    // `rgb(...)` with no fourth channel is how a computed style spells alpha 1. An
+    // `rgba(...)` string here means the surface is see-through.
+    expect(s.color, `${s.sel} is translucent`).toBe(GROUNDS.plate[0]);
+    // A gradient would vary the ground across the surface, which the single declared
+    // stop above could no longer describe.
+    expect(s.image, `${s.sel} paints a gradient`).toBe("none");
+  }
+});
+
 test.describe("contrast: the portrait rotate gate", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 

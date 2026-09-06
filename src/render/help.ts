@@ -53,9 +53,10 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     id: "acting",
     title: "Moving and attacking",
     lines: [
-      "On your turn, click a highlighted tile to move there, then click an enemy to strike. You can do both in the same turn, in either order.",
-      "Before you commit, the preview panel shows the real numbers — damage, hit chance, and what it would leave them on. Nothing is hidden from you.",
-      "End Turn finishes early. Cancel takes back a move you have staged but not committed.",
+      "On your turn, tap a highlighted tile to move there, then tap an enemy to aim at it. You can do both in the same turn.",
+      "Aiming does not spend the turn. A panel opens with the real numbers — damage, hit chance, the facing arc and what the turn costs — and Confirm is what commits it. Nothing is hidden from you.",
+      "Cancel takes back one step: the target first, then the move. End Turn finishes early and pays only for what you used.",
+      "The enemy acts when you press the button; it never moves on a timer.",
     ],
   },
   {

@@ -1,8 +1,17 @@
-import { test, expect, type Page } from "@playwright/test";
-import { dismissScene, prepEveryMember, settleMotion } from "./helpers.js";
+import { test, expect } from "@playwright/test";
+import { dismissScene, prepEveryMember } from "./helpers.js";
 
 /**
- * AC-V30 (rotate gate) and AC-V31 (landscape fit) — the phone slice.
+ * AC-V30 (the rotate gate) and AC-V32 (the lock attempt + the manifest) — the
+ * orientation half of the phone work.
+ *
+ * **AC-V31 IS RETIRED (ADR-0037), not weakened.** It promised the board, the stat
+ * plate and the controls all on screen at 844x390 — and it was GREEN on the real
+ * phone screenshot where the plate covered half the map, because it permitted the
+ * overlap. Its promise is subsumed by **AC-V33** (the stage geometry, at five
+ * viewports instead of one) and **AC-V34** (the board is uncovered at rest, which
+ * AC-V31 allowed), both in `e2e/stage.spec.ts`. Nothing about the LAYOUT is asserted
+ * in this file any more.
  *
  * WHAT THIS SUITE CAN AND CANNOT SEE. It measures bounding boxes and computed styles;
  * it cannot see the screen. `e2e/playtest-capture.spec.ts` and the frames under
@@ -20,21 +29,7 @@ import { dismissScene, prepEveryMember, settleMotion } from "./helpers.js";
 const PHONE_PORTRAIT = { width: 390, height: 844 };
 const PHONE_LANDSCAPE = { width: 844, height: 390 };
 
-/** The board's intrinsic size. `pickTile` inverts through this ratio; see AC-V31. */
-const BOARD_RATIO = 900 / 440;
-
 const PAGES = ["/", "/viewer.html"] as const;
-
-/** Drive the campaign as far as a live battle board. No-op on the viewer page. */
-async function reachBattle(page: Page, path: string): Promise<void> {
-  if (path !== "/") return;
-  await page.getByTestId("new-game").click();
-  await dismissScene(page);
-  await prepEveryMember(page);
-  await page.getByTestId("deploy").click();
-  await expect(page.getByTestId("screen-battle")).toBeVisible();
-  await settleMotion(page);
-}
 
 test.describe("AC-V30 — portrait phone is gated", () => {
   test.use({ viewport: PHONE_PORTRAIT, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
@@ -61,13 +56,26 @@ test.describe("AC-V30 — portrait phone is gated", () => {
       // ...and nothing under the gate can take focus. Counting the focusable elements
       // the browser itself reports visible is the check that survives a future screen
       // being added: it does not enumerate ids.
-      const reachable = await page.evaluate(() => {
-        const wrap = document.querySelector(".wrap");
-        if (!wrap) return -1;
-        return [...wrap.querySelectorAll("button, a[href], select, textarea, canvas[tabindex]")]
-          .filter((el) => (el as HTMLElement).offsetParent !== null).length;
-      });
-      expect(reachable).toBe(0);
+      //
+      // `checkVisibility()`, NOT `offsetParent !== null`. The battle stage is
+      // `position: fixed` since ADR-0037, and a fixed element's `offsetParent` is
+      // ALWAYS null — so the old filter reported zero whether the gate hid the page or
+      // not, which is a check that cannot come out the other way. The landscape control
+      // below is what proves the new one can.
+      const countReachable = (): Promise<number> =>
+        page.evaluate(() => {
+          const wrap = document.querySelector(".wrap");
+          if (!wrap) return -1;
+          return [...wrap.querySelectorAll("button, a[href], select, textarea, canvas[tabindex]")]
+            .filter((el) => (el as HTMLElement).checkVisibility()).length;
+        });
+      expect(await countReachable()).toBe(0);
+
+      // THE CONTROL: rotate the same page and the same query finds controls. Without
+      // it, "0" is equally what a broken selector reports.
+      await page.setViewportSize({ width: PHONE_PORTRAIT.height, height: PHONE_PORTRAIT.width });
+      await expect(gate).toBeHidden();
+      expect(await countReachable()).toBeGreaterThan(0);
     });
 
     test(`${path} the rotate button really reaches the orientation APIs`, async ({ page }) => {
@@ -230,96 +238,25 @@ test.describe("AC-V30 — a desktop window is never gated, at EITHER aspect", ()
   }
 });
 
-test.describe("AC-V31 — the battle fits a phone in landscape", () => {
+/**
+ * WHAT SURVIVED AC-V31'S RETIREMENT: no HORIZONTAL overflow, anywhere.
+ *
+ * That claim was never about the board — it is about the campaign's other four
+ * screens, which ADR-0037 explicitly left on their old layout (docs/10 §8f). The
+ * battle screen's own geometry is asserted in `e2e/stage.spec.ts` (AC-V33), which also
+ * covers vertical scroll, which this file never could.
+ */
+test.describe("no horizontal overflow on a phone held sideways", () => {
   test.use({ viewport: PHONE_LANDSCAPE, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
 
   for (const path of PAGES) {
-    test(`${path} board, stat plate and commands are all on screen`, async ({ page }) => {
-      await page.goto(path);
-      await expect(page.getByTestId("rotate-gate")).toBeHidden();
-      // POSITIVE, not just "the gate is absent": this describe's whole claim is about a
-      // TOUCH device held sideways. Without it the block would pass identically if the
-      // emulation silently stopped reporting a coarse pointer — at which point the
-      // landscape rules under test would not be applying either.
-      expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-      expect(await page.evaluate(() => matchMedia("(orientation: landscape)").matches)).toBe(true);
-      await reachBattle(page, path);
-
-      // MEASURE AT THE TOP OF THE DOCUMENT. Bounding boxes are viewport-relative, and
-      // walking the prep screen leaves the page scrolled hundreds of pixels down — a
-      // canvas measured there reports a negative top and the test would be failing for
-      // the wrong reason. AC-V31's promise is "no vertical scroll NEEDED", so the
-      // honest measurement is taken with the page scrolled home.
-      await page.evaluate(() => window.scrollTo(0, 0));
-      expect(await page.evaluate(() => window.scrollY)).toBe(0);
-
-      const canvas = (await page.getByTestId("grid").boundingBox())!;
-      const plate = (await page.locator("#unit-card").boundingBox())!;
-      // Scoped to the board's own card: the campaign page carries a `.controls` row on
-      // every screen, and `.first()` resolves to the TITLE screen's — hidden, so its
-      // bounding box is null and the failure reads as a layout bug rather than a bad
-      // selector.
-      const controls = (await page.locator(".board .controls, .stage .controls").boundingBox())!;
-
-      expect(canvas, "canvas is laid out").not.toBeNull();
-      expect(plate, "stat plate is laid out").not.toBeNull();
-      expect(controls, "command row is laid out").not.toBeNull();
-
-      for (const [name, b] of [
-        ["canvas", canvas],
-        ["stat plate", plate],
-        ["controls", controls],
-      ] as const) {
-        expect(b.x, `${name} left`).toBeGreaterThanOrEqual(-0.5);
-        expect(b.y, `${name} top`).toBeGreaterThanOrEqual(-0.5);
-        expect(b.x + b.width, `${name} right`).toBeLessThanOrEqual(PHONE_LANDSCAPE.width + 0.5);
-        expect(b.y + b.height, `${name} bottom`).toBeLessThanOrEqual(PHONE_LANDSCAPE.height + 0.5);
-      }
-
-      // The board keeps 900:440. `draw` and `pickTile` share `viewFor`; a canvas
-      // stretched off its intrinsic ratio does not fail, it silently misses.
-      //
-      // Measured on the CONTENT box, not the bounding box: the campaign's canvas
-      // carries a 1px border, which alone moves the border-box ratio to 2.038 and would
-      // have forced a slack tolerance that a genuinely stretched board could hide in.
-      // The drawing surface is the thing `toCanvasPoint` scales against, so it is also
-      // the honest thing to measure — and it lets the tolerance be three places.
-      const drawnRatio = await page.getByTestId("grid").evaluate((el) => {
-        const cs = getComputedStyle(el);
-        const r = el.getBoundingClientRect();
-        const bw = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
-        const bh = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-        return (r.width - bw) / (r.height - bh);
-      });
-      expect(drawnRatio).toBeCloseTo(BOARD_RATIO, 3);
-
-      // The plate is genuinely narrower than the desktop 272px / 250px, and still wide
-      // enough to hold a name. Without this, "inside the viewport" would also be
-      // satisfied by a plate that collapsed to nothing.
-      expect(plate.width).toBeLessThan(220);
-      expect(plate.width).toBeGreaterThan(120);
-
-      // ON THE BOARD, ON ALL FOUR SIDES. The first version of this test checked only
-      // the plate's RIGHT edge against the canvas, and the frame showed the plate
-      // sitting entirely to the LEFT of the map on the dark card margin — the shrunken
-      // canvas is centred while `.board-stage` was still full width, and the one-sided
-      // check was green throughout. Caught by opening the screenshot; asserted here so
-      // it cannot come back.
-      expect(plate.x, "plate left of the board").toBeGreaterThanOrEqual(canvas.x - 0.5);
-      expect(plate.y, "plate above the board").toBeGreaterThanOrEqual(canvas.y - 0.5);
-      expect(plate.x + plate.width, "plate right of the board").toBeLessThanOrEqual(
-        canvas.x + canvas.width + 0.5,
-      );
-      expect(plate.y + plate.height, "plate below the board").toBeLessThanOrEqual(
-        canvas.y + canvas.height + 0.5,
-      );
-
-      // A drag on a tile must not scroll the page.
-      await expect(page.getByTestId("grid")).toHaveCSS("touch-action", "none");
-    });
-
     test(`${path} does not overflow horizontally`, async ({ page }) => {
       await page.goto(path);
+      // POSITIVE, not just "the gate is absent": this describe's whole claim is about a
+      // TOUCH device held sideways. Without it the block would pass identically if the
+      // emulation silently stopped reporting a coarse pointer.
+      expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+      expect(await page.evaluate(() => matchMedia("(orientation: landscape)").matches)).toBe(true);
       const widths = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
         client: document.documentElement.clientWidth,

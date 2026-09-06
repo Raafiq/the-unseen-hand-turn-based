@@ -2,12 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover`: the stage paints under a display cutout and the host pads
+         itself back with `env(safe-area-inset-*)` (docs/10 §8c, AC-V41). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>The Unseen Hand — Engine Viewer (P0)</title>
     <!-- Relative href: the Pages deploy serves this under /<repo>/, so an absolute
          path would 404 there and work in local preview. No icons ship yet. -->
     <link rel="manifest" href="manifest.webmanifest" />
     <style>
+      /* THE SAME FOUR FACES THE CAMPAIGN LOADS, and they are not decoration here: the
+         battle stage's skin names Cinzel and EB Garamond (`src/render/stage.css`), and
+         with no `@font-face` this page fell back to Georgia — so the two pages rendered
+         the ONE shared battle screen in two different typefaces, which is exactly the
+         divergence building the HUD from one module was meant to make impossible.
+         Silent, too: nothing in the suite could see it, and the frames were captured on
+         the campaign page. `e2e/stage.spec.ts` now asserts `document.fonts` actually
+         loaded Cinzel on BOTH pages — declaring a face and loading it are two claims.
+
+         Paths are RELATIVE so they survive the Pages base path (/<repo>/), and the
+         files are the same five in `public/fonts` index.html already ships; no new
+         asset. Grenze Gotisch is deliberately NOT copied — it is the campaign's display
+         face for titles, and this page has no titles set in it. */
+      @font-face { font-family: "Cinzel"; src: url("./fonts/cinzel-600.woff2") format("woff2");
+                   font-weight: 600; font-style: normal; font-display: swap; }
+      @font-face { font-family: "EB Garamond"; src: url("./fonts/ebgaramond-400.woff2") format("woff2");
+                   font-weight: 400; font-style: normal; font-display: swap; }
+      @font-face { font-family: "EB Garamond"; src: url("./fonts/ebgaramond-600.woff2") format("woff2");
+                   font-weight: 600; font-style: normal; font-display: swap; }
+      @font-face { font-family: "EB Garamond"; src: url("./fonts/ebgaramond-400i.woff2") format("woff2");
+                   font-weight: 400; font-style: italic; font-display: swap; }
       :root {
         --bg: #0e1220;
         --surface: #151a2a;
@@ -41,8 +64,6 @@
          painted board is unreadable in ways nothing here can measure.
          The corner was a decision about the game page (bottom-left, owner's call
          of 2026-09-01); this one just follows it. */
-      .board-stage { position: relative; }
-      #unit-card { position: absolute; left: 12px; bottom: 12px; pointer-events: none; z-index: 2; }
       .unit-card { display: flex; align-items: flex-start; gap: 12px; width: 250px;
                    padding: 10px 12px 11px; color: var(--ink);
                    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
@@ -214,6 +235,12 @@
         .rotate-card .rotate-hint[hidden] { display: none; }
         .rotate-card button { background: #8a2b22; border-color: #571712; color: #f7ecd6; }
       }
+      /* AC-V31 IS RETIRED (ADR-0037): its landscape rules for this page's hand-authored
+         board are gone with the board itself. The battle is the STAGE now
+         (`src/render/stage.css`, docs/10 §8, AC-V33/AC-V34), built by `hud.ts` and
+         identical on both pages. Only the PREP screen below still lives on this page's
+         own layout — docs/10 §8f's follow-up slice. */
+
       /* This page had NO reduced-motion query before; the rotate card is the first
          motion on it. The phone parks at the finished 90 degrees rather than looping —
          the reduced-motion answer to "show a turn" is to show the turn's RESULT.
@@ -223,54 +250,6 @@
         #rotate-gate .phone { animation: none; transform: rotate(90deg); }
       }
 
-      /* ── AC-V31: the landscape fit. The board is sized by HEIGHT as well as
-         width — `width: 100%` alone makes a 900:440 board 393px tall at a
-         844x390 viewport. The canvas keeps its intrinsic ratio: `pickTile`
-         inverts through the projection `draw` paints with, and a stretched
-         canvas offsets every tap by a constant nothing goes red for. The 250px
-         stat plate shrinks; at a ~640px board it would otherwise cover 40% of
-         the map. */
-      @media (orientation: landscape) and (pointer: coarse) and (max-height: 560px) {
-        .wrap { max-width: none; padding: 8px 10px 14px; }
-        header { margin-bottom: 10px; }
-        /* The two long explanatory paragraphs are the page's manual, not its
-           controls; below the board they cost a screen of scrolling before the
-           game is reachable. Hidden here, still present on every other device. */
-        header p:not(.eyebrow):not(.playlink) { display: none; }
-        /* The LINK to the campaign survives — hiding it would strand a phone on the
-           developer page. Only its trailing description goes, which is three of the
-           header's five lines at this width. */
-        .playlink .note, header .eyebrow { display: none; }
-        .playlink { font-size: .82rem; }
-        h1 { font-size: 1.02rem; margin: 0 0 4px; }
-        .stage { padding: 8px; border-radius: 10px; }
-
-        canvas#grid {
-          width: auto; height: auto; max-width: 100%;
-          max-height: calc(100vh - 150px);
-          max-height: calc(100dvh - 150px);
-          margin: 0 auto;
-        }
-        /* The stage shrinks to the board: `#unit-card` is positioned against
-           `.board-stage`, so a full-width stage leaves the plate on the margin beside
-           the map rather than on it. */
-        .board-stage { width: fit-content; margin-inline: auto; }
-
-        .controls { margin-top: 8px; gap: 6px; }
-        button { font-size: .78rem; padding: 7px 12px; }
-        #status { gap: 4px 10px; font-size: .68rem; }
-
-        #unit-card { left: 8px; bottom: 8px; }
-        .unit-card { width: 178px; gap: 8px; padding: 7px 9px 8px; }
-        .uc-name { font-size: .84rem; }
-        .uc-hp { margin-top: 6px; font-size: .78rem; }
-        .uc-bar { min-width: 34px; }
-        .uc-stats { gap: 2px 9px; margin-top: 5px; }
-
-        .reason { margin-top: 10px; }
-        .timeline { margin-top: 10px; gap: 6px; }
-        .cols { margin-top: 12px; gap: 12px; }
-      }
     </style>
   </head>
   <body>
@@ -308,65 +287,45 @@
       </div>
     </div>
     <div class="wrap">
-      <header>
-        <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
-        <h1>Play a turn — CT scheduler &amp; isometric grid, live</h1>
-        <p class="playlink"><a href="./">▶ Play the campaign — <b>The First March</b></a><span
-          class="note"> · five battles, a party that keeps what it earns, saved in this browser.
-          This page is the <b>engine viewer</b>: one demo battle with every internal number on
-          show.</span></p>
-        <p>The real headless sim, running in your browser. <b>You command Team A.</b> On your turn, click a highlighted tile to <b>stage a move</b> (nothing touches the sim yet — cancel is free), then click an enemy to <b>strike from there</b>: one command, one turn, <b>−100 CT</b>. Or <b>End Turn</b> to pay only for what you used. Every number in the <b>Resolution preview</b> — hit %, the facing arc that produced it, the exact damage, the CT price — is computed before you commit. Press <b>Play enemy turn</b> to watch the AI resolve one. Everything is deterministic from the seed — the AI advances on that click, never on a timer, so the same seed always replays the same battle.</p>
-      </header>
+      <!-- THE BATTLE, ON THE STAGE (ADR-0037, docs/10 §8). No chrome is authored here:
+           `src/render/hud.ts` builds the board, the bars, the drawers and the sheets
+           into the host below, so this page and `index.html` hold ONE battle screen
+           between them rather than two transcriptions of the same idea.
 
-      <div class="stage">
-        <div class="board-stage">
-          <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
-                  role="application"
-                  aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
-          <div id="unit-card"></div>
-        </div>
-        <div class="controls">
-          <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
-          <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
-          <button id="btn-step" class="ghost" data-testid="step">Play enemy turn ▸</button>
-          <button id="btn-reset" class="ghost" data-testid="reset">Reset</button>
-          <div id="status" data-testid="status"></div>
-        </div>
-        <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
-        <div id="timeline" class="timeline" data-testid="timeline"></div>
-      </div>
-
-      <div class="cols">
-        <div class="panel">
-          <h2>Resolution preview</h2>
-          <div id="preview" data-testid="preview"></div>
-        </div>
-        <div class="panel">
-          <h2>Turn log</h2>
-          <ul id="log" class="log"></ul>
-        </div>
-        <div class="panel">
-          <h2>Legend</h2>
-          <div class="legend">
-            <div class="row"><span class="sw" style="background:#4f8cff"></span> Team A — Knight, Archer (<b>you</b>)</div>
-            <div class="row"><span class="sw" style="background:#e2603c"></span> Team B — Brawler, Mage (AI)</div>
-            <div class="row"><span class="sw" style="background:#e2a948"></span> Move range of the active unit · solid gold ring = your turn</div>
-            <div class="row"><span class="sw" style="background:#7fd7ff"></span> Staged move (pure intent — nothing has moved yet)</div>
-            <div class="row"><span class="sw" style="background:#e05563"></span> A legal target from the staged tile</div>
-            <div class="row"><span class="sw" style="background:#ff7a3c"></span> Dashed ring = AI's turn · a charging spell's target tile (reticle)</div>
-            <div class="row"><span class="sw" style="background:#ff5d5d"></span> Damage / miss popup · a crystal marks a KO'd unit</div>
-            <div class="row"><span class="sw" style="background:#6a2f2f"></span> Impassable tile · raised tiles = terrain height</div>
-          </div>
-        </div>
-      </div>
-
-      <section class="panel prep" data-testid="prep">
-        <h2>Prep — 5-slot chassis &amp; loadout</h2>
-        <p class="lede">The customization pillar, live from the pure sim. This Knight has learned abilities across four jobs. Equip a <b>Secondary</b> command and watch the <b>Commands in battle</b> list change — the flagship “learn Black Magic → cast Fire” moment. The command list is the real battle projection (<code>buildBattleUnit</code>), and every swap is free and reversible.</p>
-        <div id="prep-body" class="prep-grid"></div>
+           The host is `position: fixed`, so it adds no layout and disappears with the
+           section. The rotate gate stays OUTSIDE it — a transformed ancestor makes
+           `position: fixed` resolve against the stage instead of the viewport. -->
+      <section id="screen-battle" data-testid="screen-battle">
+        <div id="stage-host" data-testid="stage-host"></div>
       </section>
 
-      <footer>Built from <code>src/sim</code> (pure &amp; headless) + <code>src/render</code>. Grid height &amp; facing live in <code>BattleState</code>; the isometric view is a pure projection.</footer>
+      <!-- PREP — reached from the stage's ☰ menu, and back again from here. The battle
+           screen must not scroll (AC-V33), so this page's long-form material cannot
+           share it; it is a second screen, exactly as the campaign's screens are. -->
+      <section id="screen-prep" data-testid="screen-prep" hidden>
+        <header>
+          <p class="eyebrow">The Unseen Hand · P0 engine viewer</p>
+          <h1>Prep — 5-slot chassis &amp; loadout</h1>
+          <p class="playlink"><a href="./">▶ Play the campaign — <b>The First March</b></a><span
+            class="note"> · five battles, a party that keeps what it earns, saved in this
+            browser. This page is the <b>engine viewer</b>: one demo battle with every
+            internal number on show.</span></p>
+        </header>
+        <div class="controls">
+          <button id="btn-to-battle" data-testid="to-battle">◂ Back to the battle</button>
+        </div>
+        <section class="panel prep" data-testid="prep">
+          <p class="lede">The customization pillar, live from the pure sim. This Knight has
+            learned abilities across four jobs. Equip a <b>Secondary</b> command and watch the
+            <b>Commands in battle</b> list change — the flagship “learn Black Magic → cast
+            Fire” moment. The command list is the real battle projection
+            (<code>buildBattleUnit</code>), and every swap is free and reversible.</p>
+          <div id="prep-body" class="prep-grid"></div>
+        </section>
+        <footer>Built from <code>src/sim</code> (pure &amp; headless) + <code>src/render</code>.
+          Grid height &amp; facing live in <code>BattleState</code>; the isometric view is a
+          pure projection.</footer>
+      </section>
     </div>
     <script type="module" src="/src/render/main.ts"></script>
   </body>

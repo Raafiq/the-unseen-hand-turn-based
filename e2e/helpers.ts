@@ -105,3 +105,85 @@ export async function freezeMotion(page: Page, elapsedMs: number | null): Promis
     w.tuh?.freezeMotion?.(ms);
   }, elapsedMs);
 }
+
+/**
+ * OPEN A STAGE OVERLAY, then close it again — the ☰ menu, ⚙ settings, ? help, the
+ * Actions sheet or the unit drawer.
+ *
+ * The battle screen is one stage now (ADR-0037), and the material that used to sit in
+ * columns under the board — the turn log, the legend, the full stat card, the status
+ * readout — lives behind one of these. Specs that used to read it off the page must
+ * open the drawer a player would open, which is also the honest thing to assert: a
+ * panel nobody can reach is not shipped.
+ */
+export async function openDrawer(
+  page: Page,
+  which: "menu" | "settings" | "help" | "actions" | "unit",
+): Promise<void> {
+  const opener = {
+    menu: "hud-menu",
+    settings: "hud-settings",
+    help: "hud-help",
+    actions: "actions",
+    unit: "actor-tab",
+  }[which];
+  const panel = {
+    menu: "menu-drawer",
+    settings: "settings-drawer",
+    help: "help-drawer",
+    actions: "actions-sheet",
+    unit: "unit-drawer",
+  }[which];
+  if (await page.getByTestId(panel).isVisible()) return;
+  // CLOSE WHATEVER IS OPEN FIRST. Only one overlay is up at a time, and a LEFT drawer
+  // covers the actor tab — the very control that opens the unit drawer — so "click the
+  // next opener" is not always reachable. Closing through the panel's own ✕ is what a
+  // player does and what always works.
+  await closeDrawer(page);
+  await page.getByTestId(opener).click();
+  await expect(page.getByTestId(panel)).toBeVisible();
+}
+
+/**
+ * Close whichever stage overlay is open, through its own control.
+ *
+ * `openDrawer` used to be called twice to "toggle shut", which was a NO-OP: it returns
+ * early when the panel is already visible. The comment said one thing and the code did
+ * another, and every case downstream was relying on the next opener happening to be
+ * uncovered.
+ */
+export async function closeDrawer(page: Page): Promise<void> {
+  for (const panel of ["menu-drawer", "unit-drawer", "settings-drawer", "help-drawer"]) {
+    if (await page.getByTestId(panel).isVisible()) {
+      await page.getByTestId(`${panel}-close`).click();
+      await expect(page.getByTestId(panel)).toBeHidden();
+    }
+  }
+  if (await page.getByTestId("actions-sheet").isVisible()) {
+    await page.getByTestId("actions-close").click();
+    await expect(page.getByTestId("actions-sheet")).toBeHidden();
+  }
+}
+
+/** Walk the engine viewer to its PREP screen, which is behind the ☰ menu since ADR-0037. */
+export async function openViewerPrep(page: Page): Promise<void> {
+  await openDrawer(page, "menu");
+  await page.getByTestId("menu-prep").click();
+  await expect(page.getByTestId("screen-prep")).toBeVisible();
+}
+
+/**
+ * Step the live battle one watch-mode turn, from the ☰ menu.
+ *
+ * IT CLOSES THE DRAWER AGAIN, and that matters for the capture specs: a drawer left
+ * open sits in the next frame, under a caption describing a board. Watch mode is a
+ * shipped feature (docs/10 §7), not a test hook — it resolves the ACTIVE unit through
+ * the balance probe regardless of team, which is what keeps the visual baseline
+ * frame-for-frame deterministic.
+ */
+export async function watchStep(page: Page): Promise<void> {
+  await openDrawer(page, "menu");
+  await page.getByTestId("btn-step").click();
+  await page.getByTestId("hud-menu").click();
+  await expect(page.getByTestId("menu-drawer")).toBeHidden();
+}

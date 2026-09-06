@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` lets the stage paint under a display cutout; the host then
+         pads itself back out with `env(safe-area-inset-*)` (docs/10 §8c, AC-V41).
+         NEVER `user-scalable=no`. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>The Unseen Hand — The First March</title>
     <!-- Relative href on purpose: the Pages deploy serves this under /<repo>/
          (vite `base` comes from PAGES_BASE), and an absolute "/manifest.webmanifest"
@@ -251,7 +254,14 @@
       .chip .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
       .chip.lead { border-color: var(--c); color: var(--ink-dk); box-shadow: 0 0 0 1px var(--c) inset; }
       .chip.spell { border-style: dashed; }
-      .chip.proj { opacity: .5; background: transparent; border-style: dotted; }
+      /* NO `opacity` HERE, and that is a fix rather than an omission. This rule is the
+         pre-stage timeline's, and it out-specified the battle stage's own `.chip.proj`
+         (which sets colour and background but never opacity), so every projected chip
+         on the battle screen painted at HALF strength while `e2e/contrast.spec.ts`
+         measured the declared colour at full — a green run over ink nobody could read
+         at the value it was checked at. Dotted-against-solid is the whole signal;
+         `stage.css` states it in the ink the walk actually sees. */
+      .chip.proj { background: transparent; border-style: dotted; }
       .tl-split { font-family: var(--roman); font-size: .6rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dk-faint); border-left: 1px dashed #4a3a24; padding-left: 10px; margin-left: 2px; }
 
       canvas { display: block; width: 100%; height: auto; background: radial-gradient(120% 120% at 50% 25%, #141b2e, #0c1120); border: 1px solid #3a2d1c; cursor: crosshair; }
@@ -279,8 +289,6 @@
          POINTER-EVENTS: NONE, because the card carries no controls and covers
          live tiles. Without it every click under the plate is swallowed and the
          board simply stops responding in one corner. */
-      .board-stage { position: relative; }
-      #unit-card { position: absolute; left: 12px; bottom: 12px; pointer-events: none; z-index: 2; }
 
       .unit-card { display: flex; align-items: flex-start; gap: 12px; width: 272px;
                    padding: 10px 13px 11px; color: var(--ink-dk);
@@ -601,70 +609,26 @@
         .rotate-card .rotate-hint[hidden] { display: none; }
       }
 
-      /* ── AC-V31: the landscape fit ─────────────────────────────────────────
-         A phone lying on its side has roughly 390 CSS pixels of height for a
-         board, four buttons and a stat plate. Two things have to give:
+      /* ── THE OTHER FOUR SCREENS, on a phone held sideways ──────────────────
+         AC-V31 IS RETIRED (ADR-0037). It promised the board, the stat plate and the
+         controls all on screen at 844x390 — and it was GREEN on the screenshot that
+         started this rebuild, where the plate covered half the map. The battle screen
+         is now the stage (docs/10 §8, AC-V33/AC-V34) and owns its own layout, so
+         nothing below touches it.
 
-         1. THE BOARD IS SIZED BY HEIGHT, not only by width. `width: 100%` alone
-            makes a 900:440 board 393px tall at this viewport — taller than the
-            whole screen — so the canvas becomes `width: auto` under a
-            `max-height` budget and shrinks along its own intrinsic ratio. The
-            ratio is never overridden here: `pickTile` inverts through the same
-            projection `draw` paints with, and a canvas stretched off 900:440
-            would offset every tap by a factor nothing goes red for.
-         2. THE 272px STAT PLATE SHRINKS. At a 640px-wide board it would eat 43%
-            of the map. It is the same markup and the same opaque background —
-            only narrower, with a smaller portrait frame (still on
-            `--portrait-ratio`, so it cannot drift from the scene's).
-
-         `dvh` is stated after `vh` so a browser without it keeps the fallback;
-         on a phone with a retracting toolbar `vh` overshoots. */
+         What is left here is title, briefing, prep, scene and the ending — docs/10
+         §8f's follow-up slice, explicitly NOT on the stage yet. These rules only make
+         them survivable on a short screen; they are not a spec and no AC covers them. */
       @media (orientation: landscape) and (pointer: coarse) and (max-height: 560px) {
         body { font-size: 15px; }
         .wrap { max-width: none; padding: 8px 10px 14px; }
         .card, .panel { padding: 12px 14px; }
-        .card.board { padding: 8px 8px 10px; }
-
-        canvas#grid {
-          width: auto; height: auto; max-width: 100%;
-          max-height: calc(100vh - 96px);
-          max-height: calc(100dvh - 96px);
-          margin: 0 auto;
-        }
-        /* THE STAGE MUST SHRINK TO THE BOARD, not stay full width. `#unit-card` is
-           positioned against `.board-stage`; once the canvas is narrower than its card
-           and centred, a full-width stage leaves the plate floating on the dark margin
-           beside the map instead of sitting on it. Found by opening the frame — every
-           bounding-box assertion was green. */
-        .board-stage { width: fit-content; margin-inline: auto; }
-
-        .controls { margin-top: 8px; gap: 6px; }
         button { font-size: .66rem; letter-spacing: .09em; padding: 7px 12px 7px 22px; }
         button::before { left: 8px; }
-        #status { gap: 4px 12px; font-size: .6rem; }
-
-        /* The plate: same information, less room. */
-        #unit-card { left: 8px; bottom: 8px; }
-        .unit-card, .unit-card[data-state="none"] { width: 188px; gap: 9px; padding: 7px 9px 8px; }
-        .uc-portrait { width: 48px; }
-        .uc-name { font-size: .84rem; }
-        .uc-hp { margin-top: 6px; font-size: .78rem; }
-        .uc-bar { min-width: 34px; }
-        .uc-stats { gap: 2px 9px; margin-top: 5px; }
-
-        /* Everything below the fold is still reachable by scrolling; it just may
-           not be on screen at once. Only the board, the plate and the commands
-           are promised (AC-V31). */
-        .reason { margin-top: 10px; padding-top: 6px; font-size: .88rem; }
-        .timeline { margin-top: 10px; gap: 6px; }
-        .legend { margin-top: 10px; font-size: .78rem; gap: 4px 12px; }
         .cols { margin-top: 12px; gap: 12px; }
-        /* The help disc is `position: fixed`, so on a 390px-tall screen it sits
-           on the board's lower-right corner. Smaller and tighter into the
-           corner; it stays reachable, which is the point of it being fixed. */
-        /* TOP-right, not bottom-right. At 390px tall the fixed disc lands on the
-           status readout ("TICK / TURNS / ACTIVE / PHASE / SEED") and hides the end of
-           it; the top-right corner is dark card margin beside the board. */
+        /* The help disc is `position: fixed`; on a 390px-tall screen it belongs in the
+           top-right corner. On the BATTLE screen it is hidden outright — the stage's
+           own `?` button replaces it (`stage.css`). */
         button.help-btn { width: 36px; height: 36px; right: 8px; top: 8px; bottom: auto; font-size: .95rem; }
       }
     </style>
@@ -788,44 +752,19 @@
              tabindex="0" role="region" aria-label="Help topics"></div>
       </dialog>
 
-      <!-- BATTLE -->
+      <!-- BATTLE — THE STAGE (ADR-0037, docs/10 §8).
+           There is no battle chrome authored here any more, deliberately. The board,
+           the bars, the drawers and the sheets are built by `src/render/hud.ts` into
+           the host below, so this page and `viewer.html` cannot hold two versions of
+           the same screen — which is exactly what they used to do.
+
+           The host is `position: fixed`, so it contributes no layout to `.wrap` and
+           vanishes with the section when the screen is hidden. The ROTATE GATE and
+           the help disc stay OUTSIDE it: the stage is a transformed ancestor, and
+           `position: fixed` inside one resolves against that ancestor instead of the
+           viewport (docs/10 §8b). -->
       <section id="screen-battle" data-testid="screen-battle" hidden>
-        <div class="card board">
-          <!-- The stage is the positioning context for the unit card, which sits in the
-               board's lower-left corner (owner's call, 2026-09-01). -->
-          <div class="board-stage">
-            <canvas id="grid" width="900" height="440" data-testid="grid" tabindex="0"
-                    role="application"
-                    aria-label="Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels."></canvas>
-            <div id="unit-card"></div>
-          </div>
-          <div class="controls">
-            <button id="btn-end-turn" data-testid="end-turn">End Turn</button>
-            <button id="btn-cancel" class="ghost" data-testid="cancel">Cancel</button>
-            <button id="btn-step" class="ghost" data-testid="step">Play enemy turn ▸</button>
-            <button id="btn-conclude" data-testid="conclude" hidden>Continue ▸</button>
-            <div id="status" data-testid="status"></div>
-          </div>
-          <div id="reason" class="reason info" data-testid="reason" role="status" aria-live="polite"></div>
-          <div id="timeline" class="timeline" data-testid="timeline"></div>
-          <!-- Swatch colours are set from the board's own theme by `paintLegend()`. -->
-          <div class="legend" data-testid="legend">
-            <span><i class="sw" data-sw="party"></i>Your party</span>
-            <span><i class="sw" data-sw="foe"></i>Enemies</span>
-            <span><i class="sw" data-sw="move"></i>Where the active unit can walk</span>
-            <span><i class="sw ring" data-sw="ring"></i>Whose turn it is</span>
-          </div>
-        </div>
-        <div class="cols">
-          <div class="panel">
-            <h3>Resolution preview</h3>
-            <div id="preview" data-testid="preview"></div>
-          </div>
-          <div class="panel">
-            <h3>Turn log</h3>
-            <ul id="log" class="log"></ul>
-          </div>
-        </div>
+        <div id="stage-host" data-testid="stage-host"></div>
       </section>
 
       <!-- AFTER BATTLE -->

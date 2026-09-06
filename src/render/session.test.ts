@@ -345,7 +345,10 @@ describe("AC-V6 — preview purity: hovering/staging/cancelling move NOTHING", (
     // above is not vacuous (a preview-by-resolving bumps rngCounter per hover;
     // a speculative applyCommand advances tick).
     s.onTileHover(FOE_TILE);
-    s.onPick(FOE_TILE);
+    s.onPick(FOE_TILE); // stages only (ADR-0038) — still nothing in the sim…
+    expect(s.state.rngCounter).toBe(rng0);
+    expect(s.state.tick).toBe(tick0);
+    s.confirm(); // …and THIS is the tap that spends the turn
     expect(s.state.rngCounter).toBeGreaterThan(rng0);
     expect(s.state.tick).toBeGreaterThan(tick0);
   });
@@ -489,6 +492,7 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
 
     const before = unit(s.state, "hero").hp;
     s.onPick(FOE_TILE);
+    s.confirm();
     expect(before - unit(s.state, "hero").hp).toBe(risk.magnitude);
 
     // NON-VACUITY: the same fixture WITHOUT the reaction shows no risk row and the
@@ -499,6 +503,7 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     expect(plain.preview()!.counterRisk).toBeUndefined();
     const heroBefore = unit(plain.state, "hero").hp;
     plain.onPick(FOE_TILE);
+    plain.confirm();
     expect(unit(plain.state, "hero").hp).toBe(heroBefore);
   });
 
@@ -512,6 +517,7 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     expect(p.magnitude).toBeGreaterThan(0);
     const foeBefore = unit(s.state, "foe").hp;
     s.onPick(FOE_TILE);
+    s.confirm();
     expect(unit(s.state, "foe").hp).toBe(foeBefore);
   });
 
@@ -554,7 +560,8 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     expect(p.hitChance).toBe(100); // the fixture guarantees the hit, so magnitude is dealt
 
     const before = unit(s.state, "foe").hp;
-    s.onPick(FOE_TILE); // commit the act through the ONE tile-driven mutator
+    s.onPick(FOE_TILE); // STAGE through the one tile-driven mutator…
+    s.confirm(); // …then commit (ADR-0038: two taps, one command)
     const dealt = before - unit(s.state, "foe").hp;
 
     expect(dealt).toBeGreaterThan(0);
@@ -590,7 +597,8 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     const previewed = s.preview()!.inflicts.map((i) => i.id);
     expect(previewed).toEqual([SLOW_ID]); // the panel promises it…
 
-    s.onPick(FOE_TILE); // …and the commit delivers exactly it
+    s.onPick(FOE_TILE);
+    s.confirm(); // …and the commit delivers exactly it
     expect(unit(s.state, "foe").statuses.map((st) => st.id)).toEqual(previewed);
 
     // Non-vacuity: the SAME fixture without the inflict previews an empty list and
@@ -617,11 +625,181 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
   });
 });
 
+/**
+ * AC-V36 / ADR-0038 — CONFIRM IS A SEPARATE TAP, proved by the command log.
+ *
+ * THE DISCRIMINATOR IS THE ZERO. The wrong behaviour is the one this repo SHIPPED:
+ * the command was emitted on the target tap. "After Confirm a command exists" passes
+ * against it, because by then the command does exist — so the load-bearing assertion
+ * is the length being UNCHANGED after the tap. And a viewer that ignored target taps
+ * entirely satisfies both counts, which is why the staged draft must be non-null in
+ * between: that is the second required half.
+ */
+describe("AC-V36 / ADR-0038 — a target tap stages; Confirm commits", () => {
+  it("the tap emits ZERO commands and leaves a non-null staged target", () => {
+    const s = newSession();
+    const before = s.commands().length;
+
+    s.onPick(FOE_TILE);
+
+    expect(s.commands()).toHaveLength(before); // ← the half the old behaviour fails
+    expect(s.phase).toBe("TARGET_STAGED");
+    expect(s.stagedTarget()).toEqual({ abilityId: "basic.attack", unitId: "foe" });
+    expect(s.draft?.act).toEqual({ abilityId: "basic.attack", target: { unitId: "foe" } });
+    // …and nothing at all reached the sim: no roll drawn, no tick moved (AC-V6).
+    expect(s.turnCount).toBe(0);
+
+    s.confirm();
+    expect(s.commands()).toHaveLength(before + 1);
+    expect(s.turnCount).toBe(1);
+  });
+
+  it("re-staging three different-and-same targets still emits ONE command", () => {
+    // FLANK_TILE is adjacent to BOTH foes, so the re-stage is genuinely onto another
+    // unit rather than the same one twice — asserted, because a fixture where the
+    // second stage resolves to the first target would prove nothing about re-staging.
+    const s = newSession();
+    s.onPick(FLANK_TILE);
+    const reachable = s.targets().map((t) => t.unit.id).sort();
+    expect(reachable, "the fixture cannot re-stage — only one target is in reach").toEqual([
+      "foe",
+      "foe2",
+    ]);
+
+    s.onPick(FOE_TILE);
+    s.onPick(FOE2_TILE);
+    s.onPick(FOE_TILE);
+    expect(s.commands()).toHaveLength(0);
+    expect(s.stagedTarget()?.unitId).toBe("foe");
+
+    s.confirm();
+    expect(s.commands()).toHaveLength(1);
+    expect(s.commands()[0]).toEqual({
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "foe" },
+      move: { to: FLANK_TILE, order: "before" },
+    });
+  });
+
+  it("Cancel unwinds ONE level and emits nothing", () => {
+    const s = newSession();
+    const clean = serialize(s.state);
+    s.onPick(FLANK_TILE);
+    s.onPick(FOE_TILE);
+    expect(s.phase).toBe("TARGET_STAGED");
+
+    s.cancel();
+    // ONE level, not the whole draft: the move a player thought about survives a
+    // mis-tapped target. A `cancel` that cleared everything passes a "no command was
+    // emitted" check exactly as this does, so the surviving move is what separates them.
+    expect(s.phase).toBe("MOVE_STAGED");
+    expect(s.stagedTile()).toEqual(FLANK_TILE);
+    expect(s.stagedTarget()).toBeNull();
+
+    s.cancel();
+    expect(s.phase).toBe("PLAYER_IDLE");
+    expect(s.draft).toBeNull();
+    expect(s.commands()).toHaveLength(0);
+    expect(serialize(s.state)).toBe(clean); // the sim was never called
+  });
+
+  it("tapping the ACTOR clears the whole draft, move and target together", () => {
+    const s = newSession();
+    s.onPick(FLANK_TILE);
+    s.onPick(FOE_TILE);
+    s.onPick(HERO_START);
+    expect(s.phase).toBe("PLAYER_IDLE");
+    expect(s.draft).toBeNull();
+    expect(s.commands()).toHaveLength(0);
+  });
+
+  /**
+   * END TURN IS REFUSED WITH A TARGET HELD, and this is a guard rather than a UI
+   * nicety. docs/10 §3's `TARGET_STAGED` row offers Confirm, Cancel and a re-stage —
+   * End Turn is not on it. A version that went ahead COMMITS A DIFFERENT TURN from the
+   * one on screen: the sheet says "Move + Act, −100" and the command emitted is a bare
+   * move at −80, silently throwing the aimed attack away.
+   *
+   * The discriminator is that the log stays EMPTY *and* the draft survives intact. A
+   * guard that cleared the draft would also emit no command and would look identical
+   * from the count alone — and would have lost the shot just the same.
+   */
+  it("End Turn is REFUSED while a target is staged, and loses nothing", () => {
+    const s = newSession();
+    s.onPick(FLANK_TILE);
+    s.onPick(FOE_TILE);
+    expect(s.phase).toBe("TARGET_STAGED");
+    const clean = serialize(s.state);
+
+    s.endTurn();
+
+    expect(s.commands()).toHaveLength(0);
+    expect(s.phase).toBe("TARGET_STAGED");
+    expect(s.stagedTarget()?.unitId).toBe("foe");
+    expect(s.stagedTile()).toEqual(FLANK_TILE);
+    expect(s.reason).toMatch(/Confirm/);
+    expect(serialize(s.state)).toBe(clean);
+
+    // …and Confirm still works afterwards, at the price the sheet quoted: the refusal
+    // is a refusal, not a wedge.
+    s.confirm();
+    expect(s.commands()).toHaveLength(1);
+  });
+
+  /**
+   * THE ACT PRICE IS THE SIM'S, not an arithmetic in the render layer. The Actions
+   * sheet header used to compute `didMove ? 100 : 80` itself, which is a combat
+   * constant restated in the viewer — the sim could move `CT_COST_MOVE_AND_ACT` and
+   * the header would go on quoting the old figure with nothing going red.
+   */
+  it("actCost() prices the ACT turn and moves with the staged move", () => {
+    const s = newSession();
+    const actOnly = s.actCost()!;
+    expect(actOnly.didAct).toBe(true);
+    expect(actOnly.didMove).toBe(false);
+
+    s.onPick(FLANK_TILE);
+    const folded = s.actCost()!;
+    expect(folded.didMove).toBe(true);
+    // The two genuinely differ, so "the header prints actCost()" is not a tie.
+    expect(folded.cost).toBeGreaterThan(actOnly.cost);
+    // …and it is NOT the End Turn price, which is what the header used to share.
+    expect(s.endTurnCost()!.cost).toBeLessThan(folded.cost);
+  });
+
+  it("Confirm with nothing staged is a no-op, not a throw or a command", () => {
+    const s = newSession();
+    s.confirm();
+    expect(s.commands()).toHaveLength(0);
+    expect(s.phase).toBe("PLAYER_IDLE");
+  });
+
+  it("the sheet's preview is computed for the STAGED target, not the hover", () => {
+    // Without this the sheet would blank the instant a finger left the unit, which on
+    // a touch screen is immediately — and the numbers a player is about to commit to
+    // would vanish at the moment of decision.
+    const s = newSession();
+    s.onPick(FOE_TILE);
+    s.onTileHover(null);
+    const p = s.stagedPreview();
+    expect(p).not.toBeNull();
+    expect(p!.targetId).toBe("foe");
+    expect(s.preview()!.targetId).toBe("foe");
+  });
+});
+
 describe("AC-V2 / ADR-0015 — one player turn emits exactly ONE command", () => {
   it("move-then-strike folds into a single act command priced at −100", () => {
     const s = newSession();
     s.onPick(FLANK_TILE);
     s.onPick(FOE_TILE);
+    // STAGED, NOT COMMITTED (ADR-0038). The zero here is the load-bearing half of
+    // AC-V36: the old behaviour emitted the command on this very tap, and every
+    // assertion below would have passed against it.
+    expect(s.commands()).toHaveLength(0);
+    expect(s.phase).toBe("TARGET_STAGED");
+    s.confirm();
 
     const cmds = s.commands();
     expect(cmds).toHaveLength(1);
@@ -655,6 +833,7 @@ describe("AC-V2 / ADR-0015 — one player turn emits exactly ONE command", () =>
   it("a bare enemy click (no staged move) is act-only at −80", () => {
     const s = newSession();
     s.onPick(FOE_TILE);
+    s.confirm();
     expect(s.commands()).toEqual([
       { kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } },
     ]);
@@ -740,7 +919,8 @@ describe("AC-V9 — a played session is replayable", () => {
 
     s.onPick(FLANK_TILE); // now play for real
     s.onTileHover(FOE_TILE);
-    s.onPick(FOE_TILE); // COMBINED move+act — one command
+    s.onPick(FOE_TILE);
+    s.confirm(); // COMBINED move+act — one command
 
     for (let i = 0; i < 5; i++) {
       if (s.phase === "AI_TURN") s.step();
@@ -802,8 +982,13 @@ describe("docs/10 §3 — target selection is NOT mouse-only", () => {
     expect(p!.targetId).toBe("foe");
     expect(p!.hitChance).toBeGreaterThan(0);
 
-    // Enter → `onPick(cursor)`, the same single mutator a pointerdown ends in.
+    // Enter on the BOARD → `onPick(cursor)`, the same single mutator a pointerdown
+    // ends in. Since ADR-0038 that STAGES; Enter then reaches Confirm through
+    // ordinary focus, which the page wires and `confirm()` is.
     s.onPick(s.cursor);
+    expect(s.commands()).toHaveLength(0);
+    expect(s.phase).toBe("TARGET_STAGED");
+    s.confirm();
     expect(s.commands()).toEqual([
       { kind: "act", abilityId: "basic.attack", target: { unitId: "foe" } },
     ]);
@@ -819,7 +1004,8 @@ describe("docs/10 §3 — target selection is NOT mouse-only", () => {
 
     s.moveCursor(0, 1); // back down onto the foe
     expect(s.cursor).toEqual(FOE_TILE);
-    s.onPick(s.cursor); // Enter: commit the fold
+    s.onPick(s.cursor); // Enter: stage the target
+    s.confirm(); // Confirm: commit the fold
 
     expect(s.commands()).toEqual([
       {
@@ -955,7 +1141,8 @@ describe("AC-V13 — the battle ENDS, and the banner is team-relative", () => {
     expect(s.phase).toBe("PLAYER_IDLE");
     expect(s.outcome).toBeNull();
 
-    s.onPick(DOOMED_TILE); // one certain-kill swing
+    s.onPick(DOOMED_TILE); // one certain-kill swing, staged…
+    s.confirm(); // …and confirmed
 
     // Immediately — not after another step: a viewer that only banners on the NEXT
     // pick would leave `phase` asking for a command in a battle that is already over.
@@ -1006,6 +1193,7 @@ describe("AC-V13 — the battle ENDS, and the banner is team-relative", () => {
     // "no actor" would either keep asking for commands or print the stalemate banner.
     const s = new Session({ makeState: wipeFixture, playerTeam: 0 });
     s.onPick(DOOMED_TILE);
+    s.confirm();
     expect(s.outcome).not.toMatch(/Stalemate/);
     expect(unit(s.state, "striker").hp).toBeGreaterThan(0);
   });
@@ -1013,6 +1201,7 @@ describe("AC-V13 — the battle ENDS, and the banner is team-relative", () => {
   it("every input is refused once the battle is over, and nothing moves", () => {
     const s = new Session({ makeState: wipeFixture, playerTeam: 0 });
     s.onPick(DOOMED_TILE);
+    s.confirm();
     const after = serialize(s.state);
     const commands = s.commands().length;
 
@@ -1087,6 +1276,7 @@ describe("Session — watch mode and reset", () => {
   it("reset rebuilds from the seed and clears the log", () => {
     const s = newSession();
     s.onPick(FOE_TILE);
+    s.confirm();
     expect(s.commands()).toHaveLength(1);
     s.reset();
     expect(s.commands()).toHaveLength(0);
@@ -1171,6 +1361,7 @@ describe("a ruled battle is judged by the encounter's objectives (docs/11 AC-M1)
     expect(s.phase).toBe("PLAYER_IDLE");
 
     s.onPick(R_MARK); // one certain-kill swing on the objective
+    s.confirm();
 
     expect(unit(s.state, "mark").hp).toBeLessThanOrEqual(0);
     expect(unit(s.state, "spare").hp).toBeGreaterThan(0); // team 1 is NOT wiped
@@ -1189,7 +1380,9 @@ describe("a ruled battle is judged by the encounter's objectives (docs/11 AC-M1)
     const ruled = new Session({ makeState: ruledFixture, playerTeam: 0, rules: MARK_RULES });
     const unruled = new Session({ makeState: ruledFixture, playerTeam: 0 });
     ruled.onPick(R_MARK);
+    ruled.confirm();
     unruled.onPick(R_MARK);
+    unruled.confirm();
 
     expect(serialize(ruled.state)).toBe(serialize(unruled.state)); // same events…
     expect(ruled.phase).toBe("ENDED"); // …opposite verdicts

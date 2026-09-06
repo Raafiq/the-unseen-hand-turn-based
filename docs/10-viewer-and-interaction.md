@@ -74,11 +74,24 @@ target} | null }` — that is *pure UI intent*. **Nothing touches the sim until 
 and exactly one `Command` is emitted per player turn. This is what makes cancel free,
 previews honest, and speculation impossible.
 
+> **`act` now holds a chosen-but-uncommitted target, and that is new (ADR-0038).** It used
+> to be populated only for the instant of a commit, because selecting the target *was* the
+> commit. `TARGET_STAGED` is a real, observable state the draft sits in. `src/render/session.ts`'s
+> comment says the opposite and must be rewritten in the build slice.
+
 | State | Selectable | Transition |
 |---|---|---|
 | `AWAIT_ACTOR` | — | `advanceToDecision` → player team ⇒ `PLAYER_IDLE`; AI team ⇒ `AI_TURN`; `terminal:"stalemate"` ⇒ `ENDED` |
-| `PLAYER_IDLE` | tiles in `moveRange`; enemies in `inAbilityRange` from the **current** tile | tile ⇒ `MOVE_STAGED`; enemy ⇒ **COMMIT** act-only (−80); End Turn ⇒ **COMMIT** `wait` (−60) |
-| `MOVE_STAGED` | enemies in `inAbilityRange` from the **staged** tile; the staged tile (click = unstage) | enemy ⇒ **COMMIT** `{kind:"act", …, move:{to, order:"before"}}` (−100); End Turn ⇒ **COMMIT** `{kind:"move", to}` (−80); Cancel ⇒ `PLAYER_IDLE` |
+| `PLAYER_IDLE` | tiles in `moveRange`; enemies in `inAbilityRange` from the **current** tile | tile ⇒ `MOVE_STAGED`; enemy ⇒ `TARGET_STAGED` (**no command**); End Turn ⇒ **COMMIT** `wait` (−60) |
+| `MOVE_STAGED` | enemies in `inAbilityRange` from the **staged** tile; the staged tile (tap = unstage) | enemy ⇒ `TARGET_STAGED` (**no command**); End Turn ⇒ **COMMIT** `{kind:"move", to}` (−80); Cancel ⇒ `PLAYER_IDLE` |
+| `TARGET_STAGED` | any other legal target (re-stage, still no command); **Confirm**; **Cancel**. **No tiles** — a tile tap is inert while a shot is aimed. The **primary button is DISABLED** | Confirm ⇒ **COMMIT** — act-only (−80), or `{kind:"act", …, move:{to, order:"before"}}` (−100) when a move was staged — **exactly one command**; Cancel ⇒ back **one** level (`MOVE_STAGED` or `PLAYER_IDLE`); tap the actor ⇒ `PLAYER_IDLE` |
+
+> **End Turn is UNREACHABLE while a target is staged, and that is the design, not a
+> limitation.** `Session.endTurn` refuses in `TARGET_STAGED` — that is the guard — and the
+> primary button is disabled so the player never reaches for a control whose only answer is
+> a refusal. **Confirm is the one way to spend a turn once a shot is aimed.** To end the
+> turn instead, Cancel first. The two controls are then never both live, so "which one did
+> I press" has one answer.
 | `AI_TURN` | — (input inert) | **Step** → `decide` → `applyCommand` → `AWAIT_ACTOR` |
 | `ENDED` | — | terminal banner |
 
@@ -95,22 +108,58 @@ previews honest, and speculation impossible.
 > verdict, because no encounter victory/defeat condition is evaluated here. Listed under
 > §5's limitations rather than left implicit.
 
-- **Confirm model:** selecting the *target* IS the confirm gesture. By then the preview
-  (§4) has already shown hit %, damage and the CT price, so there is no blind commit and
-  no redundant "are you sure" dialog.
-- **Turns with no act** are committed by an explicit **End Turn** button whose label
-  states the price it will pay (`End Turn · Move only · −80 CT`).
-- **Cancel** (Esc / right-click / re-clicking the actor) clears the draft to turn start.
-  Total and free — the sim was never called.
-- **Illegal click** is a no-op plus a transient reason chip ("Out of Move range").
-  Never a throw, never a state change, never a consumed command.
+- **Confirm model (ADR-0038): tapping a target STAGES it; Confirm commits it.** Two
+  gestures, not one. Tapping a target emits **no command** — it opens the preview sheet
+  (§4, §8) with hit %, facing, damage and the Clock price. **Confirm emits exactly one
+  command.** Re-staging a different target any number of times still emits none.
+
+  > ~~"Selecting the *target* IS the confirm gesture. By then the preview has already shown
+  > hit %, damage and the CT price, so there is no blind commit and no redundant 'are you
+  > sure' dialog."~~ **Superseded 2026-09-05 by ADR-0038.** The reasoning held for a mouse
+  > and fails for a thumb: a finger covers several tiles, there is no hover to warn where
+  > the tap lands, and the cost of the miss is the whole turn. XCOM's second confirmation
+  > tap is the precedent. The sheet is not a dialog — it is where the numbers already are.
+
+- **The keyboard uses the same two gestures.** Staging a target moves focus to the sheet's
+  Confirm button, so **Enter** confirms through ordinary focus rather than a special key
+  binding, and **Esc** cancels. Returning focus to the board re-arms picking.
+- **Desktop follows the same model.** There is **no mouse-only shortcut that commits on a
+  target click.** Hover previews are an addition, never a replacement.
+- **The action bar's right-hand primary button is PHASE-AWARE, and it is the only control
+  the enemy's turn needs.** In a player phase it is **End Turn**, labelled with the price it
+  will pay (`End Turn · Move only · −80 Clock`). In `AI_TURN` it reads **"Enemy turn ▸"**
+  and performs **Step**. This is the same explicit step the table already requires — a
+  wall-clock timer must never advance it, or command count becomes a function of elapsed
+  time. Without this the stage has **no control at all during the enemy's turn**, which
+  strands the player.
+- **Re-staging, and what the sheet hides.** With a target staged, tapping any **visible**
+  legal target re-stages onto it — no Cancel first, still no command. The preview sheet
+  covers at most **35% of the canvas width** (§8b), and a target **underneath** it needs
+  **Cancel** first. Said plainly because the alternative — tapping through an opaque
+  panel — is a mis-tap generator, and because 35% is the number AC-V34 measures.
+- **Tapping a unit that is NOT a legal target opens the unit drawer, read-only.** Any phase
+  where input is live, friend or foe. The drawer shows the same ADR-0033 stat set as the
+  actor's own drawer, for the unit tapped. This is ADR-0033's parked cursor-follow inspect
+  arriving as a tap, through `unitCardHtml`'s existing `focusUnitId` seam (AC-V22(i)).
+- **Cancel** unwinds **one** level: from `TARGET_STAGED` back to `MOVE_STAGED` or
+  `PLAYER_IDLE`, from `MOVE_STAGED` to `PLAYER_IDLE`. Tapping the actor clears the whole
+  draft to turn start. Total and free — the sim was never called.
+- **Illegal tap** is a no-op plus a toast naming the reason ("Out of Move range"). Never a
+  throw, never a state change, never a consumed command. The toast is **render-only**: the
+  command log is byte-identical with and without it. **The toast is UNTIMED** — it is
+  replaced by the next reason, or cleared on the next state change. No timer, for the same
+  reason `AI_TURN` has none, and because AC-V16 already had to prove "there is nothing to
+  reduce" about an untimed reveal.
 - **Accessibility** `[BASELINE]` — every action reachable by keyboard with visible focus
-  (`docs/04` §7). End Turn and target selection are not mouse-only.
+  (`docs/04` §7). End Turn, target selection and Confirm are not mouse-only. Every
+  interactive control is at least **44 × 44 CSS px** at every supported viewport (§8).
 
 ## 4. Resolution transparency — the minimum honest set
 
 `docs/00` pillar 4 and `docs/04` §3 adopt resolution transparency **fully**. Before any
-commit-click, and computed for the **staged** position, the player SHALL see:
+**Confirm**, and computed for the **staged** position, the player SHALL see (~~"before any
+commit-click"~~ — there is no commit click any more; ADR-0038 made Confirm its own gesture,
+and the preview sheet is where this set now lives):
 
 1. The turn-order timeline (`forecast`).
 2. Move range from the current tile; act range recomputed live from the **staged** tile.
@@ -164,16 +213,28 @@ commit-click, and computed for the **staged** position, the player SHALL see:
     the target first (a corpse does not counter — "kill it before it swings back" is a
     real read the panel must support). A `preemptive` reaction leads with the fact that it
     **cancels the act**, because every number above that row is then moot.
-11. **The acting unit itself, on a plate over the board** (ADR-0033, AC-V22) — portrait,
-    name, job, HP current **and** max, Clock, Brave, Faith. It describes whoever the
+11. **The acting unit itself** (ADR-0033, AC-V22) — portrait, name, job, HP current **and**
+    max, Clock, Brave, Faith.
+
+    > ~~"on a plate over the board"~~ **— superseded 2026-09-05 by ADR-0037.** The plate
+    > covered about half the board on a real phone. The stat SET below is unchanged; it now
+    > lives in a collapsed **left tab** (name and HP) that opens a **drawer** (§8, AC-V37),
+    > and the tab is laid out beside the canvas rather than over it.
+
+    It describes whoever the
     forecast says acts next, resolving a maturing charge back to the unit that cast it.
     **MP and Level are ABSENT, not zero**: the sim has no MP field, and `UnitRecord.level`
     is defaulted, never raised and never read (ADR-0021, guarded by `docs/02` **AC-J10**).
     Reversing ADR-0021 puts this row back on the table. The plate prints **"Clock"**, never
     "CT" — engine jargon is banned from this surface by `e2e/campaign.spec.ts`'s
-    learnability spec. It is an overlay, so it SHALL decline pointer events and SHALL be
-    opaque; a see-through plate is measured against its DOM parent while the player reads
-    it over the canvas.
+    learnability spec. **The drawer is an overlay and SHALL be opaque** — a see-through
+    panel is measured against its DOM parent while the player reads it over the canvas.
+
+    > **The pointer-events rule changed with the placement, and its direction reversed.**
+    > ~~"It is an overlay, so it SHALL decline pointer events."~~ Under ADR-0037 the **tab**
+    > is a laid-out control that must ACCEPT taps, and it never sits over the canvas, so
+    > there is nothing for it to decline. `pointer-events: none` still binds anything that
+    > does overlay live tiles.
 
 `[ENHANCEMENT]` The Zodiac / Faith contribution line (`zodiacCompatibility` is already
 exported, and the total already includes it). `docs/04` §3 requires surfacing hidden
@@ -383,9 +444,15 @@ degenerate fixture where all orderings coincide).
   (`docs/proposals/action-menu.md`, deferred 2026-09-02). Not free; mint nothing in this
   range until that spec lands or is dropped.
 
-- **AC-V22 (the stat plate shows only what the sim models):** The battle board SHALL carry
+- **AC-V22 (the stat plate shows only what the sim models):** The battle screen SHALL carry
   a plate describing the unit the forecast says acts **next**, and it SHALL print only
   values the sim models. **Met** (ADR-0033).
+
+  > **Where the plate lives moved on 2026-09-05 (ADR-0037); what it prints did not.**
+  > ~~"The battle **board** SHALL carry a plate"~~ — it is now a left tab plus a drawer,
+  > laid out beside the canvas (§8, **AC-V37**). Clauses (a)–(e) and (g)–(i) below are
+  > unchanged and still bind. Clause (f) is narrowed: the tab must **accept** taps, and the
+  > click-through rule now binds only surfaces that actually overlay live tiles.
 
   **(a) It follows the forecast lead.** The plate SHALL read the timeline's lead actor,
   never `state.units[0]`. *Discriminator:* the fixture MUST be a state where those two are
@@ -422,14 +489,25 @@ degenerate fixture where all orderings coincide).
   `placeholder` key, and any other key. Two states pass under a caption that is simply
   always on, or always off.
 
-  **(f) The plate never eats a click.** It is DOM over live tiles, so it SHALL decline
-  pointer events. *Discriminator:* park the plate over a point that resolves to a **real
-  tile** — discovered through the page's own `pickTile` against the **live** state, never
-  hard-coded — then assert the browser's own hit test returns the canvas **and** that a
-  real click there moves the tile cursor. The target tile MUST differ from where the cursor
-  already sits, or "the cursor is here afterwards" was true before the click. At the
-  shipped corner the plate covers only empty sky, so a click-through test left there is
-  vacuous.
+  **(f) A surface over live tiles never eats a tap it does not own — REWRITTEN 2026-09-05
+  (ADR-0037).** The tab is laid out beside the canvas and **must accept taps**, so the old
+  wording is now unrealizable: there is no plate over a live tile to park anywhere.
+
+  > ~~"The plate never eats a click. It is DOM over live tiles, so it SHALL decline pointer
+  > events. *Discriminator:* park the plate over a point that resolves to a real tile …"~~
+  > **Superseded.** Kept because the hazard it names is real and moved rather than
+  > disappeared: the shipped corner covered only empty sky, so the old test was vacuous
+  > where it sat — and then the plate covered half a phone's board.
+
+  The rule that binds now: the **preview sheet** and the **drawers** are the surfaces that
+  overlay live tiles, and each SHALL decline pointer events **on its margins** — the
+  shadow, the scrim edge, any padding outside its painted box. Its own box keeps its taps.
+  *Discriminator, and it is a two-point A/B:* a tap **inside** the sheet's box SHALL hit the
+  sheet, and a tap **1 px outside** it SHALL hit the canvas **and move the tile cursor**.
+  Both points come from the sheet's live `getBoundingClientRect`, never a hard-coded
+  coordinate, and the outside point MUST resolve to a real tile through the page's own
+  `pickTile` — assert that first, or the "it reached the board" half is vacuous. The tile
+  MUST differ from where the cursor already sits.
 
   **(g) The plate is OPAQUE, and this is a precondition of the contrast measurement, not a
   taste call.** `e2e/contrast.spec.ts` cannot sample a canvas — a canvas has no background
@@ -461,10 +539,15 @@ degenerate fixture where all orderings coincide).
 
   **NOT ASSERTED, said here rather than left implied:**
 
-  - **The placement.** "Bottom-left" is an owner call from three rendered options
+  - ~~**The placement.** "Bottom-left" is an owner call from three rendered options
     (ADR-0033) and nothing pins it. The tests assert only that the plate sits inside the
     canvas rectangle, and the campaign half checks the vertical bounds only. Moving the
-    plate to another corner over the board goes green.
+    plate to another corner over the board goes green.~~ **Superseded 2026-09-05 by
+    ADR-0037.** Placement is no longer unasserted and is no longer over the board:
+    **AC-V34** measures zero intersection between every HUD box and the canvas box at four
+    viewports, and **AC-V37** pins the tab and its drawer. The bullet is struck rather than
+    deleted because "nothing pins the placement" was true for four days and was relayed as
+    a known gap.
   - **The engine viewer's plate opacity.** The opacity assertion runs on the campaign page.
     `viewer.html` paints `var(--surface-2)`; nothing checks it resolves opaque.
   - **Legibility over the board.** Nothing reads a pixel off the finished canvas (`docs/defects.md`
@@ -491,13 +574,22 @@ degenerate fixture where all orderings coincide).
   CSS source (an `animation` property is declared) cannot tell a running loop from a
   reduced-motion override that only wins by specificity.
 
-- **AC-V31 (landscape fit)** `[ENHANCEMENT]`: At 844×390 with touch emulation, the board
-  canvas, the stat panel (ADR-0033) and the action controls SHALL each be visible without
-  scrolling, and the board SHALL keep its 900:440 aspect ratio. The timeline, the legend
-  and any other panel MAY sit below the fold. *Discriminator:* measure each of the three
-  required elements' bounding boxes against the viewport rectangle rather than trusting the
-  absence of a scrollbar, since a scrollbar can be suppressed while content still overflows
-  off-screen.
+- **AC-V31 — SUPERSEDED 2026-09-05 by ADR-0037.** Replaced by **AC-V33** (stage geometry at
+  five viewports) and **AC-V34** (the board is uncovered at rest). Text kept, struck:
+
+  > ~~**AC-V31 (landscape fit)** `[ENHANCEMENT]`: At 844×390 with touch emulation, the board
+  > canvas, the stat panel (ADR-0033) and the action controls SHALL each be visible without
+  > scrolling, and the board SHALL keep its 900:440 aspect ratio. The timeline, the legend
+  > and any other panel MAY sit below the fold. *Discriminator:* measure each of the three
+  > required elements' bounding boxes against the viewport rectangle rather than trusting the
+  > absence of a scrollbar, since a scrollbar can be suppressed while content still overflows
+  > off-screen.~~
+
+  **Why it had to go, and it is the instructive part.** This criterion was **green on the
+  screen that caused the rebuild**. It asks that the board and the plate both be *visible*,
+  and a plate covering half the board satisfies that exactly as a correct layout does. It
+  also measures **one** viewport, so a fluid width was never proved at either end. AC-V34
+  asserts the thing AC-V31 meant: **zero intersection**, at five viewports.
 
 - **AC-V32 (lock attempt)** `[ENHANCEMENT]`: The gate card's button, labelled **"Play in
   landscape"**, SHALL call `requestFullscreen` then `screen.orientation.lock('landscape')`,
@@ -519,6 +611,278 @@ degenerate fixture where all orderings coincide).
   applies once installed. No test here can confirm the lock actually rotates a real phone —
   only that the calls are attempted, their failure is swallowed, and the player is told
   what to do next.
+
+### 6a. The landscape-phone stage (ADR-0037, ADR-0038)
+
+> **Namespace note.** AC-V21 is reserved for the motion layer and AC-V23…AC-V29 for the
+> action-menu proposal. This set therefore starts at **AC-V33**.
+>
+> **WHAT EACH CRITERION ACTUALLY SWEEPS — stated, because "asserted at five viewports"
+> would be a claim about ten specs that only two of them make.** **AC-V33 and AC-V34 sweep
+> all five** supported viewports. **Every other criterion runs at ONE viewport.** And four
+> of them — **AC-V38**, **AC-V39**, the read-only inspect half of **AC-V37**, and the
+> settings readout half of **AC-V40** — run on the **engine viewer page only**, because it
+> is the page with a mounted battle a spec can drive directly. Nothing here says those four
+> behave the same on the campaign page.
+>
+> **SCOPE: the BATTLE screen only.** ADR-0037's stage rule applies screen by screen, and
+> this slice moves one screen. **Title, prep, briefing and the scene player keep their
+> current layout, outside the stage**, until their own slice with its own ACs — named in
+> §8f as the follow-up. Every criterion below is a claim about the battle screen; none of
+> them says anything about the other four.
+
+- **AC-V33 (the stage is 360 tall, uniformly scaled, and nothing overflows)**
+  `[ENHANCEMENT]`: On the **battle screen**, at all five supported viewports, the stage
+  SHALL be **360 logical units tall**, its width SHALL be `clamp(640, round(360·vw/vh),
+  900)`, and the applied scale SHALL be `min(vw/stageW, vh/stageH)` on **both axes
+  equally**. The battle screen SHALL not scroll in either direction (`scrollWidth ===
+  clientWidth`, same for height).
+
+  **`vw` and `vh` are the stage HOST's box**, an element sized `100svw × 100svh` — small
+  viewport units, deliberately, so a collapsing browser toolbar does not re-lay-out the
+  stage mid-turn (§8c). Everything is measured from `getBoundingClientRect()` on that host
+  and on the stage: **reading the CSS custom property does not count.** A variable that is
+  computed correctly and then applied to nothing is the "validates its input and then
+  discards it" shape, and it reads as working from the variable's side.
+
+  **The derived table, in CSS px, and this is what the test asserts:**
+
+  | Viewport | Aspect | `stageW` | `scale` | Letterbox, total |
+  |---|---|---|---|---|
+  | 640×300 | 2.13 | 768 | 0.8333 | 0 |
+  | 800×360 | 2.22 | 800 | 1.0 | 0 |
+  | **851×324** (the owner's phone) | 2.63 | **900** — clamped | **0.9** | **41 px horizontal** (20.5 per side) |
+  | 900×390 | 2.31 | 831 | 1.0830 | 0.11 px vertical — under tolerance, reads as none |
+  | 1000×780 | 1.28 | **640** — clamped | 1.5625 | 217.5 px vertical (108.75 per side = **69.6 stage units**) |
+
+  **Tolerance is stated, not implied:** a letterbox matches if it is within **1 CSS px** of
+  the formula, and "none" means **under 1 CSS px**. Without that, 900×390's 0.11 px of
+  rounding slack makes an exact-zero assertion flake.
+
+  *Discriminators, three wrong behaviours, covered separately.* **(a) A fixed 16:9 stage** —
+  the obvious "design at a reference resolution" answer — gives a 640-wide stage at 800×360
+  and **160 px of pillarbox**; asserting horizontal letterbox **under 1 px** at 800×360 is
+  what fails it. **(b) A non-uniform stretch-to-fit** shows no letterbox anywhere, so the
+  1000×780 row must assert the letterbox is **non-zero** *and* that measured `scaleX` equals
+  `scaleY`. **(c) Dropping the 900 clamp** is invisible at four of the five viewports.
+  **851×324 is the only one that reaches it**, and it is why that viewport is in the set:
+  with the clamp, `stageW` is 900 and 41 px pillarboxes; without it, `stageW` is 946 and the
+  stage fills the width. **Assert the pillarbox, not the scale** — the two scales are 0.9
+  and 0.8996, four hundredths of a percent apart, and would tie under any sane tolerance.
+  `stageW` at 900×390 is **831**, not 900 — assert the computed value, or a hard-coded 900
+  passes there too.
+
+- **AC-V34 (the board is uncovered at rest, and the sheet is bounded)** `[ENHANCEMENT]`: At
+  all five viewports, in **four states**:
+
+  | State | Assertion |
+  |---|---|
+  | nothing selected | intersection of the canvas box with **every** HUD element's box is **exactly zero** |
+  | a player unit selected, no target staged | same — zero |
+  | a target staged | the **preview sheet**'s intersection with the canvas is at most **35% of the canvas WIDTH**; every other HUD element is still zero |
+  | the turn-order strip expanded | the strip's intersection with the canvas is at most **35% of the canvas HEIGHT**, and **collapsing it restores zero** |
+
+  *Discriminators.* **The mutant was already built: the pre-rebuild layout.** The ADR-0033
+  plate intersected the canvas over roughly half its width, so this check fails against the
+  tree as it stood before this slice. **Whether anyone actually RAN it there is not recorded
+  in the specs** — no mutation note appears in `e2e/stage.spec.ts` or `src/render/stage.test.ts`
+  — so treat the red as reasoned, not observed, until someone says otherwise. **Three
+  non-degeneracy assertions are required**, because "nothing intersects" is exactly what a
+  page with no HUD reports:
+
+  1. The canvas box has **non-zero area**.
+  2. The enumerated HUD set is non-empty and contains the actor tab, the action bar and the
+     turn-order strip **by name**.
+  3. **Every enumerated element has a non-zero rendered box of its own.** Without this the
+     whole criterion passes with the HUD set to `display: none` — the exact failure this
+     doc's own AC-V16 note warns about, in its geometric form. A zero-area box intersects
+     nothing.
+
+  The second state is required because a HUD that appears only once a unit is selected (the
+  armed action bar) passes the first alone. The third and fourth exist because "at rest" is
+  the whole claim: a sheet or a strip that grew to cover the board while the player aims
+  would satisfy the first two and defeat the point. **35% of the canvas WIDTH** is the
+  sheet's budget and **35% of the canvas HEIGHT** the expanded strip's (§3, §8b); the width
+  budget is what makes "tap a visible target to re-stage" a promise the layout can keep.
+  **The strip's collapse assertion is the discriminating half of state four** — a strip that
+  expands and never collapses passes the bound and permanently covers a third of the board,
+  which is the failure this whole criterion exists to catch, one control further along.
+
+- **AC-V35 (every control is thumb-sized where it is smallest)** `[ENHANCEMENT]`: At
+  **640×300** — the narrowest supported viewport — every interactive control SHALL measure
+  at least **44 × 44 CSS px**, measured **after** the stage transform.
+  *Discriminator, and it is arithmetic rather than opinion.* At 640×300 the stage scale is
+  **0.833**, so a control drawn 44 **stage units** wide renders **36.7 CSS px** and fails.
+  Clearing 44 CSS px there needs **≥ 53 stage units**. A test that reads the authored size
+  instead of `getBoundingClientRect` passes against exactly that defect, so the measurement
+  must come from the rendered box. Assert at the **smallest** viewport, not the comfortable
+  one. The enumerated set SHALL be non-empty and SHALL contain, by name, the menu, help and
+  settings buttons, Cancel, Actions, the phase-aware primary button, the actor tab and at
+  least one turn-order chip — a loop that finds two buttons passes vacuously.
+
+  **NOT ASSERTED — board TILES are exempt, and this is a known limit, not an oversight.**
+  A tile is roughly **30 × 15 CSS px at 640×300** (measured by the reviewer; it varies with
+  the map's tile count, which is why the settings readout prints it). That is well under 44
+  and cannot be fixed by CSS: tile size is the camera's business, and the camera cannot zoom
+  until **pan and pinch land** (§8e). Until then, mis-taps on the board are a real defect
+  this criterion does **not** cover. The settings drawer prints the **current tile size in
+  CSS px** (AC-V40) precisely so somebody can read the number off a real phone instead of
+  arguing about it.
+
+- **AC-V36 (Confirm is a separate tap, proved by the command log)** `[ENHANCEMENT]`
+  (ADR-0038): Tapping a legal target SHALL leave the command log **unchanged in length**
+  and SHALL leave a **non-null** staged target; tapping **Confirm** SHALL then grow the log
+  by **exactly one**. Re-staging a different target three times before Confirm SHALL still
+  emit **one** command in total.
+  *Discriminator:* the wrong behaviour is the one this repo **used to ship** — the command
+  emitted on the target tap. "After Confirm a command exists" passes against it, because by
+  then the command does exist. The load-bearing assertion is the **zero** after the target tap. The
+  non-null staged target is the second required half: a viewer that ignores target taps
+  entirely satisfies both counts. Assert on the log, not on the button — a Confirm button
+  that is present and inert leaves a state change nobody made.
+
+- **AC-V37 (the actor tab shows two facts; the drawer shows the rest)** `[ENHANCEMENT]`:
+  The collapsed tab SHALL show the acting unit's **name and HP only**. Opening it SHALL
+  reveal a drawer carrying ADR-0033's full set — portrait, name, job, HP current and max,
+  Clock, Brave, Faith — under AC-V22's rules unchanged. The drawer SHALL close when a
+  target is selected. Tapping a unit that is not a legal target SHALL open the same drawer
+  **read-only** for that unit (§3). The tab and the drawer SHALL be **opaque**, on AC-V22(g)'s
+  terms and measured the same way.
+  *Discriminators.* **Two assertions on the tab, and neither substitutes for the other.**
+  (i) Assert Clock, Brave, Faith and the job are **absent from the tab's text** and present
+  in the drawer's — a tab that renders the whole card and clips it with `overflow: hidden`
+  passes a visibility check exactly as a correct one does (the AC-V16 lesson). (ii) Assert
+  the tab is **visible with a non-zero box** — a text assertion alone passes against a tab
+  set to `display: none`, where "Clock is absent" is trivially true. For the auto-close, one
+  assertion is not enough: a drawer that closes on *any* board tap passes "it closed after a
+  target tap". Add an **illegal** tap with the drawer open and assert it stays open. For the
+  read-only inspect, the discriminator is that the drawer's **name changes with the unit
+  tapped** — tap two different units and assert two different names and two different HP
+  readings; a drawer wired to the forecast lead is byte-identical between them, which is
+  what the dead `focusUnitId` seam looks like (AC-V22(i)).
+
+- **AC-V38 (the action bar is phase-aware; the Actions sheet is derived, not authored)**
+  `[ENHANCEMENT]`: The bottom bar SHALL carry Cancel, Actions and a **phase-aware primary
+  button**. The Actions sheet SHALL list **every** ability the `unit.abilities` projection
+  yields, each with its **name and range**, and SHALL print the flat act **Clock price
+  once, in its header**. Sheet and bar SHALL be **opaque**, on AC-V22(g)'s terms.
+
+  > **There is no per-ability cost to print, and saying "cost and range" would have
+  > specified a field that does not exist.** `BattleAbilitySchema` carries `id`,
+  > `actionKind`, `formula`, `power`, `element`, `accuracy`, `range`, `inflicts`, `speed`
+  > and `aoe`. `apCost` is progression-only and is dropped from the battle projection by
+  > design (ADR-0010/0011). The price of *acting* is the turn's Clock price, which is flat
+  > and belongs in the header, not on every row.
+
+  *Discriminators.* **(a) The rows are derived.** Assert the row count equals the
+  projection's size **and** that two rows print **different** ranges. **Discover the pair
+  from the data** — scan the fixture's own `abilities` for two entries whose `range` differs
+  and assert such a pair exists before using it. Hard-coding `aim.aimed-shot` `{h:5,v:3}`
+  bakes today's content into the test, and a range `[ENHANCEMENT]` has already moved once
+  (ADR-0014's `summon.*` h4→h6). A static table or a template printing one shared range
+  passes a count-only check. **(b) The primary button is phase-aware.** During `AI_TURN` one
+  tap SHALL emit **exactly one Step** and the label SHALL read **"Enemy turn ▸"**; during
+  `PLAYER_IDLE` the label SHALL read **End Turn** with its price. Assert **both** halves in
+  **both** phases: a button that always says End Turn but happens to Step passes a
+  behaviour-only check, and a button that relabels but does nothing passes a label-only
+  check — and the second is the one that strands the player. **(c) The price label moves.**
+  Assert it in idle (−60) and move-staged (−80); a hard-coded label passes either alone.
+
+- **AC-V39 (an illegal tap is a toast and nothing else)** `[ENHANCEMENT]`: An illegal tap
+  SHALL show an **untimed** toast naming **why**, SHALL leave `serialize()` byte-identical,
+  and SHALL leave the command log unchanged in length. The toast is **render-only**, and
+  **opaque** on AC-V22(g)'s terms — it sits over the board. It is cleared by the next reason
+  or the next state change, never by a timer (§3).
+  *Discriminators.* Use **two different** illegal grounds — out of move range, and an
+  occupied tile — and assert the two toasts say **different** things: a toast that always
+  reads "illegal move" passes a presence check. `serialize()` equality is what catches a
+  speculative apply-and-rollback, and the log length is what catches a committed no-op;
+  neither substitutes for the other. Note the AC-V7 warning: an illegal fixture tile must
+  lie **inside** a naive Manhattan radius and **outside** `moveRange`, asserted in both
+  directions, or the tap was never illegal for the reason claimed.
+
+- **AC-V40 (the corners, and the settings readout is real)** `[ENHANCEMENT]`: The top-left
+  ☰ SHALL open a left drawer offering **save, quit, turn log and legend**. The top-right
+  SHALL carry **help** and **settings**. Drawers SHALL be **opaque**, on AC-V22(g)'s terms.
+
+  **The drawer's entries differ per page, and this is the shipped list, not an aspiration:**
+
+  | Page | ☰ drawer holds |
+  |---|---|
+  | Campaign (`/`) | a **note** that the shell autosaves · **Quit to title** · auto-play/step · turn log · legend |
+  | Engine viewer (`/viewer.html`) | **Reset** · **Prep & loadout** · auto-play/step · turn log · legend. **No save, no quit** — there is no campaign to save or quit to |
+
+  > **There is no Save BUTTON, and the omission is the honest form of the requirement.**
+  > `campaign-shell.ts` writes the save slot on every transition, so a Save control would
+  > validate nothing and do nothing while looking exactly like a working one — the dead-slot
+  > shape this repo's evidence rules forbid. The drawer says what is true instead. An
+  > earlier draft of this criterion asked for a "save" entry flatly; that wording would have
+  > specified the dead button.
+  >
+  > **The campaign page also carries the auto-play/step entry**, which a first reading of
+  > the shipped drawer missed. It is listed here because a table that omits a live control
+  > is the same failure as one that invents a dead one.
+  Settings SHALL print **four** things: the live `visualViewport` width and height, the
+  **stage host's measured box**, the derived `stageW` and applied **scale**, and the current
+  **tile size in CSS px**.
+
+  > **The host box and `visualViewport` are printed separately on purpose.** They can
+  > disagree — that disagreement is the bug an on-device readout exists to catch, and
+  > printing only one of them hides it.
+
+  *Discriminators.* For the drawer, assert the entries **per page** — a shared list asserted
+  once passes while one page silently offers the other's controls, and Quit on the engine
+  viewer has nowhere to go. Assert the autosave entry is a **note, not a button**: a test
+  that only checks the text is present passes against a dead button carrying the same words.
+  For the readout, and it is the whole point of the criterion, run it at **two
+  different viewports** and assert the printed numbers **differ** and **equal** the values
+  measured in the page. A hard-coded "800 × 360" passes a presence check at one viewport,
+  and a readout that is wrong is worse than none — the owner cannot check it against
+  anything, which is why it was asked for. The printed scale SHALL equal the scale AC-V33
+  measures, or the two instruments disagree and neither can be trusted. The tile size is the
+  one figure with **no** test behind its accuracy — AC-V35 exempts tiles — so it is asserted
+  only to be present, non-zero and to change with the viewport.
+
+- **AC-V41 (safe-area and `svh` are DECLARED — a presence check, said plainly)**
+  `[ENHANCEMENT]`: Both `index.html` and `viewer.html` SHALL declare
+  `viewport-fit=cover` in their viewport meta, SHALL pad the stage with
+  `env(safe-area-inset-*)`, and SHALL size the stage in **`svh`**.
+  **This asserts declaration, not effect.** Playwright cannot emulate a display cutout, so
+  no test here can say a control clears a notch on hardware. Saying so is the criterion's
+  honest half.
+  *Discriminator, weak but not vacuous:* assert the **stage rule's declared value**, not
+  that the token appears somewhere in the file. Both pages size in **`dvh`** today, so a
+  grep for "svh" would pass while the stage still used `dvh`. Assert both pages
+  independently — a half-landed change that reaches only `index.html` is the failure this
+  catches.
+
+- **AC-V42 (desktop is the same stage, letterboxed)** `[ENHANCEMENT]`: At **1000×780** the
+  desktop SHALL render the **same** stage, letterboxed, on ADR-0028's parchment table.
+  **Enter** SHALL confirm a staged target and **Esc** SHALL cancel (§3). The existing hover
+  previews SHALL still work.
+  *Discriminator:* assert the stage's child element set is **identical** at 1000×780 and at
+  800×360 — same ids, same classes, same count. "Hover works and Enter confirms" passes
+  against a second, desktop-only layout, which is the outcome this criterion exists to
+  prevent. Pair it with AC-V33's non-zero letterbox at 1000×780, or "same stage" is
+  satisfied by a desktop page that simply ignores the stage.
+
+**NOT ASSERTED by AC-V33…AC-V42, said here rather than left implied:**
+
+- **Real-device behaviour.** Every measurement is Chromium emulation. Safe-area insets,
+  browser chrome height and the true usable viewport on a phone are all unverified, exactly
+  as ADR-0034 recorded. The **360** figure rests on one screenshot.
+- **The camera.** Pan, pinch and double-tap-to-refit are deferred. When they land,
+  `pickTile` must invert the same transform the painter applies (**AC-V19**) — a camera
+  change touching only the painter offsets every tap by a constant and fails silently.
+- **Tile hit size.** Board tiles are exempt from the 44 px floor and measure roughly
+  30 × 15 CSS px at 640×300 (AC-V35). Mis-taps on the board are uncovered until pinch zoom
+  lands.
+- **The other four screens.** Title, prep, briefing and the scene player are outside this
+  slice and outside every criterion here (§8f).
+- **Legibility.** Nothing reads a pixel off the finished canvas (ADR-0030, ADR-0032). These
+  criteria say where things are, never that they can be read.
+- **Playability.** Nobody has played this on a phone. "Fits, does not overlap and is
+  tappable" is not "usable".
 
 ## 7. Required module shape
 
@@ -636,10 +1000,159 @@ orientation, so the design is two independent, best-effort mechanisms rather tha
    only once the attempt is known to have failed. A web manifest declares
    `orientation: "landscape"` and is linked from both pages.
 
-Neither mechanism can be relied on alone: see AC-V30/31/32 and ADR-0034's Limits section
+Neither mechanism can be relied on alone: see AC-V30/32 and ADR-0034's Limits section
 for what each browser actually honors.
 
-## 8. Determinism risks specific to this layer
+> **ADR-0034 fixed the ORIENTATION; it did not fix the layout.** The owner opened the game
+> on a real phone in landscape and the stat plate covered about half the board. **AC-V31 was
+> green on that screen.** ADR-0037 rebuilds the viewer phone-landscape first — see **§8** —
+> and retires AC-V31. Everything in this sub-section still stands: the rotate gate and the
+> lock attempt are unchanged.
+
+## 8. The stage and its zones (ADR-0037)
+
+`[ENHANCEMENT]` **The viewer is laid out for a landscape phone first, and desktop gets the
+same stage.** This replaces the desktop-first layout that sized panels in fixed pixels
+beside a 900×440 board.
+
+> **SCOPE: the BATTLE screen only.** The stage rule applies **screen by screen**, and this
+> slice moves one screen. Title, prep, briefing and the scene player keep their current
+> layout, outside the stage, until their own slice — see §8f.
+
+### 8a. One stage
+
+```
+stageH = 360                                    // logical units, always
+stageW = clamp(640, round(360 * vw / vh), 900)  // 1.78:1 … 2.5:1
+scale  = min(vw / stageW, vh / stageH)          // uniform; centre; letterbox the remainder
+```
+
+`vw` and `vh` are the **stage host's measured box**, an element sized `100svw × 100svh`.
+Small viewport units, deliberately: `dvh` re-lays-out every time a browser toolbar slides.
+Everything is measured off `getBoundingClientRect()`, never off the CSS variable (AC-V33).
+
+A landscape phone is **wider** than 16:9, not taller — the owner's device measures roughly
+851 × 324 CSS px, about **2.6:1** — so a fixed 16:9 stage would pillarbox away a third of
+the width. Height is the scarce axis, so height is what is fixed.
+
+**Derived, in CSS px, and these are the numbers AC-V33 asserts:**
+
+| Viewport | Aspect | `stageW` | `scale` | Letterbox, total |
+|---|---|---|---|---|
+| 640×300 | 2.13 | 768 | 0.8333 | 0 |
+| 800×360 | 2.22 | 800 | 1.0 | 0 |
+| **851×324** — the owner's phone | 2.63 | **900** — clamped | **0.9** | **41 px horizontal** (20.5 per side) |
+| 900×390 | 2.31 | 831 | 1.0830 | 0.11 px vertical — under tolerance, reads as none |
+| 1000×780 | 1.28 | **640** — clamped | 1.5625 | 217.5 px vertical (108.75 per side = **69.6 stage units**) |
+
+**Tolerance:** within **1 CSS px** of the formula, and "none" means under 1 CSS px. 900×390
+carries 0.11 px of rounding slack, so an exact-zero assertion would flake there.
+
+**These five are the supported viewports and the test set.** A fluid width has to be proved
+at both ends or it is proved nowhere. **851×324 is the only one that reaches the 900 clamp**,
+which is why it is in the set — drop the clamp and only that row goes red. Desktop is the
+**narrowest** stage, not the widest: width follows aspect, and 900 is reached only past
+2.5:1.
+
+**Board budget:** 60 top bar + 84 bottom bar leaves **216** units of height for the board.
+At the board's 900:440 ratio (2.045:1) that is **442 units wide**, which fits inside the
+narrowest stage — 640 units, less the actor tab — with room over.
+
+> **Said precisely, because the loose version is wrong.** `viewFor` fits the *content* to
+> the canvas's **900×440 backing store**; it does not fit the board to an arbitrary CSS
+> width. The CSS box scales that fixed store. So the claim is **not** "the auto-fit camera
+> makes the board fit any width" — it is that the board's CSS box keeps the store's 2.045:1
+> ratio, and 216 × 2.045 = 442 fits the budget. AC-V19 still pins the camera and the click
+> to one fit function, and that is untouched here.
+
+### 8b. The zones
+
+**The rule is: at rest, nothing covers the board.** "At rest" means nothing selected, or a
+unit selected with no target staged — the two states AC-V34 measures.
+
+| Zone | Contents | Laid out or overlay |
+|---|---|---|
+| Top-left | ☰ menu → left drawer: save, quit, turn log, legend | laid out |
+| Top-centre | turn-order chip strip, one row; tap expands | laid out |
+| Top-right | `?` help, ⚙ settings | laid out |
+| Centre | the board canvas, auto-fit | laid out |
+| Left, mid | **actor tab** — name and HP only; opens a drawer with ADR-0033's full stat set | **laid out**, beside the canvas, never over it |
+| Right | **preview sheet** — §4's set plus **Confirm** | overlay, only while a target is staged, **at most 35% of the canvas width** |
+| Bottom | action bar: Cancel · Actions ▲ · **phase-aware primary button** | laid out |
+| Bottom-centre | toast: why an illegal tap was refused | overlay, render-only, untimed |
+
+The **canvas box is what is left** after the laid-out zones. Overlays exist only in
+response to something the player just did, which is what makes "uncovered at rest" a
+measurable claim rather than a preference.
+
+**The primary button carries the enemy's turn.** In a player phase it is **End Turn** with
+its Clock price; in `AI_TURN` it reads **"Enemy turn ▸"** and performs **Step** (§3). Never
+a timer. Without it the stage has no control at all while the AI acts.
+
+**The preview sheet is bounded at 35% of the canvas width** so a visible target can be re-staged
+by tapping it. A target *under* the sheet needs Cancel first (§3). Tapping a unit that is
+not a legal target opens the unit drawer read-only for that unit.
+
+**The campaign's fixed help disc is HIDDEN while the battle is on screen.** The stage's `?`
+button is the help affordance there — two on one screen is one too many, and the disc is the
+one that would land on the board. It is untouched on every other screen, which is why it
+stays outside the stage rather than moving into it.
+
+**Two things sit OUTSIDE the stage element, and this is structural rather than stylistic:**
+the **rotate gate** (AC-V30) and the **help disc**. The stage is a transformed ancestor, and
+`position: fixed` inside a transformed ancestor resolves against that ancestor instead of
+the viewport. A gate meant to cover the whole screen would be scaled and clipped by the very
+stage it is meant to sit above. They are siblings of the stage, not children.
+
+### 8c. Touch rules
+
+- **44 × 44 CSS px minimum** for every control, at every supported viewport. At 640×300 the
+  scale is 0.833, so that is **≥ 53 stage units** (AC-V35). **Board tiles are exempt** — at
+  640×300 a tile is roughly 30 × 15 CSS px, and only a camera zoom can change that (§8e).
+- `viewport-fit=cover` plus `env(safe-area-inset-*)` padding. In landscape a notch takes
+  roughly 44–59 px off one side. Neither page declares `viewport-fit` today.
+- **`svh`** for the stage height. `dvh` re-lays-out on every toolbar change; both pages use
+  `dvh` today.
+- `touch-action: manipulation` on controls, `touch-action: none` on the canvas,
+  `user-select: none` on chrome. **Never `user-scalable=no`.**
+
+### 8d. The settings drawer prints the viewport
+
+Settings shows four things (AC-V40): the live `visualViewport` size, the **stage host's
+measured box**, the derived `stageW` and applied **scale**, and the **current tile size in
+CSS px**. The owner cannot read their own viewport size, and the 360 figure rests on a
+single screenshot — this readout turns that guess into a measurement somebody can check on a
+real device. The host box and `visualViewport` are printed separately because they can
+disagree, and that disagreement is exactly what an on-device readout is for.
+
+### 8e. What is deferred
+
+Camera **pan, pinch and double-tap-to-refit** are not in this slice. **A consequence, stated
+rather than left implied:** tile taps stay small — roughly 30 × 15 CSS px at 640×300 — and
+AC-V35 exempts them, so board mis-taps are uncovered until zoom lands.
+
+When it does land, `pickTile` must invert the same pan and zoom the painter applies —
+**AC-V19** pins the camera and the click to one fit function, and a camera change that
+touches only the painter offsets every tap by a constant and fails silently.
+
+### 8f. The other four screens, and who owns them
+
+**Title, prep, briefing and the scene player are NOT in this slice.** They keep their
+current layout, outside the stage, and no criterion here says anything about them. The
+research brief sketches how each maps onto the stage — prep as two panes collapsing to a
+bottom sheet under 720 units, the scene player as a pinned portrait with the stage as the
+"next line" target — and that sketch is a **proposal, not a spec**.
+
+**Follow-up slice: "the remaining screens on the stage."** It needs its own ACs, minted at
+**AC-V43 onward**, and it lands screen by screen. Naming it here is what stops "the viewer
+is built for a phone" from reading as a claim about screens nobody has measured.
+
+## 9. Determinism risks specific to this layer
+
+> **This section was §8 until 2026-09-05.** ADR-0032, `docs/NEXT.md`,
+> `docs/proposals/action-menu.md` and `src/render/iso.test.ts` all cite it as "`docs/10`
+> §8"; those citations mean **this** section. Said here so the old references resolve
+> rather than silently pointing at the stage spec above.
 
 - **Never preview by resolving.** `resolveAttack` consumes the seeded stream. Previews use
   only pure exported helpers (`hitChance`, `attackDamage`, `abilityDamage`,
@@ -657,7 +1170,7 @@ for what each browser actually honors.
   affordance resolves the active unit via `decide` → `applyCommand` regardless of team,
   so the frame-by-frame visual baseline survives in shape.
 
-## 9. References
+## 10. References
 
 - `docs/00` pillars 3 & 4 · `docs/01` §1–§2 + AC-02 (the CT table this layer prices) ·
   `docs/04` §3 (resolution transparency) and §7 (accessibility) ·
@@ -666,3 +1179,7 @@ for what each browser actually honors.
 - ADR-0004 (determinism P0) · ADR-0007 (sim/render split) · ADR-0010 (deferred
   resolution scope) · ADR-0013 (facing-on-move deferred) ·
   **ADR-0015 (the move+act fold — the decision this doc specifies)**
+- ADR-0028 (parchment, and the contrast instrument) · ADR-0032 (the board moves) ·
+  ADR-0033 (the stat set — kept; its placement — superseded) · ADR-0034 (landscape only) ·
+  **ADR-0037 (the landscape-phone stage — §8)** · **ADR-0038 (Confirm is a separate tap —
+  §3)**

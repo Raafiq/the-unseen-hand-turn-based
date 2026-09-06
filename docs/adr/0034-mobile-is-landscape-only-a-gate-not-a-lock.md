@@ -119,3 +119,25 @@ rationale, not a second copy of the spec.
 - ADR-0032 (the board moves, non-blocking), ADR-0033 (the stat plate, bottom-left).
 - `playwright.config.ts` (the 1000×780 baseline this ADR extends past), `src/render/iso.ts`
   (the 900×440 board canvas).
+
+## Amendment (2026-09-05) — AC-V31 is superseded; the gate and the lock are not
+
+**AC-V31 is retired the same week it shipped, and the reason is worth keeping.** The owner
+opened the game on a real phone in landscape — the orientation this ADR delivers — and the
+stat plate covered about half the board. **AC-V31 was green on that screen.**
+
+It asked that the board, the plate and the action controls each be *visible* at 844×390.
+A plate sitting on top of the board satisfies "visible" exactly as a correct layout does,
+and one viewport cannot prove a fluid width. The criterion measured the wrong thing.
+
+| Claim in this ADR | Status now |
+|---|---|
+| **AC-V31** — landscape fit at 844×390, board keeping 900:440 | **Superseded by ADR-0037.** Replaced by `docs/10` **AC-V33** (stage geometry at five viewports) and **AC-V34** (zero intersection between every HUD box and the canvas box, at rest) |
+| "A player who rotates their phone gets a playable board at the shipped 900:440 proportions **with no separate mobile layout** to design, build or test" | **Superseded.** A phone-landscape layout is exactly what ADR-0037 builds, and desktop now shares it |
+| **(A)** the rotate gate, **AC-V30** | **Unchanged, still binding** |
+| **(B)** the lock attempt and the manifest, **AC-V32** | **Unchanged, still binding** |
+| Limits — no real device has run this; iOS Safari honours neither call | **Unchanged, and inherited by ADR-0037** |
+
+The decision this ADR records — **landscape only, portrait out of scope** — is not
+reversed. ADR-0037 changes what the landscape screen looks like, not which orientations
+are supported.

@@ -62,7 +62,10 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 > ~~"left flat"~~ **— corrected 2026-08-30, that was never true.** `enc-the-high-ground` has
 > carried heights 0–3 and `enc-the-breach` 4 blocked tiles since the P2 benchmark slice
 > (`6309a7f`). The property that keeps the score comparable is that **no test battle
-> changed**, not that they are featureless.
+> changed**, not that they are featureless. Reconciled again on **2026-09-05** for the
+> landscape-phone rebuild (**ADR-0037**, **ADR-0038**; spec in `docs/10` §8): **nothing
+> below moved for the ninth time.** Layout and gesture are *game*-roadmap concerns — no
+> build, ability or encounter changed — and P2's `N ≥ 8` is **still open at N = 7**.
 
 **P0 — Core loop · LANDED.** Grid, CT scheduler with pinned tie-break, move/attack, seeded
 RNG, serializable `BattleState`, formula vectors as tests. Command-replay substrate exists

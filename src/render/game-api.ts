@@ -8,8 +8,9 @@
  */
 
 import type { Screen } from "./campaign-shell.js";
+import type { Phase } from "./session.js";
 import type { PlaytestLog } from "./telemetry.js";
-import type { CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
+import type { BattleState, CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
 
 export interface GameApi {
   screen: () => Screen;
@@ -25,6 +26,28 @@ export interface GameApi {
   /** Play the live battle to its end. Deterministic — no timers, no wall-clock. */
   autoplay: () => void;
   battleOver: () => boolean;
+  /**
+   * THE BATTLE SEAM, added with the stage (ADR-0037/0036). The engine viewer's
+   * `window.tuh` has carried these since docs/10 §7; the campaign page had only
+   * `step`/`autoplay`, so no browser spec could drive a REAL player turn here — and
+   * the campaign is the page a stranger actually plays.
+   *
+   * Every entry is the same `Session` method a tap on the stage reaches, under the
+   * same `act()` wrapper, so there is no parallel path (docs/10 §7).
+   */
+  /** The live battle state, or `null` off the battle screen. A READ; nothing mutates. */
+  state: () => BattleState | null;
+  clickTile: (x: number, y: number) => void;
+  /** Commit the staged target (ADR-0038). A no-op with nothing staged. */
+  confirm: () => void;
+  cancel: () => void;
+  endTurn: () => void;
+  phase: () => Phase | null;
+  /** The command log's length — AC-V36's A/B is read off this. */
+  commandCount: () => number;
+  /** The staged-but-uncommitted target, or `null`. AC-V36's second required half. */
+  stagedTarget: () => { abilityId: string; unitId: string } | null;
+  reason: () => string | null;
   conclude: () => void;
   next: () => void;
   retry: () => void;

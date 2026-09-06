@@ -61,17 +61,37 @@ import {
   type TurnCost,
 } from "./preview.js";
 
-/** docs/10 §3's states, verbatim. */
-export type Phase = "AWAIT_ACTOR" | "PLAYER_IDLE" | "MOVE_STAGED" | "AI_TURN" | "ENDED";
+/**
+ * docs/10 §3's states, verbatim — SIX of them since ADR-0038.
+ *
+ * `TARGET_STAGED` is the one that arrived with Confirm-as-a-separate-tap. It is a
+ * real, observable state, not a transient: the draft sits in it holding a chosen
+ * target while the preview sheet shows what the shot will do, and it leaves only on
+ * Confirm (one command), Cancel (none) or a re-stage (none).
+ *
+ * "Verbatim" is a claim, so it is worth saying what keeps it true: the union below
+ * must be the table in docs/10 §3, row for row. A state added there and not here is
+ * a state the viewer cannot enter; one added here and not there is a rule the viewer
+ * invented.
+ */
+export type Phase =
+  | "AWAIT_ACTOR"
+  | "PLAYER_IDLE"
+  | "MOVE_STAGED"
+  | "TARGET_STAGED"
+  | "AI_TURN"
+  | "ENDED";
 
 /**
  * PURE UI INTENT for the current player turn (docs/10 §3). Never applied to the
  * sim until commit, and discarded whole on cancel.
  *
- * `act` is part of the spec'd shape but is only ever populated for the instant
- * of a commit: selecting the target IS the confirm gesture, so there is no state
- * in which a draft sits around holding a chosen-but-uncommitted act. It is
- * exposed (rather than dropped) so `draft()` matches the documented shape.
+ * `act` HOLDS A CHOSEN-BUT-UNCOMMITTED TARGET, and that is new (ADR-0038). It used to
+ * be populated only for the instant of a commit, because selecting the target *was*
+ * the confirm gesture; on a thumb that is a mis-tap that spends a whole turn, so
+ * staging and committing are now two gestures. While {@link Session.phase} is
+ * `TARGET_STAGED` this field is non-null and NOTHING has reached the sim — the commit
+ * point moved, docs/10 §3's "nothing touches the sim until COMMIT" did not.
  */
 export interface TurnDraft {
   actorId: string;
@@ -361,9 +381,19 @@ export class Session {
       : this.state.units.find((u) => u.id === this.activeUnitId);
   }
 
-  /** True while input is accepted (docs/10 §3: AI turns are inert). */
+  /**
+   * True while input is accepted (docs/10 §3: AI turns are inert).
+   *
+   * `TARGET_STAGED` IS AN ACCEPTING STATE. Re-staging onto another visible target
+   * takes one tap with no Cancel first (docs/10 §3), so the target list, the move
+   * list and the preview all have to stay live while a target is held.
+   */
   private accepting(): boolean {
-    return this.phase === "PLAYER_IDLE" || this.phase === "MOVE_STAGED";
+    return (
+      this.phase === "PLAYER_IDLE" ||
+      this.phase === "MOVE_STAGED" ||
+      this.phase === "TARGET_STAGED"
+    );
   }
 
   /** The tile the act would resolve from: the STAGED tile when one is staged. */
@@ -377,10 +407,30 @@ export class Session {
     return this.draft?.move ? { ...this.draft.move.to } : null;
   }
 
-  /** Legal move destinations — straight from `moveRange` (AC-V7). */
+  /**
+   * The target held but NOT committed (ADR-0038), or `null`.
+   *
+   * This is the second half of AC-V36's discriminator. "Confirm grows the log by one"
+   * passes against a viewer that ignored the target tap entirely; a non-null staged
+   * target between the two taps is what rules that out.
+   */
+  stagedTarget(): { abilityId: string; unitId: string } | null {
+    const act = this.draft?.act;
+    if (!act) return null;
+    return { abilityId: act.abilityId, unitId: act.target.unitId };
+  }
+
+  /**
+   * Legal move destinations — straight from `moveRange` (AC-V7).
+   *
+   * EMPTY IN `TARGET_STAGED`, deliberately: docs/10 §3's row for that state offers
+   * re-staging, Confirm and Cancel and nothing else. Painting a move highlight over a
+   * tile that would be refused is the UI asserting a legality the state machine does
+   * not have — the same dishonesty as showing a modeled zero.
+   */
   moveTiles(): Position[] {
     const a = this.actor();
-    if (!a || !this.accepting()) return [];
+    if (!a || !this.accepting() || this.phase === "TARGET_STAGED") return [];
     return moveRange(this.state.grid, this.state.units, a.id);
   }
 
@@ -407,6 +457,33 @@ export class Session {
    * nothing targetable is under the cursor. PURE — see `preview.ts`'s header.
    */
   preview(): ActPreview | null {
+    return this.stagedPreview() ?? this.hoverPreview();
+  }
+
+  /**
+   * The preview for the STAGED target — what the sheet shows before Confirm
+   * (docs/10 §4, which is explicit that the set is computed for the staged position).
+   *
+   * Additive: it is `null` in every state that existed before ADR-0038, so
+   * {@link preview}'s behaviour on the hover path is byte-identical to what it was.
+   */
+  stagedPreview(): ActPreview | null {
+    const act = this.draft?.act;
+    const from = this.actFrom();
+    if (!act || !from || this.activeUnitId === null) return null;
+    const option = this.targets().find((t) => t.unit.id === act.target.unitId);
+    if (!option) return null;
+    return computeActPreview(
+      this.state,
+      this.activeUnitId,
+      from,
+      this.draft?.move != null,
+      option,
+    );
+  }
+
+  /** The preview under the pointer/keyboard cursor. PURE — see `preview.ts`'s header. */
+  private hoverPreview(): ActPreview | null {
     const from = this.actFrom();
     if (!from || !this.accepting() || this.activeUnitId === null || !this.hover) return null;
     const option = this.targets().find(
@@ -415,6 +492,23 @@ export class Session {
     if (!option) return null;
     const moved = this.draft?.move != null;
     return computeActPreview(this.state, this.activeUnitId, from, moved, option);
+  }
+
+  /**
+   * THE PRICE OF *ACTING* THIS TURN — the number the Actions sheet's header prints.
+   *
+   * It exists because that header used to compute `didMove ? 100 : 80` in the render
+   * layer, which is a combat constant living in the viewer: the sim could change
+   * `CT_COST_MOVE_AND_ACT` and the sheet would go on quoting the old figure with
+   * nothing going red. `turnCost` is the same function `preview.ts` prices the staged
+   * shot with, so the sheet and the sheet's own preview cannot disagree.
+   */
+  actCost(): TurnCost | null {
+    if (!this.accepting() || this.activeUnitId === null) return null;
+    return turnCost(this.state, this.activeUnitId, {
+      didMove: this.draft?.move != null,
+      didAct: true,
+    });
   }
 
   /** The CT price of ending the turn right now (no act) — the End Turn label. */
@@ -467,11 +561,17 @@ export class Session {
 
   /**
    * THE ONE TILE-DRIVEN MUTATOR. Every picking path — a real `pointerdown`
-   * (`onPick(pickTile(...))`), the keyboard Enter (`onPick(cursor)`), and both
-   * test seams (`clickTile(x,y)` → `onPick({x,y})`, `clickCanvas` →
+   * (`onPick(pickTile(...))`), a keyboard Enter ON THE BOARD (`onPick(cursor)`), and
+   * both test seams (`clickTile(x,y)` → `onPick({x,y})`, `clickCanvas` →
    * `onPick(pickTile(...))`) — bottoms out HERE. Nothing else may touch
    * {@link TurnDraft} from a tile pick, which is what makes the seam PROVABLY the
    * same code path as a real pointer event rather than parallel logic (docs/10 §7).
+   *
+   * SINCE ADR-0038 THIS METHOD EMITS NO COMMAND. A target tap stages; {@link confirm}
+   * commits. Enter reaches Confirm through ordinary focus (staging moves focus to the
+   * sheet's button), so there is still exactly one tile-driven mutator — Confirm is a
+   * command-emitting path alongside {@link endTurn}, which docs/10 §7 already names,
+   * not a second way to touch the draft from a tile.
    *
    * `null` (a pick that hit no tile — off-board, or a height skirt no top face
    * covers) is a plain no-op: not an error, not a reason chip.
@@ -489,9 +589,10 @@ export class Session {
     const actor = this.actor();
     if (!actor) return;
 
-    // Re-clicking the actor is one of the three CANCEL gestures (docs/10 §3).
+    // Re-clicking the actor CLEARS THE WHOLE DRAFT (docs/10 §3) — not one level, the
+    // way Cancel does. Both a staged move and a staged target go.
     if (p.x === actor.pos.x && p.y === actor.pos.y) {
-      this.cancel();
+      this.clearDraft();
       return;
     }
 
@@ -514,7 +615,8 @@ export class Session {
       return;
     }
 
-    // A living unit on the tile ⇒ act if the SIM says it is a legal target.
+    // A living unit on the tile ⇒ STAGE the act if the SIM says it is a legal target.
+    // No command is emitted here (ADR-0038); Confirm does that.
     const occupant = this.state.units.find((u) => u.pos.x === p.x && u.pos.y === p.y && u.hp > 0);
     if (occupant) {
       const option = this.targets().find((t) => t.unit.id === occupant.id);
@@ -524,7 +626,15 @@ export class Session {
         );
         return;
       }
-      this.commitAct(option);
+      this.stageAct(option);
+      return;
+    }
+
+    // With a target held, a tile is not selectable at all (docs/10 §3's TARGET_STAGED
+    // row). Say THAT, rather than falling through to "Out of Move range", which would
+    // name a rule that is not the one refusing the tap.
+    if (this.phase === "TARGET_STAGED") {
+      this.refuse("Cancel the shot first to move");
       return;
     }
 
@@ -540,8 +650,30 @@ export class Session {
     this.refuse("Out of Move range");
   }
 
-  /** Cancel (Esc / right-click / re-click the actor): total and FREE. */
+  /**
+   * Cancel (Esc / right-click / the Cancel button): unwinds exactly ONE level
+   * (docs/10 §3) — `TARGET_STAGED` → `MOVE_STAGED` or `PLAYER_IDLE`, `MOVE_STAGED` →
+   * `PLAYER_IDLE`. Total and FREE: the sim was never called.
+   *
+   * Re-clicking the ACTOR is the gesture that clears the whole draft at once
+   * ({@link clearDraft}); the two are deliberately different, because after a
+   * mis-tapped target the move you spent thought on is usually still the one you want.
+   */
   cancel(): void {
+    if (!this.accepting()) return;
+    if (this.phase === "TARGET_STAGED") {
+      const move = this.draft?.move ?? null;
+      const actorId = this.draft?.actorId ?? this.activeUnitId;
+      this.draft = move && actorId ? { actorId, move, act: null } : null;
+      this.phase = move ? "MOVE_STAGED" : "PLAYER_IDLE";
+      this.reason = null;
+      return;
+    }
+    this.clearDraft();
+  }
+
+  /** Throw the whole draft away and return to turn start (docs/10 §3: tap the actor). */
+  clearDraft(): void {
     if (!this.accepting()) return;
     this.draft = null;
     this.phase = "PLAYER_IDLE";
@@ -549,12 +681,52 @@ export class Session {
   }
 
   /**
+   * COMMIT THE STAGED TARGET — the second of ADR-0038's two taps, and the only path
+   * from `TARGET_STAGED` that reaches the sim.
+   *
+   * Exactly one `Command` (ADR-0015's fold is untouched): act-only at −80, or
+   * `{kind:"act", …, move:{to, order:"before"}}` at −100 when a move is also staged.
+   * Re-staging three targets first still emits one, because staging writes only the
+   * draft.
+   *
+   * A no-op with nothing staged, rather than a throw: the button is reachable by
+   * keyboard and a stray Enter must not be an error.
+   */
+  confirm(): void {
+    if (this.phase !== "TARGET_STAGED") return;
+    const act = this.draft?.act;
+    if (!act) return;
+    const move = this.draft?.move ?? null;
+    this.commit(
+      move
+        ? {
+            kind: "act",
+            abilityId: act.abilityId,
+            target: { unitId: act.target.unitId },
+            move: { to: { x: move.to.x, y: move.to.y }, order: "before" },
+          }
+        : { kind: "act", abilityId: act.abilityId, target: { unitId: act.target.unitId } },
+    );
+  }
+
+  /**
    * The explicit turn-ender for a turn with no act: `{kind:"move"}` when a move
    * is staged (−80), `{kind:"wait"}` on an empty draft (−60). docs/10 §3.
+   *
+   * REFUSED IN `TARGET_STAGED`, and this is the guard rather than a UI nicety.
+   * docs/10 §3's `TARGET_STAGED` row offers Confirm, Cancel and a re-stage — End Turn
+   * is not on it — and a version that went ahead would COMMIT A DIFFERENT TURN from
+   * the one the player is looking at: the preview sheet says "Move + Act, −100" while
+   * the command emitted is a bare move at −80, silently throwing away the attack they
+   * had aimed. Confirm is the only path out of that state that spends the turn.
    */
   endTurn(): void {
     if (!this.accepting()) {
       this.refuse(this.phase === "ENDED" ? "The battle is over" : "Not your turn");
+      return;
+    }
+    if (this.phase === "TARGET_STAGED") {
+      this.refuse("Confirm the shot, or Cancel it, before ending the turn");
       return;
     }
     const move = this.draft?.move ?? null;
@@ -580,26 +752,26 @@ export class Session {
   // ─── commit ───────────────────────────────────────────────────────────────
 
   /**
-   * Fold the staged move and the chosen target into ONE command (ADR-0015): a
-   * staged move becomes `move:{to, order:"before"}` so the act resolves from the
-   * DESTINATION tile and the whole turn settles ONCE at −100. `order:"after"`
-   * exists in the schema but is deliberately not exposed in the UI this slice —
-   * it would force choosing a retreat tile before seeing the outcome (ADR-0015
-   * Consequences).
+   * STAGE the chosen target. Pure UI intent — no clone applied, no roll drawn, no
+   * tick moved (AC-V6). {@link confirm} is what folds it into the one command
+   * ADR-0015 prices at −100 with a move, −80 without; `order:"after"` exists in the
+   * schema but is deliberately not exposed this slice, because it would force
+   * choosing a retreat tile before seeing the outcome (ADR-0015 Consequences).
    */
-  private commitAct(option: TargetOption): void {
+  private stageAct(option: TargetOption): void {
     const actor = this.actor();
     if (!actor) return;
     const move = this.draft?.move ?? null;
-    const act = { abilityId: option.ability.id, target: { unitId: option.unit.id } };
-    // Populate the draft's `act` for the instant of the commit so the documented
-    // TurnDraft shape is real rather than vestigial.
-    this.draft = { actorId: actor.id, move, act };
-    this.commit(
-      move
-        ? { kind: "act", ...act, move: { to: { x: move.to.x, y: move.to.y }, order: "before" } }
-        : { kind: "act", ...act },
-    );
+    this.draft = {
+      actorId: actor.id,
+      move,
+      act: { abilityId: option.ability.id, target: { unitId: option.unit.id } },
+    };
+    this.phase = "TARGET_STAGED";
+    this.reason = null;
+    // The sheet reads the STAGED target, not the hover, so a pointer that has drifted
+    // off the unit cannot blank the numbers the player is about to commit to.
+    this.hover = { ...option.unit.pos };
   }
 
   /**
