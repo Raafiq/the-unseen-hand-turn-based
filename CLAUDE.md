@@ -204,7 +204,7 @@ goes red on) and `ASSERT` (what it asserts, **including the identity** of the th
 width of 192 passed a knight's face on the archer); for `art-director`, `no alternatives`
 or `one pass`; and for `docs-steward`, a second spawn in one session unless the prompt
 starts with `SECOND-PASS-OK:` — docs are written once, at the end, against verified code.
-`npm run check:hooks` runs every hook's fixture file.
+`npm run check:hooks` runs every hook's fixture file. **And a known doc URL is a WebFetch, not an agent:** one fetch answered in 2k what a 45k `claude-code-guide` spawn got half wrong.
 
 Two more that no hook can judge: open only the frames that changed, and run **one**
 reviewer pass per slice (the spec grill and the code review were two 100k+ reads of the
