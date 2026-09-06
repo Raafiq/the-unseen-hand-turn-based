@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { dismissScene, prepEveryMember } from "./helpers.js";
+import { dismissScene, prepEveryMember, startNewGame } from "./helpers.js";
 
 /**
  * THE LANDSCAPE-PHONE STAGE — docs/10 AC-V33 … AC-V42 (ADR-0037, ADR-0038).
@@ -47,7 +47,7 @@ async function reachBattle(page: Page, path: string): Promise<void> {
     await expect(page.getByTestId("grid")).toBeVisible();
     return;
   }
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
@@ -1351,7 +1351,7 @@ test.describe("AC-V42 — desktop gets the same stage", () => {
 test("the campaign reaches a battle on the stage and can finish it there", async ({ page }) => {
   await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await prepEveryMember(page);
   await page.getByTestId("deploy").click();

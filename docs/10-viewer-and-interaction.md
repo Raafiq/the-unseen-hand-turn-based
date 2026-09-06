@@ -866,6 +866,57 @@ degenerate fixture where all orderings coincide).
   prevent. Pair it with AC-V33's non-zero letterbox at 1000×780, or "same stage" is
   satisfied by a desktop page that simply ignores the stage.
 
+### 6a. The title screen, in the overhaul look (ADR-0040)
+
+`AC-V43` stays reserved for "the remaining screens on the stage" (§8f); the title's look
+change did not move it onto the stage, so these three take the next free letters.
+
+- **AC-V44 (the title's rest state matches the concept, and the removed controls are
+  gone, not hidden):** At rest, `#screen-title` SHALL show exactly three visible buttons
+  — New Game, Continue, Copy playtest log — and `log-note-title` SHALL be hidden. The
+  save readout itself lives on the Continue plaque, not in `title-slot`: with a readable
+  save, Continue reads "Continue" plus a smaller second line ("Battle N of 5" or "All 5
+  won"); with no save, one line. `title-slot` SHALL be hidden whenever the slot is
+  readable or empty-with-storage-available, and SHOWN for either of two warnings the
+  player must act on — the save is unreadable (`kind === "error"`) or storage is
+  genuinely unavailable, per a real write/read probe (`detectStorage()`) — never as a
+  guess from `try/catch` around one call. Erase Save and the footer link to the engine
+  viewer SHALL be **absent from the DOM**, not merely hidden. *Discriminator:* a build
+  that re-adds `<footer><a href="./viewer.html">` passes any "hidden" check but fails a
+  DOM-count assertion of `0`; `e2e/title.spec.ts` asserts the count directly and the
+  mutation was run for real (red on `Expected: 0, Received: 1`). A second mutation
+  dropping `hidden` from `title-slot` on every repaint (not just the initial markup) is
+  caught the same way, because `renderTitle()` re-asserts it on each call. A third
+  mutation — dropping the `&& storageAvailable` half of `note.hidden`, so a blocked-
+  storage empty slot reads as merely "empty" — was run for real in `e2e/title.spec.ts`:
+  red on `expect(title-slot).toBeVisible()`, `Expected: visible, Received: hidden`.
+- **AC-V45 (New Game asks in page before overwriting a save, and Back changes nothing):**
+  Clicking New Game with a readable save present SHALL show an in-page confirm step
+  ("Overwrite your save?" Yes / Back) and SHALL NOT start a run or use
+  `window.confirm`. Back SHALL leave the stored save **byte-identical**; Yes SHALL
+  start a fresh run. An empty or unreadable slot SHALL start at once, with no step shown.
+  The step is keyboard-complete: focus moves to Yes the moment it is shown, Escape acts
+  as Back (title screen only, and only while the step is open), and the confirm text
+  carries `role="alert"` so a screen reader announces it unprompted. *Discriminator:* the
+  fixture banks one real victory first (`history.length === 1`, `battleIndex === 1`) so
+  "the save survives" is not vacuously true of an already-empty slot; `e2e/title.spec.ts`'s
+  "New Game asks before overwriting a save" case asserts both the pre-click and post-Back
+  save payloads are equal. A keyboard-only run — New Game, then Escape with no click —
+  is a separate case in the same file: it asserts the step closes, the save is untouched,
+  and focus lands back on New Game, so a build that wires Escape only on the BATTLE
+  screen (the pre-existing handler) cannot pass by accident.
+- **AC-V46 (the title's ink ladder is measured on its own, darker parchment):** Every
+  text-bearing element on `#screen-title` SHALL clear WCAG AA (4.5:1, 3:1 large) against
+  the worst leaf or plaque ground it can be painted on, measured on ADR-0040's palette —
+  not assumed to inherit ADR-0028's. *Discriminator:* ADR-0028's `--ink-soft` (4.07),
+  `--ink-faint` (3.79) and `--accent-ink` (3.83) all fail against this screen's
+  `--parch-lo`; only `--ink` (worst case 4.996:1, on `--parch-burn`) survives. A test
+  that reused ADR-0028's palette instead of re-sampling this screen's own gradient stops
+  would pass three inks that fail here. `e2e/contrast.spec.ts`'s title-screen cases cover
+  both the rest state and the two conditionally-shown notes (the overwrite step, the
+  unreadable-save warning), each of which uses `--ink` specifically because the shared
+  `--warn-lit` measures 1.44:1 on `--parch-burn` and would fail outright.
+
 **NOT ASSERTED by AC-V33…AC-V42, said here rather than left implied:**
 
 - **Real-device behaviour.** Every measurement is Chromium emulation. Safe-area insets,
@@ -1142,6 +1193,12 @@ current layout, outside the stage, and no criterion here says anything about the
 research brief sketches how each maps onto the stage — prep as two panes collapsing to a
 bottom sheet under 720 units, the scene player as a pinned portrait with the stage as the
 "next line" target — and that sketch is a **proposal, not a spec**.
+
+> **Title's LOOK changed under ADR-0040; its position did not.** `#screen-title` is a
+> `position:fixed` full-viewport sheet, styled to the owner's concept — but it is not the
+> ADR-0037 stage element, gains none of the stage's zones or letterboxing rules, and is
+> covered by AC-V44…AC-V46 below, not AC-V33…AC-V42. Prep, briefing and the scene player
+> are untouched by ADR-0040 and still read exactly as this paragraph did before it.
 
 **Follow-up slice: "the remaining screens on the stage."** It needs its own ACs, minted at
 **AC-V43 onward**, and it lands screen by screen. Naming it here is what stops "the viewer

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { dismissScene } from "./helpers.js";
+import { dismissScene, startNewGame } from "./helpers.js";
 
 /**
  * ADR-0039: six real portraits are wired into the scene player and the unit card, for
@@ -19,7 +19,7 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   page,
 }) => {
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
 
   const cardImg = page.locator('[data-testid="unit-card"] .uc-portrait img');
   const cardCaption = page.locator('[data-testid="unit-card"] figcaption');

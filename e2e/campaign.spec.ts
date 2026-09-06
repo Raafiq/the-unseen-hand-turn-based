@@ -4,9 +4,11 @@ import {
   dismissScene,
   freezeMotion,
   settleMotion,
+  startNewGame,
   watchStep,
 } from "./helpers.js";
 import { FIELD_THEME, RING_FILL_ALPHA } from "../src/render/iso.js";
+import { GROUNDS, contrastRatio } from "./contrast-helpers.js";
 import { mkdir } from "node:fs/promises";
 // The `with { type: "json" }` attribute is REQUIRED here: `e2e/*.spec.ts` goes through
 // Node's ESM loader, not Vite's, and a bare JSON import breaks only the browser job.
@@ -113,9 +115,55 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   // real round trip through `localStorage` survives the page being thrown away.
   await page.reload();
   await expect(page.getByTestId("screen-title")).toBeVisible();
+  // The save readout lives ON the Continue plaque now, not beside it: `title-slot` stays
+  // hidden for a readable save, and Continue's own visible label carries the progress.
+  await expect(page.getByTestId("continue")).toBeVisible();
   await expect(page.getByTestId("continue")).toBeEnabled();
-  await expect(page.getByTestId("title-slot")).toContainText("battle 2 of 5");
+  await expect(page.getByTestId("continue")).toContainText("Battle 2 of 5");
+  await expect(page.getByTestId("title-slot")).toBeHidden();
   expect(await stored(page)).toBe(afterOne);
+
+  // The plaque's progress line: two DELIBERATE lines, not one that wraps mid-phrase
+  // (docs/visual/overhaul/title-851x324-with-save.png showed "CONTINUE · BATTLE 2 OF /
+  // 5"). Geometry asserted through the real elements, not inferred from the string.
+  const progress = page.getByTestId("continue-progress");
+  const geometry = await page.evaluate(() => {
+    const label = document.getElementById("continue-label")!.getBoundingClientRect();
+    const prog = document.getElementById("continue-progress")!.getBoundingClientRect();
+    const cs = getComputedStyle(document.getElementById("continue-progress")!);
+    return {
+      labelBottom: label.bottom,
+      progTop: prog.top,
+      progHeight: prog.height,
+      fontSize: parseFloat(cs.fontSize),
+      fontStyle: cs.fontStyle,
+      color: cs.color,
+    };
+  });
+  expect(geometry.fontStyle, "progress line must be italic").toBe("italic");
+  // Entirely BELOW line 1's box, not merely lower — a wrapped second line of "Continue"
+  // itself would still start below label.bottom in some layouts, so this is necessary
+  // but the height check below is what actually catches a wrap.
+  expect(geometry.progTop, "progress line must sit below the Continue label").toBeGreaterThanOrEqual(
+    geometry.labelBottom,
+  );
+  // MUTATION this catches: shrink the plaque width so "Battle 2 of 5" wraps onto two
+  // lines — progHeight roughly doubles while fontSize is unchanged, so the ratio below
+  // blows past 1.6 and this assertion goes red.
+  expect(
+    geometry.progHeight,
+    `progress line wrapped: height ${geometry.progHeight} vs font-size ${geometry.fontSize}`,
+  ).toBeLessThan(1.6 * geometry.fontSize);
+  // Contrast, reusing the exact declared grounds and WCAG formula `contrast.spec.ts`
+  // measures with — not a re-derived copy. The darkest declared plaque stop is
+  // `GROUNDS.plaque[2]` (`--plaque-lo`); the file banner in overhaul.css already
+  // documents `--label-off` (this line's colour) as clearing 4.5:1 there.
+  const darkestPlaqueStop = GROUNDS.plaque[2];
+  expect(
+    contrastRatio(geometry.color, darkestPlaqueStop),
+    `${geometry.color} on ${darkestPlaqueStop}`,
+  ).toBeGreaterThanOrEqual(4.5);
+  await expect(progress).toBeVisible();
 
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 2 of 5");
@@ -1107,7 +1155,7 @@ test("reduced motion: the board animates by default and does not when it is aske
   /** Play to the first commit that produced a floating label, then sample two frames. */
   const play = async (): Promise<{ impact: string; settled: string }> => {
     await page.goto("/");
-    await page.getByTestId("new-game").click();
+    await startNewGame(page);
     await dismissScene(page);
     await page.getByTestId("deploy").click();
     await expect(page.getByTestId("screen-battle")).toBeVisible();

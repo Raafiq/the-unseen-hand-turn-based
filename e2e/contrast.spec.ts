@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
+import { GROUNDS } from "./contrast-helpers.js";
 
 /**
  * Text contrast on the parchment sheets, measured.
@@ -38,50 +39,24 @@ import { prepEveryMember } from "./helpers";
 const AA = { normal: 4.5, large: 3 } as const;
 
 /**
- * The extreme stops of each sheet's ground gradient, taken from index.html. A text
- * colour must clear the bar against every entry.
- *
- * These are duplicated from the stylesheet on purpose: if someone re-tones the
- * parchment and forgets this list, the test measures against the OLD ground and can
- * pass on a sheet that actually got worse. `groundsAreReal()` below is the guard —
- * it asserts each listed colour is one the page genuinely paints.
+ * The extreme stops of each sheet's ground gradient — `GROUNDS`, and the `contrastRatio`
+ * formula this file's `failures()` mirrors in-page, moved to `contrast-helpers.ts` so a
+ * second spec (`campaign.spec.ts`'s with-save Continue-plaque check) can reuse the exact
+ * declared grounds and the exact WCAG math instead of hand-rolling a copy that could
+ * quietly drift from what this file actually measures.
  */
-const GROUNDS = {
-  parchment: ["rgb(242, 230, 196)", "rgb(220, 195, 143)"],
-  table: ["rgb(36, 27, 16)", "rgb(11, 8, 5)"],
-  /**
-   * THE STAGE'S HUD SURFACES — a FLAT opaque fill, unlike every other ground here, and
-   * the same colour the stat plate used to be (ADR-0037 moved the card, not its tone).
-   *
-   * They have to be opaque, and the reason is this file's own algorithm. The walk below
-   * composites a translucent layer onto the SHEET its element sits in — and the stage
-   * sits in NO sheet: its bars, tab, drawers, sheets and toast float over the CANVAS,
-   * which no DOM walk can sample (a canvas has no background colour, only pixels). A
-   * see-through bar would be scored against the table gradient while the player reads it
-   * over grass, sky or water: a green run and an unreadable HUD, which is exactly the
-   * shape of evidence this repo forbids.
-   *
-   * Because the fill IS opaque the walk finds it by itself, so this entry is never used
-   * as a fallback. It is the DECLARED value the tests below compare the live one
-   * against — the same duplicate-and-guard the two grounds above use.
-   *
-   * `GROUNDS.board` is GONE, not forgotten: `.card.board` no longer exists. The battle
-   * screen is the stage, and its dark ground is these surfaces plus the canvas.
-   */
-  plate: ["rgb(29, 23, 16)"],
-  /**
-   * The rotate gate's card — like the plate, a FLAT opaque fill rather than a gradient.
-   *
-   * It has to be flat for the same reason: the card is a sibling of nothing this walk
-   * can sample, sitting on the table gradient, and `sheetOf()` does not recognise it as
-   * a sheet (it is neither `.card` nor `.panel` nor a `dialog`). Because the fill is
-   * opaque the walk finds it by itself, so this entry is the DECLARED value the test at
-   * the bottom of this file compares the live one against.
-   */
-  gate: ["rgb(233, 215, 168)"],
-} as const;
 
 type Finding = { where: string; text: string; ratio: number; need: number; color: string; on: string };
+
+/**
+ * The opaque `rgb(...)` gradient stops actually painted in a `background-image` string,
+ * deduplicated and order-independent — used to compare against a declared list as SETS
+ * (see `groundsAreReal` below), not merely check the declared ones are present among
+ * possibly more.
+ */
+function paintedStops(backgroundImage: string): string[] {
+  return [...new Set(backgroundImage.match(/rgb\([^)]*\)/g) ?? [])].sort();
+}
 
 /**
  * Assert the declared grounds still match the stylesheet. Without this the whole file
@@ -97,10 +72,29 @@ async function groundsAreReal(page: Page): Promise<void> {
     return {
       sheet: grab(".card:not(.board)") || grab(".panel"),
       body: getComputedStyle(document.body).backgroundImage,
+      leaf: grab("#screen-title .leaf"),
+      // The VISIBLE New Game button, not `#screen-title button` (the first match in DOM
+      // order — the overwrite step's hidden Yes button, which precedes it in the markup).
+      // Both happen to share the generic plaque rule today, but `#btn-new-game` is never
+      // `:disabled` and never `hidden`, so it is the one selector guaranteed to describe
+      // what a player actually sees rather than whichever button sits first in the DOM.
+      plaque: grab("#btn-new-game"),
     };
   });
   for (const c of GROUNDS.parchment) expect(painted.sheet, `parchment stop ${c}`).toContain(c);
   for (const c of GROUNDS.table) expect(painted.body, `table stop ${c}`).toContain(c);
+  // Only meaningful while the title screen is up — every caller of this function goes
+  // through it (both call sites below start at "/"), so `.leaf`/a plaque `button` are
+  // always in the DOM here.
+  //
+  // EQUALITY, not "each declared stop is present": a `toContain` subset check cannot see
+  // an undeclared stop added alongside the declared ones — this file would keep measuring
+  // against a palette that no longer describes everything the page paints, and a real
+  // darkening could ship on an extra, unlisted stop while every declared one still passed.
+  expect(paintedStops(painted.leaf), "leaf grounds, as a set").toEqual([...GROUNDS.leaf].sort());
+  expect(paintedStops(painted.plaque), "plaque grounds, as a set").toEqual(
+    [...GROUNDS.plaque].sort(),
+  );
 }
 
 /** Every text element on the current screen that falls below its AA bar. */
@@ -252,12 +246,52 @@ test("contrast: the declared grounds are the ones the page paints", async ({ pag
 test("contrast: title screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("screen-title")).toBeVisible();
-  await screenPasses(page, 8);
+  // EXACTLY 7 at rest, measured: the display line, the subtitle, the lede, New Game,
+  // Continue, Copy playtest log, and the page-wide "?" help disc. `title-slot` and
+  // `log-note-title` start `hidden` (the overhaul — shown only for an unreadable save /
+  // storage-unavailable warning, or after Copy is pressed) so they contribute nothing
+  // here; the hidden-state colours are asserted separately below. Exact, not a floor —
+  // this screen has few enough text-bearing elements that a floor would tolerate one of
+  // them silently vanishing (`display: none`, an emptied text node) without going red.
+  expect(await textNodeCount(page), "title screen text-node count").toBe(7);
+  expect(await failures(page)).toEqual([]);
+});
+
+/**
+ * The overwrite step and the unreadable-save note — the title's two conditionally-shown
+ * texts, neither exercised by the rest-state check above. `--ink` is used for BOTH (see
+ * overhaul.css): the shared stylesheet's `--warn-lit` is 1.44:1 on `--parch-burn`, the
+ * darkest leaf stop, and would fail there outright.
+ *
+ * MUTATION this catches: swap `#screen-title .reason`'s colour to `var(--ink-soft)` (an
+ * ADR-0028 role that reads as a reasonable secondary-text choice) and this goes red —
+ * measured 4.07:1 against `--parch-lo` in the README, below the 4.5:1 bar.
+ */
+test("contrast: title screen — the overwrite step and the unreadable-save note", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("tuh.campaign.v1", "{ not a save");
+  });
+  await page.reload();
+  await expect(page.getByTestId("title-slot")).toBeVisible();
+  expect(await failures(page)).toEqual([]);
+
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await startNewGame(page);
+  await dismissScene(page);
+  await page.evaluate(() => window.tuhGame.quitToTitle());
+  await page.reload();
+  await page.getByTestId("new-game").click();
+  await expect(page.getByTestId("new-game-confirm")).toBeVisible();
+  expect(await failures(page)).toEqual([]);
 });
 
 test("contrast: briefing and prep, before and after spending", async ({ page }) => {
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   // MEASURED 2026-08-29, not guessed: this screen paints 113 text-bearing elements on
@@ -297,7 +331,7 @@ test("contrast: the help panel", async ({ page }) => {
 test("contrast: the battle stage, at rest and with every overlay open", async ({ page }) => {
   await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
@@ -338,7 +372,7 @@ test("contrast: the stat card sits on an OPAQUE plate of the declared colour", a
   page,
 }) => {
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();

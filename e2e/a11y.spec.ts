@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -64,7 +64,7 @@ test("a11y: the title screen", async ({ page }) => {
 
 test("a11y: the briefing and prep screens", async ({ page }) => {
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   // Scan the panel as first rendered…
@@ -98,7 +98,7 @@ test("a11y: the help panel", async ({ page }) => {
 test("a11y: the battle stage, at rest and with every overlay open", async ({ page }) => {
   await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
@@ -166,6 +166,29 @@ test.describe("a11y: the portrait rotate gate", () => {
     };
   }
 
+  // `/` no longer declines "bypass": the title screen's `<footer>` link (the only
+  // landmark element anywhere on the page) was removed with the overhaul (the owner's
+  // concept has no footer link), and that landmark was what made "bypass" undecidable —
+  // axe now finds nothing to be ambiguous about and marks it `inapplicable` instead of
+  // `incomplete`. `/viewer.html` is untouched this slice and still declines it.
+  const DECLINED: Record<string, string[]> = { "/": [], "/viewer.html": ["bypass"] };
+
+  /**
+   * How much bigger the OPEN scan must be than the GATED one, per path.
+   *
+   * `/viewer.html` keeps its long-measured >2x margin (16 → 63). `/` cannot: the title
+   * screen's save-status line and copy-log note now start `hidden` at rest (the overhaul
+   * — they show only for an unreadable save / after Copy is pressed), so most of what
+   * used to inflate BOTH the gated AND the open scan with `role="status"` nodes is gone
+   * from open too, and the true margin measures 23 → 26. That is a fact about how few
+   * always-visible ARIA-bearing nodes this screen has now, not about whether the gate
+   * still hides the page — the STRUCTURAL claim ("hidden, not merely covered") is what
+   * `toBeHidden()`/`toBeVisible()` on `.wrap` above already prove directly, and they do
+   * not depend on how many decorative nodes happen to exist. The node-count check below
+   * stays as a second, weaker signal at the honest floor for this path.
+   */
+  const MARGIN: Record<string, number> = { "/": 1, "/viewer.html": 2 };
+
   for (const path of ["/", "/viewer.html"]) {
     test(`a11y: the rotate gate on ${path}`, async ({ page }) => {
       await page.goto(path);
@@ -174,9 +197,10 @@ test.describe("a11y: the portrait rotate gate", () => {
       expect(await scan(page)).toEqual([]);
 
       const gated = await reach(page);
-      expect(gated.declined, "axe started refusing a new rule on the gate").toEqual(["bypass"]);
-      // Measured 2026-09-05: 17 on `/`, 15 on `/viewer.html`. The floor says axe really
-      // examined the card rather than an empty document.
+      expect(gated.declined, "axe started refusing a new rule on the gate").toEqual(DECLINED[path]);
+      // Measured 2026-09-05: 17 on `/`, 15 on `/viewer.html` (re-measured for `/` after
+      // the overhaul: 23). The floor says axe really examined the card rather than an
+      // empty document.
       expect(gated.nodes, "axe evaluated almost nothing on the gate").toBeGreaterThanOrEqual(10);
 
       // ROTATE, and scan the same page again. This is the control the count above is
@@ -190,7 +214,7 @@ test.describe("a11y: the portrait rotate gate", () => {
       expect(
         open.nodes,
         "the gate scanned as much as the open game — it is covering the page, not hiding it",
-      ).toBeGreaterThan(gated.nodes * 2);
+      ).toBeGreaterThan(gated.nodes * MARGIN[path]!);
     });
   }
 });

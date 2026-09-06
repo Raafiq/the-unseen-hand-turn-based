@@ -1,0 +1,528 @@
+/* ═══ THE OVERHAUL LOOK — TITLE SCREEN ONLY ═══════════════════════════════════
+   Everything here is scoped under `#screen-title` on purpose, WITH ONE EXCEPTION just
+   below the root variables: `body:has(#screen-title:not([hidden]))` reaches outside that
+   scope deliberately, because `#screen-title` is `position: fixed` and nothing scoped to
+   it alone can stop the document underneath from scrolling — that has to be said on
+   `body`, the element that actually owns the scrollbar (see that rule for the reasoning).
+   This file is linked from index.html only (docs/visual/concepts/README.md is the style
+   guide; the working mockup is coverage/overhaul/title.html, lifted below with three
+   deliberate deviations, each called out where it happens:
+     1. The rivets moved from the buttons' own `background-image` onto a `::before`
+        pseudo-element (matching `.codex`/`.spine`, which already did this). Left
+        inline, `e2e/contrast.spec.ts`'s own-ground walk picks up the brass colours
+        as candidate text grounds — `label` on `brass-lit` is 1.98:1 — which is a
+        false failure (a corner rivet is never under the text), not a real one.
+     2. The disabled button's top gradient stop no longer lightens (`--plaque-hi`
+        or the mockup's `#232324`): `--label-off` clears 4.5:1 against `--plaque`
+        and `--plaque-lo` but NOT against either lighter stop (4.08 / 4.33) — a
+        real failure, measured, not assumed.
+     3. `.eyebrow` (the display line) is ITALIC here, not upright as the mockup
+        shipped it — the owner's concept has it italic and asked for the fix.
+   `rem` throughout the mockup became `em`: `rem` is always relative to the
+   DOCUMENT root, so the mockup's single `html{font-size:clamp(...)}` scale would
+   leak into every other screen if copied verbatim. Nothing between `#screen-title`
+   and any `em` user below sets its own font-size, so `em` here is exactly as
+   proportional as the mockup's `rem` was — just scoped to this screen's own root
+   instead of the document's. */
+
+#screen-title {
+  /* ── sampled from Title screen.png (docs/visual/concepts/README.md §a) ── */
+  --wood: #150b09;
+  --wood-lit: #251811;
+  --wood-deep: #0b0504;
+  --rail: #6c4227;
+  --parch-hi: #ddb992;
+  --parch: #d4af86;
+  --parch-lo: #c99f75;
+  --parch-burn: #b6885d;
+  --plaque: #1d1e1e;
+  --plaque-hi: #2b2725;
+  --plaque-lo: #1b1a17;
+  --plaque-lip: #282019;
+  --brass: #714b31;
+  --brass-lit: #d8a472;
+  --label: #fdf1dc;
+  --ink-display: #19130c;
+  --navy: #12283d;
+  --lion: #ad6f33;
+  --glow: #fcc14b;
+  /* Not sampled — the concept has no disabled plaque. Solved for 4.5:1 against
+     --plaque and --plaque-lo (README's "5.0:1 on --plaque-lo" claim); it does NOT
+     clear --plaque-hi (4.08:1), which is why the disabled gradient below never
+     uses that stop as its top. */
+  --label-off: #8f8578;
+
+  --banner-w: min(8.5vw, 6.6em);
+  --burn: 1.15em;
+  --burn-spread: 0.5em;
+
+  --stain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700' viewBox='0 0 700 700' preserveAspectRatio='none'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='.46' stop-color='%23000'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='700' height='700' fill='url(%23g)'/%3E%3C/mask%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.009 .016' numOctaves='5' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='700' height='700' filter='url(%23s)' mask='url(%23m)' opacity='.5'/%3E%3C/svg%3E");
+  /* DEVIATION FROM THE SHIPPED --tooth, declared in the README (§b): the shipped
+     tooth is full-amplitude per-pixel noise. It reads as salt at stage scale
+     rather than the concept's soft mottle, and being incompressible it pushed a
+     lossless 1000x780 capture past 1 MB. Same turbulence, same seed, same tile —
+     one extra feColorMatrix squeezes the noise into [.32,.68]. */
+  --tooth: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.36 0 0 0 .32 0 .36 0 0 .32 0 0 .36 0 .32 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23t)'/%3E%3C/svg%3E");
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006 .5' numOctaves='4' seed='11'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.5 0 0 0 .25 0 .5 0 0 .25 0 0 .5 0 .25 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23w)'/%3E%3C/svg%3E");
+
+  /* One scale for the whole screen (ADR-0037's phone-landscape fold), scoped to
+     THIS element rather than <html> — see the file banner comment. */
+  font-size: clamp(10px, calc(4px + 0.9vh + 0.6vw), 19px);
+
+  /* Escapes .wrap's max-width/padding and the document's normal flow, the same
+     way the battle stage owns the viewport (hud.ts / stage.css) — a fixed sheet
+     of parchment rather than a scrolling document section. */
+  position: fixed;
+  inset: 0;
+  z-index: 5; /* below the rotate gate's fixed z-index:100 */
+  overflow: hidden;
+  padding: 0.75em;
+  display: flex;
+  box-sizing: border-box;
+  font-family: var(--sans);
+  color: var(--ink);
+  background-color: var(--wood);
+  background-image:
+    radial-gradient(58% 78% at 3% 6%, rgba(255, 178, 88, 0.34), rgba(255, 140, 44, 0.09) 38%, transparent 68%),
+    var(--grain),
+    linear-gradient(158deg, var(--wood-lit) 0%, var(--wood) 46%, var(--wood-deep) 100%);
+  background-blend-mode: screen, overlay, normal;
+  background-size: auto, 240px 240px, auto;
+}
+#screen-title * { box-sizing: border-box; }
+/* The `hidden` attribute must still win: `#screen-title` alone is (1,0,0), lower
+   than `#screen-title[hidden]` at (1,1,0), so this is belt-and-suspenders — but
+   `button` below sets its own `display:block` at (1,0,1), which DOES beat the
+   page-wide `button[hidden]{display:none}` at (0,1,1); that one needs the
+   explicit override or a hidden plaque button reappears. */
+#screen-title[hidden] { display: none; }
+/* THE ONE RULE IN THIS FILE NOT SCOPED UNDER `#screen-title` (file banner above) — it
+   CANNOT be, on purpose: `#screen-title` is `position: fixed`, which takes it out of
+   normal flow entirely, so nothing written against it can tell `body` to stop scrolling
+   behind it. Only `body` itself can say that, so this rule reaches for it, gated on
+   `:has(#screen-title:not([hidden]))` so it applies only while the title is actually up —
+   index.html's own file-banner comment names this same exception on the `<link>` tag. */
+body:has(#screen-title:not([hidden])) { overflow: hidden; height: 100%; }
+
+/* THE FOLD (ADR-0037, docs/visual/concepts/README.md §d). Once the stage is
+   taller than 8:5 the leaves would go portrait and both fill with dead
+   parchment, so the codex is capped at 8:5 and centred — the extra room becomes
+   table, matching the concept's framing of the book on a wider desk. */
+@media (max-aspect-ratio: 8/5) {
+  #screen-title .codex { aspect-ratio: 8 / 5; margin: auto; max-height: 100%; }
+}
+
+/* ── the codex: two leaves in one iron-bound wooden board ─────────────────── */
+#screen-title .codex {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 0.34em;
+  border-radius: 0.2em;
+  background-image:
+    var(--grain),
+    linear-gradient(150deg, #7c4e2c 0%, var(--rail) 38%, #43281a 74%, #2d1a10 100%);
+  background-blend-mode: overlay, normal;
+  background-size: 240px 240px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 208, 150, 0.16),
+    0 0.5em 1.6em rgba(0, 0, 0, 0.72),
+    0 0 3em rgba(0, 0, 0, 0.5);
+}
+/* the four board rivets, computed from the corners, not placed by hand */
+#screen-title .codex::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 0.2em;
+  --rv: 0.62em;
+  background-image:
+    radial-gradient(circle at var(--rv) var(--rv), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--rv)) var(--rv), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at var(--rv) calc(100% - var(--rv)), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--rv)) calc(100% - var(--rv)), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%);
+  background-repeat: no-repeat;
+  background-size: 1.24em 1.24em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+/* the spine rail between the leaves */
+#screen-title .spine {
+  flex: 0 0 0.62em;
+  align-self: stretch;
+  position: relative;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.85), #4a2c1a 38%, #2a1811 64%, rgba(0, 0, 0, 0.85));
+  background-repeat: no-repeat;
+}
+#screen-title .spine::before,
+#screen-title .spine::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0.72em;
+  height: 0.72em;
+  margin-left: -0.36em;
+  border-radius: 50%;
+  background-image: radial-gradient(circle at 40% 34%, var(--brass-lit) 0 26%, var(--brass) 26% 66%, rgba(0, 0, 0, 0.8) 66% 88%, transparent 90%);
+}
+#screen-title .spine::before { top: 0.34em; }
+#screen-title .spine::after { bottom: 0.34em; }
+
+/* ── a parchment leaf ─────────────────────────────────────────────────────── */
+#screen-title .leaf {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--burn) + var(--burn-spread) + 0.35em);
+  color: var(--ink);
+  background-color: var(--parch);
+  background-image:
+    var(--stain), var(--tooth),
+    radial-gradient(126% 96% at 50% 34%, var(--parch-hi) 0%, var(--parch) 54%, var(--parch-lo) 82%, var(--parch-burn) 100%);
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow:
+    inset 0 0 var(--burn) var(--burn-spread) rgba(74, 40, 14, 0.5),
+    inset 0 0 0 1px rgba(58, 32, 12, 0.55),
+    0 0 1.1em rgba(0, 0, 0, 0.55);
+}
+#screen-title .leaf::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: calc(var(--burn) * 0.62);
+  border: 1px solid rgba(138, 101, 36, 0.55);
+  box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 3px rgba(138, 101, 36, 0.34);
+}
+
+/* ── LEFT LEAF ────────────────────────────────────────────────────────────── */
+#screen-title .leaf-left { padding-left: calc(var(--banner-w) + 1.15em); }
+
+#screen-title .banner {
+  position: absolute;
+  left: 1.1%;
+  top: -1.2%;
+  z-index: 6;
+  width: var(--banner-w);
+  height: auto;
+  aspect-ratio: 172 / 322;
+  object-fit: cover;
+  object-position: top center;
+  clip-path: polygon(3% 0, 97% 0, 97% 86%, 50% 100%, 3% 86%);
+  filter: drop-shadow(0.16em 0.34em 0.38em rgba(0, 0, 0, 0.75));
+}
+/* FIX 1 (over the mockup): feathered on every edge, not only top/bottom. A
+   single directional gradient left the right and bottom edges of the crop as a
+   visible rectangle against the parchment; a second mask layer, intersected,
+   fades all four. */
+#screen-title .drawing {
+  flex: 0 0 auto;
+  margin: 0.55em -0.35em calc(var(--burn) * -0.3) -0.35em;
+  margin-top: auto;
+  width: calc(100% + 0.7em);
+  height: auto;
+  aspect-ratio: 610 / 290;
+  max-height: 54%;
+  object-fit: cover;
+  object-position: 50% 62%;
+  mix-blend-mode: multiply;
+  opacity: 0.94;
+  mask-image:
+    linear-gradient(180deg, transparent 0, #000 16%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* ── RIGHT LEAF ───────────────────────────────────────────────────────────── */
+#screen-title .leaf-right { justify-content: center; align-items: center; }
+#screen-title .controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.9em;
+  width: min(100%, 17.5em);
+  z-index: 1;
+}
+/* the faint house watermark pressed into the right leaf. FIX 1 continued: the
+   mockup's diagonal fade left the top and right edges — the ones flush with the
+   leaf's own edges — as a visible rectangle; feathered on all four here too. */
+#screen-title .watermark {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 58%;
+  height: auto;
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+  /* FIX 7 (over FIX 1 continued, above): top and right are flush with the leaf's
+     own edges and were feathered; left and bottom are NOT flush — the box floats
+     inside the leaf (`right:0`/`top:0` with `width:58%`/`height:auto`) — and had
+     no axis-aligned fade of their own. The 196deg diagonal alone reaches 0 near
+     the bottom-left corner but stays well above 0 up the rest of the left edge,
+     which is exactly the vertical seam visible at 1000×780: the box's true left
+     edge, not a drawn shape. Two more intersected layers fade left and bottom the
+     same way top/right already were. */
+  mask-image:
+    linear-gradient(196deg, #000 30%, transparent 88%),
+    linear-gradient(180deg, transparent 0%, #000 12%, #000 100%),
+    linear-gradient(90deg, #000 0%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 14%, #000 100%),
+    linear-gradient(0deg, transparent 0%, #000 12%, #000 100%);
+  mask-composite: intersect;
+}
+
+/* status line and the save-status note — hidden at rest (index.html carries the
+   `hidden` attribute); shown only for an unreadable save. Colour is `--ink`, not
+   the shared stylesheet's `--warn-lit`: measured against every leaf stop,
+   `--warn-lit` is 1.44:1 on `--parch-burn` and `--ink` is 4.996:1 — the only ink
+   role in ADR-0028's ladder that clears this darker parchment (README §a.1). */
+#screen-title .reason {
+  margin-top: 0.6em;
+  padding-top: 0.5em;
+  border-top: 1px solid rgba(138, 101, 36, 0.34);
+  font-size: 0.85em;
+  font-style: normal;
+  color: var(--ink);
+  text-align: center;
+}
+#screen-title .reason.warn { font-weight: 600; color: var(--ink); }
+
+/* ── the overwrite confirm step, same plaque family as the buttons ─────────── */
+#screen-title .confirm-step { display: flex; flex-direction: column; gap: 0.6em; }
+#screen-title .confirm-step[hidden] { display: none; }
+#screen-title .confirm-text {
+  margin: 0;
+  text-align: center;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.92em;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+#screen-title .confirm-actions { display: flex; gap: 0.8em; }
+#screen-title .confirm-actions button { flex: 1 1 0; }
+
+/* ── the iron plaque ──────────────────────────────────────────────────────── */
+#screen-title button {
+  position: relative;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  padding: 1.15em 1em;
+  border: 0;
+  border-radius: 0.1em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 1.02em;
+  letter-spacing: 0.085em;
+  color: var(--label);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 40%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    inset 0 -0.14em 0.4em rgba(0, 0, 0, 0.6),
+    0 0 0 0.18em var(--plaque-lip),
+    0 0 0 0.3em rgba(0, 0, 0, 0.6),
+    0 0.22em 0.5em rgba(0, 0, 0, 0.6);
+}
+#screen-title button[hidden] { display: none; }
+/* Continue's two-line plaque label (docs/visual/overhaul/title-851x324-with-save.png
+   showed "CONTINUE · BATTLE 2 OF / 5" wrapping mid-phrase at one size). `#continue-label`
+   stays the plaque caps as before — it inherits the button's own font entirely, no rule
+   needed. `#continue-progress` is deliberately NOT that font: smaller, upright-plaque
+   italic in EB Garamond (`--sans`, which is the family the woff2 italic subset is
+   registered under), and `--label-off`'s tone — the same colour the disabled plaque uses
+   — rather than the full-bright `--label`, so it reads as a subordinate line, not a second
+   heading. `text-transform: none` overrides the page-wide `button{text-transform:
+   uppercase}` (index.html) the same way `.eyebrow`'s FIX 4 above does; left inheriting it,
+   "Battle 2 of 5" would render as "BATTLE 2 OF 5" in a font sized for a caption, not a
+   caption. `:empty` (no save → `game.ts` writes `""`) collapses the line to zero height,
+   which is what keeps New Game and Continue the same height with no save on the slot. */
+#screen-title #continue-label { display: block; }
+#screen-title #continue-progress {
+  display: block;
+  margin-top: 0.12em;
+  font-family: var(--sans);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-size: 0.5em;
+  line-height: 1;
+  color: var(--label-off);
+}
+#screen-title #continue-progress:empty { display: none; margin-top: 0; }
+/* the four rivets, on their OWN layer (deviation 1, file banner). Their brass
+   colour never touches `ownGrounds()`'s scan of the button's OWN backgroundImage
+   because a `::before` is a different element for that purpose entirely. */
+#screen-title button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* FIX 5: index.html's page-wide `button::before` (the FFT pointer diamond) sets
+     `opacity: 0` at rest and a `transform` for its hover slide — this rule is more
+     specific for every property it names, but never named `opacity` or `transform`,
+     so the rivets inherited that opacity:0 by the one-property cascade rule and
+     never painted. `button:hover::before`/`:focus-visible::before` also set
+     opacity/transform, but this id-scoped rule outranks them (id beats a bare
+     pseudo-class) so the rivets stay put on hover instead of sliding. */
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle at 0.58em 0.58em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.58em) 0.58em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at 0.58em calc(100% - 0.58em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.58em) calc(100% - 0.58em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%);
+  background-repeat: no-repeat;
+  background-size: 1.16em 1.16em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+#screen-title button:hover:not(:disabled) { background-color: #232324; }
+#screen-title button:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    0 0 0 0.18em var(--glow),
+    0 0 0 0.3em rgba(0, 0, 0, 0.6),
+    0 0 1.1em 0.1em rgba(252, 193, 75, 0.55);
+}
+/* FIX 2 (over the mockup): the disabled field no longer lightens at the top.
+   The mockup's disabled top stop (its own `#232324`, matching `--plaque-hi`'s
+   sheen) both measure BELOW 4.5:1 against `--label-off` — 4.33 and 4.08. A flat
+   field from `--plaque` down to `--plaque-lo` clears both (4.61 / 4.80). */
+#screen-title button:disabled {
+  cursor: default;
+  /* FIX 6: index.html's page-wide `button[disabled] { opacity: .4 }` (the generic
+     "greyed out" rule) is less specific than this id-scoped rule for every
+     property BOTH set — but neither FIX 2 above nor this rule ever named
+     `opacity`, so the global .4 kept winning by the one-property cascade rule and
+     washed the correctly-toned dark plaque out to a light slab over the
+     parchment. The plaque itself communicates "disabled" (flat ground, dimmed
+     label); the whole-button fade fights it. */
+  opacity: 1;
+  color: var(--label-off);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque) 0%, var(--plaque) 46%, var(--plaque-lo) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 -0.1em 0.34em rgba(0, 0, 0, 0.55),
+    0 0 0 0.18em #221c16,
+    0 0 0 0.3em rgba(0, 0, 0, 0.55);
+}
+#screen-title button:disabled::before {
+  background-image:
+    radial-gradient(circle at 0.58em 0.58em, #6a5b4a 0 26%, #4a3b2c 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.58em) 0.58em, #6a5b4a 0 26%, #4a3b2c 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at 0.58em calc(100% - 0.58em), #6a5b4a 0 26%, #4a3b2c 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.58em) calc(100% - 0.58em), #6a5b4a 0 26%, #4a3b2c 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%);
+  background-repeat: no-repeat;
+  background-size: 1.16em 1.16em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+
+/* ── the log plaque, on the wood, straddling the codex's bottom-left corner ── */
+#screen-title .logbox {
+  position: absolute;
+  left: 1.4em;
+  bottom: -0.55em;
+  z-index: 7;
+  width: auto;
+}
+#screen-title .logbox button {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  width: auto;
+  padding: 0.5em 0.95em 0.5em 0.7em;
+  font-size: 0.82em;
+  letter-spacing: 0.09em;
+}
+/* `::after`, not `::before` — `::before` is already spoken for by the rivet
+   layer above, and only ONE generated box exists per side. `order:-1` puts this
+   ahead of the text anyway, since both are flex items of `.logbox button`. */
+#screen-title .logbox button::after {
+  content: "";
+  order: -1;
+  flex: 0 0 auto;
+  width: 0.95em;
+  height: 0.7em;
+  background-image: linear-gradient(var(--label), var(--label)), linear-gradient(var(--label), var(--label)), linear-gradient(var(--label), var(--label));
+  background-repeat: no-repeat;
+  background-size: 100% 2px, 72% 2px, 88% 2px;
+  background-position: 0 0, 0 50%, 0 100%;
+}
+#screen-title .logbox p {
+  margin: 0.4em 0 0;
+  font-size: 0.8em;
+  line-height: 1.4;
+  color: var(--ink-dk);
+}
+#screen-title #log-text-title { display: none; }
+
+/* ── type ─────────────────────────────────────────────────────────────────── */
+/* FIX 3 (over the mockup, per the owner): italic, not upright — the concept's
+   title IS italic. There is no EB Garamond 600 italic subset on disk
+   (`public/fonts/` has only 400/600 upright and 400 italic), so this asks for
+   weight 600 on the 400-italic face and lets the browser synthesize the extra
+   weight (`font-synthesis` defaults to allowed; nothing on this page disables
+   it) rather than shipping plain 400 italic, which reads noticeably thinner
+   than the concept's title stroke. */
+#screen-title .eyebrow {
+  margin: 0;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-style: italic;
+  /* FIX 4: the page-wide `.eyebrow` rule (index.html) sets `text-transform:
+     uppercase` for the other four screens' small caption line. This element
+     carries the DISPLAY TITLE here (DOM role flip, §c above), which the concept
+     renders mixed case — `#screen-title .eyebrow` is more specific than that
+     rule for every property it sets, but it never set `text-transform`, so the
+     global uppercase kept winning by the one-property cascade rule. */
+  text-transform: none;
+  font-size: 1.95em;
+  line-height: 1.05;
+  letter-spacing: 0.005em;
+  color: var(--ink-display);
+  text-wrap: balance;
+}
+#screen-title h1 {
+  margin: 0.12em 0 0;
+  font-family: var(--sans);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.36em;
+  line-height: 1.12;
+  letter-spacing: 0.01em;
+  color: var(--ink-display);
+  text-align: center;
+  text-shadow: none;
+}
+#screen-title .rule { display: flex; align-items: center; gap: 0.3em; margin: 0.34em 0 0.1em; }
+#screen-title .rule i { flex: 1 1 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent) 14%, var(--accent) 86%, transparent); }
+#screen-title .rule b { width: 0; height: 0; border-block: 0.19em solid transparent; }
+#screen-title .rule b.l { border-right: 0.34em solid var(--accent); }
+#screen-title .rule b.r { border-left: 0.34em solid var(--accent); }
+#screen-title .rule svg { width: 0.85em; height: 0.85em; fill: var(--accent); flex: 0 0 auto; }
+
+#screen-title .lede {
+  margin: 0.62em 0 0;
+  font-style: italic;
+  font-size: 0.87em;
+  line-height: 1.42;
+  color: var(--ink);
+  max-width: 34em;
+}

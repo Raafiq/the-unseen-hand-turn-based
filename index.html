@@ -13,6 +13,13 @@
          itself ships NO icons — none exist yet — so an install prompt will not
          appear; `display` and `orientation` still apply to a home-screen launch. -->
     <link rel="manifest" href="manifest.webmanifest" />
+    <!-- The overhaul look, TITLE SCREEN ONLY (src/render/overhaul.css). Every rule in it is
+         scoped under `#screen-title`, WITH ONE DELIBERATE EXCEPTION: `body:has(#screen-title
+         :not([hidden]))` reaches `body` itself, because a rule scoped to `#screen-title`
+         alone has no way to stop the DOCUMENT from scrolling behind a screen that is
+         `position: fixed`. The other four screens' CSS below is otherwise untouched this
+         slice — not linked from viewer.html, which has no title screen. -->
+    <link rel="stylesheet" href="/src/render/overhaul.css" />
     <style>
       /* ── The material ──────────────────────────────────────────────────────
          Aged parchment on a dark table. Everything below is CSS and one inline
@@ -340,7 +347,13 @@
       .card.board .reason { border-top-color: #3a2d1c; color: var(--ink-dk-faint); }
       .reason.warn { color: var(--warn-lit); font-style: normal; }
       .reason.fatal { color: #f0d5cd; font-style: normal; background: rgba(139,43,34,.85); border: 1px solid #571712; padding: 8px 12px; }
-      #save-error { margin-bottom: 18px; color: #f0d5cd; background: rgba(139,43,34,.9); border: 1px solid #571712; padding: 10px 14px; font-style: normal; }
+      /* `position: relative` + `z-index: 6` are load-bearing, not decoration: `#screen-title`
+         (src/render/overhaul.css) is `position: fixed` with `z-index: 5`, and a save-write
+         failure must stay visible even while the title is up (the confirm step lives there).
+         A plain static box loses to any positioned+z-indexed sibling regardless of DOM
+         order, so without this `#screen-title`'s opaque parchment paints over the alert —
+         it never disappears, it just stops being seen. */
+      #save-error { position: relative; z-index: 6; margin-bottom: 18px; color: #f0d5cd; background: rgba(139,43,34,.9); border: 1px solid #571712; padding: 10px 14px; font-style: normal; }
       #save-error[hidden] { display: none; }
 
       /* ── the two battle side panels ──────────────────────────────────────── */
@@ -682,29 +695,64 @@
     <div class="wrap">
       <div id="save-error" class="reason" data-testid="save-error" role="alert" hidden></div>
 
-      <!-- TITLE -->
+      <!-- TITLE (the overhaul look, src/render/overhaul.css). `#screen-title` IS the
+           fixed full-viewport sheet (the mockup's `.stage`), so its `hidden` toggle in
+           `renderScreens()` still hides the whole screen exactly as before. -->
       <section id="screen-title" data-testid="screen-title">
-        <p class="eyebrow">The Unseen Hand</p>
-        <h1>The First March</h1>
-        <p class="lede">Five battles. A party of four that keeps everything it earns — banked AP, learned abilities, its full HP restored between fights. Lose one and you retry it with exactly the party you had. One save slot, written to this browser.</p>
-        <div class="card">
-          <div class="controls">
-            <button id="btn-new-game" data-testid="new-game">New Game</button>
-            <button id="btn-continue" class="ghost" data-testid="continue">Continue</button>
-            <button id="btn-erase" class="ghost" data-testid="erase">Erase save</button>
+        <div class="codex">
+          <img class="banner" id="title-ribbon" src="" alt="" aria-hidden="true" />
+          <!-- LEFT LEAF -->
+          <div class="leaf leaf-left">
+            <p class="eyebrow">The Unseen Hand</p>
+            <div class="rule" aria-hidden="true">
+              <b class="l"></b><i></i>
+              <svg class="fleur" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 1.4c2 2.7 3.2 4.8 3.2 6.9 0 1.8-1.1 3.2-3.2 4.4-2.1-1.2-3.2-2.6-3.2-4.4 0-2.1 1.2-4.2 3.2-6.9z"/>
+                <path d="M8.7 8.1c-2-.7-3.8.2-4.6 1.8-.8 1.7-.3 3.6 1.2 4.5 1.1.7 2.7.6 4-.3-1.5-1.1-2.2-2.4-2.2-3.9 0-.7.2-1.4.6-2.1z"/>
+                <path d="M15.3 8.1c2-.7 3.8.2 4.6 1.8.8 1.7.3 3.6-1.2 4.5-1.1.7-2.7.6-4-.3 1.5-1.1 2.2-2.4 2.2-3.9 0-.7-.2-1.4-.6-2.1z"/>
+                <path d="M6.6 14.8h10.8v1.7H6.6z"/>
+                <path d="M12 16.7c1.5 2.2 2.5 4 2.5 5.5H9.5c0-1.5 1-3.3 2.5-5.5z"/>
+              </svg>
+              <i></i><b class="r"></b>
+            </div>
+            <h1>The First March</h1>
+            <p class="lede">Five battles. A party of four that keeps everything it earns — banked AP, learned abilities, its full HP restored between fights. Lose one and you retry it with exactly the party you had. One save slot, written to this browser.</p>
+            <img class="drawing" id="title-castle" src="" alt="" aria-hidden="true" />
           </div>
-          <div id="title-slot" class="reason info" data-testid="title-slot" role="status" aria-live="polite"></div>
-        </div>
-        <div class="card logbox" id="logbox-title" data-testid="logbox-title">
-          <h3>Playtesting this?</h3>
-          <p id="log-note-title" data-testid="log-note-title" role="status" aria-live="polite"></p>
-          <div class="controls">
+
+          <div class="spine" aria-hidden="true"></div>
+
+          <!-- RIGHT LEAF -->
+          <div class="leaf leaf-right">
+            <img class="watermark" id="title-watermark" src="" alt="" aria-hidden="true" />
+            <div class="controls">
+              <!-- The in-page overwrite step (replaces the removed Erase-save button).
+                   Hidden at rest; shown only when New Game is clicked with a save already
+                   on the slot. No window.confirm — same plaque look, Yes/Back. -->
+              <div id="new-game-confirm" class="confirm-step" data-testid="new-game-confirm" hidden>
+                <p class="confirm-text" role="alert">Overwrite your save?</p>
+                <div class="confirm-actions">
+                  <button id="btn-new-game-yes" data-testid="new-game-confirm-yes">Yes</button>
+                  <button id="btn-new-game-back" class="ghost" data-testid="new-game-confirm-back">Back</button>
+                </div>
+              </div>
+              <button id="btn-new-game" data-testid="new-game">New Game</button>
+              <button id="btn-continue" class="ghost" data-testid="continue">
+                <span id="continue-label">Continue</span>
+                <span id="continue-progress" data-testid="continue-progress"></span>
+              </button>
+            </div>
+            <div id="title-slot" class="reason info" data-testid="title-slot" role="status" aria-live="polite" hidden></div>
+          </div>
+
+          <!-- the small iron plaque straddling the board's bottom-left corner -->
+          <div class="logbox" id="logbox-title" data-testid="logbox-title">
             <button id="btn-log-title" class="ghost" data-testid="copy-log-title">Copy playtest log</button>
+            <p id="log-note-title" data-testid="log-note-title" role="status" aria-live="polite" hidden></p>
+            <textarea id="log-text-title" data-testid="log-text-title" readonly hidden
+                      aria-label="Playtest log, ready to copy"></textarea>
           </div>
-          <textarea id="log-text-title" data-testid="log-text-title" readonly hidden
-                    aria-label="Playtest log, ready to copy"></textarea>
         </div>
-        <footer>Also here: the <a href="./viewer.html">engine viewer</a> — the same simulation with every internal number on show.</footer>
       </section>
 
       <!-- SCENE — a prologue, an interlude or an epilogue (docs/10 AC-V17).

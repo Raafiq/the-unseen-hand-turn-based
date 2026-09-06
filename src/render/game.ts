@@ -18,6 +18,7 @@ import {
   ENCOUNTERS,
   PORTRAIT_PLACEHOLDER,
   PORTRAITS,
+  TITLE_ART,
   battleTitle,
   campaign,
   registry,
@@ -41,12 +42,36 @@ import type { Session } from "./session.js";
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+// The title screen's art (docs/visual/concepts/README.md §e) — bundled via TITLE_ART so
+// Vite resolves each to a hashed, `base`-aware URL (the same reason the portraits are
+// imported rather than hand-written as relative `src` attributes in index.html). Set
+// once at boot: none of the three ever changes while the page is open.
+el<HTMLImageElement>("title-castle").src = TITLE_ART.castle;
+el<HTMLImageElement>("title-ribbon").src = TITLE_ART.ribbon;
+el<HTMLImageElement>("title-watermark").src = TITLE_ART.watermark;
+
 /**
- * `localStorage` can be missing entirely (a sandboxed frame). Fall back to an in-memory
- * slot so the game still runs — and say so on the title screen rather than letting the
- * player finish a campaign that was never going to be saved.
+ * `localStorage` can be missing entirely (a sandboxed frame), or PRESENT but unusable — a
+ * privacy configuration that lets the `localStorage` property resolve yet throws the
+ * moment anything actually touches it (the getter itself, or `getItem`/`setItem`). A bare
+ * `typeof localStorage !== "undefined"` only catches the first case, so a real probe —
+ * write a throwaway key, read it back, remove it — is needed to catch the second; every
+ * step is wrapped so a probe that throws proves unavailability instead of taking the page
+ * down. Fall back to an in-memory slot when it fails, and say so on the title screen
+ * rather than letting the player finish a campaign that was never going to be saved.
  */
-const storageAvailable = typeof localStorage !== "undefined";
+function detectStorage(): boolean {
+  try {
+    if (typeof localStorage === "undefined") return false;
+    const probeKey = "tuh.storage-probe";
+    localStorage.setItem(probeKey, "1");
+    localStorage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+const storageAvailable = detectStorage();
 const shell = new CampaignShell({
   def: campaign,
   encounters: ENCOUNTERS,
@@ -203,7 +228,7 @@ const hud: HudHandle = mountHud(el("stage-host"), {
     // drawer to offer "save"; this is the honest form of that, and the deviation is
     // deliberate rather than an omission.
     { id: "menu-save", label: "Progress is saved automatically — quitting loses nothing" },
-    { id: "quit", label: "Quit to title", run: () => act("quit", () => shell.quitToTitle()) },
+    { id: "quit", label: "Quit to title", run: () => act("quit", toTitle) },
     {
       id: "btn-step",
       label: shell.session?.phase === "AI_TURN" ? "Play the enemy turn ▸" : "Auto-play my turn ▸",
@@ -227,21 +252,48 @@ function renderScreens(): void {
   if (onStage) hud.resize();
 }
 
-function renderTitle(): void {
-  const continueBtn = el<HTMLButtonElement>("btn-continue");
-  continueBtn.disabled = !shell.canContinue();
-  el<HTMLButtonElement>("btn-erase").disabled = shell.slotState.kind === "empty";
+/**
+ * The title screen's New-Game overwrite step (replaces the removed Erase-save button,
+ * per the owner's concept). UI-only — it never reaches the shell until "Yes" — so it is
+ * plain module state, the same way {@link prepSeen} is: `renderTitle` only runs while
+ * `shell.screen === "TITLE"` (see `refresh`), so nothing here can leak a stale prompt
+ * onto another screen; {@link toTitle} clears it on every path back to this one.
+ */
+let confirmOverwrite = false;
 
+/**
+ * Focus owed on the NEXT `renderTitle()` paint, set by whichever action just changed
+ * `confirmOverwrite` and cleared once applied. Deferred rather than called inline because
+ * the target is `hidden` until `renderTitle()` un-hides it — focusing a hidden element is
+ * a silent no-op, so the call has to land after the DOM actually shows the button.
+ */
+let pendingTitleFocus: "confirm-yes" | "new-game" | null = null;
+
+function renderTitle(): void {
   const slot = shell.slotState;
+
+  el<HTMLDivElement>("new-game-confirm").hidden = !confirmOverwrite;
+  el<HTMLButtonElement>("btn-new-game").hidden = confirmOverwrite;
+  const continueBtn = el<HTMLButtonElement>("btn-continue");
+  continueBtn.hidden = confirmOverwrite;
+  continueBtn.disabled = !shell.canContinue();
+  // The save readout lives ON the plaque now, not beside it: a second line under
+  // "Continue" carries the progress, in its own smaller italic rather than crammed onto
+  // one line with the plaque caps (that wrapped mid-phrase — see `.continue-progress`
+  // in overhaul.css). With no save the line is empty, so the plaque stays one line.
+  el("continue-progress").textContent =
+    slot.kind === "save"
+      ? slot.save.status === "completed"
+        ? `All ${campaign.battles.length} won`
+        : `Battle ${slot.save.battleIndex + 1} of ${campaign.battles.length}`
+      : "";
+
   const note = el("title-slot");
   if (slot.kind === "save") {
-    const done = slot.save.history.filter((h) => h.outcome === "victory").length;
+    // Nothing to add here any more — the label above already carries this state, and the
+    // note is about to be hidden regardless (see below).
     note.className = "reason info";
-    note.textContent =
-      slot.save.status === "completed"
-        ? `Saved run: finished — all ${campaign.battles.length} battles won.`
-        : `Saved run: battle ${slot.save.battleIndex + 1} of ${campaign.battles.length}` +
-          `${slot.save.status === "gameOver" ? " (lost — retry pending)" : ""}, ${done} won.`;
+    note.textContent = "";
   } else if (slot.kind === "error") {
     // Loud, and specific. A save that cannot be read is the player's business —
     // silently offering "New Game" alone would look like they never had a save.
@@ -253,7 +305,56 @@ function renderTitle(): void {
       ? "No saved run yet. New Game starts the campaign."
       : "This browser is not letting the game store data, so progress will NOT be saved.";
   }
+  // SHOWN for either warning a player must act on — a save that cannot be read, or a
+  // browser that will not let anything be saved at all — and hidden otherwise: the
+  // "save"/"empty"-with-storage branches above still set text (harmless, and simpler than
+  // threading a third state through), they just never surface it.
+  note.hidden = slot.kind !== "error" && storageAvailable;
   renderLogControl();
+
+  if (pendingTitleFocus === "confirm-yes") {
+    el<HTMLButtonElement>("btn-new-game-yes").focus();
+    pendingTitleFocus = null;
+  } else if (pendingTitleFocus === "new-game") {
+    el<HTMLButtonElement>("btn-new-game").focus();
+    pendingTitleFocus = null;
+  }
+}
+
+/**
+ * New Game, clicked. Asks first, in page, on the plaque — no `window.confirm` — but ONLY
+ * when the slot holds a genuinely READABLE save (`kind === "save"`): that is the one case
+ * with something to lose. An unreadable slot (`kind === "error"`) has nothing left to
+ * protect — the bytes are already garbage — so gating it too would turn "New Game still
+ * works" on a corrupt save into an extra, pointless tap; it starts over at once, same as
+ * an empty slot.
+ */
+function newGameClick(): void {
+  if (shell.slotState.kind !== "save") {
+    shell.newGame();
+    return;
+  }
+  confirmOverwrite = true;
+  pendingTitleFocus = "confirm-yes";
+}
+
+/** "Yes" on the overwrite step: start the fresh run, dropping the old save. */
+function newGameConfirmed(): void {
+  confirmOverwrite = false;
+  shell.newGame();
+}
+
+/** "Back" on the overwrite step (or Escape, see the TITLE keydown handler below): leave
+ * the existing save untouched and return focus to New Game. */
+function newGameCancelled(): void {
+  confirmOverwrite = false;
+  pendingTitleFocus = "new-game";
+}
+
+/** Every path back to the title screen, so a stale overwrite prompt cannot survive it. */
+function toTitle(): void {
+  confirmOverwrite = false;
+  shell.quitToTitle();
 }
 
 /**
@@ -625,6 +726,10 @@ function copyLog(k: (typeof LOG_SCREENS)[number]): void {
   const box = el<HTMLTextAreaElement>(`log-text-${k}`);
   const note = el(`log-note-${k}`);
   box.value = json;
+  // `log-note-title` starts `hidden` (rest matches the picture — docs/visual/concepts);
+  // this is the one place that un-hides it, and it is a no-op everywhere else, since no
+  // other screen's note starts hidden.
+  note.hidden = false;
 
   const fallback = (): void => {
     box.hidden = false;
@@ -851,16 +956,17 @@ el("btn-help-close").addEventListener("click", () => {
 const on = (id: string, fn: () => void): void =>
   el(id).addEventListener("click", () => act(id, fn));
 
-on("btn-new-game", () => shell.newGame());
+on("btn-new-game", newGameClick);
+on("btn-new-game-yes", newGameConfirmed);
+on("btn-new-game-back", newGameCancelled);
 on("btn-scene-continue", () => shell.endScene());
 on("btn-continue", () => shell.continueGame());
-on("btn-erase", () => shell.eraseSave());
 on("btn-deploy", () => shell.deploy());
-on("btn-brief-quit", () => shell.quitToTitle());
+on("btn-brief-quit", toTitle);
 on("btn-next", () => shell.nextBattle());
 on("btn-retry", () => shell.retry());
-on("btn-after-quit", () => shell.quitToTitle());
-on("btn-done-title", () => shell.quitToTitle());
+on("btn-after-quit", toTitle);
+on("btn-done-title", toTitle);
 
 /**
  * Escape on the BATTLE screen, from anywhere on it.
@@ -879,6 +985,18 @@ document.addEventListener("keydown", (ev) => {
   if (ev.target === hud.canvas) return;
   if (hud.closeOverlay()) return;
   guard(() => shell.session?.cancel());
+});
+
+/**
+ * Escape on the TITLE screen, but ONLY while the overwrite-confirm step is open — at rest
+ * there is nothing for it to back out of. Otherwise the step was a keyboard dead end: Tab
+ * reaches Yes/Back, but nothing let a keyboard user close it without committing or
+ * clicking, which a mouse user could always do. Acts exactly like Back.
+ */
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || shell.screen !== "TITLE" || !confirmOverwrite) return;
+  ev.preventDefault();
+  guard(newGameCancelled);
 });
 
 /**
@@ -918,8 +1036,13 @@ const api: GameApi = {
   screen: () => shell.screen,
   save: () => shell.save,
   canContinue: () => shell.canContinue(),
-  newGame: () => act("btn-new-game", () => shell.newGame()),
+  // Routes through the SAME gate a click on the plaque does (`newGameClick`), so the
+  // seam cannot silently overwrite a save the real button would have stopped to confirm.
+  newGame: () => act("btn-new-game", newGameClick),
   continueGame: () => act("btn-continue", () => shell.continueGame()),
+  // The button that reached this is gone from the title (replaced by the in-page
+  // overwrite step), but the method stays: it is still how a corrupt/stale slot gets
+  // cleared from a test, and `GameApi` is the shipped seam, not the DOM.
   eraseSave: () => act("btn-erase", () => shell.eraseSave()),
   deploy: () => act("btn-deploy", () => shell.deploy()),
   step: () => act("btn-step", () => shell.session?.step()),
@@ -948,7 +1071,7 @@ const api: GameApi = {
   retry: () => act("btn-retry", () => shell.retry()),
   // "quit", not a button id: three different buttons reach this, so naming one of
   // them would put a click in the log that nobody made.
-  quitToTitle: () => act("quit", () => shell.quitToTitle()),
+  quitToTitle: () => act("quit", toTitle),
   storedSave: () => (storageAvailable ? localStorage.getItem(SAVE_KEY) : null),
   playtestLog: () => telemetry.snapshot(),
   clearPlaytestLog: () => telemetry.clear(),
