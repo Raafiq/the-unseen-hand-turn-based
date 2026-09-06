@@ -68,7 +68,10 @@ let browserSpecs;
 try {
   // `--list` enumerates without launching a browser and without running globalSetup, so
   // this costs a second and cannot fail on a stale `dist`.
-  const listed = execFileSync("npx", ["playwright", "test", "--list"], {
+  // On Windows `npx` is a .cmd shim, which execFileSync cannot spawn without a shell.
+  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+  const listed = execFileSync(npx, ["playwright", "test", "--list"], {
+    shell: process.platform === "win32",
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });

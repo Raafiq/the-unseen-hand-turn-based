@@ -38,3 +38,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0032](0032-the-board-moves-and-never-blocks.md) | The board moves, and the motion never blocks: option B, non-blocking | Accepted | 2026-09-01 |
 | [0033](0033-the-stat-panel-shows-only-what-the-sim-models.md) | The battle-map stat panel shows only what the sim models: no MP, no Level | Accepted | 2026-09-01 |
 | [0034](0034-mobile-is-landscape-only-a-gate-not-a-lock.md) | Mobile is landscape-only: a rotate gate plus a best-effort orientation lock | Accepted | 2026-09-05 |
+| [0035](0035-portraits-are-generated-in-gpt-image-2-not-midjourney.md) | Portraits are generated in GPT Image 2, not Midjourney; every character is in their twenties | Accepted | 2026-09-05 |

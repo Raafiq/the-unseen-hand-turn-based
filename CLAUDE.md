@@ -103,30 +103,22 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 
 ## Engine and process rules
 
-- **Subtree rules load with the subtree.** `src/sim/CLAUDE.md` holds the sim's edit-time gotchas (Zod TDZ + migration-per-bump, the build-time clamp, the probe's comparator, gate calibration, golden regeneration). `src/render/CLAUDE.md` holds the viewer's (preview purity, the single tile-driven mutator, the forecast projection boundary, absent-not-zero). Everything you must know *before* opening a file stays here.
+- **Subtree rules load with the subtree.** `src/sim/CLAUDE.md` holds the sim's edit-time gotchas (Zod TDZ + migration-per-bump, the build-time clamp, the probe's comparator, gate calibration, golden regeneration, the N-bump checklist). `data/CLAUDE.md` holds the content author's (a "contained" ability edit often isn't). `src/render/CLAUDE.md` holds the viewer's (preview purity, the single tile-driven mutator, the forecast projection boundary, absent-not-zero). Everything you must know *before* opening a file stays here.
 - **A rename or namespace change lands in docs, code AND tests in one slice, or not at all.** Half-landed is strictly worse: dangling references *plus* the collision it was meant to fix. Check an AC letter is free before minting a set (viewer ACs shipped as AC-P, colliding with `docs/07`).
-- **An N-bump moves ALL the gate's records together.** When `DIVERSITY_TARGET_N` changes or a build moves EXCLUDED↔MEASURABLE, sync in the same slice: the `gauntlet.ts` manifest, an ADR-0014 amendment, **`docs/06` AC-E2 (authoritative, outranks the ADR)**, **`docs/08` §1a's phase checklist**, **`docs/11` §3's M0 status table**, and a regenerated `npm run state`. The last three are authored, not derived, and each has gone stale in the past.
 - **`npm run state` goes stale on ANY commit that adds a counted artifact** — an ADR, encounter, build or spec file — not only on a gate change. Regenerate it as the **last** step of a slice: a clean run taken mid-slice proves nothing about the commit you push. **And "derived" does not mean "complete":** each counter enumerates a **named directory**, so a new content directory is invisible until wired in (`data/campaign/encounters` shipped 5 battles the count could not see).
-- **A "contained" ability edit often isn't.** A global ability-property edit (e.g. a shared `summon.*` range) is byte-identical only for *gauntlet substitution* slots — it also changes any **as-authored** encounter fielding a build that learns it, and `benchmark-suite.test.ts` will not flag the shift. Grep the ability across `data/encounters` + `data/builds` and state what moves.
 
 ## Commands
 
-Stack locked at P0 (ADR-0007): **Web / TypeScript** — headless `src/sim/` + thin `src/render/`. TypeScript `strict`, Vitest, Zod, Vite, ESLint, npm. Install with `npm install`.
+Stack locked at P0 (ADR-0007): headless `src/sim/` + thin `src/render/`. **npm, not pnpm** — install with `npm install`. Scripts are in `package.json`; the table lists only the ones with gotchas.
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | typecheck + lint + check:rng + check:handoff + check:story + test + check:counts. **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
-| `npm run build` | typecheck + `vite build` |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | `eslint .` — bans unseeded RNG / wall-clock in `src/sim/**` |
+| `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
-| `npm run test` | `vitest run` · watch: `npm run test:watch` |
-| `npx vitest run <file>` | one file · or `npx vitest run -t "<name>"` |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
-| `npm run dev` / `preview` | Vite dev server / preview the built app |
 | `npm run test:visual` | build + Playwright screenshots/video → `npm run gallery` for the proof-sheet |
 
 Notes:
@@ -140,29 +132,24 @@ Notes:
   the record of a past defect and correcting them would falsify it. It also fails if it
   finds fewer than three live claims, because a guard that only checks the numbers it finds
   passes vacuously the day someone rewords every site. Mutation-verified four ways.
+- **`check:assets` reads the working tree, not the index.** A staged over-cap blob passes locally and fails CI.
+  Dense-hatch portrait PNGs land at 2.8-3.7 MB against the 3 MiB cap: re-encode losslessly (Pillow `optimize=True`, pixel-identical) before staging.
 - **`check:handoff`** runs on push events only — a `pull_request` event checks out a *merge* ref and would count base commits the branch never authored.
 - CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages.
 
-### GitHub Pages is a two-part system and the halves fail independently
+### GitHub Pages
 
-`pages.yml`'s `build` job can be green while the site does not exist — true for the first **22** runs. Only `deploy` ever failed, from two different settings in sequence: Pages was never enabled, then the `github-pages` environment's branch policy allowed only a dead day-one branch. Both derived from the **repository default branch**, which was the real fault. Since 2026-08-09 GitHub refuses a blocked `deploy` at the environment gate before assigning a runner, so it fails in one second with no steps and **no logs** — reading like an infra blip rather than a misconfiguration.
-
-Two preflights now open `build`: `/pages` must return 200 with `build_type == "workflow"`, **and** the environment must allow the branch. The second exists because the first is insufficient — `/pages` answers 200 while the gate still refuses every branch you have. Severity anchors on `PUBLISH_BRANCH`, not the default branch.
-
-Treat a red Pages badge as "the site is stale", never as flakiness. **The sandbox cannot load `*.github.io`** — an agent can confirm the deployment API reported success, never that the page renders.
+Treat a red Pages badge as "the site is stale", never as flakiness. `build` and `deploy` fail independently, and a blocked `deploy` fails in one second with **no logs**, reading like an infra blip. **The sandbox cannot load `*.github.io`** — an agent can confirm the deployment API reported success, never that the page renders. The two preflights, the history and the debugging recipe are in the `pages-deploy` skill.
 
 ## Project skills (`.claude/skills/`)
 
 Invoke by name:
 
-- `repo-orientation` — where to find things and which doc answers what.
-- `sim-determinism-guard` — determinism invariants + a check; use before touching sim code.
-- `game-design` — house rules: pillars, balance philosophy, anti-convergence law, build-fantasy acceptance test.
-- `decision-record` — record a decision as an ADR.
-- `brainstorm` / `grill-me` — ideation and adversarial spec-interrogation.
 - `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
   project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
   about it is stale — two wrong flags reached `docs/NEXT.md` that way. Read the skill first.
+  Portraits now come from GPT Image 2 (ADR-0035), styled against four owner-supplied
+  `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
 
 ## Agent team (`.claude/agents/`)
@@ -224,8 +211,9 @@ put Fable in every specialist.
   not approval. The hook cannot stop you writing the token yourself; it is there to make
   the action deliberate, not to make it impossible.
 - **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill, propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point.
+  **`docs/NEXT.md` holds ONLY the next slice** (user, 2026-09-06: it had grown to 843 lines and was "so bloated with unnecessary information"). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
-- **When the sandbox cannot reach an API, a CI runner can.** The proxy 403s `/repos/{owner}/{repo}`, `/pages`, `/environments`, `/deployments` and blocks `*.github.io` — but a temporary workflow step querying them with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Reach for it before guessing.
+- **When the sandbox cannot reach an API, a CI runner can.** A temporary workflow step querying it with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Details in the `pages-deploy` skill.
 - **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** The
   CI-runner trick above covers APIs; it does not cover documentation. A session built a
   whole Midjourney lesson out of 2026 blog posts because `docs.midjourney.com` 403s at the
@@ -235,9 +223,7 @@ put Fable in every specialist.
   fast-moving tool is stale by default. Name the exact page and its URL, say plain text or
   raw HTML is fine, then **save it into a skill's `references/`** so the next session does
   not have to ask again (`.claude/skills/midjourney/` is the worked example).
-- **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** The harness forbids opening a PR unasked, so the human often opens it — and GitHub fills the body from the head commit message: hard-wrapped, no headings, trailers leaked. If you did not open the PR, find it and **replace an auto-filled body** (auto-filled iff it equals the head commit message) with: lede, review-artifact link, a `Claim / the bug it hides / caught by` evidence table, what is deliberately **not** asserted, the checks (cf. PR #35, #36). Re-fetch the stored body to confirm nothing mangled. No hook can catch this.
-- **Visual proof in a PR.** Commit frames/video under `docs/visual/<slice>/` and embed images in the **PR body** as `https://github.com/<owner>/<repo>/raw/<branch>/<path>`; re-fetch afterwards to check for mangling. Do **not** embed images in API-posted comments (that path corrupts URLs and comments cannot be edited by the tooling). For motion: a filmstrip contact-sheet PNG (ffmpeg `fps=N,scale,tile`) plus an H.264 `run.mp4` and GIF (Playwright's bundled ffmpeg is VP8-only; use `ffmpeg-static`). Playable video lives on the Pages gallery after merge.
-  - **[STALE — the repo has been PUBLIC since 2026-08-09]** The old mobile findings were private-repo-specific: `raw.githubusercontent.com` now returns **200**, and the claim that the GitHub mobile app inlines no image and plays no committed video is now an **unverified hypothesis**. Re-measure on-device before relying on it; don't delete it until something replaces it.
+- **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** If you did not open the PR, find it and replace an auto-filled body (auto-filled iff it equals the head commit message). Visual proof goes in the PR body, never in API-posted comments. The exact recipe — body structure, raw image URLs, filmstrip + H.264 pipeline, the stale mobile note — is the `pr-delivery` skill.
 - **For a TASTE change, get a reference before you build.** The parchment slice was
   rebuilt twice from scratch — "too bright", then "too dark" — before the user sent one
   image, which settled it in a single pass. Aesthetic direction is not derivable from a
@@ -255,47 +241,25 @@ put Fable in every specialist.
     can't quite visualise the options, can u show me"). Frames from the **running game**
     beat mockups, and both beat a description — patch the data, capture, revert. Budget
     for it; it is cheaper than a rejected slice.
-  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.**
-    Some artifacts cannot be made here at all — Midjourney runs on the owner's
-    subscription, so only they can generate a portrait. That does not license asking
-    in prose. A session asked the owner to "run the probe prompts" across three
-    replies and **never pasted the prompts**, which a specialist had already written
-    in full; the owner had to ask again, and the next session dug them out of a
-    reverted commit. Hand over the exact thing that lets the owner act — pasted
-    inline or written to a file, verbatim. **A deliverable the user must act on is
-    relayed, never summarised.** **And the mirror: once the owner ACTS on it, record
-    the exact input verbatim, in the same turn.** Eight Midjourney probe runs produced
-    four approved images, and the four prompts behind them were written only into chat.
-    A specialist later found they existed nowhere in the repo and **reconstructed them
-    from prose notes** — text the owner would have paid to run. They survived only in the
-    transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
-    the settings: verbatim, into a file, immediately. **And record the SETTINGS, not only
-    the prompt — the same rule, one level up.** Two of those four (knight-female,
-    wizard-female) turned out on 2026-09-02 to predate the style-reference lock and are
-    **not** in the set; only the archer and the priest are. The prompts were recovered
-    intact and still could not tell anyone that, because which reference was loaded is a
-    setting and nobody wrote it down. Six sites then read "four approved images" as
-    "four usable portraits". Record what the run was configured with.
+  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.** A deliverable
+    the owner must act on (a prompt to run) is relayed verbatim, never summarised. **Once the owner
+    acts, record the exact prompt AND the settings into the repo in the same turn** — a result you
+    cannot reproduce is not an asset. The history behind both rules (three replies that never pasted
+    the prompts; four approved images whose settings nobody wrote down) is in the `midjourney` skill.
   - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
     A status reply did exactly that with three asks open. Open asks need ONE home
     you read before answering "what do you need from me". `docs/NEXT.md`'s
     **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
-- **Present implementation plans as a readable HTML artifact** (via `Artifact` + the `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
+- **Present implementation plans as a readable HTML artifact** (via the `lavish` skill — there is no `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
+- **Environment facts that cost real time to learn.** Scratch probes go in `coverage/` (gitignored, inside the repo) because `vite-node` resolves imports against the Vite root. A mutation verdict from a build that did not typecheck is not a verdict, and `git checkout` cannot restore an untracked file, so copy the file aside first. A pushed branch with no PR can read as lost: `git fetch origin` and check `origin/<branch>` before concluding anything. GitHub auto-merge is not enabled; watch the checks and merge.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
 
 ## Write plainly (user directive, 2026-08-12)
 
 **Answer in under 5 lines. Add detail only if asked.** Default to short and plain in everything the human reads — chat, PR bodies, commit messages, doc prose.
 
-Standard plain-language rules ([plainlanguage.gov](https://digital.gov/guides/plain-language/principles), [BLUF](https://en.wikipedia.org/wiki/BLUF_(communication))):
-
-- **Bottom line first.** Conclusion in the first sentence. Your draft's last paragraph is usually the real opening.
-- **Sentences 15–20 words, 25 max.** One point per sentence.
-- **Write for the reader.** Not "distinct measurable archetypes collapsed below the viability band" — "6 of 7 test builds now lose too often to count".
-- **Expand a term the first time, or drop it.** `N`, `in band`, `the fold`, `AC-E2`, `the gauntlet` mean nothing cold. Prefer "variety score", "test battles".
-- **Cut the audit trail — this is the big one.** Rejected options, fixture tweaks, re-measurements belong in the commit message, not the answer. Showing your working is not the same as answering.
-- **Tables and short sections beat paragraphs.**
+The hook `.claude/hooks/reply-style.sh` restates these rules on every prompt: bottom line first, cut the audit trail, expand a term once, tables beat prose. Two it does not carry: **sentences 15–20 words, 25 max**, and write for the reader — "6 of 7 test builds now lose too often to count", not "archetypes collapsed below the viability band".
 
 **This is about the WRITING, not the work.** Keep diagnosing by test, keep saying what is unverified, keep flagging bad news early. Just use fewer, plainer words.
 

@@ -227,8 +227,9 @@ cross-corroboration or an owner-supplied reference, never the primary wikis.
   *legible* — the canvas is unmeasured (see the Consequences above), so every legibility
   claim about the numeral is a human reading of a frame.
 - **Correction to the Consequences bullet above:** `~700 ms` is **no longer unasserted**.
-  `motion.test.ts` — "DISCRIMINATING: the plate waits for the numeral to leave, and holds
-  ~700 ms" — pins the ordering and the fade shape. But it asserts **relative to**
+  `motion.test.ts` — ~~"DISCRIMINATING: the plate waits for the numeral to leave, and holds
+  ~700 ms"~~ [2026-09-06: that title no longer exists; the test now reads "the plate follows
+  the blow by a beat"] — pins the ordering and the fade shape. But it asserts **relative to**
   `MOTION_MS.plate`, so the literal 700 is still free to move without anything going red.
   `~58 s` remains unasserted.
 

@@ -1,5 +1,11 @@
 # The 16 portrait prompts — 8 jobs x 2 genders
 
+> **Superseded for portraits, 2026-09-05:** the sixteen portraits are generated in GPT Image 2, not Midjourney, and every character is in their twenties ([ADR-0035](../../../../docs/adr/0035-portraits-are-generated-in-gpt-image-2-not-midjourney.md)); the GPT prompts are in `docs/visual/portraits/gpt-portrait-prompts.md`.
+> The blocks below are kept unedited as the character briefs the GPT prompts translate from.
+> **The archer is no longer the style lock** (2026-09-05, later the same day): the lock is `docs/visual/portraits/reference/style-ref-1..4.png`, owner-supplied.
+> Every `archer-f.png` below means the Midjourney archer, now `HEAD:docs/visual/portraits/reference/archer-f.png`; the working-tree file of that name is a GPT output.
+> Portrait scope is five jobs for now (knight, archer, thief, wizard, priest); the other blocks are briefs for jobs with no portrait planned.
+
 > **Authored 2026-09-01 by `art-director`.** Every constraint below is earned, not
 > preferred: the style decision (Final Fantasy Tactics / Akihiko Yoshida), the young
 > 20s-30s cast, the "headgear must never shadow the face" rule, the word-list that
@@ -96,7 +102,7 @@ that is exactly how four "approved" images lost track of which reference was loa
 
 | Setting | Value |
 |---|---|
-| Style Reference slot | `docs/visual/portraits/reference/archer-f.png`, **locked, unchanged** |
+| Style Reference slot | ~~`docs/visual/portraits/reference/archer-f.png`, **locked, unchanged**~~ the Midjourney archer, now `HEAD:docs/visual/portraits/reference/archer-f.png`; the lock changed 2026-09-05 (see the note at the top) |
 | Images per run | 4 |
 | Aspect ratio / model | `--ar 5:6 --raw`, written in each block |
 | `--no` list | as written in each block |

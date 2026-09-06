@@ -64,9 +64,16 @@ any doc, and re-reading the reference would never have found them.
 
 - **Word position.** Midjourney weights the **start** of a prompt more heavily. Gender,
   and anything the model resists, belongs in the first clause.
-- **Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
-  weights are allowed. The official No page says `--no` is worth only **-0.5**, so
-  `man::-1` would push twice as hard.
+- ~~**Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
+  weights are allowed, so `man::-1` would push twice as hard as `--no`.~~
+  **Corrected 2026-09-02 from the captured page** (`references/raw/multi-prompts-weights.html`):
+  `::` weights are **not supported in V7 or V8.2**; compatible versions end at 6.1.
+  `child::-1` as an age lever is impossible. `--no red` is exactly `red::-0.5`, a weak
+  nudge and not a ban, which is why `--no lipstick` was honoured only weakly.
+  Two more from the same capture: **Zoom Out runs V6.1** even on newer versions, so it
+  paints the new border in an older model than the set (`references/raw/zoom-out.html`);
+  the **Edit Model** (V8.1/8.2, Style Reference compatible) is the tool for expanding a
+  canvas (`references/raw/edit-model.html`).
   ⚠️ **UNVERIFIED.** The Multi-Prompts & Weights page
   (`/hc/en-us/articles/32658968492557`) is not captured. **Ask the owner for it before
   writing any `::` syntax** — guessing at syntax is exactly what put `--style raw` into
@@ -170,3 +177,27 @@ Midjourney runs on the owner's subscription. **No agent here can call it.** So t
 deliverable is always **the exact prompt text, pasted in full** — never a summary,
 never "run the probe prompts". A session once asked three times without ever
 pasting them.
+
+## Handing prompts to the owner (moved here from the root `CLAUDE.md`, 2026-09-05)
+
+  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.**
+    Some artifacts cannot be made here at all — Midjourney runs on the owner's
+    subscription, so only they can generate a portrait. That does not license asking
+    in prose. A session asked the owner to "run the probe prompts" across three
+    replies and **never pasted the prompts**, which a specialist had already written
+    in full; the owner had to ask again, and the next session dug them out of a
+    reverted commit. Hand over the exact thing that lets the owner act — pasted
+    inline or written to a file, verbatim. **A deliverable the user must act on is
+    relayed, never summarised.** **And the mirror: once the owner ACTS on it, record
+    the exact input verbatim, in the same turn.** Eight Midjourney probe runs produced
+    four approved images, and the four prompts behind them were written only into chat.
+    A specialist later found they existed nowhere in the repo and **reconstructed them
+    from prose notes** — text the owner would have paid to run. They survived only in the
+    transcript. **A result you cannot reproduce is not an asset.** The prompt, the seed,
+    the settings: verbatim, into a file, immediately. **And record the SETTINGS, not only
+    the prompt — the same rule, one level up.** Two of those four (knight-female,
+    wizard-female) turned out on 2026-09-02 to predate the style-reference lock and are
+    **not** in the set; only the archer and the priest are. The prompts were recovered
+    intact and still could not tell anyone that, because which reference was loaded is a
+    setting and nobody wrote it down. Six sites then read "four approved images" as
+    "four usable portraits". Record what the run was configured with.
