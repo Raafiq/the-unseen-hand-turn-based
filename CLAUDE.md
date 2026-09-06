@@ -178,10 +178,26 @@ specialists in sequence; sequencing them and reconciling what they hand back is 
 **Two cost rules (user, 2026-09-05).** (1) **Resume an agent only when the follow-up needs
 its memory.** A new task gets a new agent with a short brief. One `viewer-engineer` was
 resumed three times on one transcript and spent **600k tokens** replaying its own history;
-a fresh agent did the same follow-up in 47k. Tell every agent to pipe suite output through
-`tail`. (2) **One editing agent in the checkout at a time.** The art director and the
-engineer were both in `stage.css` the same hour; one reverted the other's file. Read-only
-agents may run alongside; editors run in sequence.
+a fresh agent did the same follow-up in 47k. (2) **One editing agent in the checkout at a
+time.** The art director and the engineer were both in `stage.css` the same hour; one
+reverted the other's file. Read-only agents may run alongside; editors run in sequence.
+
+**Token rules, enforced by hooks (user, 2026-09-06).** The same session spent ~3M tokens in
+subagents; half was suite output and whole-file reads, not thinking. Three PreToolUse hooks
+now fire for every agent:
+- **Suites run quiet.** `guard-quiet-suites.sh` denies a bare vitest / playwright / tsc /
+  `npm run test|check|build|test:visual|state`. Use `bash scripts/quiet.sh <cmd>`: the full
+  log lands in `coverage/quiet/`, the last 30 lines come back, and the real exit code is
+  kept (a bare `| tail` returns tail's code, so a red suite reads green).
+- **Big files are read in ranges.** `guard-big-reads.sh` denies a Read with no `limit`, or a
+  bare `cat`, on any text file over 400 lines. Grep for the section, then read around it.
+  A brief names the sections an agent needs, not the files.
+- **A resume is deliberate.** `guard-resume.sh` denies a SendMessage to a finished agent
+  unless the message starts with `RESUME-OK:` and says why its memory is needed.
+
+Two more that no hook can judge: open only the frames that changed, and run **one**
+reviewer pass per slice (the spec grill and the code review were two 100k+ reads of the
+same material).
 
 Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
 

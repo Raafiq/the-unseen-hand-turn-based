@@ -43,6 +43,33 @@
             "command": "bash .claude/hooks/guard-stranded-branch.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-quiet-suites.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-big-reads.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-resume.sh"
+          }
+        ]
       }
     ],
     "SessionStart": [
