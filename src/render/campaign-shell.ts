@@ -375,6 +375,22 @@ export class CampaignShell {
     return jobs;
   }
 
+  /**
+   * battle unit id → the ROSTER RECORD's OWN id ("pc-briar"), deployed in that slot.
+   *
+   * `PORTRAIT_BY_UNIT` (ADR-0039, `campaign-data.ts`) is keyed by roster id, the same
+   * id the encounter's `unit.recordId` names — NOT by the placement's `slotId`
+   * ("blue-briar"). Same trap `unitNames`/`unitJobs` already dodge for the same
+   * reason: a page that indexed the table by slot id would silently miss every unit,
+   * since no slot id ever equals a roster id, and the portrait would fall back to the
+   * placeholder for everyone without a single test failing. Empty outside a battle.
+   */
+  unitRecordIds(): Record<string, string> {
+    const ids: Record<string, string> = {};
+    for (const [slotId, record] of this.deployedRecords()) ids[slotId] = record.id;
+    return ids;
+  }
+
   /** True once the live battle is decided and waiting to be banked. */
   battleOver(): boolean {
     return this.session !== null && this.session.phase === "ENDED";

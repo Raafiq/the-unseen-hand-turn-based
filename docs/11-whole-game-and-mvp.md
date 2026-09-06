@@ -245,8 +245,10 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   built page**: a character with art against one without, asserting `naturalWidth > 0`
   rather than "an `<img>` exists" — the latter is satisfied by a broken image, by the asset
   KEY landing in `src`, and by a file that never reached `dist`. **Met** (ADR-0029).
-  **Not asserted:** that any real portrait art exists. It does not; every portrait on
-  screen is one self-labelling placeholder, and a tripwire test fails the day that changes.
+  **Now asserted (ADR-0039):** six of ten approved portraits are wired and render as real
+  art in the scene player and the unit card, per `e2e/portraits.spec.ts`. **Still not
+  asserted:** that a real-art unit card appears in the playtest capture — that spec never
+  opens the drawer that holds it, so the claim rests on `e2e/portraits.spec.ts` alone.
 
 
 > **NOT an M0 criterion: `docs/08` §3's teaching ramp.** Staged unlocks and the scripted

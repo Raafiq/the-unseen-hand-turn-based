@@ -20,14 +20,14 @@
       "id": "briar",
       "name": "Briar",
       "portrait": {
-        "asset": "placeholder"
+        "asset": "archer-f"
       }
     },
     {
       "id": "ottoline",
       "name": "Ottoline",
       "portrait": {
-        "asset": "placeholder"
+        "asset": "priest-f"
       }
     }
   ],
