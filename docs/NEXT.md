@@ -18,7 +18,7 @@ Read this before telling the owner "nothing is pending". Two asks are open, and 
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the mobile-landscape gate (ADR-0034) **and** the landscape-phone stage (ADR-0037) on a real iPhone and a real Android phone: does the rotate gate appear in portrait, does the lock button do anything, are the board's tiles tappable in landscape, and what does the ☰ → settings readout print for tile size at each phone's real viewport | open, carried from `main`'s PR #56 handoff and widened by the stage slice. Every claim about either is Chromium device emulation only | Closes the last unverified claim in `docs/10` AC-V32 and AC-V40 |
 
-**Merge the PR by SQUASH, never a merge commit.** Eight Midjourney grid blobs (61.5 MiB, measured 2026-09-06 with `git rev-list --objects`) sit in this branch's history at `659ff71` and `1c3b841`, removed in `f7e8375` and absent from `main`; a normal merge carries them into `main` for good.
+**Squash merge is still the repo's preference**, but no large blob rides on this branch: `git rev-list --objects origin/main..HEAD` tops out at ~102 KB (measured 2026-09-06).
 
 ---
 
