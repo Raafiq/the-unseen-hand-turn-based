@@ -196,6 +196,16 @@ now fire for every agent:
 - **A resume is deliberate.** `guard-resume.sh` denies a SendMessage to a finished agent
   unless the message starts with `RESUME-OK:` and says why its memory is needed.
 
+**Brief rules, enforced by a hook (user, 2026-09-06).** The portrait slice cost ~830k
+tokens; about a third was avoidable, and all of it was in the BRIEFS. `guard-brief.sh`
+denies an Agent spawn whose prompt lacks: a report cap (`REPORT … under N lines`) for
+every agent; for `viewer-engineer` / `combat-engineer`, `MUTATION` (what each new test
+goes red on) and `ASSERT` (what it asserts, **including the identity** of the thing — a
+width of 192 passed a knight's face on the archer); for `art-director`, `no alternatives`
+or `one pass`; and for `docs-steward`, a second spawn in one session unless the prompt
+starts with `SECOND-PASS-OK:` — docs are written once, at the end, against verified code.
+`npm run check:hooks` runs every hook's fixture file.
+
 Two more that no hook can judge: open only the frames that changed, and run **one**
 reviewer pass per slice (the spec grill and the code review were two 100k+ reads of the
 same material).
@@ -214,6 +224,15 @@ is transformed with no judgment.
 | `sonnet` | Default for a **well-specced** subagent: thoughtful prose, code specced to the file and function, digesting a long document down to what matters. |
 | `haiku` | Mechanical edits, format conversion, structured extraction. 200k window. |
 | `fable` | The **top-level seat only**, and only when the owner started the session on it. Never a subagent, never a `model:` in an agent definition, never a `model` override on a spawn. Delegate earlier and compact harder than on Opus. |
+
+**Effort and spawn caps (user, 2026-09-06).** Every agent file also carries an `effort:`
+floor, and `check:agents` fails without one: `high` for the seats that still work out
+what to do or write code and tests (a missed test costs a second pass), `medium` for
+specced prose, review-by-checklist and data work. Effort is set only in the frontmatter;
+the Agent tool has no effort parameter. `.claude/settings.json` sets
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` (a specialist cannot spawn its own) and
+`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS=3`, so "the main session is command center" is a
+harness limit, not a paragraph.
 
 Every file in `.claude/agents/` carries a `model:` default chosen by this table (open
 judgment → `opus`; specced execution → `sonnet`). **That default is the floor, not the
