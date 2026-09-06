@@ -20,14 +20,23 @@ import {
   startCampaign,
   storyCoverage,
   portraitAssets,
-  portraitCoverage,
   resolveBeat,
   STORY_SCHEMA_VERSION,
   updatePartyMember,
   type CampaignSave,
   type StoryPack,
 } from "../sim/index.js";
-import { ENCOUNTERS, PORTRAITS, TERRAIN, campaign, registry, story, terrainFor } from "./campaign-data.js";
+import {
+  ENCOUNTERS,
+  PORTRAIT_BY_UNIT,
+  PORTRAITS,
+  TERRAIN,
+  campaign,
+  portraitArtCoverage,
+  registry,
+  story,
+  terrainFor,
+} from "./campaign-data.js";
 import { assertFitsGrid, terrainAt } from "./terrain.js";
 import { CampaignShell } from "./campaign-shell.js";
 import { OPTIMIZER } from "./playtest.js";
@@ -869,17 +878,39 @@ describe("AC-V17: a standalone scene is a screen, and it is seen once", () => {
   });
 });
 
-describe("AC-M9: the shipped portraits are honest about not existing yet", () => {
-  it("TRIPWIRE — the shipped pack still uses the PLACEHOLDER. Delete this when real art lands.", () => {
-    // Deliberately fails the day a character names anything else, so the docs, ADR-0029
-    // and the "Portrait pending" caption are forced to move with the art instead of
-    // being left behind saying something that stopped being true.
-    expect(portraitAssets(story)).toEqual(["placeholder"]);
-    expect(Object.keys(PORTRAITS)).toEqual(["placeholder"]);
+describe("AC-M9 / ADR-0039: six real portraits are wired, four wait unbundled", () => {
+  it("TRIPWIRE — the story pack names exactly its authored keys, and the bundle holds exactly the approved six plus the placeholder. Update this when either set moves.", () => {
+    // Deliberately fails the day a character's asset changes without this test moving
+    // with it, so the docs, the ADR and the "Portrait pending" caption are forced to
+    // stay in sync with the art rather than being left behind saying something false.
+    // The pack names briar (archer-f) and ottoline (priest-f) directly; the four enemy
+    // keys are named only by PORTRAIT_BY_UNIT, not by any story character.
+    expect(portraitAssets(story)).toEqual(["archer-f", "placeholder", "priest-f"]);
+    expect(Object.keys(PORTRAITS)).toEqual([
+      "placeholder",
+      "archer-f",
+      "priest-f",
+      "knight-m",
+      "knight-f",
+      "thief-m",
+      "wizard-f",
+    ]);
   });
 
-  it("the bundle and the pack agree in BOTH directions", () => {
-    expect(portraitCoverage(story, Object.keys(PORTRAITS))).toEqual({ missing: [], extra: [] });
+  it("the bundle and the pack agree in BOTH directions, against the UNION with PORTRAIT_BY_UNIT", () => {
+    // A raw `portraitCoverage(story, Object.keys(PORTRAITS))` would flag every
+    // enemy portrait as unused art, because no story CHARACTER speaks as a Brigand —
+    // only the unit table names them. The union is the honest comparison.
+    expect(portraitArtCoverage()).toEqual({ missing: [], extra: [] });
+  });
+
+  it("every PORTRAIT_BY_UNIT id is a roster id — a stale key fails loudly", () => {
+    const rosterIds = new Set([...campaign.party.map((r) => r.id), ...campaign.cast.map((r) => r.id)]);
+    for (const id of Object.keys(PORTRAIT_BY_UNIT)) {
+      expect(rosterIds.has(id), `PORTRAIT_BY_UNIT names "${id}", which is not a roster id`).toBe(
+        true,
+      );
+    }
   });
 
   it("DISCRIMINATING: the pack ships BOTH portrait states, so the A/B is possible at all", () => {
@@ -943,5 +974,45 @@ describe("unitJobs — the deployed record's job, keyed the way a battle is", ()
     // On the briefing there is no encounter loaded yet, so there is nothing to answer.
     expect(s.unitJobs()).toEqual({});
     expect(s.unitNames()).toEqual({});
+  });
+});
+
+describe("unitRecordIds — battle unit id -> the roster record's OWN id (ADR-0039)", () => {
+  /** A shell standing in battle 1, the only place either accessor answers anything. */
+  function inBattle(): CampaignShell {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    return s;
+  }
+
+  it("every unit on the field has a record id — an EMPTY map is what game.ts's portrait lookup must never see", () => {
+    // `game.ts`'s `look()` reads `resolvePortrait(recordIds[id])` for every unit's
+    // portrait; a map missing a slot silently hands that unit the placeholder with no
+    // test failing (the `?? id` fallback it used to fall through to). This asserts the
+    // positive claim directly: an empty `{}` — the map before this method existed —
+    // fails this immediately, since a real battle always has at least one unit on it.
+    const s = inBattle();
+    const ids = s.session!.state.units.map((u) => u.id);
+    const recordIds = s.unitRecordIds();
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.every((id) => id in recordIds)).toBe(true);
+  });
+
+  it("keys on the battle SLOT id and resolves to the ROSTER record's own id", () => {
+    // Same trap unitJobs's discriminating test names: `loadEncounter` names units after
+    // `placement.slotId` ("blue-vance"), never the record id ("pc-vance"), so a map
+    // keyed the other way around would answer wrong for every unit on the field.
+    const s = inBattle();
+    const recordIds = s.unitRecordIds();
+    expect(recordIds["blue-vance"]).toBe("pc-vance");
+    expect(recordIds["red-brigand-1"]).toBe("foe-brigand");
+    expect(recordIds["pc-vance"]).toBeUndefined();
+  });
+
+  it("is empty outside a battle", () => {
+    const s = shell();
+    expect(s.unitRecordIds()).toEqual({});
   });
 });

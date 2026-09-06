@@ -30,6 +30,16 @@ import pack from "../../data/base-pack.json" with { type: "json" };
 // than a relative-path convention every future author has to remember. Spelled out one
 // per line for the same reason the five encounter imports are (see above).
 import placeholderPortrait from "../../data/campaign/story/portraits/placeholder.svg";
+// The six approved portraits this slice bundles (ADR-0039). Ten were approved; the
+// other four (archer-m, priest-m, thief-f, wizard-m) are NOT imported here on purpose —
+// nothing in {@link PORTRAIT_BY_UNIT} names them, and the boot check below throws on
+// bundled art nothing names. Their source PNGs wait in `docs/visual/portraits/reference/`.
+import archerF from "../../data/campaign/story/portraits/archer-f.png";
+import priestF from "../../data/campaign/story/portraits/priest-f.png";
+import knightM from "../../data/campaign/story/portraits/knight-m.png";
+import knightF from "../../data/campaign/story/portraits/knight-f.png";
+import thiefM from "../../data/campaign/story/portraits/thief-m.png";
+import wizardF from "../../data/campaign/story/portraits/wizard-f.png";
 import {
   loadContentPack,
   parseCampaign,
@@ -76,11 +86,124 @@ export const story: StoryPack = parseStoryPack(storyJson);
  *
  * The engine never resolves an asset key (`story.ts` holds keys and nothing else); this
  * is the one place that mapping exists, and the boot check below asserts it agrees with
- * the pack in both directions.
+ * the pack — and {@link PORTRAIT_BY_UNIT} below — in both directions.
  */
 export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
   placeholder: placeholderPortrait,
+  "archer-f": archerF,
+  "priest-f": priestF,
+  "knight-m": knightM,
+  "knight-f": knightF,
+  "thief-m": thiefM,
+  "wizard-f": wizardF,
 });
+
+/**
+ * Unit id → portrait asset key (ADR-0039).
+ *
+ * WHY THIS IS A VIEWER TABLE, NOT AN ENGINE FIELD. Nothing in the game knows a
+ * character's gender: the roster schema (`rosterSchemaVersion` 3) has no such field,
+ * and `src/sim/state.ts` defaults every battle unit's zodiac to `gender: "neutral"`.
+ * Shipping ten approved portraits (five jobs x two genders) means answering, per
+ * character, which one a given unit shows — and the engine has no field to hold that
+ * answer and does not need one. So the answer lives here instead, keyed by the same
+ * unit ids the roster and the encounters already use.
+ *
+ * Only six of the ten approved keys are cut and bundled this slice (see the import
+ * comment above `archerF`). `pc-vance` (geomancer) and `pc-kest` (monk) are deliberately
+ * ABSENT from this table — those jobs are out of portrait scope — so `look()` in
+ * `game.ts` falls back to `"placeholder"` for them, which is the honest answer.
+ *
+ * A dead row here (a key naming a retired unit id) is a silent no-op, not a render
+ * error — the boot check below turns that into a loud one instead, so a renamed
+ * roster entry cannot leave a row that reads as wired but resolves for nobody.
+ */
+export const PORTRAIT_BY_UNIT: Readonly<Record<string, string>> = Object.freeze({
+  "pc-briar": "archer-f",
+  "pc-ottoline": "priest-f",
+  "foe-brigand": "knight-m",
+  "foe-marauder": "knight-f",
+  "foe-warchief": "knight-m",
+  "foe-cutthroat": "thief-m",
+  "foe-hexer": "wizard-f",
+});
+
+/**
+ * The two-direction portrait check (ADR-0039), against the UNION of what the story
+ * pack names and what {@link PORTRAIT_BY_UNIT} names — not the story pack alone.
+ * `missing` is a key either one names with no file bundled behind it; `extra` is art
+ * that shipped wired to nothing, which reads as done and is not. Exported so the shell
+ * test can assert the same two-direction claim without re-deriving the union.
+ *
+ * Built ON TOP of the sim's own `portraitCoverage` (src/sim/story.ts) rather than
+ * re-deriving the story-pack half by hand, so that export keeps a live production
+ * caller instead of existing only for tests to exercise. `portraitCoverage` only knows
+ * the STORY pack's named keys, so its `missing`/`extra` are patched here for
+ * `PORTRAIT_BY_UNIT`'s values: a value the table names is not "extra" merely because no
+ * story CHARACTER speaks as a Brigand, and a value the table names with no file bundled
+ * behind it is still "missing".
+ */
+export function portraitArtCoverage(): { missing: string[]; extra: string[] } {
+  const bundled = Object.keys(PORTRAITS);
+  const bundledSet = new Set(bundled);
+  const tableValues = new Set(Object.values(PORTRAIT_BY_UNIT));
+  const base = portraitCoverage(story, bundled);
+  const missing = new Set(base.missing);
+  for (const key of tableValues) if (!bundledSet.has(key)) missing.add(key);
+  const extra = base.extra.filter((key) => !tableValues.has(key));
+  return { missing: [...missing].sort(), extra: [...extra].sort() };
+}
+
+/**
+ * Mismatches between the scene player's story-pack `asset` and the unit card's
+ * {@link PORTRAIT_BY_UNIT} entry, for every story character whose id — prefixed
+ * `"pc-"` — names a roster unit. The scene player resolves art through `resolveBeat`
+ * (src/sim/story.ts), reading the pack's own `asset` field; the unit card resolves it
+ * through {@link resolvePortrait}, reading this table. Nothing previously tied the two
+ * together, so a story character's `asset` could drift from the roster row's table
+ * entry with neither side noticing — the same person would show different art on the
+ * briefing than on their own unit card. An absent table row reads as `"placeholder"`,
+ * matching `resolvePortrait`'s own fallback, so a job out of portrait scope (no row) is
+ * not flagged as a mismatch as long as the pack also stays on `"placeholder"`.
+ */
+export function portraitLinkMismatches(): Array<{
+  rosterId: string;
+  storyAsset: string;
+  tableAsset: string;
+}> {
+  const rosterIds = new Set([...campaign.party.map((r) => r.id), ...campaign.cast.map((r) => r.id)]);
+  const mismatches: Array<{ rosterId: string; storyAsset: string; tableAsset: string }> = [];
+  for (const c of story.characters) {
+    const rosterId = `pc-${c.id}`;
+    if (!rosterIds.has(rosterId)) continue;
+    const storyAsset = c.portrait?.asset ?? "placeholder";
+    const tableAsset = PORTRAIT_BY_UNIT[rosterId] ?? "placeholder";
+    if (storyAsset !== tableAsset) mismatches.push({ rosterId, storyAsset, tableAsset });
+  }
+  return mismatches;
+}
+
+/** The one bundled fallback portrait. Resolved once so a missing key fails at boot. */
+export const PORTRAIT_PLACEHOLDER: string = (() => {
+  const url = PORTRAITS["placeholder"];
+  if (url === undefined) throw new Error("no placeholder portrait is bundled");
+  return url;
+})();
+
+/**
+ * Portrait key + URL for a unit id (ADR-0039) — `PORTRAIT_BY_UNIT[id]`, or the bundled
+ * `"placeholder"` for a unit the table names nothing for (today: `pc-vance`, `pc-kest`,
+ * whose jobs are out of portrait scope).
+ *
+ * THE ONE PLACE THIS RESOLUTION HAPPENS. `game.ts`'s `look()` calls this rather than
+ * indexing the two tables itself, so there is exactly one function to A/B-test and no
+ * second caller that could disagree with it about what a unit id resolves to.
+ */
+export function resolvePortrait(unitId: string): { key: string; url: string } {
+  const key = PORTRAIT_BY_UNIT[unitId] ?? "placeholder";
+  const url = PORTRAITS[key] ?? PORTRAIT_PLACEHOLDER;
+  return { key, url };
+}
 
 // Boot-time coverage, in BOTH directions, for the reason the encounter partition below
 // exists: `missing` catches a battle that ships with a blank screen where a scene should
@@ -112,13 +235,39 @@ export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
         `[${gaps.orphanScenes.join(", ")}]`,
     );
   }
-  // Both directions again: a named-but-unbundled key would render a broken image, and a
-  // bundled-but-unnamed one is art that shipped wired to nothing and reads as done.
-  const art = portraitCoverage(story, Object.keys(PORTRAITS));
+  // Both directions again, against the UNION of the story pack's named keys and
+  // PORTRAIT_BY_UNIT's values (ADR-0039) — a named-but-unbundled key would render a
+  // broken image, and a bundled-but-unnamed one is art that shipped wired to nothing
+  // and reads as done. Checking the pack alone would flag every enemy portrait as
+  // "unused" the moment it is bundled, because no story character speaks as a Brigand.
+  const art = portraitArtCoverage();
   if (art.missing.length > 0 || art.extra.length > 0) {
     throw new Error(
-      `story pack and bundled portraits disagree — no asset for ` +
+      `story pack / portrait table and bundled portraits disagree — no asset for ` +
         `[${art.missing.join(", ")}], unused art [${art.extra.join(", ")}]`,
+    );
+  }
+  // PORTRAIT_BY_UNIT's keys must be real roster ids, loudly, so a renamed or retired
+  // character leaves a dead row that FAILS instead of one that silently never resolves
+  // (a risk this ADR names explicitly).
+  const rosterIds = new Set([...campaign.party.map((r) => r.id), ...campaign.cast.map((r) => r.id)]);
+  const staleTableIds = Object.keys(PORTRAIT_BY_UNIT).filter((id) => !rosterIds.has(id));
+  if (staleTableIds.length > 0) {
+    throw new Error(
+      `PORTRAIT_BY_UNIT names unit ids the campaign roster does not have: ` +
+        `[${staleTableIds.join(", ")}]`,
+    );
+  }
+  // The scene player and the unit card resolve portraits through two separate paths
+  // (story-pack `asset` vs PORTRAIT_BY_UNIT) that nothing previously tied together —
+  // see portraitLinkMismatches's doc comment.
+  const linkMismatches = portraitLinkMismatches();
+  if (linkMismatches.length > 0) {
+    throw new Error(
+      `story pack and PORTRAIT_BY_UNIT disagree on portrait for ` +
+        linkMismatches
+          .map((m) => `${m.rosterId} (story "${m.storyAsset}" vs table "${m.tableAsset}")`)
+          .join(", "),
     );
   }
 }

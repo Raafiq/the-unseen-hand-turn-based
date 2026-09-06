@@ -16,10 +16,12 @@
 import type { StoryBeat, UnitRecord } from "../sim/index.js";
 import {
   ENCOUNTERS,
+  PORTRAIT_PLACEHOLDER,
   PORTRAITS,
   battleTitle,
   campaign,
   registry,
+  resolvePortrait,
   story,
   terrainFor,
 } from "./campaign-data.js";
@@ -104,13 +106,6 @@ const TEAM_COLOR = ["#4f8cff", "#e2603c", "#8ad17a", "#c58bff"];
 const UNKNOWN_TEAM_COLOR = "#9aa4bb";
 const teamColor = (teamId: number): string => TEAM_COLOR[teamId] ?? UNKNOWN_TEAM_COLOR;
 
-/** The one bundled portrait asset. Resolved once so a missing key fails at boot, not mid-battle. */
-const PORTRAIT_PLACEHOLDER: string = (() => {
-  const url = PORTRAITS["placeholder"];
-  if (url === undefined) throw new Error("no placeholder portrait is bundled");
-  return url;
-})();
-
 /**
  * Presentation for the CURRENT battle, derived from the shell's own record names.
  *
@@ -120,25 +115,40 @@ const PORTRAIT_PLACEHOLDER: string = (() => {
  * shows no job row at all, which is the honest answer, and `exactOptionalPropertyTypes`
  * makes `job: undefined` a compile error.
  *
- * EVERY UNIT GETS THE `placeholder` KEY, deliberately — no portrait art exists yet
- * (`PORTRAITS` holds exactly one entry, and `campaign-data.ts`'s boot check plus the
- * `["placeholder"]` tripwire in `campaign-shell.test.ts` both police that). The card
- * captions it "portrait pending" off the KEY, so the day a real job x gender table lands
- * the caption disappears for the units that have art without any change here.
+ * THE PORTRAIT COMES FROM `resolvePortrait` (ADR-0039), a viewer-only table keyed by
+ * the ROSTER RECORD's id ("pc-briar") — the engine has no gender field to derive this
+ * from, and never needs one. `id` here is the battle unit's id, which is the
+ * placement's `slotId` ("blue-briar"), NOT the record id — the same gap `unitNames`
+ * closes for the display name, so the lookup goes through `shell.unitRecordIds()`
+ * first. A record id the table names nothing for (today: `pc-vance`, `pc-kest` — the
+ * two jobs out of portrait scope) resolves to `"placeholder"`, the honest answer for a
+ * character no approved art exists for. The card captions off the KEY, not off
+ * whether a URL resolved, so a unit with real art gets no "Portrait pending" caption.
+ *
+ * A slot with NO record id (there should never be one on a real battle — see
+ * `shell.unitRecordIds()`'s doc comment and `campaign-shell.test.ts`) gets an EXPLICIT
+ * placeholder branch rather than falling back to the slot id itself: `recordIds[id] ??
+ * id` would silently hand `resolvePortrait` a value that happens never to collide with
+ * a table key today, which is a coincidence, not a guarantee.
  */
 function look(): LookUp {
   const names = shell.unitNames();
   const jobs = shell.unitJobs();
+  const recordIds = shell.unitRecordIds();
   const state = shell.session?.state;
   return (id) => {
     const unit = state?.units.find((u) => u.id === id);
     if (!unit) return undefined;
     const job = jobs[id];
+    const recordId = recordIds[id];
     return {
       label: names[id] ?? id,
       color: teamColor(unit.teamId),
       ...(job !== undefined ? { job: jobLabel(job) } : {}),
-      portrait: { url: PORTRAIT_PLACEHOLDER, key: "placeholder" },
+      portrait:
+        recordId === undefined
+          ? { key: "placeholder", url: PORTRAIT_PLACEHOLDER }
+          : resolvePortrait(recordId),
     };
   };
 }

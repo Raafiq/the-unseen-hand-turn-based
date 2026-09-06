@@ -8,6 +8,7 @@ description: >-
   job-unlock threshold, status rule, or version-specific behavior needs to be
   correct rather than approximate.
 tools: Read, Grep, Glob, WebSearch, WebFetch, Skill
+effort: medium
 model: sonnet
 ---
 

@@ -4,7 +4,7 @@
 
 | Kind | Example | Home |
 | --- | --- | --- |
-| **Shipped** - the game imports it | a ~15 KB WebP crop | `data/campaign/story/portraits/`, in git |
+| **Shipped** - the game imports it | a PNG crop, 192x256 | `data/campaign/story/portraits/`, in git |
 | **Source** - the generator's full-size output | a ~9 MB Midjourney grid, a ~3 MB GPT PNG | the owner's drive or a GitHub Release - **never git** unless it is under the cap |
 | **Evidence** - a proof frame a PR links | a single upscale, a motion clip | `docs/visual/`, kept small |
 
@@ -113,10 +113,38 @@ Where the red/blue team colour goes is undecided, and blocked on one real crop w
 Two routes: on the **clothing** (5 jobs x 2 genders x 2 colourways = 20 portraits; a recolour can drift the face), or on the **panel chrome and backdrop** as FFT does it (10 portraits; the art is untouched).
 Judge it when a real portrait sits beside a real swatch in the plate.
 
+Six real crops are wired into `PORTRAITS` as of this slice (ADR-0039); the question is
+answerable now. See `docs/NEXT.md` for whoever picks it up.
+
 ## Adding a portrait
 
 1. Run the block from `docs/visual/portraits/gpt-portrait-prompts.md` in the ChatGPT app with `style-ref-1..4.png` attached as Image 1-4.
 2. Record the settings and the delivered size in the table above in the same turn the file lands; there is no seed, so the record is the only reproduction.
-3. Crop the chosen output to the shipped size, 96x128, crop B head-to-chest, and save under `data/campaign/story/portraits/<job>-<gender>.<ext>`.
-   ~~Save as WebP.~~ The format is an open call (`docs/NEXT.md`, Ask E); PNG, lossless, is recommended. No paper shift: the owner kept the paper as delivered.
+3. Crop the chosen output to the shipped size, **192x256** (a 2x asset for the 96x128 CSS
+   frame), crop B head-to-chest, and save under
+   `data/campaign/story/portraits/<job>-<gender>.png`. Format is settled: PNG, lossless
+   (ADR-0039). No paper shift: the owner kept the paper as delivered.
 4. Keep every tracked file under 3 MiB. `check:assets` refuses the rest.
+
+### Crop boxes
+
+Each box is per-image, sized so the measured face height is a constant fraction of the
+frame (±15% of a 705x940 base), top edge 4% above the ink top. Coordinates are
+`[left, top, right, bottom]` in source pixels. Cut with Pillow, LANCZOS resample,
+`optimize=True`, no colour step, output 192x256.
+
+| Key | Crop box (source px) | Wired? |
+| --- | --- | --- |
+| `knight-f` | `[83, 76, 804, 1037]` | yes |
+| `knight-m` | `[152, 70, 868, 1024]` | yes |
+| `archer-f` | `[200, 59, 955, 1066]` | yes |
+| `archer-m` | `[241, 57, 840, 856]` | no — weakest framing, face smaller than the set even at the clamp; re-check before cutting |
+| `thief-f` | `[261, 55, 1026, 1076]` | no |
+| `thief-m` | `[265, 75, 1076, 1156]` | yes |
+| `wizard-f` | `[98, 38, 774, 940]` | yes |
+| `wizard-m` | `[264, 56, 976, 1005]` | no |
+| `priest-f` | `[373, 74, 1030, 950]` | yes |
+| `priest-m` | `[292, 43, 976, 955]` | no |
+
+The four unwired keys (`archer-m`, `priest-m`, `thief-f`, `wizard-m`) can be cut
+mechanically from these boxes once a future roster claims them (ADR-0039).

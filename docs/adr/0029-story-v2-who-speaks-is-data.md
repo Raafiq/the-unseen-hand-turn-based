@@ -150,7 +150,8 @@ Data authors an asset **key**; `campaign-data.ts` maps keys to URLs through a re
 import, so the Pages sub-path is the bundler's problem as it already is for every JS chunk.
 The mapping is passed *into* `mountScene` rather than imported by it, so the player holds
 no content table it could miss against. `portraitCoverage` checks pack against bundle in
-both directions at boot.
+both directions at boot — as of ADR-0039, wrapped by `campaign-data.ts`'s
+`portraitArtCoverage`, which extends the same two-direction check to the unit-card table.
 
 **No portrait art exists.** The placeholder is a ruled empty frame — not a silhouette, a
 monogram or a keyed colour, each of which reads as a deliberate art choice rather than as

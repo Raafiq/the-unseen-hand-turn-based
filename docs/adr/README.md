@@ -41,3 +41,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0035](0035-portraits-are-generated-in-gpt-image-2-not-midjourney.md) | Portraits are generated in GPT Image 2, not Midjourney; every character is in their twenties | Accepted | 2026-09-05 |
 | [0037](0037-the-viewer-is-built-for-a-landscape-phone-first.md) | The viewer is built for a landscape phone first (supersedes ADR-0033's placement) | Accepted | 2026-09-05 |
 | [0038](0038-confirm-is-a-separate-tap.md) | Confirm is a separate tap; selecting a target no longer commits | Accepted | 2026-09-05 |
+| [0039](0039-portrait-identity-is-a-viewer-table-not-an-engine-field.md) | Portrait identity is a viewer table, not an engine field; the engine stays gender-blind | Accepted | 2026-09-06 |

@@ -14,6 +14,10 @@ The failure mode is not missing a lesson; it's capturing too many. A skill or `C
 
 Scan the session for the moments where the documented way and the actual way diverged:
 
+- **Token cost** — every agent spawn's usage notice, summed. A pass that happened twice, an
+  agent that read more than it needed, a brief that had to be corrected in flight: each is a
+  lesson with a number on it. The owner had to ask "could we have cut the token usage?" after
+  a retro that never looked (2026-09-06); the answer was a third of 830k.
 - **Corrections** — the user rejected or redirected your output ("no, do it this way", "stop, you're guessing"). The sharper the friction and the more it recurred, the more load-bearing the lesson.
 - **Rework** — something was regenerated several times, or a subagent's output needed cleanup, because guidance was missing or wrong.
 - **Improvised steps** — the workflow needed a step that no skill documents and you had to invent it.
@@ -89,6 +93,13 @@ Load-bearing because: a future agent asks before publishing from staging. No gua
 
 ## Doing the retrospective
 
+0. **Cost the session first.** Table every agent spawn with its tokens (from the harness's
+   completion notices), the total, and the main session's own spend as an estimate. For each
+   line that is a second pass, a resumed agent, or over 10% of the total, name the cause in
+   one sentence — in the brief, the agent file, or the environment — and carry it into step 1
+   as a candidate lesson. Then append one row to `docs/token-ledger.md`. The pre-PR hook
+   refuses a PR until that file carries a row from this session; a retrospective without the
+   cost table is not done.
 1. **Extract and filter** — gather candidate lessons from the signals above; drop everything that fails the load-bearing test.
 2. **Route** — walk each survivor down the ladder; stop at the first rung that fits.
 3. **Propose as diffs** — for each, show the target file and the exact lines to add or change (for guards and hooks: the actual rule/config, not a promise to write one), plus the one-sentence reason it's load-bearing. A concrete diff lets the user approve at a glance; "I'll update the debugging skill" doesn't.

@@ -36,8 +36,10 @@ import type { Session } from "./session.js";
  * `job: undefined` is a type error, which is the point.
  *
  * `portrait.key` is the ASSET KEY, not the URL: the "portrait pending" caption is
- * a claim about which art this is, and only the key can back it. Every unit gets
- * `placeholder` today because no portrait art exists yet.
+ * a claim about which art this is, and only the key can back it. Six portraits are
+ * bundled (ADR-0039); a unit `PORTRAIT_BY_UNIT` (`campaign-data.ts`) names gets its
+ * key, everyone else — including every engine-viewer unit, which has no roster record
+ * at all — gets `"placeholder"`, which is what the caption below keys off.
  */
 export interface UnitLook {
   label: string;
@@ -176,7 +178,7 @@ export interface StatCard {
   brave: number;
   faith: number;
   job?: string;
-  /** `pending` is true iff the resolved asset key is the placeholder — no real art yet. */
+  /** `pending` is true iff the resolved asset key is `"placeholder"` — no art bundled for this unit (ADR-0039). */
   portrait?: { url: string; pending: boolean };
   /** Present only when this slot is a maturing CHARGE, resolved back to its caster. */
   casting?: true;
