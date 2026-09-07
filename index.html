@@ -13,13 +13,15 @@
          itself ships NO icons — none exist yet — so an install prompt will not
          appear; `display` and `orientation` still apply to a home-screen launch. -->
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- The overhaul look, TITLE AND SCENE SCREENS (src/render/overhaul.css). Every rule in
-         it is scoped under `#screen-title` or `#screen-scene`, WITH ONE DELIBERATE
-         EXCEPTION shared by both: `body:has(#screen-title:not([hidden])), body:has(
-         #screen-scene:not([hidden]))` reaches `body` itself, because a rule scoped to
-         either screen alone has no way to stop the DOCUMENT from scrolling behind a screen
-         that is `position: fixed`. The other three screens' CSS below is otherwise untouched
-         this slice — not linked from viewer.html, which has neither screen. -->
+    <!-- The overhaul look, TITLE, SCENE AND BRIEFING SCREENS (src/render/overhaul.css).
+         Every rule in it is scoped under `#screen-title`, `#screen-scene` or
+         `#screen-briefing`, WITH ONE DELIBERATE EXCEPTION shared by all three:
+         `body:has(#screen-title:not([hidden])), body:has(#screen-scene:not([hidden])),
+         body:has(#screen-briefing:not([hidden]))` reaches `body` itself, because a rule
+         scoped to any one screen alone has no way to stop the DOCUMENT from scrolling
+         behind a screen that is `position: fixed`. The other two screens' CSS below is
+         otherwise untouched this slice — not linked from viewer.html, which has none of
+         the three (the engine viewer's own `#screen-prep` stays the old look). -->
     <link rel="stylesheet" href="/src/render/overhaul.css" />
     <style>
       /* ── The material ──────────────────────────────────────────────────────
@@ -387,6 +389,10 @@
          the one deliberate one). This is what let `#screen-scene` drop its 62px
          right-padding workaround and give the card its full width back. */
       #screen-scene:not([hidden]) ~ .help-btn { top: 18px; bottom: auto; }
+      /* BRIEFING screen, same move and the same reason: the wax Deploy plate breaks
+         the right leaf's own bottom-right corner (src/render/overhaul.css `.seal`), so
+         the floating help disc's default bottom-right spot would sit on top of it. */
+      #screen-briefing:not([hidden]) ~ .help-btn { top: 18px; bottom: auto; }
       dialog#help { width: min(700px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 32px 34px; }
       dialog#help::backdrop { background: rgba(9,6,3,.78); }
       .help-head { display: flex; align-items: baseline; gap: 12px; padding: 0 0 12px; border-bottom: 1px solid rgba(138,101,36,.45); }
@@ -782,23 +788,70 @@
         </div>
       </section>
 
-      <!-- BRIEFING -->
+      <!-- BRIEFING — the overhaul look (src/render/overhaul.css), owner decision
+           2026-09-07 (option A): one two-pane screen, portrait cards on the left leaf,
+           a three-tab detail leaf on the right, briefing chrome on a top rail, a wax
+           Deploy plate breaking the right leaf's bottom-right corner. Third screen
+           ported after the title (ADR-0040) and the scene player (ADR-0040 amendment).
+           The right leaf's own content — the unit head, the three tab panels and the
+           Job Customization strip — is BUILT by `src/render/prep.ts` into `#prep-body`,
+           the same "screen holds the mount point, the module owns the markup" split
+           `#stage-host` uses for the battle. `#prep-body` is `display:contents`
+           (overhaul.css) so its children lay out as direct flex items of `.leaf-right`,
+           the same trick `#scene-story` uses on the scene screen. -->
       <section id="screen-briefing" data-testid="screen-briefing" hidden>
-        <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>
-        <h1 id="brief-title" data-testid="brief-title"></h1>
-        <div class="card">
-          <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
-          <p id="brief-note" class="lede" data-testid="brief-note"></p>
-          <ul class="party" id="brief-party" data-testid="brief-party"></ul>
-          <p class="hint" id="brief-deploy-note" data-testid="brief-deploy-note" hidden></p>
-          <div class="controls">
-            <button id="btn-deploy" data-testid="deploy">Deploy ▸</button>
-            <button id="btn-brief-quit" class="ghost" data-testid="brief-quit">Quit to title</button>
+        <header class="toprail">
+          <button id="btn-brief-quit" class="plaque riveted backplaque" data-testid="brief-quit"
+                  aria-label="Quit to title" title="Quit to title"></button>
+          <div class="banner" aria-hidden="true"><img id="brief-ribbon-top" src="" alt="" /></div>
+          <div class="plaque riveted companyplaque">
+            <h1 id="brief-title" data-testid="brief-title"></h1>
+            <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>
           </div>
-        </div>
-        <div class="panel" style="margin-top:16px">
-          <h3>Prepare the party</h3>
-          <div id="prep-body" class="prep-grid" data-testid="prep"></div>
+          <!-- `.tagline-text` is a DEDICATED child, not the `<p>` itself: `game.ts`'s
+               `renderBriefingText` writes this line every repaint via `.textContent`,
+               and a `.textContent` write on the `<p>` destroys every child node —
+               including `#brief-castle` below it. Found on the capture: the castle
+               end-cap never rendered past the first paint. -->
+          <p class="tagline" id="brief-note" data-testid="brief-note">
+            <span class="tagline-text" id="brief-note-text"></span>
+            <img id="brief-castle" class="tagline-cap" src="" alt="" aria-hidden="true" />
+          </p>
+        </header>
+
+        <div class="board">
+          <!-- LEFT LEAF: the portrait-card roster. `brief-party` is BOTH the deploy
+               roster (docs/10) and the prep member picker (ADR "the board moves") —
+               one list, one set of cards, so a bench click and a "view this unit"
+               click cannot show two different rosters.
+
+               `brief-story` (the pre-battle beat) is FIRST — every shipped battle
+               authors one (the mockup's own copy ships it permanently hidden, which
+               is why the mockup never modelled where it goes), so it needs a real,
+               permanent home above the roster it must never cover. -->
+          <section class="leaf leaf-left">
+            <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
+            <div class="pane-head"><h2>Party Members</h2></div>
+            <p class="hint deploynote" id="brief-deploy-note" data-testid="brief-deploy-note" hidden></p>
+            <div class="rulehr"></div>
+            <div class="roster" id="prep-roster-wrap" data-testid="prep-roster" tabindex="0">
+              <ul class="cards" id="brief-party" data-testid="brief-party"></ul>
+            </div>
+          </section>
+
+          <div class="spine"></div>
+
+          <!-- RIGHT LEAF: built by prep.ts (see the file banner above). -->
+          <section class="leaf leaf-right">
+            <div class="banner" aria-hidden="true"><img id="brief-ribbon-side" src="" alt="" /></div>
+            <div id="prep-body" data-testid="prep"></div>
+            <footer class="footrail">
+              <span class="frule" aria-hidden="true"></span>
+              <p class="ready">Ready when you are.</p>
+              <span class="frule" aria-hidden="true"></span>
+            </footer>
+            <button id="btn-deploy" class="seal" data-testid="deploy">Deploy</button>
+          </section>
         </div>
       </section>
 

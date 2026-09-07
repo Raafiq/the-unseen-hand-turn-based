@@ -1,10 +1,12 @@
 # ADR-0040 — The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first
 
-- **Status:** Accepted. Amended 2026-09-07 (scene player).
+- **Status:** Accepted. Amended 2026-09-07 (scene player); amended again 2026-09-07
+  (briefing screen).
 - **Date:** 2026-09-06
-- **Owner docs:** `docs/10` **AC-V44 … AC-V50**, `docs/visual/concepts/README.md`
-- **Scope:** `#screen-title` (`src/render/overhaul.css`, `index.html`); amendment adds
-  `#screen-scene`. No other screen.
+- **Owner docs:** `docs/10` **AC-V44 … AC-V50, AC-V51 …**, `docs/visual/concepts/README.md`
+- **Scope:** `#screen-title` (`src/render/overhaul.css`, `index.html`); first amendment
+  adds `#screen-scene`; second amendment adds `#screen-briefing`. Battle poses remain
+  the one screen not yet ported.
 
 ## Context
 
@@ -82,9 +84,10 @@ ADR or an AC — there is nothing to strike, only a change to record.
   `docs/10` AC-V46 asserts it for the title; the next screen owes its own AC.
 - **The CSS-leak landmine is named but not fixed.** No page-wide rule was scoped down in
   this slice; the next screen's author still has to find and override each leak by hand.
-- **Four screens remain in the old look**, and outside `docs/10`'s stage criteria
-  (§8f) — this slice does not touch that boundary. Named follow-ups, none green-lit:
-  prep, briefing, the scene player, and battle-screen combat poses.
+- ~~Four screens remain in the old look~~ — **superseded by the two amendments below**:
+  the scene player and the briefing screen have since moved. Only battle-screen combat
+  poses remain, and outside `docs/10`'s stage criteria (§8f) — this slice does not touch
+  that boundary.
 - **`#screen-title` is a `position:fixed` full-viewport sheet, not the ADR-0037 stage.**
   It does not gain the stage's zones, letterboxing rules or ACs; AC-V43 stays reserved
   for the actual "remaining screens on the stage" slice, untouched by this one.
@@ -129,5 +132,46 @@ by `--rv` is what makes the iron paint at all — an A/B now moves ≥2% of the 
 ### Consequences (amendment)
 
 `docs/10` AC-V47…AC-V50 cover the backdrop/ribbon identity, the help-button move and
-dialog bail, the log's scroll-to-end, and the visible-rim A/B. Three screens remain in the
-old look: prep, briefing, battle poses.
+dialog bail, the log's scroll-to-end, and the visible-rim A/B. ~~Three screens remain in
+the old look: prep, briefing, battle poses~~ — **superseded by the amendment below**: the
+briefing screen has since moved. Only battle poses remain.
+
+## Amendment 2026-09-07 — the briefing screen (option A)
+
+**The owner picked the briefing screen third**, and ruled **option A**: one two-pane
+screen — a portrait-card roster on the left leaf, a three-tab detail leaf (Equipment /
+Skills / Profile) on the right — over "prep panel only". The rejected alternative would
+have left two looks stitched into one screen: the concept's identity is the two panes
+plus the wax Deploy plate together, not the prep controls alone.
+
+**The three tabs are a DOM change, not CSS-only like the scene port.** `src/render/prep.ts`
+now builds a `mountPrep` closure that tracks which tab is open — state that is never
+written to the record, the save or the sim, so switching tabs cannot desync a build from
+what the sim will actually field. `game.ts` builds the shared `.ptab` roster cards
+(`PORTRAIT_BY_UNIT`, ADR-0039), the same list the deploy roster already used.
+
+**Chrome new to this port:** a top rail (back plaque = Quit to title, `ribbon.webp`
+banner, company plaque = battle title + step, tagline ribbon = the pre-battle story beat
+with a `castle.webp` end-cap, `?` help as an iron plaque), a Job Customization strip
+(primary/secondary job selects, five diamond-pip AP progress), and the wax Deploy plate
+breaking the right leaf's bottom-right corner. Two `@media (max-height:400px)` compact
+modes carry the phone folds, matching the roster cards crushing to a strip at 640×300.
+
+**Out of scope, named explicitly** (the concept shows these; none is a look change): the
+job tree, the inventory vault, the Menu dropdown, HP/MP bars, Lv., biography text, armor
+slots. All placeholder in the concept renders, same ruling as the title and scene ports.
+
+**Two landmines, same shape as the scene port's DOM-order dependency:**
+
+- The pre-battle story row's placement depends on `brief-story` being the **first child**
+  of `.leaf-left` — reordering the roster markup silently moves the beat.
+- The help-button plaque is `#screen-briefing:not([hidden]) ~ button.help-btn`, a sibling
+  rule that depends on DOM order in `index.html`, same mechanism as the scene amendment's
+  help-button fix.
+
+### Consequences (second amendment)
+
+`docs/10` AC-V51 onward cover portrait identity, the three tabs and their persistence,
+the 21-testid control manifest, drift from the mockup, the CSS-leak probe, phone fit, and
+the pinned per-tab contrast counts. One screen remains in the old look: battle-screen
+combat poses.

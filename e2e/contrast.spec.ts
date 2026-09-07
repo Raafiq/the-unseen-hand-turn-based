@@ -112,6 +112,60 @@ async function groundsAreReal(page: Page): Promise<void> {
   for (const c of GROUNDS.sceneIron) expect(painted.sceneIron, `iron stop ${c}`).toContain(c);
 }
 
+/**
+ * Same guard as {@link groundsAreReal}, for the briefing screen's own surfaces (owner
+ * decision 2026-09-07). Kept SEPARATE rather than folded into `groundsAreReal`: that
+ * function is called once at `page.goto("/")`, before New Game — `#prep-body` is an
+ * empty `display:contents` div until a save exists (`renderPrep` never ran), so every
+ * selector here would resolve to nothing and the checks would either vacuously pass or
+ * throw on a null element. Call this only once the briefing is actually on screen.
+ */
+async function briefingGroundsAreReal(page: Page): Promise<void> {
+  const painted = await page.evaluate(() => {
+    const grab = (sel: string): string => {
+      const el = document.querySelector(sel);
+      return el ? getComputedStyle(el).backgroundImage : "";
+    };
+    return {
+      leaf: grab("#screen-briefing .leaf"),
+      plaqueOnTab: grab("#screen-briefing .tab.on"),
+      tabRest: grab("#screen-briefing .tab:not(.on)"),
+      cardRest: grab("#screen-briefing .member:not(.on) .ptab"),
+      cardSelected: grab("#screen-briefing .member.on .ptab"),
+      gearrow: grab("#screen-briefing .gearrow"),
+      seal: grab("#screen-briefing .seal"),
+    };
+  });
+  expect(paintedStops(painted.leaf), "brief leaf grounds, as a set").toEqual(
+    [...GROUNDS.briefLeaf].sort(),
+  );
+  expect(paintedStops(painted.plaqueOnTab), "brief plaque grounds, as a set").toEqual(
+    [...GROUNDS.briefPlaque].sort(),
+  );
+  expect(paintedStops(painted.tabRest), "brief tab-at-rest grounds, as a set").toEqual(
+    [...GROUNDS.briefPlate].sort(),
+  );
+  expect(paintedStops(painted.cardRest), "brief roster-card-at-rest grounds, as a set").toEqual(
+    [...GROUNDS.briefBoxCard].sort(),
+  );
+  expect(
+    paintedStops(painted.cardSelected),
+    "brief roster-card-selected grounds, as a set",
+  ).toEqual([...GROUNDS.briefBoxSelected].sort());
+  expect(paintedStops(painted.gearrow), "brief gearrow grounds, as a set").toEqual(
+    [...GROUNDS.briefGearrow].sort(),
+  );
+  // The seal's three translucent sheen/shadow stops are dropped by `paintedStops`? No —
+  // `paintedStops` keeps EVERY rgb(a) match, so this compares against the seal's full
+  // painted set (opaque + translucent), not `GROUNDS.briefSeal` (opaque-only, the set
+  // `ownGrounds()` actually uses as a ground). That is why this is a `toContain`-per-
+  // stop check rather than a `toEqual` set — the declared constant is deliberately a
+  // SUBSET (the alpha-1 stops), and asserting equality here would either drop the
+  // translucent stops from the constant (losing the "opaque-only" documentation) or
+  // fail on stops `ownGrounds()` never treats as a ground in the first place.
+  for (const c of GROUNDS.briefSeal) expect(painted.seal, `seal stop ${c}`).toContain(c);
+}
+
 /** Every text element on the current screen that falls below its AA bar. */
 async function failures(page: Page): Promise<Finding[]> {
   return page.evaluate(({ grounds, aa }) => {
@@ -314,24 +368,48 @@ test("contrast: briefing and prep, before and after spending", async ({ page }) 
   await startNewGame(page);
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
-  // MEASURED 2026-08-29, not guessed: this screen paints 113 text-bearing elements on
-  // first paint and 112 once the scene is read out (the progress readout and the two
-  // scene controls retire as a line is added). The old floor of 40 had a 73-node margin,
-  // which is another way of saying it could not have noticed most of the screen failing
-  // to render. 100 keeps a real margin and is sensitive enough to be evidence.
-  await screenPasses(page, 100);
+  await briefingGroundsAreReal(page);
 
-  // The scene player's own chrome is new ink on the parchment — the progress readout in
-  // --ink-soft and two ghost buttons — so read the scene out and measure again rather
-  // than assuming the first paint covered them.
+  // Owner decision 2026-09-07 rebuilt this screen onto three tabs: Equipment, Skills
+  // and Profile show DIFFERENT content, so "how many text-bearing elements render"
+  // is now a per-tab question, not one screen-wide number. MEASURED live (not
+  // guessed) against THIS test's own flow — Equipment is measured before
+  // `brief-story-more` is clicked below; Skills and Profile after (that reveal
+  // persists across a tab switch, so it is part of both counts): Equipment 61,
+  // Skills 84, Profile 47. Floors sit a real margin below each — enough that the
+  // old single floor of 100 (which counted every chassis slot open at once, the
+  // pre-tab shape) could never have been met by any ONE tab today, which is the
+  // tell that a stale floor here would certify nothing.
+  // The floor above is a real number, not a guess — assert the actual count too
+  // (a checker that only ever reports "at least N" can decline to look and still
+  // pass): the entry tab's fresh-mount state is reproducible (no RNG, the same
+  // `startNewGame`/`dismissScene` path the measurement script drove), so it is
+  // pinned exactly rather than merely floored.
+  expect(await textNodeCount(page)).toBe(61);
+  await screenPasses(page, 55); // Equipment, the entry tab
+
   await page.getByTestId("brief-story-more").click();
-  await screenPasses(page, 100);
+  await screenPasses(page, 55);
+
+  await page.locator('.tab[data-tab="skills"]').click();
+  // m11: pinned exactly, same reasoning as Equipment's 61 above — measured live
+  // (a real browser walk, not carried over from the Equipment number) on this
+  // reproducible state, AFTER `brief-story-more` above.
+  expect(await textNodeCount(page)).toBe(84);
+  await screenPasses(page, 70);
+
+  await page.locator('.tab[data-tab="profile"]').click();
+  // m11: pinned exactly — measured live the same way.
+  expect(await textNodeCount(page)).toBe(47);
+  await screenPasses(page, 40);
 
   // Spending redraws the learn list with rows the first pass never held — the red
   // "needs Secondary" tag, spent-out seals, the receipt. New colours on new grounds.
+  // `prepEveryMember` ends on the Skills tab (it opens Skills for every member it
+  // touches), so the count only ever grows from the Skills floor above.
   await prepEveryMember(page);
   await expect(page.getByTestId("prep-learn")).toBeVisible();
-  await screenPasses(page, 100);
+  await screenPasses(page, 70);
 });
 
 test("contrast: the help panel", async ({ page }) => {

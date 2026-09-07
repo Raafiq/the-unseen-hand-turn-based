@@ -28,8 +28,13 @@ test("prep viewer: equipping a Secondary command grows the castable command list
   await expect(prep).toBeVisible();
   await prep.scrollIntoViewIfNeeded();
 
-  // The five chassis slots + traits render.
-  for (const label of ["Primary", "Secondary", "Reaction", "Support", "Movement", "Traits"]) {
+  // Owner decision 2026-09-07: the chassis moved onto the right leaf's tabs — Primary/
+  // Reaction/Support/Movement/commands sit under Skills, Traits under Profile. Equipment
+  // is the entry tab (asserted in `e2e/briefing.spec.ts`); this walkthrough opens Skills
+  // once and stays there for the rest of the test, since every remaining assertion reads
+  // a Skills-tab control.
+  await page.locator('.tab[data-tab="skills"]').click();
+  for (const label of ["Primary", "Reaction", "Support", "Movement"]) {
     await expect(prep).toContainText(label);
   }
 
@@ -86,6 +91,13 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   await page.goto("/viewer.html");
   await openViewerPrep(page);
 
+  // Stats (Equipment, the entry tab) and the Traits checkbox (Profile) now sit on
+  // different tabs — a hidden panel's `innerText` reads as EMPTY (the browser's
+  // rendered-text semantics, not a bug in the panel), so the test switches tabs
+  // between reading the stat and touching the checkbox rather than reading through
+  // a `hidden` attribute.
+  const equipmentTab = page.locator('.tab[data-tab="equipment"]');
+  const profileTab = page.locator('.tab[data-tab="profile"]');
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
   await stats.scrollIntoViewIfNeeded();
@@ -95,6 +107,7 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   const moveCell = page.locator('[data-stat="move"]');
   const moveWith = Number((await moveCell.innerText()).replace(/[^\d-]/g, ""));
 
+  await profileTab.click();
   const lightfoot = page.locator('input[data-trait="lightfoot"]');
   await expect(lightfoot).toBeChecked();
   await page.waitForTimeout(INTRO_MS);
@@ -103,6 +116,7 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   // Un-equip Lightfoot → the flat +1 Move is removed at the next build.
   await lightfoot.uncheck();
   await page.waitForTimeout(HOLD_MS);
+  await equipmentTab.click();
   const moveWithout = Number((await moveCell.innerText()).replace(/[^\d-]/g, ""));
   expect(moveWithout).toBe(moveWith - 1);
   await page.screenshot({ path: `${SHOTS}/08-prep-stats-trait-off.png`, fullPage: true });
@@ -115,8 +129,10 @@ test("prep viewer: toggling the Lightfoot trait moves the derived Move stat", as
   expect(built.move).toBe(moveWithout);
 
   // Reversible (AC-J4): re-equipping restores the boost exactly.
+  await profileTab.click();
   await lightfoot.check();
   await page.waitForTimeout(HOLD_MS);
+  await equipmentTab.click();
   await expect(moveCell).toHaveText(String(moveWith));
 });
 
@@ -138,6 +154,11 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   await page.goto("/viewer.html");
   await openViewerPrep(page);
 
+  // Stats (Equipment, the entry tab) and the Support select (Skills) now sit on
+  // different tabs — see the trait test above for why the read/write steps interleave
+  // a tab click rather than reading a `hidden` panel's `innerText`.
+  const equipmentTab = page.locator('.tab[data-tab="equipment"]');
+  const skillsTab = page.locator('.tab[data-tab="skills"]');
   const stats = page.getByTestId("prep-stats");
   await expect(stats).toBeVisible();
   await stats.scrollIntoViewIfNeeded();
@@ -150,19 +171,24 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   // frame has to actually show what the caption says).
   const panel = page.locator("#prep-body");
 
-  // Equip Heavy Armor is equipped by default and is DEFERRED → the slot is inert.
-  await expect(support).toHaveValue("battle-skill.equip-heavy-armor");
   const maInert = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
   await panel.screenshot({ path: `${SHOTS}/09a-prep-support-deferred.png` });
+
+  // Equip Heavy Armor is equipped by default and is DEFERRED → the slot is inert.
+  await skillsTab.click();
+  await expect(support).toHaveValue("battle-skill.equip-heavy-armor");
 
   // Clearing the slot entirely must not move MA either — that is what "inert" means.
   await support.selectOption("");
   await page.waitForTimeout(HOLD_MS);
+  await equipmentTab.click();
   expect(Number((await maCell.innerText()).replace(/[^\d-]/g, ""))).toBe(maInert);
 
   // Magic Attack Up is LIVE: ma x1.33, floored.
+  await skillsTab.click();
   await support.selectOption("black-magic.magic-attack-up");
   await page.waitForTimeout(HOLD_MS);
+  await equipmentTab.click();
   const maLive = Number((await maCell.innerText()).replace(/[^\d-]/g, ""));
   expect(maLive).toBe(Math.floor(maInert * 1.33));
   expect(maLive).toBeGreaterThan(maInert);
@@ -177,8 +203,10 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
   expect(built.ma).toBe(maLive);
 
   // Reversible + free (AC-J4), same as the trait swap above.
+  await skillsTab.click();
   await support.selectOption("battle-skill.equip-heavy-armor");
   await page.waitForTimeout(HOLD_MS);
+  await equipmentTab.click();
   await expect(maCell).toHaveText(String(maInert));
 });
 
@@ -197,7 +225,9 @@ test("prep viewer: equipping Magic Attack Up moves the derived MA stat", async (
 test("prep viewer: an equip that does nothing SAYS it does nothing", async ({ page }) => {
   await page.goto("/viewer.html");
   await openViewerPrep(page);
-  await page.getByTestId("prep-stats").scrollIntoViewIfNeeded();
+  // Every select this test reads sits on the Skills tab (Equipment is the entry tab) —
+  // a hidden `<select>`'s `<option>` text reads as EMPTY, so the tab must be open first.
+  await page.locator('.tab[data-tab="skills"]').click();
 
   const optionText = async (testId: string, value: string): Promise<string> =>
     (await page.locator(`[data-testid="${testId}"] option[value="${value}"]`).innerText()).trim();

@@ -181,3 +181,35 @@ over the 4.5:1 floor across all four captures: **+1.11**.
 **Nothing measures the canvas.** These numbers cover the parchment shell only. No automated
 check reads the battle board's legibility, and none of this says the screen is *understandable*
 — only that its text clears the bar.
+
+## (g) Briefing / prep screen
+
+Seven concept frames (`Preparation scene (Equipment overview|Inventory|Job tree|Menu
+dropdown|Profile|Skills learning|Skills overview).png`), ruled **option A** by the owner
+2026-09-07: one two-pane screen over "prep panel only" — the concept's identity is the
+two panes plus the wax Deploy plate together. Mockup `coverage/overhaul/prep.html` →
+`mockups/prep-{640x300,851x324,1000x780,851x324-skills,851x324-profile}.png`. Colours by
+`sample-palette.py` (this screen reuses ADR-0028's palette, adds none of its own except
+`--seal-red`); contrast by `measure-prep.mjs`. Delivered captures:
+`docs/visual/overhaul/prep-*.png`.
+
+**The ink ladder result matches the title and scene ports exactly (§(a) note 1): only
+`--ink` clears every leaf ground on this screen.** `--ink-soft`, `--ink-faint` and
+`--accent-ink` all fail `--parch-lo`, the leaf's darkest 5%. `overhaul.css` enforces
+this with a comment on every heading and label rule: "ONLY --ink is text here." `--label`
+is the one ink used on iron (plaques, the tab bar, the Deploy plate) — never on
+parchment, and never `--accent-ink` on either ground.
+
+| part | recipe |
+| --- | --- |
+| **roundel row** (`.roundel`) | a small brass disc, `radial-gradient` rivet shading, holding one SVG glyph per stat/skill category; sized `2.3em` in the roster head, `1.05em` inline in a stat row, `1.45em`/`0.85em` svg at the 851×324 compact fold. |
+| **job strip** (`prep-job`, `prep-secondary`) | two full-width iron selects plus five diamond `.pip` marks (`prep-ap`'s job-progress dots) — always visible, regardless of tab. |
+| **portrait card** (`.ptab`) | the shared roster tile: a portrait crop, a `.pjob` job glyph, and a `.pennant` — a swallowtail flag in `--house-grey`/`--house-grey-lit` only, never `--house-blue`. |
+| **wax Deploy plate** (`.seal`) | `--seal-red` field, `position: absolute; right: -0.5em` breaking the right leaf's bottom-right corner, same construction family as the title's plaques. |
+
+**No per-unit house colour on this screen.** The title and scene screens key a ribbon or
+portrait frame to `--house-blue` for "friendly" and `--house-grey` for narration/neutral;
+the briefing screen's `.pennant` only ever declares `--house-grey`/`--house-grey-lit` —
+every roster card, whichever party member, gets the same neutral pennant. Which house a
+character belongs to has no field to key on here, same gap ADR-0040's scene amendment
+names for the ribbon.

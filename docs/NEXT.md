@@ -1,11 +1,11 @@
-<!-- written-against: d360685 -->
+<!-- written-against: 5c305c4 -->
 
 # NEXT - the handoff a machine can't derive
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints the derived facts (branch, merge state, unpushed work).
 This file holds only what the next slice needs: what it is, what it waits on, and what will bite.
 If the hook says the stamp is stale, treat every claim here as a hypothesis and re-derive it.
-Green at the stamp: 986 tests, 163 browser specs (`npm run check`).
+Green at the stamp: 990 tests, 192 browser specs (`npm run check`).
 
 ---
 
@@ -22,52 +22,43 @@ Read this before telling the owner "nothing is pending". Two asks are open, and 
 
 ---
 
-## LANDED 2026-09-07 — the scene player, in the owner's concept look (ADR-0040 amendment)
+## LANDED 2026-09-07 — the briefing screen, in the owner's concept look (ADR-0040, option A)
 
-`#screen-scene` moves to the concept look, built with the existing 3:4 head crops (owner
-call, 2026-09-06). Night backdrop (`night.webp`, `SCENE_ART`), a rivet portrait frame,
-one house ribbon keyed on `figure[data-state]` (mounted only on `scene-story`, a review
-catch — it had shipped on all four story hosts), the help button moving top-right while
-the screen shows, and the log scrolling to its newest line. `docs/10` AC-V47…AC-V50;
-`e2e/scene.spec.ts` (11 tests) covers it.
+One two-pane screen: portrait-card roster on the left leaf, a three-tab detail leaf
+(Equipment / Skills / Profile, `src/render/prep.ts`'s `mountPrep` closure) on the right,
+briefing chrome on a top rail, a wax Deploy plate. Owner picked option A over "prep panel
+only" — the concept's identity is the two panes plus the plate together. `docs/10`
+AC-V51…AC-V59; `e2e/briefing.spec.ts` and new `e2e/css-leaks.spec.ts` cover it.
 
 **Landmines:**
 
-- **House ribbon has no data source.** Blue/grey keys on `data-state` (speaking vs
-  narration); which house owns which colour needs a field no character record carries.
-- **The prologue's speakers are `placeholder` today**, so a player's first scene shows
-  the pending frame, not art — a data gap, not a viewer defect.
-- **The backdrop upscales ~1.8x at desktop widths.** Survivable because the source art is
-  bokeh; would not be for a sharper crop.
-- **The `~ .help-btn` sibling rule depends on DOM order in `index.html`.** Moving
-  `#screen-scene` or `.help-btn` in the markup silently breaks the top-right placement.
+- **The story row's placement depends on `brief-story` being the first child of
+  `.leaf-left`** — reordering the roster markup silently moves the beat.
+- **The help-button plaque is a `#screen-briefing:not([hidden]) ~ button.help-btn`
+  sibling rule** — depends on DOM order in `index.html`, same mechanism as the scene
+  port's help-button fix.
+- **Roster cards crush to a strip at 640×300.**
+- **"Portrait pending" renders at ~7px** for an unauthored placeholder — legible in
+  Chromium, unverified on a real phone (see OPEN item F).
+- **The story line clamps to two lines**; the rest sits behind a "More" control.
+- **`/viewer.html?prep=empty` is a TEST SEAM** (`makeEmptyDemoRecord`/`mountPrepEmpty` in
+  `main.ts`/`prep.ts`), not a feature — it exists because no in-play fixture reaches the
+  empty-weapon or empty-traits states in the shipped battle-1 party.
 
 ---
 
-## LANDED 2026-09-06 — the title screen, in the owner's concept look (ADR-0040)
+## THE NEXT SLICE — battle-screen combat poses, in the owner's concept look
 
-Three controls only (New Game, Continue, Copy playtest log); Erase Save and the footer
-link removed from the DOM; New Game's overwrite check moved in-page; the ink ladder
-re-measured on this screen's own darker parchment (only `--ink` clears it). `docs/10`
-AC-V44…AC-V46; `e2e/title.spec.ts`, `e2e/contrast.spec.ts` cover it. Full detail: ADR-0040.
-
----
-
-## THE NEXT SLICE — the prep screen, in the owner's concept look (owner picked it 2026-09-07)
-
-**The owner chose the prep screen and said it is done in a NEW session; nothing is started.**
-It is the largest remaining screen (113 text-bearing elements measured) and the one the
-campaign's normal path exercises most. Six of the owner's concepts cover it
-(`docs/visual/concepts/Preparation scene (*).png`) — LOOK ONLY: the job tree, inventory,
-secondary job, traits and levels in them are placeholders and not in scope. Run the same
-sequence as the title and scene slices: `art-director` one-pass mockup at 640x300 /
-851x324 / 1000x780 from the concepts (the owner approves the frames), then
-`viewer-engineer` with a NUMERIC diff against the mockup, then `reviewer`, then
-`docs-steward`. Enumerate every control and state the live prep screen carries before
-cutting any to match the picture (`src/render/CLAUDE.md`, "Two traps the overhaul sets").
-
-Owner: `viewer-engineer`, then `reviewer`, then `docs-steward` — in that order, never
-the last two in parallel.
+**Owner has not picked this yet — do not start.** It is the one screen still in the
+pre-overhaul look (ADR-0040 covers title, scene player, briefing). Five concept renders
+exist (`docs/visual/concepts/Combat scene (*).png`) — LOOK ONLY, same ruling as every
+prior port. Run the same sequence: `art-director` one-pass mockup at 640x300 / 851x324 /
+1000x780 (owner approves the frames), then `viewer-engineer` with a NUMERIC diff against
+the mockup, then `reviewer`, then `docs-steward` — never the last two in parallel.
+Enumerate every control and state the live battle screen carries before cutting any to
+match the picture (`src/render/CLAUDE.md`, "Two traps the overhaul sets"). This screen
+sits on the ADR-0037 stage, unlike the three ports before it — check whether a pose
+change can touch stage geometry (`stage.ts`) before assuming it is CSS-only.
 
 ---
 
@@ -80,8 +71,8 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 | The job cut (8 jobs to 5) | A signal, not a decision (owner, 2026-09-05). Needs an ADR; do not start it under cover of another slice | `docs/visual/portraits/reference/README.md`, "Scope" |
 | The turn plate under the damage numeral | Open appearance call; render the alternatives before asking again | ADR-0032 amendment; `visual-artifacts/playtest/05c-turn-plate.png` after `npm run test:visual` |
 | The unit token | Still the flat kite; the owner bundled the choice with the portraits | ADR-0030 |
-| The other three screens in the new look (prep, briefing, battle poses) | Title and the scene player have moved; not scheduled until the owner picks | ADR-0040 |
-| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; title's and the scene player's look changed but position did not; needs its own ACs from AC-V43 | ADR-0037, ADR-0040 |
+| Battle-screen combat poses in the new look | Title, scene and briefing have moved; not scheduled until the owner picks | ADR-0040 |
+| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; the other three's look changed but position did not; needs its own ACs from AC-V43 | ADR-0037, ADR-0040 |
 | Camera pan, pinch, double-tap-to-refit | Tiles are ~30x15 CSS px at 640x300, exempt from the 44px tap-target floor (AC-V35); mis-taps are a real, uncovered gap until this lands | ADR-0037 |
 | Skin B (dark-table stage option) | Appended to `stage.css`, not wired into `viewer.html` (no `@font-face` for Cinzel/EB Garamond there; falls back to Georgia) | `src/render/stage.css` |
 | No real device has run the mobile-landscape gate or the stage | Both rest on Chromium emulation only | OPEN item F above |
@@ -105,6 +96,7 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 | The concept renders, the style guide, look-only ruling, title-first order | `docs/visual/concepts/README.md`, ADR-0040 |
 | The title screen's controls, overwrite step, ink ladder | ADR-0040, `docs/10` AC-V44..V46, `e2e/title.spec.ts` |
 | The scene player's backdrop, ribbon, help-button move, scroll, iron rim | ADR-0040 amendment, `docs/10` AC-V47..V50, `e2e/scene.spec.ts` |
+| The briefing screen's two panes, tabs, control manifest, leak probe | ADR-0040 second amendment, `docs/10` AC-V51..V59, `e2e/briefing.spec.ts`, `e2e/css-leaks.spec.ts` |
 | Portrait wiring, the boot checks, the viewer table decision | ADR-0039 |
 | Portrait verdicts, per-file status, staged bytes, crop boxes, the style lock's origin | `docs/visual/portraits/reference/README.md` |
 | GPT probe prompts, settings and the v1/v2 measurements | `docs/visual/portraits/reference/gpt-probe-prompts.md`, ADR-0034 |

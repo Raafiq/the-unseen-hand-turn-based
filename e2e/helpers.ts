@@ -24,12 +24,32 @@ import { expect, type Page } from "@playwright/test";
  * anywhere in the pack clears 1 of 8. Spending at home is the thing the game now asks a
  * player to work out.
  */
+/**
+ * Switch the prep panel's right-leaf tab (owner decision 2026-09-07, option A:
+ * Equipment / Skills / Profile). A no-op if the tab is already open — Playwright's
+ * `.click()` on an already-`aria-selected` tab is harmless, but callers that assert a
+ * specific PRIOR tab (the persistence tests) drive `.tab[data-tab=…]` directly instead
+ * of through this helper, so it never masks that behaviour.
+ */
+export async function openPrepTab(
+  page: Page,
+  tab: "equipment" | "skills" | "profile",
+): Promise<void> {
+  await page.locator(`.tab[data-tab="${tab}"]`).click();
+}
+
 export async function prepEveryMember(page: Page): Promise<void> {
   const members = await page.locator('[data-testid="prep-roster"] button.ptab').all();
   for (let i = 0; i < members.length; i += 1) {
     // Re-resolve each pass: the panel re-renders after every purchase, so a handle taken
     // before the click is detached by the time the next one is needed.
     await page.locator('[data-testid="prep-roster"] button.ptab').nth(i).click();
+    // Owner decision 2026-09-07: buy/equip controls moved onto the right leaf's SKILLS
+    // tab (Equipment is the default). Clicking a roster card does not reset the tab
+    // (that would be the same regression the tab-persistence test guards), but a
+    // FRESH mount — the very first member, on the very first briefing — opens on
+    // Equipment, so the click is unconditional rather than "if not already there".
+    await page.locator('#screen-briefing .tab[data-tab="skills"]').click();
     for (let guard = 0; guard < 20; guard += 1) {
       const buy = page.locator('[data-testid="prep-learn"] button.buy:not([disabled])').first();
       if ((await buy.count()) === 0) break;
