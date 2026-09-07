@@ -1,0 +1,2267 @@
+[
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "#brief-deploy-note",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "#brief-deploy-note",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "#brief-deploy-note",
+    "property": "font-style"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "#brief-deploy-note",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "*",
+    "property": "box-sizing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "list-style"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "flex-basis"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list .desc",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".cmd-list li",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".eyebrow",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list",
+    "property": "list-style"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "font-variant-numeric"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy",
+    "property": "white-space"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy[disabled]",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy[disabled]",
+    "property": "border-color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .buy[disabled]",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "flex-basis"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .desc",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "margin-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list .kind",
+    "property": "vertical-align"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "border-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "justify-content"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "margin-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.deferred .tag",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "opacity"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.known .s",
+    "property": "transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li.locked",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".learn-list li:last-child",
+    "property": "border-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "--burn"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "--burn-jitter"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "--burn-spread"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "background-blend-mode"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "background-color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "background-image"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "background-repeat"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "background-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "isolation"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "overflow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel > *",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel > *",
+    "property": "z-index"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "border-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "padding-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".panel h3",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait",
+    "property": "flex"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait",
+    "property": "width"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "border-top"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "text-align"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait figcaption.pending",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait img",
+    "property": "aspect-ratio"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait img",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait img",
+    "property": "height"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait img",
+    "property": "object-fit"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".portrait img",
+    "property": "width"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "border-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "flex-direction"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab .pname",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab .pname",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab .pname",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab .pname",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab .pname",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab.on",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab.on",
+    "property": "border-bottom-color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".ptab.on",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "border-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "grid-column"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".roster",
+    "property": "margin-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-body",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-body",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-body",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-body",
+    "property": "grid-template-columns"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls button",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls button",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-controls button[hidden]",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-lines",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-lines",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "font-variant-numeric"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".scene-progress",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "list-style"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .k",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "font-variant-numeric"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row .v",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li",
+    "property": "flex-direction"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li:first-child",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stat-row li:first-child",
+    "property": "padding-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stats",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stats",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stats",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stats",
+    "property": "grid-column"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".stats",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story .who",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story p.line",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story p.line",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story p.line",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story p.line",
+    "property": "max-width"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": ".story p.line:last-child",
+    "property": "margin-bottom"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "cursor"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "touch-action"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button",
+    "property": "transition"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button.ghost",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button.ghost",
+    "property": "border-color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button.ghost",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button.ghost",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button.ghost",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button[disabled]",
+    "property": "cursor"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button[disabled]",
+    "property": "opacity"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "button[hidden]",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "footer",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "footer",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "footer",
+    "property": "font-style"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "footer",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h1",
+    "property": "text-wrap"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h2",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h2",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h2",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-briefing",
+    "selector": "h2",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "*",
+    "property": "box-sizing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "--burn"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "--burn-jitter"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "--burn-spread"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "background-blend-mode"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "background-color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "background-image"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "background-repeat"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "background-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "isolation"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "overflow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card > *",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".card > *",
+    "property": "z-index"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".controls",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".controls",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".controls",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".controls",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".controls",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait",
+    "property": "flex"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait",
+    "property": "width"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "border-top"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "text-align"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait figcaption.pending",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait img",
+    "property": "aspect-ratio"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait img",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait img",
+    "property": "height"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait img",
+    "property": "object-fit"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".portrait img",
+    "property": "width"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-body",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-body",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-body",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-body",
+    "property": "grid-template-columns"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls button",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-controls button",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-lines",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-lines",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "font-variant-numeric"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".scene-progress",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story",
+    "property": "border-left"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story .who",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story p.line",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story p.line",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story p.line",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story p.line",
+    "property": "max-width"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": ".story p.line:last-child",
+    "property": "margin-bottom"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "cursor"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "touch-action"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button",
+    "property": "transition"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button.ghost",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button.ghost",
+    "property": "border-color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button.ghost",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button.ghost",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "button.ghost",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-scene",
+    "selector": "h1",
+    "property": "text-wrap"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "*",
+    "property": "box-sizing"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".controls",
+    "property": "align-items"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".controls",
+    "property": "display"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".controls",
+    "property": "flex-wrap"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".controls",
+    "property": "gap"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".controls",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".eyebrow",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox p",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox p",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox p",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox p",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "min-height"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".logbox textarea",
+    "property": "width"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "border-top"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "font-style"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "margin-top"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": ".reason",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "border"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "border-radius"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "cursor"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "padding"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "position"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "text-transform"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "touch-action"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button",
+    "property": "transition"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button.ghost",
+    "property": "background"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button.ghost",
+    "property": "border-color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button.ghost",
+    "property": "box-shadow"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button.ghost",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button.ghost",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button[disabled]",
+    "property": "cursor"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "button[disabled]",
+    "property": "opacity"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "font-family"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "font-weight"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "letter-spacing"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "line-height"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "text-shadow"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "h1",
+    "property": "text-wrap"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "p.lede",
+    "property": "color"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "p.lede",
+    "property": "font-size"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "p.lede",
+    "property": "margin"
+  },
+  {
+    "screenRoot": "#screen-title",
+    "selector": "p.lede",
+    "property": "max-width"
+  }
+]

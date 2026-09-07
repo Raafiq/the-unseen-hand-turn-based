@@ -3,6 +3,7 @@ import {
   prepEveryMember,
   dismissScene,
   freezeMotion,
+  openPrepTab,
   settleMotion,
   startNewGame,
   watchStep,
@@ -77,6 +78,9 @@ test("campaign shell: title → battle → saved progress survives a reload", as
 
   // The between-battle prep panel is mounted on the briefing with the whole party.
   await expect(page.getByTestId("prep-roster")).toContainText("Ottoline");
+  // `prep-progression` (the Learn column) sits on the Skills tab; Equipment is the
+  // entry tab.
+  await openPrepTab(page, "skills");
   await expect(page.getByTestId("prep-progression")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/21-briefing.png`, fullPage: true });
 
@@ -255,7 +259,10 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   expect(apBefore).toBeGreaterThanOrEqual(60);
   expect(apBefore).toBeLessThan(120);
 
-  // Vance knows no black magic: no Fire anywhere in his command list.
+  // Vance knows no black magic: no Fire anywhere in his command list. `prep-commands`
+  // and `prep-learn` sit on the Skills tab (Equipment is the entry tab); `prep-job` and
+  // `prep-secondary` are in the Job Customization strip, visible on every tab.
+  await openPrepTab(page, "skills");
   const commands = page.getByTestId("prep-commands");
   await expect(commands).not.toContainText("Fire");
 
@@ -279,6 +286,8 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
   await expect(page.getByTestId("prep-ap")).toContainText(`${apAfter} AP`);
+  // A fresh mount opens on Equipment again — the tab is render-layer state, not saved.
+  await openPrepTab(page, "skills");
   await expect(page.getByTestId("prep-commands")).toContainText("Fire");
 
   // And the edit is on the unit that DEPLOYS, not merely in the panel — the assertion
@@ -302,6 +311,8 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await expect(page.getByTestId("prep-ap")).toContainText("0 AP");
+  // `prep-learn` sits on the Skills tab (Equipment is the entry tab).
+  await openPrepTab(page, "skills");
 
   // The first row a member ALREADY KNOWS renders no buy button at all, so `.first()`
   // is not necessarily purchasable — Vance starts knowing his tier-one node. Take the
@@ -336,6 +347,9 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
+  // `prep-learn`/`prep-tree`/`prep-spend-hint` sit on the Skills tab; `prep-job` is in
+  // the Job Customization strip, visible on every tab.
+  await openPrepTab(page, "skills");
 
   // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
   const own = page.locator('[data-testid="prep-learn"] li');
@@ -432,16 +446,20 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
+  // Weapon lives on Equipment (the entry tab); traits live on Profile.
   const weaponHint = page.getByTestId("prep-weapon-hint");
   const traitHint = page.getByTestId("prep-traits-hint");
 
   await expect(weaponHint).toBeVisible();
   await expect(weaponHint).toContainText("none equipped");
+  await openPrepTab(page, "profile");
   await expect(traitHint).toBeVisible();
 
+  await openPrepTab(page, "equipment");
   await page.getByTestId("prep-weapon").selectOption("wpn-arming-sword");
   await expect(weaponHint).toHaveCount(0);
 
+  await openPrepTab(page, "profile");
   await page.locator('[data-testid="prep-traits"] input[type="checkbox"]').first().check();
   await expect(traitHint).toHaveCount(0);
 });

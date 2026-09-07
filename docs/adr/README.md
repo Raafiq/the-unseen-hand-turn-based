@@ -42,4 +42,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0037](0037-the-viewer-is-built-for-a-landscape-phone-first.md) | The viewer is built for a landscape phone first (supersedes ADR-0033's placement) | Accepted | 2026-09-05 |
 | [0038](0038-confirm-is-a-separate-tap.md) | Confirm is a separate tap; selecting a target no longer commits | Accepted | 2026-09-05 |
 | [0039](0039-portrait-identity-is-a-viewer-table-not-an-engine-field.md) | Portrait identity is a viewer table, not an engine field; the engine stays gender-blind | Accepted | 2026-09-06 |
-| [0040](0040-the-overhaul-follows-the-owners-concepts-title-first.md) | The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first | Accepted | 2026-09-06 |
+| [0040](0040-the-overhaul-follows-the-owners-concepts-title-first.md) | The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first (amended: scene player, then the briefing screen) | Accepted | 2026-09-06 |

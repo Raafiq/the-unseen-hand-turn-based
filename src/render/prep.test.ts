@@ -9,7 +9,7 @@ import {
   type ContentRegistry,
   type UnitRecord,
 } from "../sim/index.js";
-import { PrepModel, type LearnRow } from "./prep.js";
+import { PREP_TABS, PrepModel, jobCrest, type LearnRow } from "./prep.js";
 
 /**
  * The prep panel's RULES, with no DOM (the `session.ts` precedent). What a browser adds
@@ -608,5 +608,62 @@ describe("LearnRow.reach — telling the player where AP goes BEFORE they spend 
       .flatMap((job) => [...rowsOf(model, job).values()])
       .filter((r) => r.kind === "action" && r.reach === "secondary" && r.buyable);
     expect(flagged.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Owner decision 2026-09-07 (option A): the right leaf's three tabs, and the mastery
+ * pip row they drive from `jobProgress`.
+ *
+ * WHAT THIS FILE CANNOT COVER. `vitest.config.ts` runs in a plain Node environment
+ * with no DOM (see its own comment), so `mountPrep` — the thing that actually holds
+ * which tab is showing, switches it on a click, and keeps it across a re-render — is
+ * unreachable from here. That behaviour (tests naming MUTATION/ASSERT for "Equipment
+ * is selected on entry", "clicking Skills reveals prep-reaction", "the tab survives a
+ * roster switch") is asserted in `e2e/briefing.spec.ts` instead, against the real DOM.
+ * What IS DOM-free and worth a model-level test: the tab id set itself, and
+ * `jobProgress`, the quantity the strip's pips are computed from.
+ */
+describe("the right leaf's tabs and mastery pips", () => {
+  it("PREP_TABS names exactly the three tabs, in display order", () => {
+    expect(PREP_TABS).toEqual(["equipment", "skills", "profile"]);
+  });
+
+  it("jobProgress is the FRACTION of a job's tree bought, not raw AP", () => {
+    // DISCRIMINATING: the mockup's own placeholder pips read raw AP for BOTH Main Job
+    // and Secondary — the same number twice, which cannot tell "deep in this tree" from
+    // "just started another". A Knight with one Weapon Break node bought (of several)
+    // must read a SMALL fraction of the Knight tree and ZERO of an untouched Wizard
+    // tree, even though the record's `ap` figure is the same number either way.
+    const m = new PrepModel({ registry, records: [knightish("u1")] });
+    const knightTree = registry.job("knight").tree.length;
+    expect(knightTree).toBeGreaterThan(1); // non-degeneracy: one node can't show a fraction
+    expect(m.jobProgress("knight")).toBeCloseTo(1 / knightTree);
+    expect(m.jobProgress("wizard")).toBe(0);
+  });
+
+  it("jobProgress rises to 1 at a fully-bought tree", () => {
+    const registryJob = registry.job("monk").tree;
+    let record = defaultUnitRecord("u1", "monk", { name: "Kest", ap: 100_000 });
+    for (const node of registryJob) {
+      record = learnAbility(record, "monk", node.node, registry);
+    }
+    const m = new PrepModel({ registry, records: [record] });
+    expect(m.jobProgress("monk")).toBe(1);
+  });
+
+  it("jobCrest names a glyph for every job the pack ships, or the documented star fallback", () => {
+    // MUTATION: delete a row from JOB_CREST (e.g. "knight") → this still passes, because
+    // the fallback is BY DESIGN for jobs with no mockup crest (thief, summoner) — so the
+    // real assertion is that the two jobs known to lack one get exactly "star", and nothing
+    // else silently does.
+    for (const jobId of registry.jobById.keys()) {
+      const crest = jobCrest(jobId);
+      if (jobId === "thief" || jobId === "summoner") {
+        expect(crest).toBe("star");
+      } else {
+        expect(crest).not.toBe("star");
+      }
+    }
   });
 });

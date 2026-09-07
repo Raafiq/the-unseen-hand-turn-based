@@ -5,9 +5,10 @@
  * It mounts over any {@link UnitRecord}s the caller hands it, and reports every edit
  * back through `onChange`. Two callers today:
  *
- *   - `/` (the engine viewer) mounts {@link mountPrepDemo}: one fixed demo Knight, no
- *     progression controls, `onChange` discarded. It is a SHOWCASE — a deterministic
- *     fixed learn/equip sequence whose screenshots are a regression baseline.
+ *   - `/viewer.html` (the engine viewer) mounts {@link mountPrepDemo}: one fixed demo
+ *     Knight, no progression controls, `onChange` discarded. It is a SHOWCASE — a
+ *     deterministic fixed learn/equip sequence whose screenshots are a regression
+ *     baseline.
  *   - `/` (the campaign) mounts {@link mountPrep} on the briefing screen with
  *     the save's party and `progression: true`, and writes each edit back into the save
  *     (docs/11 M0 item 3).
@@ -33,6 +34,7 @@
  */
 
 import { abilitySummary, equipmentSummary } from "./ability-text.js";
+import { icon } from "./icons.js";
 import pack from "../../data/base-pack.json";
 import {
   DEFERRED_ACTIONS,
@@ -75,6 +77,33 @@ export const JOB_LABEL: Record<string, string> = {
   geomancer: "Geomancer",
   summoner: "Summoner",
 };
+
+/**
+ * The right leaf's three tabs (Owner decision 2026-09-07, option A), in display order.
+ * RENDER-LAYER ONLY: never written to a {@link UnitRecord} or the save, so it lives here
+ * rather than on {@link PrepModel} — `mountPrep` holds the live value in its own closure
+ * and nothing downstream of `onChange` ever sees it.
+ */
+export const PREP_TABS = ["equipment", "skills", "profile"] as const;
+export type PrepTab = (typeof PREP_TABS)[number];
+
+/**
+ * Job id → the `icons.ts` glyph id its crest uses. Six of the eight jobs have one (the
+ * mockup's own set); `thief` and `summoner` fall back to the neutral `star` glyph
+ * already on screen elsewhere (the Skills tab icon) rather than inventing new heraldry
+ * no reference sanctioned — a taste call that belongs to `art-director`, not to a
+ * fallback in this table.
+ */
+const JOB_CREST: Record<string, string> = {
+  knight: "c-knight",
+  monk: "c-monk",
+  wizard: "c-wizard",
+  priest: "c-priest",
+  archer: "c-archer",
+  geomancer: "c-geomancer",
+};
+/** A job's crest glyph id for `icons.ts`'s `icon()`. Shared with `game.ts`'s roster cards. */
+export const jobCrest = (jobId: string): string => JOB_CREST[jobId] ?? "star";
 
 const SKILLSET_LABEL: Record<string, string> = {
   "battle-skill": "Battle Skill",
@@ -219,6 +248,13 @@ export interface PrepModelOptions {
    * farm-free schedule the ADR exists to protect.
    */
   inventory?: readonly string[];
+  /**
+   * The right leaf's hero portrait, resolved per record. Optional and CAMPAIGN-ONLY:
+   * the engine viewer's demo (`mountPrepDemo`) has no portrait table, so its `.hero`
+   * frame is simply not drawn rather than pointed at a broken or invented image —
+   * absent-not-zero applied to a picture instead of a stat.
+   */
+  portrait?: (record: UnitRecord) => string;
 }
 
 /** One row of the learn list: what it is, what it costs, and why it is blocked. */
@@ -456,6 +492,23 @@ export class PrepModel {
   /** Every job id the content pack defines, in pack order. */
   jobIds(): string[] {
     return [...this.registry.jobById.keys()];
+  }
+
+  /**
+   * How much of `jobId`'s tree this unit has bought, as a fraction (0–1) of its nodes.
+   *
+   * Drives the strip's mastery pips. The mockup filled its placeholder pips from raw
+   * banked AP — the SAME figure for both Main Job and Secondary, which cannot
+   * distinguish "deep in this tree" from "just started another" and was declared
+   * placeholder in its own comment. Tree completion is the real quantity a pip row
+   * claims to show, and it is on the record already: no new field, no invented number.
+   */
+  jobProgress(jobId: string): number {
+    const tree = this.registry.job(jobId).tree;
+    if (tree.length === 0) return 0;
+    const known = new Set(this.record().learned);
+    const bought = tree.filter((n) => known.has(n.ability)).length;
+    return bought / tree.length;
   }
 
   /** The equipment ids the party owns, in grant order. */
@@ -723,6 +776,10 @@ export interface PrepHandle {
   /** Re-point the panel at the party's owned equipment. */
   setInventory: (ids: readonly string[]) => boolean;
   learn: (jobId: string, nodeId: string) => void;
+  /** Which right-leaf tab is showing. Render-layer only — see {@link PrepTab}. */
+  activeTab: () => PrepTab;
+  /** Switch the right-leaf tab without touching the record or the selected member. */
+  setTab: (tab: PrepTab) => void;
 }
 
 interface Opt {
@@ -749,28 +806,21 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
   const model = new PrepModel(opts);
   const progression = opts.progression ?? false;
   const registry = opts.registry;
+  const portraitOf = opts.portrait;
+
+  /**
+   * Which right-leaf tab is showing. RENDER-LAYER ONLY (owner decision 2026-09-07):
+   * lives in this closure, never on the model or the record, so nothing here can reach
+   * the save. Persists across a re-render by construction — `render()` reads it, never
+   * writes it, so a roster switch or an edit's repaint cannot reset it. Only a tab click
+   * (`bind()`) or `setTab` changes it.
+   */
+  let tab: PrepTab = "equipment";
 
   function sel(testid: string): HTMLElement {
     const el = container.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
     if (!el) throw new Error(`prep: missing element "${testid}"`);
     return el;
-  }
-
-  /** The party strip — omitted entirely for a single record, where it says nothing. */
-  function rosterHtml(): string {
-    const records = model.records();
-    if (records.length < 2) return "";
-    const selected = model.selectedIndex();
-    const tabs = records
-      .map(
-        (r, i) =>
-          `<button type="button" class="ptab${i === selected ? " on" : ""}" data-member="${esc(r.id)}"` +
-          `${i === selected ? ' aria-current="true"' : ""}>` +
-          `<span class="pname">${esc(r.name)}</span>` +
-          `<span class="pmeta">${esc(jobLabel(r.currentJob))} · ${r.ap} AP</span></button>`,
-      )
-      .join("");
-    return `<div class="roster" data-testid="prep-roster">${tabs}</div>`;
   }
 
   /**
@@ -846,22 +896,62 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         ? `<p class="hint" data-testid="prep-weapon-hint">You own ${owned.length} weapon${owned.length === 1 ? "" : "s"} and have none equipped.</p>`
         : "";
     return `
-      <div class="slot">
-        <h3>Weapon <span class="lock">swaps are free</span></h3>
-        <select data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
-        ${desc === null ? "" : `<p class="hint" data-testid="prep-weapon-desc">${esc(desc)}</p>`}
-        ${unused}
-      </div>`;
+      <div class="gearrow">
+        <span class="roundel">${icon("sword")}</span>
+        <span class="gcap">Main Hand</span>
+        <select class="gval" data-testid="prep-weapon" aria-label="Equipped weapon">${opts}</select>
+        ${icon("chev", "chev")}
+      </div>
+      ${desc === null ? "" : `<p class="hint" data-testid="prep-weapon-desc">${esc(desc)}</p>`}
+      ${unused}`;
   }
 
+  /** The Job Customization strip — Main Job (progression only) + Secondary, every tab. */
+  function jobStripHtml(): string {
+    const r = model.record();
+    const secOptions = optionList(
+      [
+        { value: "", label: "— none —" },
+        ...model.equippableSecondaryJobs().map((j) => ({
+          value: j,
+          label: `${skillsetLabel(model.skillsetOf(j))} (${jobLabel(j)})`,
+        })),
+      ],
+      r.loadout.secondary ?? "",
+    );
+    const secJob = r.loadout.secondary;
+    const mainJplaque = !progression
+      ? ""
+      : `
+        <div class="jplaque">
+          <span class="jcrest">${icon(jobCrest(r.currentJob))}</span>
+          <div class="jhead"><span class="jcap">Main</span><span class="pips">${pipsHtml(model.jobProgress(r.currentJob))}</span></div>
+          <select class="jval" data-testid="prep-job" aria-label="Current job">${optionList(model.jobIds().map((j) => ({ value: j, label: jobLabel(j) })), r.currentJob)}</select>
+        </div>`;
+    return `
+    <div class="jobstrip">
+      <h3 class="sect">Job Customization</h3>
+      <div class="jobrow">
+        ${mainJplaque}
+        <div class="jplaque">
+          <span class="jcrest">${icon(secJob === null ? "star" : jobCrest(secJob))}</span>
+          <div class="jhead"><span class="jcap">Secondary</span><span class="pips">${pipsHtml(secJob === null ? 0 : model.jobProgress(secJob))}</span></div>
+          <select class="jval" data-testid="prep-secondary" aria-label="Secondary command">${secOptions}</select>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /** Five diamonds filled from tree completion — never from raw AP (see `jobProgress`). */
+  const pipsHtml = (fraction: number): string => {
+    const filled = Math.max(0, Math.min(5, Math.round(fraction * 5)));
+    return Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("");
+  };
+
   /** The job selector + the AP-priced learn list, straight off {@link PrepModel.learnRows}. */
-  function progressionHtml(): string {
+  function learnColumnHtml(): string {
     if (!progression) return "";
     const r = model.record();
-    const jobOptions = optionList(
-      model.jobIds().map((j) => ({ value: j, label: jobLabel(j) })),
-      r.currentJob,
-    );
     const browsing = model.browseJob();
     const treeOptions = optionList(
       model.jobIds().map((j) => ({
@@ -917,26 +1007,22 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       .join("");
 
     return `
-    <div class="prog" data-testid="prep-progression">
-      <div class="slot">
-        <h3>Job <span class="lock">changing is free</span></h3>
-        <select data-testid="prep-job" aria-label="Current job">${jobOptions}</select>
-        <p class="hint">Learned abilities and mastery stay with the unit, not the job.</p>
+    <div class="learnhead" data-testid="prep-progression">
+      <h3 class="sect">Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))}</h3>
+      <div class="gearrow">
+        <span class="roundel">${icon("scroll")}</span>
+        <select class="gval" data-testid="prep-tree" aria-label="Skill tree to browse" style="grid-row:1/3;">${treeOptions}</select>
+        ${icon("chev", "chev")}
       </div>
-      <div class="learn">
-        <h3>Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))} <span class="count" data-testid="prep-ap" title="Banked AP">${r.ap} AP</span></h3>
-        <select data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
-        <p class="hint" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>
-        <ul class="learn-list" data-testid="prep-learn">${rows}</ul>
-        ${receiptHtml()}
-      </div>
-    </div>`;
+    </div>
+    <p class="hint tight" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>
+    <ul class="learn-list" data-testid="prep-learn" tabindex="0">${rows}</ul>
+    ${receiptHtml()}`;
   }
 
   function render(): void {
     const record = model.record();
     const commands = model.commands();
-    const traits = model.earnedTraits();
 
     // Live derived stats, and a traits-stripped baseline so any stat an equipped trait
     // lifts renders highlighted (the visible "the trait did something").
@@ -948,17 +1034,6 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     }).join("");
 
     const noneOpt: Opt = { value: "", label: "— none —" };
-
-    const secondaryOptions = optionList(
-      [
-        noneOpt,
-        ...model.equippableSecondaryJobs().map((j) => ({
-          value: j,
-          label: `${skillsetLabel(model.skillsetOf(j))} (${jobLabel(j)})`,
-        })),
-      ],
-      record.loadout.secondary ?? "",
-    );
 
     // A slot whose equipped ability does nothing must SAY so — the same rule the command
     // list already follows for DEFERRED_ACTIONS. The reaction slot went live (ADR-0019)
@@ -988,13 +1063,22 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         record.loadout[slot] ?? "",
       );
 
+    // Job-associated, not just the trait id: the mockup's tile carries the mastered
+    // job's crest and says "Mastered from X.", which `earnedTraits()` alone (a bare
+    // list of trait ids) cannot answer — so this walks `record.mastered` directly.
     const traitsBody =
-      traits.length === 0
-        ? `<p class="empty">No mastered jobs yet — master a full job tree to earn a trait.</p>`
-        : traits
-            .map((t) => {
+      record.mastered.length === 0
+        ? `<p class="empty" id="traits-empty">No mastered jobs yet — master a full job tree to earn a trait.</p>`
+        : record.mastered
+            .map((jobId) => {
+              const t = registry.job(jobId).masteryBonus.trait;
               const on = record.loadout.traits.includes(t);
-              return `<label class="chk"><input type="checkbox" data-trait="${esc(t)}"${on ? " checked" : ""}/> ${esc(traitLabel(t))}</label>`;
+              return (
+                `<label class="chk"><span class="ttile">${icon(jobCrest(jobId))}` +
+                `<input type="checkbox" data-trait="${esc(t)}"${on ? " checked" : ""}/></span>` +
+                `<span><span class="tname">${esc(traitLabel(t))}</span>` +
+                `<span class="tdesc">Mastered from ${esc(jobLabel(jobId))}.</span></span></label>`
+              );
             })
             .join("");
 
@@ -1021,54 +1105,108 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       })
       .join("");
 
+    const heroHtml =
+      portraitOf === undefined
+        ? ""
+        : `<div class="hero"><img src="${esc(portraitOf(record))}" alt=""></div>`;
+
     container.innerHTML = `
-    ${rosterHtml()}
-    <div class="stats" data-testid="prep-stats">
-      <h3>${esc(record.name)} <span class="lock">traits apply at battle start</span></h3>
-      <ul class="stat-row">${statsBody}</ul>
+    <header class="unit-head">
+      ${heroHtml}
+      <div class="idcol">
+        <div class="nameline">
+          <h2>${esc(record.name)}</h2>
+          <span class="count" data-testid="prep-ap" title="Banked AP">${record.ap} AP</span>
+        </div>
+        <p class="jobline">${icon(jobCrest(record.currentJob))}<span>${esc(jobLabel(record.currentJob))}</span></p>
+        <div class="rulehr"></div>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab${tab === "equipment" ? " on" : ""}" data-tab="equipment" role="tab" aria-selected="${tab === "equipment"}">${icon("sword")}<span class="tlabel">Equipment</span></button>
+      <button type="button" class="tab${tab === "skills" ? " on" : ""}" data-tab="skills" role="tab" aria-selected="${tab === "skills"}">${icon("star")}<span class="tlabel">Skills</span></button>
+      <button type="button" class="tab${tab === "profile" ? " on" : ""}" data-tab="profile" role="tab" aria-selected="${tab === "profile"}">${icon("scroll")}<span class="tlabel">Profile</span></button>
+    </nav>
+
+    <div class="panels">
+      <section class="panel" data-panel="equipment"${tab === "equipment" ? "" : " hidden"}>
+        <div class="col narrow" tabindex="0">
+          <h3 class="sect">Wielded Gear</h3>
+          ${weaponSlotHtml()}
+          <p class="hint">The game models one hand — there is nothing else to equip here yet.</p>
+        </div>
+        <div class="col wide" tabindex="0">
+          <h3 class="sect">Standing <span class="lock">at battle start</span></h3>
+          <div class="stats" data-testid="prep-stats">
+            <ul class="stat-row">${statsBody}</ul>
+            <p class="hint">▲ lifted by an equipped trait.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="skills"${tab === "skills" ? "" : " hidden"}>
+        <div class="col" tabindex="0">
+          <h3 class="sect">Active</h3>
+          <div class="gearrow" data-testid="prep-primary">
+            <span class="roundel">${icon("sword")}</span>
+            <span class="gcap">Primary</span>
+            <span class="gval">${esc(skillsetLabel(model.primarySkillset()))} (${esc(jobLabel(record.currentJob))}) <span class="kind">locked to job</span></span>
+          </div>
+          <p class="hint"><span class="gcap">Commands</span> ${model.primaryActionIds().map((id) => esc(abilityLabel(id))).join(", ") || "—"}</p>
+          <h3 class="sect">Passive</h3>
+          <div class="gearrow">
+            <span class="roundel">${icon("counter")}</span>
+            <span class="gcap">Reaction</span>
+            <select class="gval" data-testid="prep-reaction" aria-label="Reaction ability">${abilitySelect("reaction")}</select>
+            ${icon("chev", "chev")}
+          </div>
+          ${equippedSummary("reaction")}
+          <div class="gearrow">
+            <span class="roundel">${icon("shield")}</span>
+            <span class="gcap">Support</span>
+            <select class="gval" data-testid="prep-support" aria-label="Support ability">${abilitySelect("support")}</select>
+            ${icon("chev", "chev")}
+          </div>
+          ${equippedSummary("support")}
+          <div class="gearrow">
+            <span class="roundel">${icon("wing")}</span>
+            <span class="gcap">Movement</span>
+            <select class="gval" data-testid="prep-movement" aria-label="Movement ability">${abilitySelect("movement")}</select>
+            ${icon("chev", "chev")}
+          </div>
+          ${equippedSummary("movement")}
+          <h3 class="sect">In battle <span class="count" data-testid="prep-command-count">${commands.length}</span></h3>
+          <ul class="cmd-list" data-testid="prep-commands">${commandItems}</ul>
+        </div>
+        <div class="col wide" tabindex="0">
+          ${learnColumnHtml()}
+        </div>
+      </section>
+
+      <section class="panel" data-panel="profile"${tab === "profile" ? "" : " hidden"}>
+        <div class="col narrow" tabindex="0">
+          <h3 class="sect">What this unit has done</h3>
+          <ul class="cmd-list">
+            <li>Banked <b>${record.ap} AP</b><span class="desc">One pool, spendable in any tree.</span></li>
+          </ul>
+          <p class="hint">Traits are permanent. Equipping and unequipping is free and reversible.</p>
+        </div>
+        <div class="col wide" tabindex="0">
+          <h3 class="sect">Acquired Traits <span class="lock">max 2</span></h3>
+          <div data-testid="prep-traits">
+            ${traitsBody}
+            ${
+              record.mastered.length > 0 && record.loadout.traits.length === 0
+                ? `<p class="hint" data-testid="prep-traits-hint">Earned and not equipped — traits cost no AP.</p>`
+                : ""
+            }
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="chassis">
-      <div class="slot" data-testid="prep-primary">
-        <h3>Primary <span class="lock">locked to job</span></h3>
-        <div class="val">${esc(skillsetLabel(model.primarySkillset()))} (${esc(jobLabel(record.currentJob))})</div>
-        <div class="sub">${model.primaryActionIds().map((id) => esc(abilityLabel(id))).join(", ") || "—"}</div>
-      </div>
-      ${weaponSlotHtml()}
-      <div class="slot">
-        <h3>Secondary</h3>
-        <select data-testid="prep-secondary" aria-label="Secondary command">${secondaryOptions}</select>
-      </div>
-      <div class="slot">
-        <h3>Reaction</h3>
-        <select data-testid="prep-reaction" aria-label="Reaction ability">${abilitySelect("reaction")}</select>
-        ${equippedSummary("reaction")}
-      </div>
-      <div class="slot">
-        <h3>Support</h3>
-        <select data-testid="prep-support" aria-label="Support ability">${abilitySelect("support")}</select>
-        ${equippedSummary("support")}
-      </div>
-      <div class="slot">
-        <h3>Movement</h3>
-        <select data-testid="prep-movement" aria-label="Movement ability">${abilitySelect("movement")}</select>
-        ${equippedSummary("movement")}
-      </div>
-      <div class="slot" data-testid="prep-traits">
-        <h3>Traits <span class="lock">max 2</span></h3>
-        ${traitsBody}
-        ${
-          traits.length > 0 && record.loadout.traits.length === 0
-            ? `<p class="hint" data-testid="prep-traits-hint">Earned and not equipped — traits cost no AP.</p>`
-            : ""
-        }
-      </div>
-    </div>
-    ${progressionHtml()}
-    <div class="cmds">
-      <h3>Commands in battle <span class="count" data-testid="prep-command-count">${commands.length}</span></h3>
-      <ul class="cmd-list" data-testid="prep-commands">${commandItems}</ul>
-      <p class="hint">Equip a second job’s command to widen what this unit can do in battle. Swaps are free and reversible.</p>
-    </div>`;
+
+    ${jobStripHtml()}`;
 
     bind();
   }
@@ -1095,9 +1233,14 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       cb.addEventListener("change", onTraitToggle);
     });
 
-    container.querySelectorAll<HTMLButtonElement>("button[data-member]").forEach((btn) => {
+    // TAB SWITCHING — render-layer only (see `tab` above). Never touches the model, so
+    // it cannot fire `onChange` and cannot reach the save.
+    container.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        act(() => model.select(btn.dataset["member"] as string));
+        const next = btn.dataset["tab"] as PrepTab;
+        if (next === tab) return;
+        tab = next;
+        render();
       });
     });
 
@@ -1153,6 +1296,12 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       return changed;
     },
     learn: (jobId, nodeId) => act(() => model.learn(jobId, nodeId)),
+    activeTab: () => tab,
+    setTab: (next) => {
+      if (next === tab) return;
+      tab = next;
+      render();
+    },
   };
 }
 
@@ -1274,4 +1423,32 @@ export function mountPrepDemo(container: HTMLElement): PrepHandle {
     reset: () => handle.setRecords([makeDemoRecord()]),
   };
   return handle;
+}
+
+/**
+ * A purpose-built EMPTY-state record: no owned weapon (no `inventory` opt, exactly
+ * like {@link mountPrepDemo}'s own record) and no mastered job — `defaultUnitRecord`'s
+ * own zero-value defaults (`mastered: []`, `learned: []`), never touched by a
+ * `learnAbility`/`checkMastery` call the way {@link makeDemoRecord} is.
+ *
+ * Exists because the shipped campaign cannot discover either state honestly: every
+ * battle-1 party member already owns a weapon (the drip grants two before the first
+ * briefing) and already has a mastered job (`data/campaign/camp-the-first-march.json`)
+ * — `e2e/briefing.spec.ts`'s "weapon-absent" and "empty-traits" tests skip for exactly
+ * that reason. This record, mounted through {@link mountPrepEmpty}, is what lets both
+ * become real assertions instead.
+ */
+export function makeEmptyDemoRecord(): UnitRecord {
+  return defaultUnitRecord("knight", "knight", { name: "Recruit" });
+}
+
+/**
+ * Mount the engine viewer's EMPTY-state panel. No seam on the shipped page reaches
+ * this today, so it is gated behind a query param instead (`?prep=empty`, wired in
+ * `main.ts`) rather than a second permanent panel on `/viewer.html` — the engine
+ * viewer's whole point (this file's own banner) is `mountPrepDemo`'s fixed showcase,
+ * and this state exists only for the browser tests that need to discover it.
+ */
+export function mountPrepEmpty(container: HTMLElement): PrepHandle {
+  return mountPrep(container, { registry: demoRegistry, records: [makeEmptyDemoRecord()] });
 }

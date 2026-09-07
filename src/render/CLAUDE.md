@@ -40,8 +40,13 @@ These lived only in `docs/NEXT.md`, which is rewritten every slice. They belong 
   `button::before{opacity:0}` and `button[disabled]{opacity:.4}` all leaked through, because
   specificity only decides conflicts on properties BOTH rules set. When you port a screen to
   the new look, list every page-wide selector that matches its elements and name each of
-  those properties explicitly in the scoped rule. No lint sees this; a numeric diff against
-  the mockup does (see `viewer-engineer.md`).
+  those properties explicitly in the scoped rule. `e2e/css-leaks.spec.ts` now sees this — a
+  CDP probe over `#screen-title`, `#screen-scene` and `#screen-briefing` that prints every
+  page-wide rule directly matching an element in a ported screen — but it only prints the
+  list; a numeric diff against the mockup is still what decides whether a leak is *visible*
+  (see `viewer-engineer.md`). The probe's own allowlist (`e2e/css-leaks.allow.json`) is a
+  baseline of matched rules, not a clean bill: a rule being on it means it was found and
+  recorded, not that it lost the cascade — verify what actually painted by computed style.
 - **Before cutting a control to match a concept, enumerate the STATES it carried.** Erase
   save and the status line went to match the picture; with them went the "storage is
   blocked" warning (silent data loss) and the "battle 2 of 5" readout, and one spec kept

@@ -101,6 +101,75 @@ export const GROUNDS = {
    */
   houseBlue: "rgb(38, 43, 59)",
   houseGrey: "rgb(47, 47, 47)",
+  /**
+   * THE BRIEFING SCREEN's own leaf (`#screen-briefing .leaf`, owner decision
+   * 2026-09-07). MEASURED live (`coverage/scratch/measure.mjs`), not assumed from the
+   * title's `--parch-*` values, because it is NOT the same set: this leaf's own radial
+   * gradient adds one extra, lighter stop (`#f0dfc6`, the mockup's own highlight) the
+   * title leaf never painted, so reusing `GROUNDS.leaf` here would silently drop that
+   * stop from every check.
+   */
+  briefLeaf: [
+    "rgb(182, 136, 93)",
+    "rgb(201, 159, 117)",
+    "rgb(212, 175, 134)",
+    "rgb(221, 185, 146)",
+    "rgb(240, 223, 198)",
+  ],
+  /**
+   * The right leaf's iron plaque family — `.tab.on`, `.jplaque`, `.backplaque`, the
+   * top rail's company plaque and the roundel icon field ALL measure to this exact
+   * three-stop set (confirmed live, not assumed identical because they share a class
+   * name — they do not). It is numerically the SAME as `GROUNDS.plaque` (the title
+   * screen's plaque), because both are built from the identical `--plaque-hi/
+   * --plaque/--plaque-lo` triple — a real coincidence of a shared recipe, not a
+   * shortcut taken here. Kept as its own name so a future divergence between the two
+   * screens' plaques is visible in a diff instead of silently sharing an assertion.
+   */
+  briefPlaque: ["rgb(27, 26, 23)", "rgb(29, 30, 30)", "rgb(43, 39, 37)"],
+  /**
+   * The "dark parchment plate" family — `.tab` AT REST (unselected), the tan field
+   * every tab starts on before the gold-plaque `.on` state takes over. Three stops,
+   * its own recipe (`#cba484` / `--plate-parch` / `#b08a66`), distinct from every
+   * other tan field on this screen (see `briefBoxCard`/`briefBoxSelected` below —
+   * three different three-stop tans that all LOOK alike and are NOT the same set).
+   */
+  briefPlate: ["rgb(176, 138, 102)", "rgb(190, 149, 111)", "rgb(203, 164, 132)"],
+  /**
+   * A roster card AT REST (`.member:not(.on) .ptab`) and the top rail's tagline
+   * ribbon (`.tagline`) — two different elements that happen to measure to the exact
+   * same three stops (both are a plain `radial-gradient`/mix over `--box-parch-hi/
+   * --box-parch/--box-parch-lo` with no extra literal stop mixed in, unlike `.tab`
+   * or `.gearrow` below). Numerically identical to the scene screen's `sceneBox`
+   * (`GROUNDS.sceneBox`) for the same reason `briefPlaque` matches the title's
+   * plaque — the same sampled palette, reused, not assumed to still match.
+   */
+  briefBoxCard: ["rgb(191, 153, 118)", "rgb(201, 166, 132)", "rgb(204, 171, 139)"],
+  /**
+   * A gold-selected roster card (`.member.on .ptab`) — the THIRD tan family, warmer
+   * and lighter than `briefBoxCard`, from its own `#e8ccaa/#ddbe99/#cba57e` recipe.
+   */
+  briefBoxSelected: ["rgb(203, 165, 126)", "rgb(221, 190, 153)", "rgb(232, 204, 170)"],
+  /**
+   * An iron roundel row (`.gearrow` — the weapon slot, the Learn tree picker), its own
+   * fourth tan recipe (`#d5b492` mixed with `--box-parch/--box-parch-lo`).
+   */
+  briefGearrow: ["rgb(191, 153, 118)", "rgb(204, 171, 139)", "rgb(213, 180, 146)"],
+  /**
+   * The wax Deploy plate (`.seal`) — its three OPAQUE stops only; the gradient also
+   * layers three translucent sheen/shadow washes (`rgba(255,190,190,.28)` etc) that
+   * `ownGrounds()` (`contrast.spec.ts`) never treats as a ground on their own, since
+   * only alpha-1 stops end the walk.
+   */
+  briefSeal: ["rgb(109, 8, 18)", "rgb(154, 14, 26)", "rgb(179, 18, 32)"],
+  /**
+   * The wood table this whole screen sits on (`#screen-briefing`'s own root gradient)
+   * — guard-only, like `sceneIron`: nothing measured here ever needs it as a ground,
+   * because every text element finds a leaf, a plaque or a card first. Declared so a
+   * future addition painted straight onto the wood is caught by `groundsAreReal`
+   * rather than silently measured against nothing.
+   */
+  briefWood: ["rgb(11, 5, 4)", "rgb(21, 11, 9)", "rgb(37, 24, 17)"],
 } as const;
 
 /**

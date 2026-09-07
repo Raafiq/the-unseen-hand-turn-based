@@ -55,6 +55,15 @@ alternative box set — 89k tokens for ten crops, most of it on things nobody us
 you believe the brief is wrong, say so in one line of the report and stop; do not
 render the alternative unasked.
 
+**A mockup of a concept ships with a GAP TABLE, or it does not ship.** One row per region
+of the concept (rail, roster, head, tabs, gear rows, strip, seal — whatever the picture
+has): what the concept does there, what the mockup did, and every region the mockup
+dropped or reshaped, with the reason. The coordinator reads that table against the
+concept before the owner sees a frame. The prep mockup (2026-09-07) went to the owner as
+a restyle of the existing form — a text list where the concept had portrait cards — and
+was rejected on sight; the second pass cost 177k tokens. A table naming "roster: concept
+= portrait grid, mockup = text list" would have stopped it at the report.
+
 
 - **Two or three real options**, rendered, side by side, with the current state as a
   control so the comparison is honest.

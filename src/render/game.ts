@@ -30,11 +30,12 @@ import {
 import { CampaignShell, type Screen } from "./campaign-shell.js";
 import type { GameApi, PrepSeam } from "./game-api.js";
 import { HELP_TOPICS } from "./help.js";
+import { icon } from "./icons.js";
 import { draw, FIELD_THEME, RING_FILL_ALPHA } from "./iso.js";
 import { mountHud, type HudHandle } from "./hud.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
 import type { LookUp } from "./panels.js";
-import { jobLabel, mountPrep, type PrepHandle } from "./prep.js";
+import { jobCrest, jobLabel, mountPrep, type PrepHandle } from "./prep.js";
 import { wireLandscapeButton } from "./orientation.js";
 import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
@@ -52,6 +53,17 @@ el<HTMLImageElement>("title-ribbon").src = TITLE_ART.ribbon;
 el<HTMLImageElement>("title-watermark").src = TITLE_ART.watermark;
 // The scene player's backdrop (docs/visual/concepts/README.md §e), same reasoning.
 el<HTMLImageElement>("scene-backdrop").src = SCENE_ART.night;
+// The briefing's own two ribbon crops and the tagline's castle end-cap — the SAME
+// bundled art the title screen wears, reused rather than re-cropped, and set once for
+// the same reason: none of them ever changes while the page is open.
+el<HTMLImageElement>("brief-ribbon-top").src = TITLE_ART.ribbon;
+el<HTMLImageElement>("brief-ribbon-side").src = TITLE_ART.ribbon;
+el<HTMLImageElement>("brief-castle").src = TITLE_ART.castle;
+// The two static plaque buttons' glyphs — inline SVG rather than a shared sprite (see
+// `icons.ts`'s file banner: a `<symbol>` sprite would have to land before ANY of this
+// panel's three DOM sources paints its first `<use>`, and nothing enforces that order).
+el("btn-brief-quit").innerHTML = icon("back");
+el("btn-deploy").innerHTML = `${icon("flag")}Deploy`;
 
 /**
  * `localStorage` can be missing entirely (a sandboxed frame), or PRESENT but unusable — a
@@ -452,6 +464,7 @@ function renderPrep(): void {
       records: party,
       inventory: shell.save?.inventory ?? [],
       progression: true,
+      portrait: (record) => resolvePortrait(record.id).url,
       onChange: (record) => {
         const before = prepSeen.get(record.id);
         if (before) telemetry.prep(record.id, diffRecord(before, record));
@@ -488,42 +501,76 @@ function renderBriefingText(): void {
   // title part of the story seam rather than a naming convention.
   el("brief-title").textContent = shell.sceneTitle() ?? battleTitle(brief.encounterId);
   renderStory("brief-story", preKey(), shell.preBeat());
-  el("brief-note").textContent = brief.retrying
+  // `brief-note-text`, never `brief-note` itself: the tagline `<p>` also holds
+  // `#brief-castle` (the ribbon's end-cap image), and `.textContent` on the parent
+  // would destroy that child on every repaint — it did, until this was scoped to the
+  // dedicated span (index.html's file banner for `#brief-note`).
+  el("brief-note-text").textContent = brief.retrying
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
   const party = shell.save?.party ?? [];
   const dep = shell.deployment();
   const chosen = new Set(dep?.chosen ?? party.map((r) => r.id));
+  // Which card the right leaf is showing (prep's own selection), so the roster's gold
+  // glow never disagrees with the leaf it opens. `prep` is not yet mounted on the very
+  // first paint of a briefing — `renderBriefing()` mounts it before calling this, so by
+  // the time a real party is on screen `prep` is set; the fallback only covers a call
+  // with no party at all (nothing to select).
+  const selectedId = prep?.record().id;
+
+  // THE ROSTER IS OMITTED ENTIRELY FOR ONE MEMBER (mirrors `prep.ts`'s own "< 2 ⇒
+  // absent" rule, since a single card offers no choice) — and with it the note that
+  // exists only to explain a swap nobody can make.
+  const showRoster = party.length >= 2;
+  el("prep-roster-wrap").hidden = !showRoster;
+  const note = el("brief-deploy-note");
+  if (!showRoster || dep === null) {
+    note.hidden = true;
+  } else {
+    note.hidden = false;
+    note.textContent =
+      `This battle fields ${dep.slots} of ${party.length}. ` +
+      `A benched member earns no AP — tap a portrait to view, tap the corner mark to swap.`;
+  }
 
   // Every member is listed, but WHO FIGHTS is marked — the briefing used to show four
   // names and then send two, which reads as a bug rather than as the authored ramp it is.
   el("brief-party").innerHTML = party
     .map((r) => {
       const going = chosen.has(r.id);
+      const on = r.id === selectedId;
+      const portrait = resolvePortrait(r.id);
       return (
-        `<li class="${going ? "deployed" : "benched"}">` +
-        `<button type="button" class="pick" data-deploy="${r.id}"` +
+        `<li class="member${on ? " on" : ""} ${going ? "deployed" : "benched"}">` +
+        `${icon("fleur", "finial")}` +
+        `<button type="button" class="ptab${on ? " on" : ""}" data-member="${r.id}"${on ? ' aria-current="true"' : ""}>` +
+        `<span class="face"><img class="${portrait.key === "placeholder" ? "pending" : ""}" src="${portrait.url}" alt="" /></span>` +
+        `<span class="plate">` +
+        `<span class="nline"><b class="pname">${r.name}</b><span class="pap">${r.ap} AP</span></span>` +
+        `<span class="pjob">${icon(jobCrest(r.currentJob))}${jobLabel(r.currentJob)}</span>` +
+        `</span></button>` +
+        `<span class="pennant" aria-hidden="true">${icon("fleur")}</span>` +
+        `<button type="button" class="pip" data-deploy="${r.id}"` +
         ` aria-pressed="${going}" title="${going ? "Deployed — click to bench" : "Benched — click to deploy"}">` +
-        `${going ? "▪" : "▫"}</button> ` +
-        `<b>${r.name}</b> · ${r.currentJob} · <span class="muted">${r.ap} AP banked</span>` +
-        `${going ? "" : ` <span class="muted">· benched</span>`}</li>`
+        `${going ? "▪" : "▫"}</button>` +
+        `</li>`
       );
     })
     .join("");
 
-  const note = el("brief-deploy-note");
-  if (dep === null) {
-    note.hidden = true;
-  } else {
-    note.hidden = false;
-    note.textContent =
-      `This battle fields ${dep.slots} of ${party.length}. ` +
-      `A benched member earns no AP — click a name to swap.`;
-  }
-
   // Rebound on every repaint because the list is rewritten wholesale.
   for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-deploy]")) {
     btn.addEventListener("click", () => guard(() => toggleDeploy(btn.dataset["deploy"] as string)));
+  }
+  // Selecting a card opens it in the right leaf — the same `select()` a test or the
+  // balance probe would drive, never a parallel "which card is on" of this file's own.
+  for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-member]")) {
+    btn.addEventListener("click", () =>
+      guard(() => {
+        prep?.select(btn.dataset["member"] as string);
+        renderBriefingText();
+      }),
+    );
   }
 }
 
@@ -556,8 +603,13 @@ function toggleDeploy(id: string): void {
 }
 
 function renderBriefing(): void {
-  renderBriefingText();
+  // PREP FIRST. The roster cards drawn by `renderBriefingText()` read `prep?.record()`
+  // to mark which card is open in the right leaf, so on the very first paint of a
+  // briefing the panel must already be mounted (mounting also does its own first
+  // render) before the left leaf reads it — reversed, the first frame would show no
+  // card selected at all.
   renderPrep();
+  renderBriefingText();
 }
 
 /**

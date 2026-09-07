@@ -1,10 +1,12 @@
 /* ═══ THE OVERHAUL LOOK — TITLE AND SCENE SCREENS ═════════════════════════════
    Everything here is scoped under `#screen-title` or `#screen-scene` on purpose, WITH ONE
    EXCEPTION just below the root variables: `body:has(#screen-title:not([hidden])),
-   body:has(#screen-scene:not([hidden]))` reaches outside that scope deliberately, because
-   both screens are `position: fixed` and nothing scoped to either alone can stop the
-   document underneath from scrolling — that has to be said on `body`, the element that
-   actually owns the scrollbar (see that rule for the reasoning).
+   body:has(#screen-scene:not([hidden])), body:has(#screen-briefing:not([hidden]))` reaches
+   outside that scope deliberately, because all three screens are `position: fixed` and
+   nothing scoped to any one alone can stop the document underneath from scrolling —
+   that has to be said on `body`, the element that actually owns the scrollbar (see that
+   rule for the reasoning; the briefing screen's own section below names this same
+   exception rather than repeating the rule).
    This file is linked from index.html only (docs/visual/concepts/README.md is the style
    guide). The TITLE section below is lifted from `coverage/overhaul/title.html` with three
    deliberate deviations, each called out where it happens:
@@ -104,7 +106,8 @@
    `:has(#screen-title:not([hidden]))` so it applies only while the title is actually up —
    index.html's own file-banner comment names this same exception on the `<link>` tag. */
 body:has(#screen-title:not([hidden])),
-body:has(#screen-scene:not([hidden])) { overflow: hidden; height: 100%; }
+body:has(#screen-scene:not([hidden])),
+body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
 
 /* THE FOLD (ADR-0037, docs/visual/concepts/README.md §d). Once the stage is
    taller than 8:5 the leaves would go portrait and both fill with dead
@@ -1246,4 +1249,1303 @@ body:has(#screen-scene:not([hidden])) { overflow: hidden; height: 100%; }
   #screen-scene h1 {
     left: max(0.9em, calc((100% - 46em) / 2 + 0.2em));
   }
+}
+
+/* ═══ THE OVERHAUL LOOK — BRIEFING SCREEN ══════════════════════════════════════
+   Owner decision 2026-09-07 (option A): one two-pane screen — portrait cards on the
+   left leaf, a three-tab detail leaf on the right (built by `prep.ts` into
+   `#prep-body`), briefing chrome on a top rail, a wax Deploy plate breaking the right
+   leaf's bottom-right corner. Ported from `coverage/overhaul/prep.html` (mockup) /
+   `docs/visual/concepts/mockups/prep-*.png` (approved frames), same shape as the
+   title (ADR-0040) and scene (ADR-0040 amendment) ports: scoped under
+   `#screen-briefing`, sharing the one `body:has(...)` scroll-lock exception named
+   in this file's own banner (near the top) — `#screen-briefing` is `position: fixed`
+   too, so only `body` can stop the document scrolling behind it. Its own root
+   variables (only the NEW ones — `--ink`,
+   `--ink-soft`, `--accent`, `--accent-ink`, `--sans`, `--roman` already match at
+   `:root` per ADR-0028 and are not redeclared), `em` throughout so the single
+   `font-size: clamp(...)` below scales the whole screen (the mockup already used `em`,
+   not `rem`, so no unit conversion was needed here — unlike the title port).
+   The two traps this subtree's CLAUDE.md names (both earned on the title screen):
+     - `.eyebrow` explicitly sets `text-transform: none` — the page-wide `.eyebrow`
+       rule (index.html) uppercases it, and "Battle 2 of 5" is not a caption row here.
+     - `button` gets a full reset (text-shadow, box-shadow, background, border,
+       padding, letter-spacing, text-transform, color) before any of the seven+
+       button families below layer their own look, because this screen — unlike the
+       title's one plaque style — has NO single shared button skin the page-wide
+       `button{}` rule's every property could hide behind un-overridden. */
+#screen-briefing {
+  --wood: #150b09;
+  --wood-lit: #251811;
+  --wood-deep: #0b0504;
+  --rail: #6c4227;
+  --parch-hi: #ddb992;
+  --parch: #d4af86;
+  --parch-lo: #c99f75;
+  --parch-burn: #b6885d;
+  --box-parch-hi: #c9a684;
+  --box-parch: #ccab8b;
+  --box-parch-lo: #bf9976;
+  --plate-parch: #be956f;
+  --plaque: #1d1e1e;
+  --plaque-hi: #2b2725;
+  --plaque-lo: #1b1a17;
+  --plaque-lip: #282019;
+  --iron: #1b1512;
+  --iron-lo: #221c19;
+  --brass: #714b31;
+  --brass-lit: #d8a472;
+  --label: #fdf1dc;
+  /* Not sampled — same reasoning and same value as `#screen-title`'s: solved for
+     4.5:1 against `--plaque`/`--plaque-lo`, NOT against the lighter `--plaque-hi`
+     stop (4.08:1), which is why the disabled gradient below never uses that stop. */
+  --label-off: #8f8578;
+  --glow: #fcc14b;
+  --seal-red: #9a0e1a;
+  --house-grey: #2f2f2f;
+  --house-grey-lit: #424242;
+  --rule: #372519;
+
+  --burn: 0.62em;
+  --burn-spread: 0.3em;
+  --face-ar: 1.28;
+
+  --stain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700' viewBox='0 0 700 700' preserveAspectRatio='none'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='.46' stop-color='%23000'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='700' height='700' fill='url(%23g)'/%3E%3C/mask%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.009 .016' numOctaves='5' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='700' height='700' filter='url(%23s)' mask='url(%23m)' opacity='.5'/%3E%3C/svg%3E");
+  --tooth: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.52 0 0 0 .26 0 .52 0 0 .26 0 0 .52 0 .26 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23t)'/%3E%3C/svg%3E");
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006 .5' numOctaves='4' seed='11'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.5 0 0 0 .25 0 .5 0 0 .25 0 0 .5 0 .25 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23w)'/%3E%3C/svg%3E");
+
+  font-size: clamp(10px, calc(4px + 0.9vh + 0.6vw), 19px);
+
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 0.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  font-family: var(--sans);
+  /* THE LEAK, and likely the single biggest contributor to every "overflowed by
+     about a fifth" measurement on this screen: index.html's page-wide `body {
+     line-height: 1.55 }` is inherited here — `#screen-briefing` never set its own,
+     so every line box on the whole screen (every stat row, every learn-list entry,
+     every tab label) rendered ~19% taller than the mockup's own `body{line-height:
+     1.3}`, compounding across eight stacked rows into real, measured overflow.
+     Found by measuring `.stat-row li`'s height against the mockup's, not guessed. */
+  line-height: 1.3;
+  color: var(--ink);
+  background-color: var(--wood);
+  background-image:
+    radial-gradient(58% 78% at 3% 6%, rgba(255, 178, 88, 0.34), rgba(255, 140, 44, 0.09) 38%, transparent 68%),
+    var(--grain),
+    linear-gradient(158deg, var(--wood-lit) 0%, var(--wood) 46%, var(--wood-deep) 100%);
+  background-blend-mode: screen, overlay, normal;
+  background-size: auto, 240px 240px, auto;
+}
+#screen-briefing[hidden] { display: none; }
+#screen-briefing * { box-sizing: border-box; }
+/* Same exception `#screen-title`/`#screen-scene` name at the file banner (index.html) —
+   `#prep-body` is what `prep.ts` mounts into (docs/10 §7's "one screen, one host div"
+   shape, the same split `#stage-host`/`hud.ts` use for the battle) and it is
+   `display: contents` so its children — the unit head, the tab nav, the panels, the
+   Job Customization strip — lay out as direct flex items of `.leaf-right`, exactly the
+   trick the scene screen's `#scene-story` already uses. */
+#screen-briefing #prep-body { display: contents; }
+
+/* ═══ TOP RAIL — back plaque · banner · company plaque · tagline ══════════════ */
+#screen-briefing .toprail {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 9;
+  display: flex;
+  align-items: stretch;
+  gap: 0.42em;
+  min-height: 0;
+}
+#screen-briefing .plaque {
+  position: relative;
+  border-radius: 0.1em;
+  border: 0;
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 40%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    inset 0 -0.14em 0.4em rgba(0, 0, 0, 0.6),
+    0 0 0 0.13em var(--plaque-lip),
+    0 0 0 0.22em rgba(0, 0, 0, 0.6),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.6);
+}
+/* Four rivets on their OWN layer (same deviation as `#screen-title`'s FIX 1): a
+   `::before` never touches `ownGrounds()`'s scan of a button's own background. */
+#screen-briefing .riveted::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle at 0.5em 0.5em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.5em) 0.5em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at 0.5em calc(100% - 0.5em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.5em) calc(100% - 0.5em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%);
+  background-repeat: no-repeat;
+  background-size: 1em 1em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+#screen-briefing .backplaque {
+  flex: 0 0 auto;
+  width: 2.5em;
+  align-self: center;
+  height: 2.5em;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--label);
+  font-size: 1em;
+  padding: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.16),
+    inset 0 -0.16em 0.4em rgba(0, 0, 0, 0.6),
+    0 0 0 0.14em var(--brass),
+    0 0 0 0.2em rgba(0, 0, 0, 0.7),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.7);
+}
+#screen-briefing .backplaque svg { width: 1.25em; height: 1.25em; }
+
+#screen-briefing .toprail > .banner { flex: 0 0 auto; width: 2.5em; height: 0; position: relative; align-self: flex-start; }
+#screen-briefing .toprail > .banner img {
+  position: absolute;
+  top: -0.32em;
+  left: 0;
+  width: 2.5em;
+  height: 4.9em;
+  object-fit: cover;
+  object-position: 50% 22%;
+  clip-path: polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%);
+  filter: drop-shadow(0 0.22em 0.35em rgba(0, 0, 0, 0.75));
+}
+#screen-briefing .toprail > .banner::before {
+  content: "";
+  position: absolute;
+  left: -0.22em;
+  top: -0.5em;
+  width: 2.94em;
+  height: 0.32em;
+  border-radius: 0.16em;
+  background: linear-gradient(180deg, #e0bb95, #b17860 55%, #5c3d28);
+  box-shadow: 0 0.12em 0.3em rgba(0, 0, 0, 0.6);
+}
+
+#screen-briefing .companyplaque { flex: 1 1 auto; min-width: 0; padding: 0.26em 1.2em 0.3em; }
+#screen-briefing .companyplaque h1 {
+  margin: 0;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 1.16em;
+  line-height: 1.1;
+  color: var(--label);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* THE LEAK: index.html's page-wide `.eyebrow{text-transform:uppercase}` (the other
+   four screens' small caption line) is more specific for every property THIS rule
+   also sets, but never named `text-transform` before now — so the global uppercase
+   kept winning by the one-property cascade rule (same shape as `#screen-title`'s
+   FIX 4, `overhaul.css` file banner). "Battle 2 of 5" is not a caption row here. */
+#screen-briefing .eyebrow {
+  margin: 0;
+  font-family: var(--sans);
+  font-style: italic;
+  font-weight: 400;
+  text-transform: none;
+  font-size: 0.72em;
+  line-height: 1.16;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* D3 (delivered-frame review): the ribbon read as "clipping its text" — it was not;
+   `-webkit-line-clamp` already wraps the whole sentence into two lines with room to
+   spare. What actually happened is the page-wide `button.help-btn` (a 46px pale disc,
+   `index.html`) sits `position: fixed; top: 18px; right: 18px`, which lands squarely
+   inside the ribbon's own box at every fold this screen ships — the disc painted OVER
+   the last few letters, reading as a clip on a screenshot. `.toprail`'s own
+   `padding-right` below reserves the disc real room by shrinking `.tagline`'s
+   available width, so the ribbon's right edge moves clear of it instead of the button
+   trying to dodge a moving target. */
+#screen-briefing .toprail { padding-right: 5em; }
+#screen-briefing .tagline {
+  flex: 0 1 15em;
+  min-width: 5em;
+  margin: 0;
+  align-self: center;
+  position: relative;
+  overflow: hidden;
+  padding: 0.32em 3.3em 0.46em 0.66em;
+  font-style: italic;
+  font-size: 0.66em;
+  line-height: 1.22;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  clip-path: polygon(2% 6%, 26% 0, 62% 5%, 100% 0, 99% 94%, 66% 100%, 24% 95%, 0 100%);
+  background-color: var(--box-parch);
+  background-image: var(--stain), var(--tooth), radial-gradient(130% 120% at 20% 30%, var(--box-parch-hi), var(--box-parch) 55%, var(--box-parch-lo));
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow: 0 0.2em 0.45em rgba(0, 0, 0, 0.6);
+}
+/* A real `<img>` (game.ts wires it from `TITLE_ART.castle`), not a CSS
+   `background-image` — the title screen's own crops are wired this exact way, and
+   this reuses the SAME bundled asset rather than a second crop. */
+#screen-briefing .tagline-cap {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.4em;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.62;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 42%);
+  mask-image: linear-gradient(90deg, transparent, #000 42%);
+}
+/* `.tagline-text` is the dedicated span `game.ts` now writes into (index.html's file
+   banner) — inline, like the raw text node it replaces, so the two-line clamp above
+   still measures the same content. */
+#screen-briefing .tagline-text { display: inline; }
+
+/* D3, second half: `help-open` (index.html) is a body-level SIBLING of `#screen-
+   briefing`, not a descendant, so none of this screen's `--plaque`/`--brass` custom
+   properties reach it (each screen re-declares its own copy rather than leaking one
+   onto `:root` — file banner above) — the values below are the same iron-plaque
+   recipe `.backplaque` uses, spelled out literally for that reason. Selector
+   specificity (1,2,1) beats index.html's own `#screen-briefing:not([hidden]) ~
+   .help-btn` (1,2,0) by the added `button` type selector, so this wins regardless of
+   which stylesheet loads first — the trap this subtree's CLAUDE.md names by name. */
+#screen-briefing:not([hidden]) ~ button.help-btn {
+  top: 0.6em;
+  right: 0.6em;
+  bottom: auto;
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+  color: #d8a472;
+  border-radius: 50%;
+  background-color: #1d1e1e;
+  background-image: linear-gradient(180deg, #2b2725 0%, #1d1e1e 42%, #1b1a17 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.14),
+    inset 0 -0.12em 0.3em rgba(0, 0, 0, 0.6),
+    0 0 0 2px #714b31,
+    0 0.15em 0.35em rgba(0, 0, 0, 0.6);
+}
+
+/* ═══ THE BOARD — two leaves in one iron-bound wooden board ═══════════════════ */
+#screen-briefing .board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  padding: 0.3em;
+  border-radius: 0.2em;
+  background-image: var(--grain), linear-gradient(150deg, #7c4e2c 0%, var(--rail) 38%, #43281a 74%, #2d1a10 100%);
+  background-blend-mode: overlay, normal;
+  background-size: 240px 240px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 208, 150, 0.16),
+    0 0.5em 1.6em rgba(0, 0, 0, 0.72),
+    0 0 3em rgba(0, 0, 0, 0.5);
+}
+#screen-briefing .board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 0.2em;
+  z-index: 4;
+  --bv: 0.56em;
+  background-image:
+    radial-gradient(circle at var(--bv) var(--bv), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--bv)) var(--bv), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at var(--bv) calc(100% - var(--bv)), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--bv)) calc(100% - var(--bv)), var(--brass-lit) 0 22%, var(--brass) 22% 62%, rgba(0, 0, 0, 0.75) 62% 82%, transparent 84%);
+  background-repeat: no-repeat;
+  background-size: 1.12em 1.12em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+/* THE FOLD (README §d): past 8:5 the leaves would go portrait and fill with dead
+   parchment, so the board caps at 8:5 and centres — the surplus becomes table. */
+@media (max-aspect-ratio: 8/5) {
+  #screen-briefing .board { flex: 0 1 auto; height: auto; aspect-ratio: 8 / 5; margin: auto; max-height: 100%; width: 100%; }
+}
+
+#screen-briefing .spine {
+  flex: 0 0 0.5em;
+  align-self: stretch;
+  position: relative;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.85), #4a2c1a 38%, #2a1811 64%, rgba(0, 0, 0, 0.85));
+}
+#screen-briefing .spine::before,
+#screen-briefing .spine::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0.6em;
+  height: 0.6em;
+  margin-left: -0.3em;
+  border-radius: 50%;
+  background-image: radial-gradient(circle at 40% 34%, var(--brass-lit) 0 26%, var(--brass) 26% 66%, rgba(0, 0, 0, 0.8) 66% 88%, transparent 90%);
+}
+#screen-briefing .spine::before { top: 0.3em; }
+#screen-briefing .spine::after { bottom: 0.3em; }
+
+#screen-briefing .leaf {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--burn) + var(--burn-spread));
+  color: var(--ink);
+  background-color: var(--parch);
+  background-image: var(--stain), var(--tooth), radial-gradient(122% 100% at 46% 28%, #f0dfc6 0%, var(--parch-hi) 24%, var(--parch) 56%, var(--parch-lo) 80%, var(--parch-burn) 100%);
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow:
+    inset 0 0 calc(var(--burn) * 1.5) calc(var(--burn-spread) * 1.35) rgba(74, 40, 14, 0.6),
+    inset 0 0 0 1px rgba(58, 32, 12, 0.65),
+    0 0 1.1em rgba(0, 0, 0, 0.55);
+}
+#screen-briefing .leaf::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: calc(var(--burn) * 0.5);
+  z-index: 3;
+  border: 1px solid rgba(138, 101, 36, 0.55);
+  box-shadow: inset 0 0 0 3px rgba(138, 101, 36, 0.34);
+}
+#screen-briefing .leaf-left { flex: 0 0 43%; }
+#screen-briefing .leaf-right { flex: 1 1 0; padding-left: calc(var(--burn) + var(--burn-spread) + 1.9em); }
+#screen-briefing .leaf-right > .banner { position: absolute; left: 0.55em; top: -0.5em; z-index: 6; width: 2.1em; height: 0; }
+#screen-briefing .leaf-right > .banner img { width: 2.1em; height: 4.2em; }
+#screen-briefing .leaf-right > .banner::before { left: -0.2em; width: 2.5em; }
+
+/* ── shared parchment typography. ONLY --ink is text here (README §a.1). ──────── */
+#screen-briefing h2,
+#screen-briefing h3,
+#screen-briefing h4 { margin: 0; font-weight: 600; color: var(--ink); }
+#screen-briefing .pane-head { display: flex; align-items: baseline; gap: 0.45em; flex: 0 0 auto; }
+#screen-briefing .pane-head h2 { font-family: var(--sans); font-size: 1.14em; line-height: 1.1; }
+/* THE LEAK: index.html's page-wide `.panel h3 { margin: 0 0 14px; padding-bottom:
+   7px; border-bottom: 1px solid …; text-transform: uppercase; letter-spacing: .2em;
+   color: var(--accent-ink); }` matches every `<h3 class="sect">` here (they ARE
+   `.panel` descendants) — the shared `h2,h3,h4{margin:0}` reset already neutralises
+   margin, but padding-bottom/border-bottom/text-transform/letter-spacing/color were
+   never named, so a second gold rule (border-bottom) rendered UNDER this heading's
+   own `::after` flex-grow rule, and `--accent-ink` (not `--ink`) painted the text —
+   both new height (8px × six-odd headings, real overflow) and a colour this
+   subtree's own ladder never measured. */
+#screen-briefing .sect {
+  display: flex;
+  align-items: center;
+  gap: 0.36em;
+  font-family: var(--sans);
+  font-size: 0.88em;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+#screen-briefing .sect::before { content: "✦"; font-size: 0.66em; color: var(--ink); }
+#screen-briefing .sect::after { content: ""; flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--accent), rgba(138, 101, 36, 0.05)); }
+#screen-briefing .hint { margin: 0.14em 0 0; font-style: italic; font-size: 0.72em; line-height: 1.2; color: var(--ink); }
+#screen-briefing .hint.tight { font-size: 0.64em; }
+#screen-briefing .lock {
+  font-family: var(--roman);
+  font-size: 0.66em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.1em 0.32em;
+  margin-left: 0.36em;
+  color: var(--ink);
+  background: var(--plate-parch);
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.55);
+  white-space: nowrap;
+}
+#screen-briefing .rulehr { height: 1px; margin: 0.3em 0; flex: 0 0 auto; background: linear-gradient(90deg, transparent, var(--accent) 10%, var(--accent) 90%, transparent); }
+
+/* ═══ LEFT LEAF — the portrait-card roster ═══════════════════════════════════ */
+#screen-briefing .deploynote { margin: 0.1em 0 0; flex: 0 0 auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* index.html's page-wide `.roster { display: flex; flex-wrap: wrap; grid-column: 1 /
+   -1; border-bottom: … }` (the old prep panel's member-tab row) is a `<div
+   class="roster">` there too — `display` was never named here, so this one card grid
+   was a flex container around its single `<ul class="cards">` child rather than the
+   plain block it needs to be for that child's own grid to size correctly. */
+#screen-briefing .roster { display: block; flex: 1 1 auto; min-height: 0; overflow: auto; margin: 0 -0.2em; padding: 0 0.24em 0.3em; border-bottom: 0; }
+#screen-briefing .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.42em; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+@media (min-width: 900px) {
+  #screen-briefing .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #screen-briefing { --face-ar: 0.82; }
+  #screen-briefing .leaf-left { flex: 0 0 45%; }
+  #screen-briefing .roundel { width: 2.3em; height: 2.3em; }
+  #screen-briefing .gearrow { padding: 0.28em 0.4em 0.3em 0.28em; }
+  #screen-briefing .panel[data-panel="equipment"] .stat-row { grid-template-columns: 1fr; gap: 0.2em; }
+  #screen-briefing .panel[data-panel="equipment"] .stat-row li { font-size: 0.86em; padding: 0.26em 0.55em; }
+}
+#screen-briefing .member { position: relative; min-width: 0; }
+#screen-briefing .ptab {
+  width: 100%;
+  min-height: 44px;
+  display: block;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.22em 0.22em 0.26em;
+  font-family: var(--sans);
+  color: var(--ink);
+  font-size: 1em;
+  border-radius: 0.06em;
+  border: 1px solid rgba(55, 37, 25, 0.55);
+  background-color: var(--box-parch);
+  background-image: var(--tooth), radial-gradient(120% 130% at 30% 20%, var(--box-parch-hi), var(--box-parch) 60%, var(--box-parch-lo));
+  background-blend-mode: overlay, normal;
+  background-size: 180px 180px, 100% 100%;
+  box-shadow: 0 0.16em 0.35em rgba(0, 0, 0, 0.4);
+}
+#screen-briefing .ptab .face {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--face-ar);
+  overflow: hidden;
+  position: relative;
+  background: #c2a179;
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.5), inset 0 0 0.7em rgba(74, 40, 14, 0.45);
+}
+#screen-briefing .ptab .face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+#screen-briefing .ptab .face img.pending,
+#screen-briefing .hero img.pending { object-fit: contain; background: #e2cfa0; padding: 6%; }
+#screen-briefing .ptab .face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(74, 40, 14, 0.06), rgba(74, 40, 14, 0.3));
+}
+#screen-briefing .ptab .plate { display: block; padding: 0.16em 0.2em 0; }
+#screen-briefing .ptab .nline { display: flex; align-items: baseline; gap: 0.3em; }
+#screen-briefing .ptab .pname { font-size: 0.9em; font-weight: 600; line-height: 1.14; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .ptab .pap { margin-left: auto; font-family: var(--roman); font-size: 0.56em; letter-spacing: 0.08em; }
+#screen-briefing .ptab .pjob { display: flex; align-items: center; gap: 0.24em; font-size: 0.72em; line-height: 1.2; }
+#screen-briefing .ptab .pjob svg { width: 0.95em; height: 0.95em; color: var(--ink); }
+#screen-briefing .pennant {
+  position: absolute;
+  right: 0.42em;
+  top: -0.24em;
+  z-index: 2;
+  width: 1.25em;
+  height: 2.3em;
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 50% 100%, 0 82%);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.24)), linear-gradient(96deg, var(--house-grey-lit), var(--house-grey) 55%, #1f1f1f);
+  box-shadow: 0 0.2em 0.34em rgba(0, 0, 0, 0.65);
+  /* Same reasoning as `.finial` below: `aria-hidden`, decorative, must never intercept
+     a click meant for a neighbouring card. */
+  pointer-events: none;
+}
+#screen-briefing .pennant svg { position: absolute; left: 50%; top: 0.42em; transform: translateX(-50%); width: 0.8em; height: 0.8em; color: var(--brass-lit); opacity: 0.9; }
+#screen-briefing .finial {
+  position: absolute;
+  left: 50%;
+  top: -0.62em;
+  transform: translateX(-50%);
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--accent);
+  display: none;
+  z-index: 2;
+  /* Breaks the card's own top edge (by design, `top: -0.62em`), which put it over the
+     row above's card in a 2/3-column grid — found by `e2e/stage.spec.ts`'s campaign
+     walkthrough, where a later click landed on the finial instead of the card under
+     it. Purely decorative (`aria-hidden`), so it should never have been able to
+     intercept a click in the first place. */
+  pointer-events: none;
+  filter: drop-shadow(0 0 0.3em rgba(252, 193, 75, 0.8));
+}
+#screen-briefing .member.on .finial { display: block; }
+#screen-briefing .member.on .ptab {
+  border-color: rgba(138, 101, 36, 0.9);
+  background-image: var(--tooth), radial-gradient(120% 130% at 30% 20%, #e8ccaa, #ddbe99 58%, #cba57e);
+  box-shadow: 0 0 0 0.14em var(--glow), 0 0 1em 0.07em rgba(252, 193, 75, 0.55), 0 0.16em 0.35em rgba(0, 0, 0, 0.4);
+}
+#screen-briefing .member.on .ptab .face { box-shadow: inset 0 0 0 1px rgba(138, 101, 36, 0.9), inset 0 0 0.7em rgba(74, 40, 14, 0.35); }
+#screen-briefing .pip {
+  position: absolute;
+  left: 0.42em;
+  top: 0.42em;
+  z-index: 2;
+  width: 1.25em;
+  height: 1.25em;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.86em;
+  line-height: 1;
+  color: var(--ink);
+  border: 1px solid rgba(55, 37, 25, 0.8);
+  background: var(--plate-parch);
+  box-shadow: 0 0.1em 0.24em rgba(0, 0, 0, 0.5);
+}
+#screen-briefing .member.benched .ptab .face img { filter: grayscale(0.85); opacity: 0.72; }
+#screen-briefing .member.benched .ptab { opacity: 0.9; }
+#screen-briefing .member.benched .pip { background: rgba(190, 149, 111, 0.45); }
+
+/* ═══ RIGHT LEAF — unit head, tab plaques, roundel rows, job strip ═══════════ */
+#screen-briefing .unit-head { flex: 0 0 auto; display: flex; gap: 0.6em; align-items: stretch; }
+#screen-briefing .hero {
+  flex: 0 0 auto;
+  width: 4.2em;
+  aspect-ratio: 1;
+  overflow: hidden;
+  position: relative;
+  background: #c2a179;
+  box-shadow: inset 0 0 0 1px rgba(58, 32, 12, 0.7), inset 0 0 0.8em rgba(74, 40, 14, 0.5), 0 0.2em 0.5em rgba(0, 0, 0, 0.45);
+}
+#screen-briefing .hero img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+#screen-briefing .hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(74, 40, 14, 0.05), rgba(74, 40, 14, 0.28)); }
+#screen-briefing .idcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+#screen-briefing .nameline { display: flex; align-items: baseline; gap: 0.4em; }
+#screen-briefing .nameline h2 { font-size: 1.5em; line-height: 1.04; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .nameline .count { margin-left: auto; font-family: var(--roman); font-weight: 600; font-size: 0.68em; letter-spacing: 0.11em; color: var(--ink); white-space: nowrap; }
+#screen-briefing .jobline {
+  margin: 0.06em 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.62em;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#screen-briefing .jobline svg { width: 1.15em; height: 1.15em; }
+
+#screen-briefing .tabs { flex: 0 0 auto; display: flex; gap: 0.4em; min-width: 0; margin: 0.26em 0 0.24em; }
+#screen-briefing .tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  position: relative;
+  cursor: pointer;
+  padding: 0.28em 0.3em 0.3em;
+  border-radius: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.34em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.66em;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border: 1px solid rgba(55, 37, 25, 0.65);
+  background-color: var(--plate-parch);
+  background-image: var(--tooth), linear-gradient(180deg, #cba484, var(--plate-parch) 60%, #b08a66);
+  background-blend-mode: overlay, normal;
+  background-size: 180px 180px, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 246, 224, 0.35), inset 0 0 0 2px rgba(255, 246, 224, 0.18), 0 0.12em 0.3em rgba(0, 0, 0, 0.4);
+}
+#screen-briefing .tab svg { width: 1.35em; height: 1.35em; }
+#screen-briefing .tab .tlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .tab.on {
+  color: var(--label);
+  border-color: #000;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 40%, var(--plaque-lo) 100%);
+  background-blend-mode: soft-light, normal;
+  background-size: 240px 240px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    0 0 0 0.12em var(--glow),
+    0 0 0.9em 0.05em rgba(252, 193, 75, 0.55);
+}
+#screen-briefing .tab.on svg { color: var(--glow); filter: drop-shadow(0 0 0.25em rgba(252, 193, 75, 0.75)); }
+
+#screen-briefing .panels { flex: 1 1 auto; min-height: 0; display: flex; }
+/* THE LEAK, and the biggest one on this screen: index.html's shared `.card, .panel,
+   dialog#help { padding: 38-40px; border: 1px solid #6a5027; background-color:
+   var(--surface); background-image: …; box-shadow: 0 18px 40px …; overflow: hidden;
+   position: relative; isolation: isolate; }` (the old "burnt parchment sheet" look,
+   plus a `::before`/`::after` scorch-and-rule pair) targets `.panel` BY NAME — three
+   of Equipment/Skills/Profile. None of that was ever named here, so every property
+   applied: 38-40px of padding was eating the room "Standing" needed for its own 8
+   rows (found on the capture as a clipped, unscrollable-looking list — a layout
+   defect `failures()`'s contrast walk cannot see, only a screenshot can), the OLD
+   lighter `--surface` painted a second, wrongly-toned parchment UNDER this leaf's
+   own, and a heavy drop shadow + border rang around a region that should read as
+   part of one sheet, not a card floating on it. Reset every property that block sets.
+   `content: none` on the pseudo-elements matches the `button::before` reset's own
+   shape (mockup's `.panel` never had a scorch pair — the LEAF already carries one). */
+#screen-briefing .panel {
+  position: static;
+  isolation: auto;
+  overflow: visible;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 0.66em;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+#screen-briefing .panel::before,
+#screen-briefing .panel::after {
+  content: none;
+}
+#screen-briefing .panel[hidden] { display: none; }
+#screen-briefing .col { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0.2em; overflow: auto; }
+/* `tabindex="0"` (prep.ts) makes every scrollable column keyboard-reachable — axe-core's
+   `scrollable-region-focusable` rule, found by the a11y scan, not assumed. A visible
+   focus ring is the same courtesy every other control on this screen gets. */
+#screen-briefing .col:focus-visible { outline: none; box-shadow: inset 0 0 0 0.12em var(--glow); }
+#screen-briefing .col.narrow { flex: 0.85 1 0; }
+#screen-briefing .col.wide { flex: 1.2 1 0; }
+
+#screen-briefing .gearrow {
+  flex: 0 0 auto;
+  position: relative;
+  display: grid;
+  align-items: center;
+  column-gap: 0.42em;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  padding: 0.2em 0.34em 0.24em 0.24em;
+  margin-top: 0.2em;
+  border-radius: 0.08em;
+  border: 1px solid rgba(55, 37, 25, 0.5);
+  background-color: var(--box-parch);
+  background-image: var(--tooth), linear-gradient(180deg, #d5b492, var(--box-parch) 55%, var(--box-parch-lo));
+  background-blend-mode: overlay, normal;
+  background-size: 180px 180px, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 246, 224, 0.4), 0 0.1em 0.26em rgba(0, 0, 0, 0.3);
+}
+#screen-briefing .roundel {
+  grid-row: 1 / 3;
+  width: 1.95em;
+  height: 1.95em;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #e0d0b6;
+  background-color: var(--plaque);
+  background-image: radial-gradient(circle at 36% 28%, #4a423c, var(--plaque) 46%, #0e0c0b);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0.1em 0.2em rgba(255, 226, 180, 0.14),
+    0 0 0 0.1em var(--brass),
+    0 0 0 0.14em rgba(0, 0, 0, 0.65),
+    0 0.1em 0.24em rgba(0, 0, 0, 0.55);
+}
+#screen-briefing .roundel svg { width: 1.05em; height: 1.05em; }
+#screen-briefing .gcap { grid-column: 2; grid-row: 1; font-family: var(--roman); font-weight: 600; font-size: 0.56em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .gval { grid-column: 2; grid-row: 2; font-size: 0.86em; font-weight: 600; line-height: 1.16; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .chev { grid-column: 3; grid-row: 1 / 3; width: 0.8em; height: 0.8em; color: var(--ink); opacity: 0.75; }
+#screen-briefing select.gval {
+  width: 100%;
+  min-height: 44px;
+  cursor: pointer;
+  font-family: var(--sans);
+  color: var(--ink);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+}
+#screen-briefing select.gval:focus-visible { outline: none; }
+#screen-briefing .gearrow:focus-within { box-shadow: 0 0 0 0.12em var(--glow), 0 0 0.8em 0.04em rgba(252, 193, 75, 0.5); }
+
+/* Leak-probe verification (viewer-engineer pass): index.html's page-wide `.stats`
+   (the OLD engine-viewer panel's own box) has no scoped competitor here for
+   `background`/`padding`/`border`/`border-radius`/`grid-column` — but every one of
+   its values is exactly what this screen ALREADY wants (no box; `.stat-row`'s own
+   `li`s carry the visuals; `grid-column` is a no-op since `.col` is `flex`, not
+   `grid`). Named explicitly and pinned rather than left to a coincidence: if the old
+   panel's `.stats` rule ever grows a real border, this screen would inherit it
+   silently without this line. */
+#screen-briefing .stats { flex: 0 0 auto; background: none; padding: 0; }
+#screen-briefing .stat-row { list-style: none; margin: 0.22em 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.14em 0.34em; }
+/* THE LEAK: index.html's page-wide `.stat-row li { display: flex; flex-direction:
+   column; padding: 0 20px; ... }` (the old prep panel's stat card, one stat per
+   COLUMN) matches this class too. This rule sets `display: flex` again, which is not
+   a conflict, but never named `flex-direction` — so the page-wide `column` kept
+   winning by the one-property cascade rule and stacked every label over its value
+   (roughly DOUBLING each row's height, which is what actually overflowed the panel:
+   found on the capture, not by an assertion — `failures()`'s contrast walk cannot see
+   a layout defect, only a colour one). `row` is what this design's label-then-value
+   layout has always meant. */
+#screen-briefing .stat-row li { display: flex; flex-direction: row; align-items: baseline; gap: 0.3em; font-size: 0.76em; padding: 0.1em 0.34em; background: rgba(120, 92, 44, 0.13); box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.28); }
+/* Same leak, index.html's `.stat-row .k { color: var(--ink-faint) }`. */
+#screen-briefing .stat-row .k { font-family: var(--roman); font-size: 0.7em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
+/* index.html's page-wide `.stat-row li.up .v { color: var(--warn) }` would otherwise
+   turn a lifted stat's NUMBER red — this screen's own rule is "a gold rule + the
+   arrow, never a gold (or red) text colour" (the `::after` below carries the signal),
+   so the value stays `--ink` regardless of `.up`. */
+/* THE LEAK, and the real driver of the "Standing" panel's overflow (bigger than the
+   line-height leak above): index.html's page-wide `.stat-row .v { font-family: var(
+   --display); font-size: 1.5rem; … }` (the old panel's big numeral) was never
+   overridden on EITHER property here — `1.5rem` is 24px of real ROOT font-size,
+   unrelated to this screen's own `em` scale, and dwarfed the label next to it,
+   forcing every row tall enough to hold it. Measured: 24px vs the row's own ~14.6px
+   context. `font-size: 1em` inherits this row's OWN scale instead. */
+#screen-briefing .stat-row .v { margin-left: auto; font-family: var(--sans); font-size: 1em; font-weight: 600; color: var(--ink); }
+#screen-briefing .stat-row li.up { box-shadow: inset 0 0 0 1px var(--accent); background: rgba(180, 140, 60, 0.22); }
+#screen-briefing .stat-row li.up .v::after { content: " ▲"; font-size: 0.72em; color: var(--accent-ink); }
+
+/* DEVIATION FROM THE MOCKUP, functional not aesthetic: the mockup's static "Learn"
+   heading is 5 characters, so its `grid-template-columns: auto …` never had to size
+   against real content. This panel's heading is `Learn · ${skillsetLabel}` — up to
+   "Learn · Battle Skill" — and a bare `auto` track sizes to that FULL nowrap width,
+   which measured out to 190 of 201px available at 1000×780 and left the tree
+   `<select>` 10px wide: present in the DOM, zero-width, and Playwright correctly
+   refuses to `selectOption` an element that is not actually clickable. `minmax(0,
+   …fr)` on BOTH tracks plus `min-width:0` + ellipsis on the heading is what the
+   mockup's own short text never needed to ask for. */
+#screen-briefing .learnhead { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 0.4em; flex: 0 0 auto; margin-top: 0.2em; }
+#screen-briefing .learnhead > .sect { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#screen-briefing .learnhead .gearrow { margin-top: 0; padding: 0.14em 0.3em 0.16em 0.18em; }
+#screen-briefing .learnhead .roundel { width: 1.5em; height: 1.5em; }
+#screen-briefing .learn-list { list-style: none; margin: 0.2em 0 0; padding: 0 0.3em 0 0; display: grid; gap: 0.16em; align-content: start; overflow: auto; min-height: 0; }
+#screen-briefing .learn-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 0.34em; align-items: center; padding: 0.1em 0.28em 0.14em; border: 1px solid rgba(55, 37, 25, 0.42); border-radius: 0.06em; background: rgba(255, 240, 210, 0.28); }
+#screen-briefing .learn-list .n { font-size: 0.76em; line-height: 1.16; font-weight: 600; }
+/* Same leak, index.html's `.learn-list .desc, .cmd-list .desc { color: var(--ink-soft)
+   }` (see `.cmd-list .desc` below for the other half of that shared selector). */
+#screen-briefing .learn-list .desc { grid-column: 1 / 3; font-size: 0.64em; font-style: italic; line-height: 1.14; color: var(--ink); }
+/* Same leak, index.html's `.learn-list li.known .s { color: var(--warn); border: 1px
+   solid var(--warn) }` (the "learned" stamp). Border colour is untouched (decorative,
+   not text); only the text colour is overridden. */
+#screen-briefing .learn-list .s { font-family: var(--roman); font-size: 0.52em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
+/* THE LEAK: index.html's page-wide `.learn-list li.known { color: var(--ink-faint) }`
+   (the OLD panel's "this row is already learned" dimming) reads 4.28:1 here — under
+   the bar. `.learn-list li` shares the class name with the pre-overhaul panel by
+   design (`viewer.html`'s un-restyled copy still uses it), so this screen names its
+   own colour rather than the shared rule quietly dimming past its measured ladder. */
+#screen-briefing .learn-list li.known { background: rgba(255, 240, 210, 0.5); border-color: rgba(138, 101, 36, 0.6); color: var(--ink); }
+/* Same leak as `li.known` above, index.html's `.learn-list li.locked { color:
+   var(--ink-faint) }`. */
+#screen-briefing .learn-list li.locked { background: rgba(90, 66, 34, 0.16); color: var(--ink); }
+#screen-briefing .learn-list li.deferred { border-style: dashed; }
+#screen-briefing .kind,
+#screen-briefing .tag {
+  font-family: var(--roman);
+  font-size: 0.54em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.06em 0.3em;
+  margin-left: 0.24em;
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--plate-parch);
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.5);
+}
+#screen-briefing .tag.reach { box-shadow: inset 0 0 0 1px var(--seal-red); background: rgba(154, 14, 26, 0.14); }
+#screen-briefing .buy {
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.06em;
+  padding: 0.2em 0.42em;
+  min-height: 28px;
+  white-space: nowrap;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.58em;
+  letter-spacing: 0.08em;
+  color: var(--label);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--plaque);
+  background-image: linear-gradient(180deg, var(--plaque-hi), var(--plaque) 45%, var(--plaque-lo));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 226, 180, 0.13), 0 0.1em 0.24em rgba(0, 0, 0, 0.5);
+}
+/* THE LEAK, and the discriminating one this subtree's CLAUDE.md names by name: the
+   page-wide `button[disabled] { opacity: .4 }` (index.html's generic "greyed out"
+   rule) is LESS specific than `#screen-briefing .buy:disabled` for every property
+   BOTH set — but neither this rule nor the base reset below ever named `opacity`
+   until now, so the global .4 kept winning by the one-property cascade rule and
+   washed the correctly-toned iron plaque out to a translucent slab. Same fix as
+   `#screen-title button:disabled`'s FIX 6. */
+#screen-briefing .buy:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--label-off);
+  background-image: linear-gradient(180deg, var(--plaque), var(--plaque) 46%, var(--plaque-lo));
+}
+/* Same leak, index.html's `.receipt { color: var(--ink-soft) }` — the property this
+   scoped rule never named, so the page-wide one kept it (4.07:1, README §a.1). */
+#screen-briefing .receipt { margin: 0.24em 0 0; font-size: 0.7em; padding: 0.22em 0.34em; font-style: italic; flex: 0 0 auto; background: rgba(154, 14, 26, 0.1); box-shadow: inset 0 0 0 1px rgba(154, 14, 26, 0.5); color: var(--ink); }
+#screen-briefing .receipt b { font-style: normal; }
+
+#screen-briefing .cmd-list { list-style: none; margin: 0.2em 0 0; padding: 0; display: grid; gap: 0.14em; align-content: start; }
+#screen-briefing .cmd-list li { font-size: 0.76em; padding: 0.1em 0.34em; background: rgba(120, 92, 44, 0.13); box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.28); }
+/* Same leak, index.html's `.learn-list .desc, .cmd-list .desc { color: var(--ink-soft)
+   }` matches both lists here too. */
+#screen-briefing .cmd-list .desc { display: block; font-size: 0.82em; font-style: italic; color: var(--ink); }
+/* index.html's page-wide `.cmd-list li.deferred { opacity: .55 }` would otherwise dim
+   this row's already-marginal ink further — the seal-red border already carries
+   "deferred" without also fading the text below its measured ladder. */
+#screen-briefing .cmd-list li.deferred { background: rgba(90, 66, 34, 0.16); border-left: 2px solid var(--seal-red); opacity: 1; }
+
+#screen-briefing .chk { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 0.4em; font-size: 0.8em; padding: 0.2em 0.3em; margin-bottom: 0.2em; flex: 0 0 auto; background: rgba(255, 240, 210, 0.3); box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.35); }
+#screen-briefing .ttile {
+  position: relative;
+  width: 2em;
+  height: 2em;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0.1em 0 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  border: 1px solid rgba(55, 37, 25, 0.85);
+  background: var(--plate-parch);
+  box-shadow: inset 0 0 0 2px rgba(255, 246, 224, 0.28);
+}
+#screen-briefing .ttile svg { width: 1.1em; height: 1.1em; opacity: 0.75; }
+#screen-briefing .ttile input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; }
+#screen-briefing .ttile:has(input:checked) { box-shadow: inset 0 0 0 2px rgba(255, 246, 224, 0.28), 0 0 0 0.12em var(--glow), 0 0 0.7em rgba(252, 193, 75, 0.5); }
+#screen-briefing .ttile:has(input:checked) svg { opacity: 1; }
+#screen-briefing .ttile:has(input:checked)::after {
+  content: "✓";
+  position: absolute;
+  right: -0.34em;
+  bottom: -0.4em;
+  width: 1.05em;
+  height: 1.05em;
+  display: grid;
+  place-items: center;
+  font-size: 0.8em;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--glow);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(55, 37, 25, 0.8);
+}
+#screen-briefing .chk .tname { font-weight: 600; }
+#screen-briefing .chk .tdesc { display: block; font-size: 0.82em; font-style: italic; line-height: 1.16; }
+#screen-briefing .empty { margin: 0.2em 0 0; font-size: 0.78em; font-style: italic; padding: 0.34em; background: rgba(90, 66, 34, 0.14); box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.35); }
+
+/* ═══ JOB CUSTOMIZATION STRIP — at the leaf's foot, on every tab ═════════════ */
+#screen-briefing .jobstrip { flex: 0 0 auto; margin-top: 0.24em; }
+#screen-briefing .jobstrip .sect { font-size: 0.8em; }
+#screen-briefing .jobrow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.42em; margin-top: 0.2em; }
+#screen-briefing .jplaque {
+  position: relative;
+  display: grid;
+  align-items: center;
+  column-gap: 0.42em;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  padding: 0.22em 0.4em 0.26em 0.3em;
+  border-radius: 0.08em;
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 42%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.14),
+    inset 0 -0.12em 0.36em rgba(0, 0, 0, 0.55),
+    0 0.18em 0.4em rgba(0, 0, 0, 0.6);
+}
+#screen-briefing .jcrest {
+  grid-row: 1 / 3;
+  width: 1.85em;
+  height: 1.85em;
+  display: grid;
+  place-items: center;
+  color: var(--brass-lit);
+  background: linear-gradient(180deg, #3a3430, #181513);
+  clip-path: polygon(6% 0, 94% 0, 94% 62%, 50% 100%, 6% 62%);
+  box-shadow: 0 0.1em 0.2em rgba(0, 0, 0, 0.6);
+}
+#screen-briefing .jcrest svg { width: 1.1em; height: 1.1em; }
+#screen-briefing .jhead { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 0.4em; min-width: 0; }
+#screen-briefing .jcap { font-family: var(--roman); font-weight: 600; font-size: 0.56em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing .pips { margin-left: auto; display: flex; gap: 0.18em; flex: 0 0 auto; }
+#screen-briefing .pips i { width: 0.44em; height: 0.44em; transform: rotate(45deg); background: #3a352e; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.8); display: block; }
+#screen-briefing .pips i.on { background: var(--glow); box-shadow: 0 0 0.3em rgba(252, 193, 75, 0.7); }
+#screen-briefing .jval { grid-column: 2; grid-row: 2; font-size: 0.86em; font-weight: 600; line-height: 1.18; color: var(--label); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-briefing select.jval {
+  width: 100%;
+  min-height: 44px;
+  cursor: pointer;
+  font-family: var(--sans);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+}
+#screen-briefing select.jval option,
+#screen-briefing select.gval option { color: var(--ink); background: #e7d4b2; }
+#screen-briefing select.jval:focus-visible { outline: none; }
+#screen-briefing .jplaque:focus-within { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.9), 0 0 0 0.12em var(--glow), 0 0 0.8em 0.04em rgba(252, 193, 75, 0.5); }
+
+/* THE LEAK: `brief-story` mounts the SAME `scene.ts` component the scene screen does
+   (`game.ts`'s `renderStory`), and index.html's page-wide `.scene-progress { color:
+   var(--ink-soft) }` reads fine on the OLD, lighter `--surface` parchment but only
+   3.12:1 on this leaf's darkest stop. `#screen-scene` already carries this exact fix
+   for its own copy of the same component; this is the briefing's. */
+#screen-briefing .scene-progress { color: var(--ink); }
+/* Same leak, same component, the speaker name: index.html's page-wide `.story .who
+   { color: var(--warn) }` (the scribe's red) is 2.99:1 here — unlike the scene
+   screen's OWN name plate, `brief-story` sits directly on the leaf with no dedicated
+   plate ground of its own, so there is no lighter field to lean on; `--ink` is the
+   one ink role this leaf's whole ladder clears (README §a.1). */
+/* D1 (delivered-frame review): the mockup's own `brief-story` ships permanently
+   `hidden`, so it never modelled a real beat's layout — every shipped battle authors
+   one, and the shared `.portrait { width: 96px }` (index.html, a fixed CSS px, not
+   `em`) did not shrink with this screen's own font-size clamp, so at the 851×324
+   phone fold it and its figure ate most of the leaf, clipping the roster below AND
+   its own "More" control. The fix is not a bigger scroll box — it is a genuinely
+   COMPACT row: a small fixed-px portrait, the line capped at two `-webkit-line-clamp`
+   lines (so the block's height is bounded by CSS, never by how long a beat runs), and
+   no `max-height`/`overflow` doing the capping instead. `.scene-body` (the portrait +
+   the line box, `scene.ts`) is unwrapped with `display: contents` so its own children
+   become direct grid items here — the same trick `#prep-body` already uses one leaf
+   over. */
+#screen-briefing #brief-story:not([hidden]) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.5em;
+  align-items: start;
+  flex: 0 0 auto;
+  margin: 0 0 0.4em;
+  padding-bottom: 0.34em;
+  border-bottom: 1px solid rgba(138, 101, 36, 0.4);
+}
+#screen-briefing #brief-story .scene-body { display: contents; }
+/* Fixed px, not `em`: a portrait this small must not also shrink with the clamp at
+   the tightest fold, or the frame and the "portrait pending" caption inside it (a
+   real, load-bearing disclosure — scene.ts's own header — never hidden here) would
+   collide. ~40px matches the brief; `aspect-ratio` is dropped in favour of an exact
+   square so the frame's own height is as predictable as its width. */
+/* M6: `.portrait` is a GRID item (`grid-column: 1`), and a grid item's default
+   `min-width: auto` resolves to its content's min-content size, not 0 — the textbook
+   failure mode is the un-clamped "PORTRAIT PENDING" caption (index.html's page-wide
+   `.portrait figcaption.pending`, no width/overflow of its own) forcing this item
+   WIDER than its own declared 40px, which is what `docs/visual/overhaul/prep-
+   851x324.png` (filed against this item) shows. `min-width: 0` plus `overflow:
+   hidden` is the standard fix for exactly that class of bug. NOT reproduced against
+   the current content, honestly (`e2e/briefing.spec.ts`'s M6 test comment) — the
+   earlier D1 fix's fixed 40px/30px sizing already keeps the `auto 1fr` track from
+   growing here with Vance's actual caption text. Kept as correct, defensive CSS. */
+#screen-briefing #brief-story .portrait {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  overflow: hidden;
+}
+#screen-briefing #brief-story .portrait img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; }
+#screen-briefing #brief-story .portrait figcaption.pending { font-size: 0.42rem; padding: 2px; }
+#screen-briefing #brief-story .scene-lines { grid-column: 2; grid-row: 1; min-width: 0; border: 0; padding: 0; }
+#screen-briefing #brief-story .story .who { margin: 0 0 0.1em; font-size: 0.6em; }
+/* The two-line cap THE WHOLE FIX RESTS ON: no matter how long a beat's line runs, this
+   box's height is fixed by CSS rather than by content, so nothing downstream (the
+   roster, its own reveal control) can ever be pushed off-screen by it. */
+#screen-briefing #brief-story .story p.line {
+  margin: 0;
+  font-size: 0.76em;
+  line-height: 1.26;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#screen-briefing #brief-story .scene-controls {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0.2em 0 0;
+  gap: 0.5em;
+}
+#screen-briefing #brief-story .scene-controls button { font-size: 0.62em; padding: 0.3em 0.6em 0.3em 1em; }
+#screen-briefing #brief-story .scene-controls button::before { left: 0.3em; font-size: 0.6em; }
+#screen-briefing .story .who { color: var(--ink); }
+/* `::first-letter` is invisible to `failures()`'s DOM walk (no pseudo-element is a
+   real node `querySelectorAll("*")` can see), so this is not what turned the test red
+   — but it is the SAME leak (index.html's `.story p.line:first-of-type::first-letter
+   { color: var(--warn) }`, the drop-cap), caught by opening the frame rather than by
+   an assertion, and fixed for the same reason the others were. */
+#screen-briefing .story p.line:first-of-type::first-letter { color: var(--ink); }
+/* Same leak, third and last piece of this shared component: index.html's page-wide
+   `.portrait figcaption.pending { color: var(--ink-soft) }` (the "Portrait pending"
+   caption under an unauthored asset) is 3.12:1 here too. */
+#screen-briefing .portrait figcaption.pending { color: var(--ink); }
+
+/* ═══ FOOT RAIL + the red wax Deploy plate ═══════════════════════════════════ */
+/* THE LEAK: index.html's page-wide `footer { color: var(--ink-dk-faint); font-style:
+   italic; font-size: .9rem; }` (the dark-table footer credit line) matches this element
+   BY TAG — `.footrail` is a `<footer>` — and `--ink-dk-faint` (a parchment-toned ink
+   meant for the DARK board card) measured 1.13:1 against this leaf's tan ground. Named
+   explicitly, same shape as the other leaks this subtree's CLAUDE.md tracks. */
+#screen-briefing .footrail {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0.2em;
+  padding-right: 7.6em;
+  color: var(--ink);
+  font-style: normal;
+  font-size: 1em;
+}
+#screen-briefing .frule { flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent); }
+#screen-briefing .ready { margin: 0; font-size: 0.76em; font-style: italic; flex: 0 0 auto; }
+#screen-briefing .seal {
+  position: absolute;
+  right: -0.5em;
+  bottom: -0.5em;
+  z-index: 6;
+  width: 7.2em;
+  height: 2.5em;
+  min-height: 44px;
+  cursor: pointer;
+  border-radius: 0.34em;
+  padding: 0 0.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+  color: var(--label);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  background-color: var(--seal-red);
+  background-image:
+    linear-gradient(180deg, rgba(255, 190, 190, 0.28), rgba(255, 120, 120, 0.03) 42%, rgba(0, 0, 0, 0.3)),
+    linear-gradient(180deg, #b31220, var(--seal-red) 46%, #6d0812);
+  box-shadow:
+    inset 0 0 0 0.09em rgba(250, 226, 196, 0.62),
+    inset 0 0 0 0.2em rgba(60, 4, 10, 0.9),
+    inset 0 0.14em 0.3em rgba(255, 170, 170, 0.2),
+    inset 0 -0.2em 0.4em rgba(40, 0, 4, 0.6),
+    0 0.3em 0.6em rgba(0, 0, 0, 0.75);
+}
+#screen-briefing .seal svg { width: 1.15em; height: 1.15em; color: var(--label); }
+#screen-briefing .seal:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 0.09em rgba(250, 226, 196, 0.62), 0 0 0 0.14em var(--glow), 0 0 0.9em 0.06em rgba(252, 193, 75, 0.55);
+}
+
+/* ── the concept's brass scrollbar, scoped to this screen only ──────────────── */
+#screen-briefing *::-webkit-scrollbar { width: 0.4em; }
+#screen-briefing *::-webkit-scrollbar-track { background: rgba(74, 40, 14, 0.16); }
+#screen-briefing *::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #eedcbf, #987152 40%, #5c3d28); border: 1px solid rgba(0, 0, 0, 0.5); }
+
+/* ═══ THE BUTTON RESET — every property index.html's page-wide `button{}` sets,
+   named explicitly (this subtree's CLAUDE.md, "Two traps the overhaul sets"). Unlike
+   `#screen-title`, this screen has SEVEN button families (backplaque, ptab, pip, tab,
+   buy, jval/gval select-as-row, seal) with no one shared skin, so the reset lives at
+   the bare `button` level and each family layers its own look on top — verified by
+   the leak check in `e2e/briefing.spec.ts`. ═══════════════════════════════════ */
+#screen-briefing button {
+  position: static;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: inherit;
+  text-shadow: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  cursor: pointer;
+  transition: none;
+}
+/* The page-wide `button::before` (the FFT pointer diamond, `content:"\25C6"`) would
+   otherwise slide onto every button family here on hover/focus — `content: none` at
+   the bare `button` level suppresses it everywhere; `.riveted::before` (above) is
+   MORE specific (an extra class) and wins back its own rivet layer regardless. */
+#screen-briefing button::before { content: none; }
+#screen-briefing button:disabled { opacity: 1; cursor: default; }
+#screen-briefing button:focus-visible { outline: none; }
+
+/* AC-V35's real 44px floor (`.tab`, `select.jval`/`select.gval`) is a HARD CSS-px
+   requirement the mockup's own `em`-only sizing never had to clear, and at the
+   narrowest phone folds (640×300, 851×324 — ADR-0037) 44px eats a much bigger share
+   of a short viewport than the mockup's proportions assumed: `.tabs` measured 44px
+   here against the mockup's 17.6px, `.jobstrip` 77.5px against 42.9px, which
+   together left the actual tab content (Equipment/Skills/Profile) a 36.5px sliver —
+   found on the 851×324 capture, where "Wielded Gear" and "Standing" read as empty
+   bars. Trimming the surrounding chrome's OWN margins (never the 44px floor itself)
+   is what buys the content back its share of a short screen. LAST in the file on
+   purpose: an earlier `#screen-briefing .jplaque{padding:…}` base rule shares this
+   selector's exact specificity, and a media query does not win a same-specificity
+   tie by itself — only SOURCE ORDER does. */
+@media (max-height: 400px) {
+  #screen-briefing .tabs { margin: 0.1em 0; }
+  #screen-briefing .jobstrip { margin-top: 0.08em; }
+  #screen-briefing .unit-head .rulehr { display: none; }
+  #screen-briefing .jplaque { padding: 0.1em 0.32em 0.12em 0.22em; }
+  #screen-briefing .jhead { margin-bottom: 0; }
+
+  /* D2 (delivered-frame review): even trimmed, the two-row `.jplaque` (crest spanning
+     both rows, cap+pips on row 1, the select on row 2 with its own 44px floor) plus
+     the head and tab chrome above it left "Wielded Gear" and "Standing" a sliver at
+     851×324/640×300 — the first gear row and most of Standing's 8 rows were pushed
+     off the leaf. This collapses BOTH plaques to one compact row apiece: crest | cap
+     + pips | value, all on `grid-row: 1`, so the strip's total height stops scaling
+     with the two-row layout the mockup never had to fit into a fixed CSS-px `.tab`
+     floor. */
+  #screen-briefing .jplaque {
+    grid-template-columns: auto minmax(52px, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: 1fr;
+    align-items: center;
+    column-gap: 0.32em;
+    padding: 0.14em 0.34em;
+  }
+  #screen-briefing .jcrest { grid-column: 1; grid-row: 1; width: 1.3em; height: 1.3em; }
+  #screen-briefing .jcrest svg { width: 0.8em; height: 0.8em; }
+  #screen-briefing .jhead { grid-column: 2; grid-row: 1; }
+  /* m14a, second pass: `.jcap` shares this flex row with `.pips` (`flex: 0 0 auto`,
+     non-shrinking), and a plain `minmax(0, 0.85fr)` track let `.jcap` — the DEFAULT
+     `flex-shrink: 1` — get squeezed to a sliver under 2px wide at 640×300 (measured:
+     "Main"/"Secondary" rendered, but their own box was ~1.4px, effectively
+     invisible — the SAME failure `display: none` was, reached a different way, and
+     not caught by `toBeVisible()` alone, which only checks size > 0). The `52px`
+     floor on the TRACK plus `flex-shrink: 0` below on `.jcap` itself is what actually
+     reserves room a human eye can read; the value column (`minmax(0, 1.15fr)`) still
+     has plenty of room since "Geomancer" et al. were never the tight side. */
+  #screen-briefing .jcap { flex-shrink: 0; }
+  /* m14a: this used to be `display: none` — the plaque lost its caption entirely at
+     this fold ("Main Job"/"Secondary" is what tells the two plaques apart). `jcap`'s
+     own text is now the short form ("Main"/"Secondary", prep.ts) everywhere, so it
+     fits this column without hiding; the base rule's `overflow: hidden;
+     text-overflow: ellipsis` is the fallback if it ever does not. */
+  #screen-briefing .pips { margin-left: 0; }
+  #screen-briefing .jval { grid-column: 3; grid-row: 1; font-size: 0.76em; }
+  /* The plaque's own visible row is ≤30px; the select KEEPS a real ≥44px tap target
+     by overflowing that row invisibly (transparent background, no border) rather than
+     inflating the row itself — a padding hit-area, not a smaller target. Not asserted
+     by any test here (AC-V35 names the briefing screen out of scope, `docs/10` §8f);
+     kept anyway because a real thumb still has to hit it. */
+  #screen-briefing select.jval {
+    position: absolute;
+    inset: 50% 0 auto 0;
+    transform: translateY(-50%);
+    min-height: 44px;
+  }
+  #screen-briefing .jplaque { position: relative; height: 1.7em; overflow: visible; }
+
+  /* The unit head: portrait down to a fixed 32px, name and job pulled onto one row
+     (`.idcol` becomes a row itself) so the head stops costing two text rows' worth of
+     height on a screen this short. */
+  #screen-briefing .hero { width: 32px; height: 32px; }
+  #screen-briefing .idcol { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 0.15em 0.5em; }
+  #screen-briefing .nameline { flex: 0 1 auto; min-width: 0; }
+  #screen-briefing .nameline h2 { font-size: 1.05em; }
+  #screen-briefing .jobline { margin: 0; flex: 0 0 auto; }
+
+  /* D1's compact row still costs real height on the shortest folds — trim its own
+     margins further rather than let it re-eat the roster's share. */
+  #screen-briefing #brief-story:not([hidden]) { margin-bottom: 0.2em; padding-bottom: 0.2em; }
+  #screen-briefing #brief-story .portrait { width: 30px; height: 30px; }
+  #screen-briefing #brief-story .story p.line { font-size: 0.7em; line-height: 1.16; }
+  #screen-briefing #brief-story .scene-controls { margin-top: 0.1em; }
+  #screen-briefing .pane-head h2 { font-size: 0.98em; }
+  #screen-briefing .deploynote { font-size: 0.64em; }
+  #screen-briefing .rulehr { margin: 0.16em 0; }
+
+  /* D4 (delivered-frame review): the roster is a scroll region, but a card taller
+     than the visible port loses its own foot (name + job) below the fold before a
+     player ever scrolls — found on the 851×324 capture, where the first row's cards
+     showed the face and nothing else. `--face-ar` (width ÷ height) is this screen's
+     own token for the card face's shape; a much wider, shorter face is what buys the
+     name/job line back its room without another scroll. */
+  #screen-briefing { --face-ar: 3; }
+  #screen-briefing .ptab { padding: 0.16em 0.16em 0.18em; min-height: 0; }
+  #screen-briefing .ptab .plate { padding: 0.1em 0.16em 0; }
+  #screen-briefing .ptab .pname { font-size: 0.84em; }
+  #screen-briefing .ptab .pjob { font-size: 0.64em; }
+
+  /* D2, Skills tab: the narrow column stacks Primary PLUS three more `.gearrow`s
+     (Reaction/Support/Movement) — at 851×324 only Primary and a sliver of Reaction
+     fit unless the row itself stays compact. `select.gval` KEEPS a real ≥44px tap
+     target the same way `select.jval` does above (M5): a position:absolute overlay
+     sized 44px min-height, taken out of grid flow so it costs the VISIBLE row no
+     extra height — a padding hit-area, not a smaller target. That is what lets this
+     stay both a real 44px control and still buy Reaction AND Support into view. */
+  #screen-briefing .gearrow { padding: 0.1em 0.28em 0.12em 0.2em; margin-top: 0.06em; }
+  #screen-briefing .roundel { width: 1.45em; height: 1.45em; }
+  #screen-briefing .roundel svg { width: 0.85em; height: 0.85em; }
+  #screen-briefing .gcap { font-size: 0.5em; }
+  #screen-briefing .gval { font-size: 0.74em; }
+  #screen-briefing select.gval {
+    position: absolute;
+    inset: 50% 0 auto 0;
+    transform: translateY(-50%);
+    min-height: 44px;
+  }
+  #screen-briefing .sect { font-size: 0.76em; margin-top: 0; }
+  #screen-briefing .col { gap: 0.06em; }
+  #screen-briefing .col .hint { margin: 0.06em 0 0; }
+
+  /* The last few px: the head down another notch, the strip's own heading smaller,
+     the foot rail's top margin trimmed — every one of these was already compact, so
+     none alone moves much, but together they are what buys Support fully into view
+     alongside Reaction (see the ASSERT in `e2e/briefing.spec.ts`). */
+  #screen-briefing .jobstrip { margin-top: 0.04em; }
+  #screen-briefing .jobstrip .sect { font-size: 0.68em; }
+  #screen-briefing .jobrow { margin-top: 0.12em; }
+  #screen-briefing .footrail { margin-top: 0.08em; }
+
+  /* B1: the wax Deploy plate (`.seal`) is `position: absolute; right: -0.5em;
+     bottom: -0.5em;` against `.leaf-right` (a `.leaf`, `position: relative`) — always
+     pinned to the leaf's own bottom-right corner regardless of what content is there.
+     At these folds the leaf's content overflows its fixed aspect-ratio box (ADR-0037),
+     so `.jobrow`'s SECOND plaque (Secondary) ends up the last thing still inside the
+     visible leaf, right where the seal is pinned — its `select.jval` ("— none —") read
+     as clipped. `.footrail` already reserves the same 7.6em on its own row for exactly
+     this seal; `.jobrow` gets the identical reservation, same width, so its second
+     column stops rendering under the plate. */
+  #screen-briefing .jobrow { padding-right: 7.6em; }
 }

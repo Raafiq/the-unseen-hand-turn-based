@@ -26,7 +26,7 @@ import { mountHud, type HudHandle } from "./hud.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
 import type { LookUp } from "./panels.js";
 import { wireLandscapeButton } from "./orientation.js";
-import { mountPrepDemo } from "./prep.js";
+import { mountPrepDemo, mountPrepEmpty } from "./prep.js";
 import { Session } from "./session.js";
 import type { ViewerApi } from "./viewer-api.js";
 
@@ -264,7 +264,16 @@ refresh();
 // Slice 8: the prep/loadout viewer (customization pillar). Its own screen since
 // ADR-0037 — the battle screen must not scroll, and this panel is long.
 const prepBody = document.getElementById("prep-body");
-if (prepBody) mountPrepDemo(prepBody);
+// `?prep=empty`: the no-weapon/no-mastered-job fixture `e2e/briefing.spec.ts`'s
+// "weapon-absent" and "empty-traits" tests mount, since the shipped campaign cannot
+// discover either state honestly (prep.ts's own `mountPrepEmpty` docstring).
+if (prepBody) {
+  if (new URLSearchParams(window.location.search).get("prep") === "empty") {
+    mountPrepEmpty(prepBody);
+  } else {
+    mountPrepDemo(prepBody);
+  }
+}
 
 // AC-V32: the rotate gate's one button. The gate itself is pure CSS (AC-V30) — this
 // only adds the best-effort fullscreen + landscape lock, which needs a user gesture and
