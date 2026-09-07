@@ -89,6 +89,10 @@ happily revert your whole slice.
   a 190k-token second pass. When the brief names a mockup or an approved frame, diff the
   built capture against it at the same viewport (Pillow / pixelmatch), list every region
   over threshold, and put the number in the report. Opening the frame is the floor, not
-  the check.
+  the check. **And a percentage is not a verdict:** the scene slice reported 11% with the
+  regions labelled "text" and "portrait vs placeholder", and three chrome drifts (a lost
+  ribbon charge, a grey slab, a shrunk card) hid inside those labels — a 239k second pass.
+  Classify EVERY differing region by name; anything that is not text or a known asset gap
+  is yours to fix before you report.
 - Report back: what changed, the frames you opened, the diff numbers against any reference,
   the mutations you ran, and what you deliberately did not assert.
