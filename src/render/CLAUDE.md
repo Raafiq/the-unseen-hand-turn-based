@@ -33,6 +33,21 @@ These lived only in `docs/NEXT.md`, which is rewritten every slice. They belong 
 - **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the final victory's story beat was unreadable until the ending screen rendered it too — one scene a player could never see, with every per-battle test green. When you add anything to a screen, enumerate the **transitions**, not the states: `concludeBattle` branches on status, `continueGame` lands on three different screens, and a loss on the last battle still goes to `AFTER_BATTLE`.
 - **A sim docstring that delegates a rule to "the caller" is an obligation nobody is told about.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates nothing, which made `secondary === currentJob` reachable through the back door — exactly the state `setLoadoutSlot` refuses to create, and one that throws nowhere downstream. The caller owes a test. And **ask first whether a schema can see both fields**: a refinement on `UnitRecordSchema` tells every codec boundary forever, where a docstring told nobody.
 
+## Two traps the overhaul sets (ADR-0040), both earned on the title screen
+
+- **A page-wide rule on a property the scoped rule does not name still wins.** `overhaul.css`
+  is scoped under `#screen-title`; `index.html`'s `.eyebrow{text-transform}`,
+  `button::before{opacity:0}` and `button[disabled]{opacity:.4}` all leaked through, because
+  specificity only decides conflicts on properties BOTH rules set. When you port a screen to
+  the new look, list every page-wide selector that matches its elements and name each of
+  those properties explicitly in the scoped rule. No lint sees this; a numeric diff against
+  the mockup does (see `viewer-engineer.md`).
+- **Before cutting a control to match a concept, enumerate the STATES it carried.** Erase
+  save and the status line went to match the picture; with them went the "storage is
+  blocked" warning (silent data loss) and the "battle 2 of 5" readout, and one spec kept
+  asserting the readout on a hidden element. Every state (error, empty, progress) needs a
+  visible home on the new screen, and the spec that read the old one must read the new one.
+
 ## Honesty rules the UI must hold (pillar 4)
 
 - **A page that RECORDS the player must say what it records.** `logNote()` in `game.ts` lists, on screen, the categories the playtest log holds and states that nothing is sent anywhere. Adding a `TelemetryEvent` kind without updating that sentence turns a complete disclosure into a partial one, silently — collection widens, the promise does not. No guard fits: the categories are player-facing phrases, not event names, so a test pinning the mapping would only freeze the wording.

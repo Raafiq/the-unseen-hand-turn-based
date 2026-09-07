@@ -24,7 +24,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { pickTile } from "../src/render/iso.js";
-import { dismissScene } from "./helpers.js";
+import { dismissScene, startNewGame } from "./helpers.js";
 import type { BattleState } from "../src/sim/index.js";
 
 const CANVAS_W = 900;
@@ -136,7 +136,7 @@ test("an open drawer never covers the bars that close it", async ({ page }) => {
 test("the campaign board carries the same stage, and it takes a click", async ({ page }) => {
   await page.setViewportSize({ width: 851, height: 324 });
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();

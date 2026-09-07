@@ -4,6 +4,7 @@ import {
   dismissScene,
   freezeMotion,
   settleMotion,
+  startNewGame,
   watchStep,
 } from "./helpers.js";
 import { mkdir, rm } from "node:fs/promises";
@@ -65,7 +66,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await page.goto("/");
   await shot("01-title", "screen-title");
 
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
 
   // The prologue is a screen a player passes through, so it is a frame. Its caption is
   // checkable the same way every other one is: `02a` must show the scene mid-read (the

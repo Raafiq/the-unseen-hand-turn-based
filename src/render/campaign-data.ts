@@ -40,6 +40,17 @@ import knightM from "../../data/campaign/story/portraits/knight-m.png";
 import knightF from "../../data/campaign/story/portraits/knight-f.png";
 import thiefM from "../../data/campaign/story/portraits/thief-m.png";
 import wizardF from "../../data/campaign/story/portraits/wizard-f.png";
+// The title screen's three photographic crops (docs/visual/concepts/README.md §e),
+// imported the same way and for the same reason as the portraits above — so VITE
+// resolves each to a hashed, `base`-aware URL instead of a hand-written relative path
+// `index.html`'s static markup would have to get right for both the dev server and the
+// Pages sub-path.
+import titleCastle from "../../data/campaign/story/art/castle.webp";
+import titleRibbon from "../../data/campaign/story/art/ribbon.webp";
+import titleWatermark from "../../data/campaign/story/art/watermark.webp";
+// The scene player's backdrop (docs/visual/concepts/README.md §e's "burning castle"
+// crop) — same import-for-a-hashed-URL reasoning as the title art above.
+import sceneNight from "../../data/campaign/story/art/night.webp";
 import {
   loadContentPack,
   parseCampaign,
@@ -97,6 +108,13 @@ export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
   "thief-m": thiefM,
   "wizard-f": wizardF,
 });
+
+/** The title screen's bundled art (docs/visual/concepts/README.md §e), by name. */
+export const TITLE_ART: Readonly<{ castle: string; ribbon: string; watermark: string }> =
+  Object.freeze({ castle: titleCastle, ribbon: titleRibbon, watermark: titleWatermark });
+
+/** The scene player's backdrop (docs/visual/concepts/README.md §e), by name. */
+export const SCENE_ART: Readonly<{ night: string }> = Object.freeze({ night: sceneNight });
 
 /**
  * Unit id → portrait asset key (ADR-0039).

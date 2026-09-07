@@ -66,6 +66,23 @@ export async function dismissScene(page: Page): Promise<void> {
 }
 
 /**
+ * Click New Game the way a real player does — including through the in-page overwrite
+ * step when a save is already on the slot.
+ *
+ * TOLERANT about whether the step appears, for the same reason {@link dismissScene} is:
+ * a spec that reuses one `page` across several runs (no fresh context, so `localStorage`
+ * carries the previous save forward) meets the confirm step on its second call; a spec
+ * that starts from a clean context never does. Asserting the step is ALWAYS there would
+ * encode a rule nobody wrote; skipping past it silently would leave the old save intact
+ * and the caller playing on stale state instead of a fresh run.
+ */
+export async function startNewGame(page: Page): Promise<void> {
+  await page.getByTestId("new-game").click();
+  const confirm = page.getByTestId("new-game-confirm");
+  if (await confirm.isVisible()) await page.getByTestId("new-game-confirm-yes").click();
+}
+
+/**
  * Put the board's cosmetic animation into a KNOWN frame before a screenshot.
  *
  * WHY THIS EXISTS RATHER THAN A SLEEP. Every spec that screenshots right after a state

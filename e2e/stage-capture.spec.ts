@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir, rm } from "node:fs/promises";
-import { closeDrawer, dismissScene, settleMotion } from "./helpers.js";
+import { closeDrawer, dismissScene, settleMotion, startNewGame } from "./helpers.js";
 
 /**
  * FRAMES OF THE STAGE, for a human to open (ADR-0037, docs/10 §8).
@@ -35,7 +35,7 @@ const OWNERS_PHONE = { width: 851, height: 324 };
 
 async function reachBattle(page: Page): Promise<void> {
   await page.goto("/");
-  await page.getByTestId("new-game").click();
+  await startNewGame(page);
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();

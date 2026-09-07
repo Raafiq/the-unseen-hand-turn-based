@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { dismissScene, prepEveryMember } from "./helpers.js";
+import { dismissScene, prepEveryMember, startNewGame } from "./helpers.js";
 
 /**
  * AC-V30 (the rotate gate) and AC-V32 (the lock attempt + the manifest) — the
@@ -276,7 +276,7 @@ test.describe("no horizontal overflow on a phone held sideways", () => {
       );
 
     expect(await overflow(), "title").toBeLessThanOrEqual(1);
-    await page.getByTestId("new-game").click();
+    await startNewGame(page);
     if (await page.getByTestId("screen-scene").isVisible()) {
       expect(await overflow(), "scene").toBeLessThanOrEqual(1);
     }
@@ -328,4 +328,118 @@ test.describe("AC-V32 — the web manifest", () => {
       expect(manifest.body["icons"]).toBeUndefined();
     });
   }
+});
+
+/**
+ * THE TITLE SCREEN'S FOLD (docs/visual/concepts/README.md §d, `src/render/overhaul.css`).
+ *
+ * Three stages, one rule: below 8:5 the codex fills the stage edge to edge (two leaves
+ * side by side); at or above 8:5 it would go portrait and both leaves fill with dead
+ * parchment, so it is capped at 8:5 and centred instead. 640x300 and 851x324 are both
+ * BELOW 8:5 (1.6) — 2.13 and 2.63 — so the cap must NOT engage there; 1000x780 is 1.28,
+ * above the cap, so it must.
+ */
+test.describe("title: the fold, per ADR-0037", () => {
+  for (const [w, h] of [
+    [640, 300],
+    [851, 324],
+  ] as const) {
+    test(`${w}x${h}: both leaves sit side by side, all three buttons fit, no page scroll`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto("/");
+      await expect(page.getByTestId("screen-title")).toBeVisible();
+
+      // The cap must not have engaged: the codex's own aspect ratio tracks the
+      // VIEWPORT's, not the 8:5 cap (1.6) — asserted on the ratio, not the height alone.
+      // A wrongly-engaged cap at these sizes still fills most of the available height
+      // (the stage is short), so a height-only check ties between "cap off" and "cap
+      // wrongly on" and cannot tell them apart; the width the cap produces (height*1.6)
+      // is well short of the viewport's, so the RATIO does discriminate.
+      //
+      // TOLERANCE MEASURED, not the nominal 0 it would be on an edge-to-edge codex:
+      // `#screen-title`'s own `padding: 0.75em` shrinks the codex's box on every side,
+      // which moves its ratio away from the raw viewport's by an amount that grows with
+      // that padding — 0.063 at 640x300, 0.096 at 851x324, both measured directly. 0.2 is
+      // comfortably above that real drift and still an order of magnitude below what an
+      // engaged cap produces (ratio 1.6, ~1.0 away from either viewport here).
+      const codexBox = await page.locator("#screen-title .codex").boundingBox();
+      expect(codexBox, "codex has no box").not.toBeNull();
+      const viewportRatio = w / h;
+      const codexRatio = codexBox!.width / codexBox!.height;
+      expect(
+        Math.abs(codexRatio - viewportRatio),
+        `codex ratio ${codexRatio} vs viewport ratio ${viewportRatio}`,
+      ).toBeLessThan(0.2);
+      /**
+       * MUTATION, RUN FOR REAL: unconditionally applied `#screen-title .codex {
+       * aspect-ratio: 8/5; margin: auto; }` (dropping BOTH the `@media` guard and the
+       * `max-height: 100%` the shipped rule pairs it with). The obvious-looking mutation
+       * — widening the `@media` condition alone, `max-height` left in place — is a
+       * VERIFIED NO-OP at these two sizes: with the flex item's width already fixed by
+       * `flex-grow` and `max-height: 100%` clamping the aspect-ratio-derived height right
+       * back to the stretch value, the rendered box came out pixel-identical to the
+       * uncapped case (measured, both builds). Dropping `max-height` too is what lets the
+       * cap's real effect show: RED at 851x324, `codex ratio 1.600036…` vs viewport
+       * `2.626543…`, `Received: 1.0265…` against `Expected: < 0.2` — and 640x300 failed
+       * the same way.
+       */
+
+      // Both leaves are on screen, side by side (left leaf's right edge is left of the
+      // right leaf's left edge — they do not stack).
+      const leftBox = await page.locator("#screen-title .leaf-left").boundingBox();
+      const rightBox = await page.locator("#screen-title .leaf-right").boundingBox();
+      expect(leftBox, "left leaf has no box").not.toBeNull();
+      expect(rightBox, "right leaf has no box").not.toBeNull();
+      expect(leftBox!.x).toBeLessThan(rightBox!.x);
+      expect(leftBox!.y).toBeCloseTo(rightBox!.y, 0);
+
+      // Every button, AND the codex itself, is fully inside the viewport. This replaces a
+      // `scrollHeight - clientHeight` check: `overhaul.css`'s `body:has(#screen-title:not(
+      // [hidden])) { overflow: hidden }` forces that difference to 0 regardless of whether
+      // the content actually fits, which makes a scroll-height assertion pass on a codex
+      // that overflows the stage and is simply clipped rather than laid out to fit — the
+      // rule is legitimate (AC-V33's "the screen owns the viewport"), but it means "no
+      // scroll" cannot be read as "nothing overflowed". A bounding-box check can.
+      for (const [testId, box] of [
+        ["codex", codexBox],
+        ["new-game", await page.getByTestId("new-game").boundingBox()],
+        ["continue", await page.getByTestId("continue").boundingBox()],
+        ["copy-log-title", await page.getByTestId("copy-log-title").boundingBox()],
+      ] as const) {
+        expect(box, `${testId} has no box`).not.toBeNull();
+        expect(box!.x, `${testId} left edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.y, `${testId} top edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width, `${testId} right edge`).toBeLessThanOrEqual(w + 1);
+        expect(box!.y + box!.height, `${testId} bottom edge`).toBeLessThanOrEqual(h + 1);
+      }
+    });
+  }
+
+  test("1000x780: the codex is capped at 8:5 and centred", async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 780 });
+    await page.goto("/");
+    await expect(page.getByTestId("screen-title")).toBeVisible();
+
+    const codexBox = await page.locator("#screen-title .codex").boundingBox();
+    expect(codexBox, "codex has no box").not.toBeNull();
+    // Capped: the codex's own aspect ratio is 8:5 (within rounding), not the stage's
+    // taller 1000x780 (1.28).
+    expect(codexBox!.width / codexBox!.height).toBeCloseTo(8 / 5, 1);
+    // Centred: roughly equal table showing left and right of the codex.
+    const stageBox = await page.locator("#screen-title").boundingBox();
+    expect(stageBox, "stage has no box").not.toBeNull();
+    const leftGap = codexBox!.x - stageBox!.x;
+    const rightGap = stageBox!.x + stageBox!.width - (codexBox!.x + codexBox!.width);
+    expect(Math.abs(leftGap - rightGap)).toBeLessThan(4);
+  });
+
+  /**
+   * MUTATION (remove the 8:5 cap): drop the `@media (max-aspect-ratio: 8/5)` block from
+   * `overhaul.css` → at 1000x780 the codex reverts to filling the whole (1.28-aspect)
+   * stage, so its own aspect ratio departs from 8:5. RAN FOR REAL: red on
+   * `expect(codexBox!.width / codexBox!.height).toBeCloseTo(8 / 5, 1)`,
+   * `Received: 1.28...` against `Expected: 1.6`.
+   */
 });

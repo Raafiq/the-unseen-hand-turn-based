@@ -1,11 +1,11 @@
-<!-- written-against: ef85c40 -->
+<!-- written-against: d360685 -->
 
 # NEXT - the handoff a machine can't derive
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints the derived facts (branch, merge state, unpushed work).
 This file holds only what the next slice needs: what it is, what it waits on, and what will bite.
 If the hook says the stamp is stale, treat every claim here as a hypothesis and re-derive it.
-Green at the stamp: 986 tests, 136 browser specs (`npm run check`).
+Green at the stamp: 986 tests, 163 browser specs (`npm run check`).
 
 ---
 
@@ -22,69 +22,52 @@ Read this before telling the owner "nothing is pending". Two asks are open, and 
 
 ---
 
-## LANDED 2026-09-06 — six portraits wired (ADR-0039)
+## LANDED 2026-09-07 — the scene player, in the owner's concept look (ADR-0040 amendment)
 
-`PORTRAIT_BY_UNIT` in `src/render/campaign-data.ts` maps seven roster ids to six
-portrait keys; `resolvePortrait()` is the one place `look()` (`game.ts`) resolves art.
-Four boot checks (two-direction art coverage, roster-id validity, story/table link
-match) plus a unit test on the job segment. `e2e/portraits.spec.ts` asserts real art
-on Briar's scene-player and unit-card, an enemy Brigand's card, and Vance's
-placeholder. Full account, alternatives and consequences: ADR-0039.
+`#screen-scene` moves to the concept look, built with the existing 3:4 head crops (owner
+call, 2026-09-06). Night backdrop (`night.webp`, `SCENE_ART`), a rivet portrait frame,
+one house ribbon keyed on `figure[data-state]` (mounted only on `scene-story`, a review
+catch — it had shipped on all four story hosts), the help button moving top-right while
+the screen shows, and the log scrolling to its newest line. `docs/10` AC-V47…AC-V50;
+`e2e/scene.spec.ts` (11 tests) covers it.
 
 **Landmines:**
 
-- **No playtest frame shows a real-art unit card.** `playtest-capture.spec.ts` never
-  opens the drawer that holds it; only `e2e/portraits.spec.ts` proves that path.
-- **Four approved keys sit unwired**: `archer-m`, `priest-m`, `thief-f`, `wizard-m`.
-  Crop boxes for all ten are recorded in
-  `docs/visual/portraits/reference/README.md` so a future roster can cut them
-  mechanically; `archer-m`'s framing is the weakest of the set and needs a re-check.
-- **Team colour is now answerable.** A real portrait can sit beside a real swatch;
-  see `docs/visual/portraits/reference/README.md`, "Open: team colour".
-- **The portrait follows the character, not the job.** A Briar re-jobbed to monk in
-  prep keeps `archer-f`; it does not fall back to the placeholder.
+- **House ribbon has no data source.** Blue/grey keys on `data-state` (speaking vs
+  narration); which house owns which colour needs a field no character record carries.
+- **The prologue's speakers are `placeholder` today**, so a player's first scene shows
+  the pending frame, not art — a data gap, not a viewer defect.
+- **The backdrop upscales ~1.8x at desktop widths.** Survivable because the source art is
+  bokeh; would not be for a sharper crop.
+- **The `~ .help-btn` sibling rule depends on DOM order in `index.html`.** Moving
+  `#screen-scene` or `.help-btn` in the markup silently breaks the top-right placement.
 
 ---
 
-## THE NEXT SLICE - the action menu (pending the owner's go)
+## LANDED 2026-09-06 — the title screen, in the owner's concept look (ADR-0040)
 
-**Not green-lit to start.** Owner-deferred 2026-09-02 as "the slice after" portrait
-wiring. That slice just landed, so by the record's own words this is next — but no
-one has said go. `docs/proposals/action-menu.md` is the spec; read its Bottom Line
-(§0) and Open Questions (§10, especially Q5) before scoping.
+Three controls only (New Game, Continue, Copy playtest log); Erase Save and the footer
+link removed from the DOM; New Game's overwrite check moved in-page; the ink ladder
+re-measured on this screen's own darker parchment (only `--ink` clears it). `docs/10`
+AC-V44…AC-V46; `e2e/title.spec.ts`, `e2e/contrast.spec.ts` cover it. Full detail: ADR-0040.
 
-**What it claims (AC-V23…V29):** the menu becomes the unit's real command list, not
-array order (`preview.ts` picks the first matching ability today); one range painted
-at a time, never both before a choice; the selected ability is the one that fires
-(a live defect: `targetOptions` returns `basic.attack` regardless of what the player
-picked); cancel unwinds one level with the sim untouched; keyboard reaches every
-action; a colour language for the act's effect, with a non-colour channel too.
+---
 
-**Must be settled first:**
+## THE NEXT SLICE — the prep screen, in the owner's concept look (owner picked it 2026-09-07)
 
-- **An ADR.** This reverses a shipped interaction model (one-click) and changes
-  Esc's meaning — `decision-record` territory, not a code-first slice.
-- **Q5**: does `GameApi` gain a `clickTile` seam, mirroring `viewer-api.ts`? The
-  proposal recommends yes; AC-V27's keyboard case is blocked on it.
-- **The priest-cannot-heal blocker** (§0): `white-magic.cure` is AoE and the
-  viewer's `isClickTargetable` refuses all AoE. The proposal recommends shipping
-  green now and deferring AoE targeting as a separate next slice.
+**The owner chose the prep screen and said it is done in a NEW session; nothing is started.**
+It is the largest remaining screen (113 text-bearing elements measured) and the one the
+campaign's normal path exercises most. Six of the owner's concepts cover it
+(`docs/visual/concepts/Preparation scene (*).png`) — LOOK ONLY: the job tree, inventory,
+secondary job, traits and levels in them are placeholders and not in scope. Run the same
+sequence as the title and scene slices: `art-director` one-pass mockup at 640x300 /
+851x324 / 1000x780 from the concepts (the owner approves the frames), then
+`viewer-engineer` with a NUMERIC diff against the mockup, then `reviewer`, then
+`docs-steward`. Enumerate every control and state the live prep screen carries before
+cutting any to match the picture (`src/render/CLAUDE.md`, "Two traps the overhaul sets").
 
-**Landmines in the proposal:**
-
-- AC-V25's fixture must put both abilities in reach of the SAME target (distance 1),
-  not just a distance-3 foe only one ability reaches — the latter is a tie today's
-  bug also passes.
-- AC-V28(a) needs an enemy-healer case, or a team-relative-to-player bug reads as
-  correct.
-- AC-V29 must assert the covered-panel SET's size, not just add one more colour to
-  an existing loop.
-- Two fixtures are explicitly unrealizable on shipped content and must say so:
-  AC-V23(b) (no shipped unit equips a Secondary) and AC-V28(c) (no shipped ability
-  hits both teams at once).
-
-Owner: `viewer-engineer` once green-lit. Doc changes owed on landing: `docs/10` §3,
-§4, §5, §6 (route to `docs-steward`).
+Owner: `viewer-engineer`, then `reviewer`, then `docs-steward` — in that order, never
+the last two in parallel.
 
 ---
 
@@ -97,20 +80,20 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 | The job cut (8 jobs to 5) | A signal, not a decision (owner, 2026-09-05). Needs an ADR; do not start it under cover of another slice | `docs/visual/portraits/reference/README.md`, "Scope" |
 | The turn plate under the damage numeral | Open appearance call; render the alternatives before asking again | ADR-0032 amendment; `visual-artifacts/playtest/05c-turn-plate.png` after `npm run test:visual` |
 | The unit token | Still the flat kite; the owner bundled the choice with the portraits | ADR-0030 |
-| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; needs its own ACs from AC-V43 | ADR-0037 |
+| The other three screens in the new look (prep, briefing, battle poses) | Title and the scene player have moved; not scheduled until the owner picks | ADR-0040 |
+| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; title's and the scene player's look changed but position did not; needs its own ACs from AC-V43 | ADR-0037, ADR-0040 |
 | Camera pan, pinch, double-tap-to-refit | Tiles are ~30x15 CSS px at 640x300, exempt from the 44px tap-target floor (AC-V35); mis-taps are a real, uncovered gap until this lands | ADR-0037 |
-| The owner's art-direction concept pass over the stage | Scoped as its own new session, not a continuation | `docs/visual/concepts/owner-phone-screenshot-2026-09-05.jpg` |
 | Skin B (dark-table stage option) | Appended to `stage.css`, not wired into `viewer.html` (no `@font-face` for Cinzel/EB Garamond there; falls back to Georgia) | `src/render/stage.css` |
 | No real device has run the mobile-landscape gate or the stage | Both rest on Chromium emulation only | OPEN item F above |
 | Safe-area insets are asserted as declared, not working | Playwright cannot emulate a notch; AC-V41 says so in its own text | `docs/10` AC-V41 |
 | The web manifest ships with no icon set | Deliberate, per AC-V32; no install prompt until icons exist | `docs/10` AC-V32 |
-| Defect 1: the game picks the player's ability | Live, nothing red — this is what the action-menu slice above fixes | `docs/defects.md` §1 |
+| Defect 1: the game picks the player's ability | Live, nothing red — this is what the action-menu slice fixes | `docs/defects.md` §1 |
 | Defect 2: the party's only healer cannot heal | Live, nothing red — same slice, AoE targeting deferred within it | `docs/defects.md` §2 |
 | Defect 3: at 360px the battle plate is taller than the board | **Fixed 2026-09-05 by ADR-0037** — kept struck in `docs/defects.md`, not deleted | `docs/defects.md` §3 |
 | The `telemetry.test.ts` flake | Test code; route to `qe-tester` | `docs/defects.md` §4 |
 | Test gaps A-H | Not scheduled; none is a shipping bug | `docs/defects.md` §5 |
 | Variety score 7 to 8 | Off the priority list (owner, 2026-08-30); `docs/06` AC-E2 stays at 8 and CI still fails on a drop | root `CLAUDE.md`, `docs/11` §3 |
-| Any balance, ability, encounter or scheduler slice | Owner order 2026-08-30: look and feel first. The human playtest is delayed, not dropped | root `CLAUDE.md`, "Not established" |
+| The action menu proposal | Owner-deferred pending a go on look-and-feel work; spec at `docs/proposals/action-menu.md`, AC-V23…V29 unclaimed | root `CLAUDE.md`, "Not established" |
 | A SessionStart warning for missing remote branches; more retrospective edits | Declined by the owner 2026-09-01; do not re-propose | this line |
 
 ---
@@ -119,6 +102,9 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 
 | Topic | Home |
 |---|---|
+| The concept renders, the style guide, look-only ruling, title-first order | `docs/visual/concepts/README.md`, ADR-0040 |
+| The title screen's controls, overwrite step, ink ladder | ADR-0040, `docs/10` AC-V44..V46, `e2e/title.spec.ts` |
+| The scene player's backdrop, ribbon, help-button move, scroll, iron rim | ADR-0040 amendment, `docs/10` AC-V47..V50, `e2e/scene.spec.ts` |
 | Portrait wiring, the boot checks, the viewer table decision | ADR-0039 |
 | Portrait verdicts, per-file status, staged bytes, crop boxes, the style lock's origin | `docs/visual/portraits/reference/README.md` |
 | GPT probe prompts, settings and the v1/v2 measurements | `docs/visual/portraits/reference/gpt-probe-prompts.md`, ADR-0034 |
