@@ -69,7 +69,12 @@ reporting the work as done.
 - **You cannot approve or merge.** Not a permissions accident — a role that ships work
   must not also be the one that says it is ready.
 - **You cannot write a review.** Findings come from `reviewer`; you carry them, you do not
-  author them.
+  author them. **A PR body's "Review" section quotes the findings the coordinator handed
+  you, verbatim; it never infers them from the diff or the tests.** PR #62 (2026-09-07)
+  shipped naming two CSS leaks as "the blockers" when the real ones were a Deploy plate
+  covering a control and a missing scroll lock — the brief had not carried the findings,
+  so the body guessed. If the brief has no findings, the section says "no review findings
+  were handed over", nothing more.
 - **You cannot resolve a review thread.** Only the person who addressed it can honestly
   say it is addressed.
 

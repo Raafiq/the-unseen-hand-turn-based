@@ -73,6 +73,10 @@ The AC sections are the testable spec, so an AC is a promise someone must keep:
 - **A rename lands in docs, code AND tests in one slice or not at all.** Half-landed is
   strictly worse than not starting: dangling references plus the collision it was meant to
   fix.
+- **The live count line is derived; any pass may update it.** Root `CLAUDE.md`'s
+  `N tests, M browser specs` is a number `check:counts` enforces, not a lesson — updating it
+  needs no owner words (owner, 2026-09-07). A pass that left it stale handed a red
+  `npm run check` back to the coordinator; that line is the one root-`CLAUDE.md` edit you own.
 - **`npm run check:handoff` must pass.** `docs/NEXT.md` carries a `written-against` stamp;
   re-stamp it to the branch head and never let it go stale.
 - **Write plainly** (user directive). Bottom line first, sentences 15–20 words, tables over
