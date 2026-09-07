@@ -1,4 +1,4 @@
-<!-- written-against: 5556e1f -->
+<!-- written-against: c41b8fa -->
 
 # NEXT - the handoff a machine can't derive
 
@@ -52,21 +52,40 @@ linked from `index.html` only. `docs/10` AC-V44…AC-V46; `e2e/title.spec.ts` an
 
 ---
 
-## THE NEXT SLICE - the second screen in the new look (pending the owner's go)
+## THE NEXT SLICE - the scene player in the new look (mockup approved-pending, owner picked it 2026-09-06)
 
-**Not green-lit.** Proposing the **scene player** as the smallest next cut: one portrait,
-one name plate, one line at a time — already close to `docs/visual/concepts/Narration
-scene.png`, and its state machine (`src/render/panels.ts`) is simpler than prep's job
-tree or briefing's multi-pane layout. The owner has not picked; do not start any of the
-four remaining screens (prep, briefing, scene player, battle combat poses) without a
-named go-ahead.
+**The owner chose the scene player.** The art director's mockup is done and is the thing
+to build from: `coverage/overhaul/scene.html` is gitignored scratch and will NOT survive
+a new container — the captures do: `docs/visual/concepts/mockups/scene-{640x300,851x324,
+1000x780,851x324-read}.png`, and the recipe is `docs/visual/concepts/README.md` §(f).
+**Still waiting on one word from the owner:** "go" (build with the 3:4 head portraits) or
+"prompts first" (write GPT Image 2 bust prompts for the owner to run before building).
 
-**Landmines for whichever screen is picked:**
+**What the mockup settles:** a night backdrop cropped text-free from the concept
+(`night.webp`, 41 KB, box `(490,0,1235,428)` of `Narration scene.png` — re-cut it from
+the README's box, the scratch file is gone); the head portrait in a rivet frame breaking
+the box's top rail where the concept's bust stands; ONE ribbon (blue = speaking,
+grey = narration — which house a speaker belongs to is NOT in the data, so the concept's
+red ribbon has no source); the plates sit in the log, not on the rail; More / Show all /
+Continue as iron plaques; "LINE n OF m" stays.
 
-- Re-measure the ink ladder against that screen's own gradient stops (see above).
-- Expect a scoped-CSS leak from `index.html`'s page-wide rules; find each one by hand.
-- Check any new AC-V number against `docs/10`'s live list before minting — AC-V47 is
-  next free; AC-V43 is reserved and off-limits until the stage-migration slice.
+**Landmines:**
+
+- The prologue's two speakers are `placeholder` in the story data today, so the live
+  screen shows the pending frame, not the knight crop the mockup captures use.
+- At 851x324 only two lines fit; a read scene scrolls inside the box. `Show all` earns
+  its place there; assert the scroll container, not a "no scroll" that `overflow:hidden`
+  makes vacuous (the title slice shipped that mistake once).
+- Re-measure the ink ladder on the box's own stops (`box-parch-lo #bf9976`); the README
+  has 26 measured rows for the mockup, none for the built screen.
+- Name every `index.html` page-wide selector that matches `#screen-scene` elements
+  (`.card`, `.story`, `button`, `h1`) and set those properties in the scoped rule.
+- AC-V47 is next free; AC-V43 stays reserved for the stage migration.
+- Brief rule that would have saved 190k on the title: the engineer diffs the built
+  capture against the mockup capture by number and reports the regions that differ.
+
+Owner: `viewer-engineer`, then `reviewer`, then `docs-steward` — in that order, never
+the last two in parallel.
 
 ---
 

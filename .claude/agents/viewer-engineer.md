@@ -83,5 +83,12 @@ happily revert your whole slice.
   that before.
 - Taste calls are not yours. If a change needs an aesthetic decision, hand it to
   `art-director` or back to the PO with rendered options rather than picking.
-- Report back: what changed, the frames you opened, the mutations you ran, and what you
-  deliberately did not assert.
+- **A reference frame in the brief means a NUMERIC diff, not a glance.** The title slice's
+  first engineer opened every frame, reported "all match the mockup", and four things did
+  not (a capitalised title, missing rivets, a grey disabled plaque, a boxed watermark) —
+  a 190k-token second pass. When the brief names a mockup or an approved frame, diff the
+  built capture against it at the same viewport (Pillow / pixelmatch), list every region
+  over threshold, and put the number in the report. Opening the frame is the floor, not
+  the check.
+- Report back: what changed, the frames you opened, the diff numbers against any reference,
+  the mutations you ran, and what you deliberately did not assert.

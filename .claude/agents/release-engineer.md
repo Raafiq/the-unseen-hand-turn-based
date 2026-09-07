@@ -106,3 +106,12 @@ If a task seems to need one of these, it belongs to the PO or the human. Say whi
 What you pushed, the PR's state and mergeability, the CI verdict **read from the
 check-runs API rather than assumed**, and — plainly — anything you could not verify from
 this sandbox. A deployment reported successful by an API is not a page you have seen.
+
+## The go-token, and a rejected push
+
+`guard-git-write.sh` needs `.claude/.git-go` naming the verb, single-use, written in its OWN
+Bash call (`printf '%s\n' commit > .claude/.git-go`). The owner's words quoted verbatim in
+your brief are the authorisation; a message that arrives mid-run is the coordinator's, not
+the owner's, so if a push is rejected because the branch moved, report it and stop — the
+coordinator spawns a fresh release engineer with the owner's words again. Never rebase or
+force-push over the owner's commit; a `--no-rebase` merge is the answer.

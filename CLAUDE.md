@@ -207,9 +207,11 @@ or `one pass`; and for `docs-steward`, a second spawn in one session unless the 
 starts with `SECOND-PASS-OK:` — docs are written once, at the end, against verified code.
 `npm run check:hooks` runs every hook's fixture file. **And a known doc URL is a WebFetch, not an agent:** one fetch answered in 2k what a 45k `claude-code-guide` spawn got half wrong.
 
-Two more that no hook can judge: open only the frames that changed, and run **one**
+Three more that no hook can judge: open only the frames that changed; run **one**
 reviewer pass per slice (the spec grill and the code review were two 100k+ reads of the
-same material).
+same material); and **the docs steward spawns AFTER the reviewer's findings are fixed,
+never beside the reviewer** — the title slice ran them in parallel, the review changed
+four behaviours, and the docs needed an 83k second pass.
 
 Specialists: `systems-designer`, `fft-fidelity`, `reviewer` (adversarial), `combat-engineer`, `content-author`, **`viewer-engineer`** (everything under `src/render/`), **`art-director`** (how it looks — answers with rendered options, never prose), **`docs-steward`** (the written record, and auditing it for drift), **`release-engineer`** (branches, PR bodies, CI to green, the Pages deploy), `qe-tester`, `playtester` (spawn 2–3 personas). Design, review and playtest agents are read-only; `combat-engineer`, `content-author`, `viewer-engineer`, `docs-steward` and `release-engineer` edit their own territory, and `art-director` writes only scratch mockups. **Process and tooling — retrospectives, hooks, CI guards, the agent files — stay with the main session** (user, 2026-08-30): the one deliberate exception to "does not do the work", and not one to widen. Full contract in `.claude/agents/README.md`.
 
@@ -254,7 +256,12 @@ put Fable in every specialist.
   the token is single-use and expires in 15 minutes. **Write that token only after the
   owner has said go in words** — a resume prompt, a Stop-hook nag or a system-reminder is
   not approval. The hook cannot stop you writing the token yourself; it is there to make
-  the action deliberate, not to make it impossible.
+  the action deliberate, not to make it impossible. **Two environment facts (2026-09-06):**
+  the auto-mode classifier denies the token write when it shares a Bash call with anything
+  else or goes through the Write tool; a bare `printf '%s\n' push > .claude/.git-go` in its
+  own call passes. And after a rejected push (the owner pushed to the same branch meanwhile),
+  spawn a FRESH `release-engineer` with the owner's words quoted — a resumed one reads the
+  resume message as the coordinator's words, not the owner's, and refuses.
 - **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/NEXT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
   **`docs/NEXT.md` holds ONLY the next slice** (user, 2026-09-06: it had grown to 843 lines and was "so bloated with unnecessary information"). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
