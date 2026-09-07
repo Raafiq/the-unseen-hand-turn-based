@@ -72,6 +72,35 @@ export const GROUNDS = {
    * ground no text is actually painted on.
    */
   plaque: ["rgb(43, 39, 37)", "rgb(29, 30, 30)", "rgb(27, 26, 23)"],
+  /**
+   * THE SCENE PLAYER's dialogue-box field (`docs/visual/concepts/README.md` §f,
+   * `src/render/overhaul.css`'s `#screen-scene .card::before`) — the three stops of its
+   * own radial-gradient. Bare text with no ground of its own (`.line`, `.scene-progress`)
+   * falls back to this set via `sheetOf()`'s `#screen-scene` branch below, because the
+   * field is painted by a PSEUDO-element the DOM walk can never reach as an ancestor.
+   */
+  sceneBox: ["rgb(201, 166, 132)", "rgb(204, 171, 139)", "rgb(191, 153, 118)"],
+  /**
+   * The name plate's own gradient (`.who`) — every plate finds this directly via
+   * `ownGrounds()`, the same way `leaf`/`plaque` are found, so it never needs the
+   * `sheetOf()` fallback. Listed here purely so `groundsAreReal()` can guard it.
+   */
+  scenePlate: ["rgb(201, 166, 132)", "rgb(190, 149, 111)", "rgb(191, 153, 118)"],
+  /**
+   * The iron band's own base gradient (`.card`) — no text sits directly on it (every
+   * caption finds an opaque ground of its own, or the box-parch field, first), so this is
+   * a `groundsAreReal()`-only guard: it asserts the darkest stop a future addition to this
+   * band would have to clear, without claiming anything currently needs to.
+   */
+  sceneIron: ["rgb(34, 28, 25)"],
+  /**
+   * The house ribbon's two computed states (`.portrait::after` / `.portrait[data-state=
+   * "none"]::after`, `src/render/overhaul.css`) — a single declared colour each, not a
+   * gradient family, because `e2e/scene.spec.ts` asserts these by EXACT equality: the
+   * claim is "speaking is this colour, narration is that one", not "clears a bar".
+   */
+  houseBlue: "rgb(38, 43, 59)",
+  houseGrey: "rgb(47, 47, 47)",
 } as const;
 
 /**
@@ -80,6 +109,15 @@ export const GROUNDS = {
  * banner's own worked example: `contrastRatio("rgb(143,133,120)", "rgb(43,39,37)")` is
  * 4.081…, matching the documented "--label-off … does NOT clear --plaque-hi (4.08:1)".
  */
+/**
+ * The opaque `rgb(...)` gradient stops actually painted in a `background-image` string,
+ * deduplicated and order-independent — used to compare against a declared list as SETS,
+ * not merely check the declared ones are present among possibly more.
+ */
+export function paintedStops(backgroundImage: string): string[] {
+  return [...new Set(backgroundImage.match(/rgb\([^)]*\)/g) ?? [])].sort();
+}
+
 export function contrastRatio(fg: string, bg: string): number {
   const parse = (s: string): [number, number, number, number] | null => {
     const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?/.exec(s);

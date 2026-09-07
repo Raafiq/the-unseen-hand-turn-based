@@ -13,12 +13,13 @@
          itself ships NO icons — none exist yet — so an install prompt will not
          appear; `display` and `orientation` still apply to a home-screen launch. -->
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- The overhaul look, TITLE SCREEN ONLY (src/render/overhaul.css). Every rule in it is
-         scoped under `#screen-title`, WITH ONE DELIBERATE EXCEPTION: `body:has(#screen-title
-         :not([hidden]))` reaches `body` itself, because a rule scoped to `#screen-title`
-         alone has no way to stop the DOCUMENT from scrolling behind a screen that is
-         `position: fixed`. The other four screens' CSS below is otherwise untouched this
-         slice — not linked from viewer.html, which has no title screen. -->
+    <!-- The overhaul look, TITLE AND SCENE SCREENS (src/render/overhaul.css). Every rule in
+         it is scoped under `#screen-title` or `#screen-scene`, WITH ONE DELIBERATE
+         EXCEPTION shared by both: `body:has(#screen-title:not([hidden])), body:has(
+         #screen-scene:not([hidden]))` reaches `body` itself, because a rule scoped to
+         either screen alone has no way to stop the DOCUMENT from scrolling behind a screen
+         that is `position: fixed`. The other three screens' CSS below is otherwise untouched
+         this slice — not linked from viewer.html, which has neither screen. -->
     <link rel="stylesheet" href="/src/render/overhaul.css" />
     <style>
       /* ── The material ──────────────────────────────────────────────────────
@@ -378,6 +379,14 @@
       /* ── help ────────────────────────────────────────────────────────────── */
       button.help-btn { background: linear-gradient(180deg, #f0e6cb, #cdb27a); border-color: #6a5027; position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 46px; height: 46px; padding: 0; border-radius: 50%; font-size: 1.15rem; line-height: 1; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
       .help-btn::before { display: none; }
+      /* SCENE screen only: the title plaque (src/render/overhaul.css `#screen-scene h1`)
+         owns top-left, so the help disc moves to top-right instead of sitting over
+         Continue's own bottom-right footer cell — `#screen-scene` is a sibling of
+         `#btn-help` under `.wrap`, not an ancestor, so `~` reaches it without a second
+         `body:has()` exception (src/render/overhaul.css's file banner names that as
+         the one deliberate one). This is what let `#screen-scene` drop its 62px
+         right-padding workaround and give the card its full width back. */
+      #screen-scene:not([hidden]) ~ .help-btn { top: 18px; bottom: auto; }
       dialog#help { width: min(700px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 32px 34px; }
       dialog#help::backdrop { background: rgba(9,6,3,.78); }
       .help-head { display: flex; align-items: baseline; gap: 12px; padding: 0 0 12px; border-bottom: 1px solid rgba(138,101,36,.45); }
@@ -759,6 +768,11 @@
            The whole screen is the scene, which is what makes a document-level key
            handler safe here and not on the briefing. -->
       <section id="screen-scene" data-testid="screen-scene" hidden>
+        <!-- The painted backdrop (docs/visual/concepts/README.md §e's "burning castle"
+             crop, src/render/campaign-data.ts's SCENE_ART) — a real <img>, wired the
+             same way title-castle/-ribbon/-watermark are, not a CSS background-image,
+             so the identity check in e2e/scene.spec.ts can read its `src`. -->
+        <img class="backdrop" id="scene-backdrop" src="" alt="" aria-hidden="true" />
         <div class="card">
           <h1 id="scene-title" data-testid="scene-title"></h1>
           <div id="scene-story" class="story" data-testid="scene-story" hidden></div>

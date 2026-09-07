@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
-import { GROUNDS } from "./contrast-helpers.js";
+import { GROUNDS, paintedStops } from "./contrast-helpers.js";
 
 /**
  * Text contrast on the parchment sheets, measured.
@@ -54,23 +54,22 @@ type Finding = { where: string; text: string; ratio: number; need: number; color
  * (see `groundsAreReal` below), not merely check the declared ones are present among
  * possibly more.
  */
-function paintedStops(backgroundImage: string): string[] {
-  return [...new Set(backgroundImage.match(/rgb\([^)]*\)/g) ?? [])].sort();
-}
-
 /**
  * Assert the declared grounds still match the stylesheet. Without this the whole file
  * could be measuring against a palette the page stopped using.
  */
 async function groundsAreReal(page: Page): Promise<void> {
   const painted = await page.evaluate(() => {
-    const grab = (sel: string): string => {
+    const grab = (sel: string, pseudo?: string): string => {
       const el = document.querySelector(sel);
       if (!el) return "";
-      return getComputedStyle(el).backgroundImage;
+      return getComputedStyle(el, pseudo).backgroundImage;
     };
     return {
-      sheet: grab(".card:not(.board)") || grab(".panel"),
+      // NOT `#screen-scene`'s own `.card` — it sits earlier in DOM order than the
+      // briefing/prep cards this is meant to describe, so an un-scoped first-match query
+      // would silently start reading the scene's iron band instead of the parchment.
+      sheet: grab(".card:not(.board):not(#screen-scene .card)") || grab(".panel"),
       body: getComputedStyle(document.body).backgroundImage,
       leaf: grab("#screen-title .leaf"),
       // The VISIBLE New Game button, not `#screen-title button` (the first match in DOM
@@ -79,6 +78,18 @@ async function groundsAreReal(page: Page): Promise<void> {
       // `:disabled` and never `hidden`, so it is the one selector guaranteed to describe
       // what a player actually sees rather than whichever button sits first in the DOM.
       plaque: grab("#btn-new-game"),
+      // The scene player's own surfaces (docs/visual/concepts/README.md §f): the
+      // dialogue box field and the iron band, both pseudo-elements of `.card` (hence
+      // the second `getComputedStyle` argument on each) — `.card` itself paints
+      // NEITHER any more (src/render/overhaul.css: moving the iron band off `.card`
+      // itself and onto a column-scoped `::after` is what stopped it bleeding into
+      // the portrait's own grid column, drift 2 of the scene-player visual pass).
+      // NOT the name plate (`.who`) — scene.ts builds it dynamically once a beat is
+      // showing, and nothing has set one yet while the title screen is up;
+      // `e2e/scene.spec.ts` guards that one instead, where a beat is actually on
+      // screen.
+      sceneBox: grab("#screen-scene .card", "::before"),
+      sceneIron: grab("#screen-scene .card", "::after"),
     };
   });
   for (const c of GROUNDS.parchment) expect(painted.sheet, `parchment stop ${c}`).toContain(c);
@@ -95,6 +106,10 @@ async function groundsAreReal(page: Page): Promise<void> {
   expect(paintedStops(painted.plaque), "plaque grounds, as a set").toEqual(
     [...GROUNDS.plaque].sort(),
   );
+  expect(paintedStops(painted.sceneBox), "scene box grounds, as a set").toEqual(
+    [...GROUNDS.sceneBox].sort(),
+  );
+  for (const c of GROUNDS.sceneIron) expect(painted.sceneIron, `iron stop ${c}`).toContain(c);
 }
 
 /** Every text element on the current screen that falls below its AA bar. */
@@ -145,6 +160,11 @@ async function failures(page: Page): Promise<Finding[]> {
       if (!root) return { root: null, stops: [...grounds.table] };
       // The playtest aside deliberately drops the parchment and sits on the table.
       if (root.classList.contains("logbox")) return { root, stops: [...grounds.table] };
+      // The scene player's `.card` is painted by a PSEUDO-element (`::before`), which this
+      // walk can never see as an ancestor no matter how far it climbs — so bare text with
+      // no ground of its own (`.line`, `.scene-progress`) would otherwise fall all the way
+      // through to the generic parchment stops below, which this screen never paints.
+      if (root.closest("#screen-scene")) return { root, stops: [...grounds.sceneBox] };
       return { root, stops: [...grounds.parchment] };
     };
 

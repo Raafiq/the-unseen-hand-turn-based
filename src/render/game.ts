@@ -18,6 +18,7 @@ import {
   ENCOUNTERS,
   PORTRAIT_PLACEHOLDER,
   PORTRAITS,
+  SCENE_ART,
   TITLE_ART,
   battleTitle,
   campaign,
@@ -49,6 +50,8 @@ const el = <T extends HTMLElement>(id: string): T => document.getElementById(id)
 el<HTMLImageElement>("title-castle").src = TITLE_ART.castle;
 el<HTMLImageElement>("title-ribbon").src = TITLE_ART.ribbon;
 el<HTMLImageElement>("title-watermark").src = TITLE_ART.watermark;
+// The scene player's backdrop (docs/visual/concepts/README.md §e), same reasoning.
+el<HTMLImageElement>("scene-backdrop").src = SCENE_ART.night;
 
 /**
  * `localStorage` can be missing entirely (a sandboxed frame), or PRESENT but unusable — a
@@ -373,8 +376,17 @@ function toTitle(): void {
 function renderStory(id: string, key: string, beat: StoryBeat | null): void {
   let handle = scenes.get(id);
   if (!handle) {
+    // The house-ribbon charge belongs to the SCENE screen only (`overhaul.css` styles it
+    // under `#screen-scene`); `renderStory` also mounts `brief-story`, `after-story` and
+    // `done-story`, none of which are scoped by that CSS, so an unscoped `.portrait img`
+    // rule on those screens would paint the ribbon as a second stacked portrait. `id` IS
+    // the host id (`el(id)`), so this is the same "which screen" test the DOM already
+    // answers — no new lookup to drift. `exactOptionalPropertyTypes` forbids passing
+    // `ribbon: undefined` explicitly (that is a declared-absent value, not an absent
+    // key), so the field is left OFF the options object entirely for every other host.
     handle = mountScene(el(id), {
       portraits: PORTRAITS,
+      ...(id === "scene-story" ? { ribbon: TITLE_ART.ribbon } : {}),
       onAction: (action) => {
         telemetry.action(shell.screen, action);
       },
@@ -1012,6 +1024,14 @@ document.addEventListener("keydown", (ev) => {
  */
 document.addEventListener("keydown", (ev) => {
   if (shell.screen !== "SCENE") return;
+  // Never swallow a key aimed at an open <dialog> (the `?` help panel opens over every
+  // screen, this one included). The BUTTON/SELECT check below only bails for a target
+  // actually focused inside such a control — Space and Escape on the dialog's own body
+  // reach here uncaught, so without this the scene would advance/skip BEHIND the modal
+  // on Space, and on Escape this handler's `preventDefault()` would suppress the
+  // <dialog>'s native close-on-Escape (the default action `preventDefault` cancels),
+  // leaving the help panel open while the beat skipped anyway.
+  if (document.querySelector("dialog[open]")) return;
   const handle = scenes.get("scene-story");
   const target = ev.target as HTMLElement | null;
   // Never swallow a key aimed at a control the player has actually focused.

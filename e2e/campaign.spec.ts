@@ -932,7 +932,11 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
   await expect(page.getByTestId("screen-scene")).toBeVisible();
 
   const figure = page.getByTestId("scene-story-portrait");
-  const img = figure.locator("img");
+  // Scoped OFF the house ribbon's own `<img class="ribbon-charge">` (docs/visual/
+  // concepts/README.md §f) — that one is always present in both states (the ribbon
+  // belongs to the frame, not the speaker), so an unscoped `img` locator would see it
+  // too and this "reads as absent" count would never actually reach 0.
+  const img = figure.locator("img:not(.ribbon-charge)");
 
   // Branch one — a character the pack gives art to.
   await expect(figure).toBeVisible();
@@ -954,9 +958,15 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
 
   // Branch two — the same page, same renderer, a line with no speaker. The prologue
   // closes on narration, so reading to the end reaches it.
+  //
+  // NOT hidden any more (the overhaul look, docs/visual/concepts/README.md §f): the frame
+  // keeps its space and shows a greyed house ribbon rather than vanishing outright — the
+  // portrait CONTENT is still absent, which is the invariant this test actually owns.
   await page.getByTestId("scene-story-all").click();
-  await expect(figure).toBeHidden();
+  await expect(figure).toBeVisible();
+  await expect(figure).toHaveAttribute("data-state", "none");
   await expect(img).toHaveCount(0);
+  await expect(figure.locator("figcaption")).toHaveCount(0);
 });
 
 /**
@@ -1042,7 +1052,9 @@ test("portraits: every frame matches the aspect of the asset it holds", async ({
   await page.getByTestId("new-game").click();
   await expect(page.getByTestId("screen-scene")).toBeVisible();
 
-  const sceneImg = page.getByTestId("scene-story-portrait").locator("img");
+  // Scoped off the ribbon's own `<img class="ribbon-charge">`, same reasoning as AC-M9
+  // above — it is a second, always-present `img` this locator would otherwise match.
+  const sceneImg = page.getByTestId("scene-story-portrait").locator("img:not(.ribbon-charge)");
   await expect(sceneImg).toHaveCount(1);
   await expectFrameMatchesAsset(sceneImg, "scene portrait at 1000px");
 

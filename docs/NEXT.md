@@ -1,11 +1,11 @@
-<!-- written-against: c41b8fa -->
+<!-- written-against: d360685 -->
 
 # NEXT - the handoff a machine can't derive
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints the derived facts (branch, merge state, unpushed work).
 This file holds only what the next slice needs: what it is, what it waits on, and what will bite.
 If the hook says the stamp is stale, treat every claim here as a hypothesis and re-derive it.
-Green at the stamp: 986 tests, 152 browser specs (`npm run check`).
+Green at the stamp: 986 tests, 163 browser specs (`npm run check`).
 
 ---
 
@@ -22,67 +22,49 @@ Read this before telling the owner "nothing is pending". Two asks are open, and 
 
 ---
 
-## LANDED 2026-09-06 — the title screen, in the owner's concept look (ADR-0040)
+## LANDED 2026-09-07 — the scene player, in the owner's concept look (ADR-0040 amendment)
 
-`#screen-title` is rebuilt to the owner's concept render — three controls only (New
-Game, Continue, Copy playtest log), Erase Save and the footer link removed from the DOM.
-New Game with a save present shows an in-page overwrite step, not `window.confirm`;
-focus moves to Yes on entry, Escape backs out (title screen only), the confirm text
-carries `role="alert"`. The save readout moved onto the Continue plaque itself (a
-smaller italic second line); `title-slot` now shows only for an unreadable save or
-storage a real probe finds unavailable. `#save-error` paints above the title's fixed
-layer (`z-index: 6` over `5`). `src/render/overhaul.css`, scoped to `#screen-title`,
-linked from `index.html` only. `docs/10` AC-V44…AC-V46; `e2e/title.spec.ts` and
-`e2e/contrast.spec.ts` (plus the new shared `e2e/contrast-helpers.ts`) cover it.
+`#screen-scene` moves to the concept look, built with the existing 3:4 head crops (owner
+call, 2026-09-06). Night backdrop (`night.webp`, `SCENE_ART`), a rivet portrait frame,
+one house ribbon keyed on `figure[data-state]` (mounted only on `scene-story`, a review
+catch — it had shipped on all four story hosts), the help button moving top-right while
+the screen shows, and the log scrolling to its newest line. `docs/10` AC-V47…AC-V50;
+`e2e/scene.spec.ts` (11 tests) covers it.
 
 **Landmines:**
 
-- **The ink ladder does not carry over.** This parchment is darker than ADR-0028's;
-  three of its four secondary inks fail here (`--ink-soft` 4.07, `--ink-faint` 3.79,
-  `--accent-ink` 3.83, all on `--parch-lo`). Only `--ink` (worst 4.996:1) holds. The
-  next screen in this look must re-measure its own ink ladder, not assume this one's.
-- **Scoped CSS still leaks.** Page-wide `index.html` rules (`.eyebrow{text-transform}`,
-  `button::before{opacity:0}`, `button[disabled]{opacity:.4}`) apply inside
-  `#screen-title` on any property the scoped rule doesn't itself set. Two of the
-  title's three declared mockup deviations exist because of this. The next screen hits
-  it too.
-- **`#screen-title` is a `position:fixed` escape, not the ADR-0037 stage.** It gains
-  none of the stage's zones or letterboxing; `docs/10` §8f says so explicitly now.
-  AC-V43 stays reserved and unconsumed for the actual stage-migration follow-up.
+- **House ribbon has no data source.** Blue/grey keys on `data-state` (speaking vs
+  narration); which house owns which colour needs a field no character record carries.
+- **The prologue's speakers are `placeholder` today**, so a player's first scene shows
+  the pending frame, not art — a data gap, not a viewer defect.
+- **The backdrop upscales ~1.8x at desktop widths.** Survivable because the source art is
+  bokeh; would not be for a sharper crop.
+- **The `~ .help-btn` sibling rule depends on DOM order in `index.html`.** Moving
+  `#screen-scene` or `.help-btn` in the markup silently breaks the top-right placement.
 
 ---
 
-## THE NEXT SLICE - the scene player in the new look (mockup approved-pending, owner picked it 2026-09-06)
+## LANDED 2026-09-06 — the title screen, in the owner's concept look (ADR-0040)
 
-**The owner chose the scene player.** The art director's mockup is done and is the thing
-to build from: `coverage/overhaul/scene.html` is gitignored scratch and will NOT survive
-a new container — the captures do: `docs/visual/concepts/mockups/scene-{640x300,851x324,
-1000x780,851x324-read}.png`, and the recipe is `docs/visual/concepts/README.md` §(f).
-**Still waiting on one word from the owner:** "go" (build with the 3:4 head portraits) or
-"prompts first" (write GPT Image 2 bust prompts for the owner to run before building).
+Three controls only (New Game, Continue, Copy playtest log); Erase Save and the footer
+link removed from the DOM; New Game's overwrite check moved in-page; the ink ladder
+re-measured on this screen's own darker parchment (only `--ink` clears it). `docs/10`
+AC-V44…AC-V46; `e2e/title.spec.ts`, `e2e/contrast.spec.ts` cover it. Full detail: ADR-0040.
 
-**What the mockup settles:** a night backdrop cropped text-free from the concept
-(`night.webp`, 41 KB, box `(490,0,1235,428)` of `Narration scene.png` — re-cut it from
-the README's box, the scratch file is gone); the head portrait in a rivet frame breaking
-the box's top rail where the concept's bust stands; ONE ribbon (blue = speaking,
-grey = narration — which house a speaker belongs to is NOT in the data, so the concept's
-red ribbon has no source); the plates sit in the log, not on the rail; More / Show all /
-Continue as iron plaques; "LINE n OF m" stays.
+---
 
-**Landmines:**
+## THE NEXT SLICE — the prep screen, in the owner's concept look (owner picked it 2026-09-07)
 
-- The prologue's two speakers are `placeholder` in the story data today, so the live
-  screen shows the pending frame, not the knight crop the mockup captures use.
-- At 851x324 only two lines fit; a read scene scrolls inside the box. `Show all` earns
-  its place there; assert the scroll container, not a "no scroll" that `overflow:hidden`
-  makes vacuous (the title slice shipped that mistake once).
-- Re-measure the ink ladder on the box's own stops (`box-parch-lo #bf9976`); the README
-  has 26 measured rows for the mockup, none for the built screen.
-- Name every `index.html` page-wide selector that matches `#screen-scene` elements
-  (`.card`, `.story`, `button`, `h1`) and set those properties in the scoped rule.
-- AC-V47 is next free; AC-V43 stays reserved for the stage migration.
-- Brief rule that would have saved 190k on the title: the engineer diffs the built
-  capture against the mockup capture by number and reports the regions that differ.
+**The owner chose the prep screen and said it is done in a NEW session; nothing is started.**
+It is the largest remaining screen (113 text-bearing elements measured) and the one the
+campaign's normal path exercises most. Six of the owner's concepts cover it
+(`docs/visual/concepts/Preparation scene (*).png`) — LOOK ONLY: the job tree, inventory,
+secondary job, traits and levels in them are placeholders and not in scope. Run the same
+sequence as the title and scene slices: `art-director` one-pass mockup at 640x300 /
+851x324 / 1000x780 from the concepts (the owner approves the frames), then
+`viewer-engineer` with a NUMERIC diff against the mockup, then `reviewer`, then
+`docs-steward`. Enumerate every control and state the live prep screen carries before
+cutting any to match the picture (`src/render/CLAUDE.md`, "Two traps the overhaul sets").
 
 Owner: `viewer-engineer`, then `reviewer`, then `docs-steward` — in that order, never
 the last two in parallel.
@@ -98,8 +80,8 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 | The job cut (8 jobs to 5) | A signal, not a decision (owner, 2026-09-05). Needs an ADR; do not start it under cover of another slice | `docs/visual/portraits/reference/README.md`, "Scope" |
 | The turn plate under the damage numeral | Open appearance call; render the alternatives before asking again | ADR-0032 amendment; `visual-artifacts/playtest/05c-turn-plate.png` after `npm run test:visual` |
 | The unit token | Still the flat kite; the owner bundled the choice with the portraits | ADR-0030 |
-| The other four screens in the new look (prep, briefing, scene player, battle poses) | Only title has moved; not scheduled until the owner picks | ADR-0040 |
-| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; title's look changed but its position did not; needs its own ACs from AC-V43 | ADR-0037, ADR-0040 |
+| The other three screens in the new look (prep, briefing, battle poses) | Title and the scene player have moved; not scheduled until the owner picks | ADR-0040 |
+| The other four screens onto the stage (title, prep, briefing, scene player) | Only the battle screen was rebuilt onto the stage; title's and the scene player's look changed but position did not; needs its own ACs from AC-V43 | ADR-0037, ADR-0040 |
 | Camera pan, pinch, double-tap-to-refit | Tiles are ~30x15 CSS px at 640x300, exempt from the 44px tap-target floor (AC-V35); mis-taps are a real, uncovered gap until this lands | ADR-0037 |
 | Skin B (dark-table stage option) | Appended to `stage.css`, not wired into `viewer.html` (no `@font-face` for Cinzel/EB Garamond there; falls back to Georgia) | `src/render/stage.css` |
 | No real device has run the mobile-landscape gate or the stage | Both rest on Chromium emulation only | OPEN item F above |
@@ -122,6 +104,7 @@ One line each. The detail lives where the pointer says; do not re-derive it here
 |---|---|
 | The concept renders, the style guide, look-only ruling, title-first order | `docs/visual/concepts/README.md`, ADR-0040 |
 | The title screen's controls, overwrite step, ink ladder | ADR-0040, `docs/10` AC-V44..V46, `e2e/title.spec.ts` |
+| The scene player's backdrop, ribbon, help-button move, scroll, iron rim | ADR-0040 amendment, `docs/10` AC-V47..V50, `e2e/scene.spec.ts` |
 | Portrait wiring, the boot checks, the viewer table decision | ADR-0039 |
 | Portrait verdicts, per-file status, staged bytes, crop boxes, the style lock's origin | `docs/visual/portraits/reference/README.md` |
 | GPT probe prompts, settings and the v1/v2 measurements | `docs/visual/portraits/reference/gpt-probe-prompts.md`, ADR-0034 |

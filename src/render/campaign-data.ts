@@ -48,6 +48,9 @@ import wizardF from "../../data/campaign/story/portraits/wizard-f.png";
 import titleCastle from "../../data/campaign/story/art/castle.webp";
 import titleRibbon from "../../data/campaign/story/art/ribbon.webp";
 import titleWatermark from "../../data/campaign/story/art/watermark.webp";
+// The scene player's backdrop (docs/visual/concepts/README.md §e's "burning castle"
+// crop) — same import-for-a-hashed-URL reasoning as the title art above.
+import sceneNight from "../../data/campaign/story/art/night.webp";
 import {
   loadContentPack,
   parseCampaign,
@@ -109,6 +112,9 @@ export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
 /** The title screen's bundled art (docs/visual/concepts/README.md §e), by name. */
 export const TITLE_ART: Readonly<{ castle: string; ribbon: string; watermark: string }> =
   Object.freeze({ castle: titleCastle, ribbon: titleRibbon, watermark: titleWatermark });
+
+/** The scene player's backdrop (docs/visual/concepts/README.md §e), by name. */
+export const SCENE_ART: Readonly<{ night: string }> = Object.freeze({ night: sceneNight });
 
 /**
  * Unit id → portrait asset key (ADR-0039).

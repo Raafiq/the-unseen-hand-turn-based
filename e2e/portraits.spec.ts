@@ -73,7 +73,10 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   // placeholder, captioned.
   await expect(page.getByTestId("screen-scene")).toBeVisible();
   const prologueFigure = page.getByTestId("scene-story-portrait");
-  const prologueImg = prologueFigure.locator("img");
+  // Scoped off the house ribbon's own `<img class="ribbon-charge">`
+  // (docs/visual/concepts/README.md §f) — always present, so an unscoped `img`
+  // locator would match it too.
+  const prologueImg = prologueFigure.locator("img:not(.ribbon-charge)");
   await expect(prologueFigure).toHaveAttribute("data-state", "pending");
   await expect(prologueImg).toHaveCount(1);
   await expect(prologueFigure.locator("figcaption")).toHaveText("Portrait pending");
@@ -112,6 +115,12 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   const briefFigure = page.getByTestId("brief-story-portrait");
   const briefImg = briefFigure.locator("img");
   await expect(briefFigure).toHaveAttribute("data-state", "art");
+  // UNSCOPED locator, deliberately: the briefing's `brief-story` host must never carry
+  // the ribbon charge at all (`overhaul.css` styles `.ribbon-charge` under `#screen-scene`
+  // only), so this count is the discriminator for `renderStory` in `game.ts` handing the
+  // ribbon to every story host instead of `scene-story` alone.
+  // MUTATION: pass `ribbon: TITLE_ART.ribbon` unconditionally for every host again →
+  // `.portrait img` (this locator) resolves to 2 elements here, red.
   await expect(briefImg).toHaveCount(1);
   // No figcaption at all — the placeholder's caption is keyed on the asset KEY, so it
   // disappears by itself the moment the pack names real art (src/render/CLAUDE.md).

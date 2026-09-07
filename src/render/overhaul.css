@@ -1,11 +1,12 @@
-/* ═══ THE OVERHAUL LOOK — TITLE SCREEN ONLY ═══════════════════════════════════
-   Everything here is scoped under `#screen-title` on purpose, WITH ONE EXCEPTION just
-   below the root variables: `body:has(#screen-title:not([hidden]))` reaches outside that
-   scope deliberately, because `#screen-title` is `position: fixed` and nothing scoped to
-   it alone can stop the document underneath from scrolling — that has to be said on
-   `body`, the element that actually owns the scrollbar (see that rule for the reasoning).
+/* ═══ THE OVERHAUL LOOK — TITLE AND SCENE SCREENS ═════════════════════════════
+   Everything here is scoped under `#screen-title` or `#screen-scene` on purpose, WITH ONE
+   EXCEPTION just below the root variables: `body:has(#screen-title:not([hidden])),
+   body:has(#screen-scene:not([hidden]))` reaches outside that scope deliberately, because
+   both screens are `position: fixed` and nothing scoped to either alone can stop the
+   document underneath from scrolling — that has to be said on `body`, the element that
+   actually owns the scrollbar (see that rule for the reasoning).
    This file is linked from index.html only (docs/visual/concepts/README.md is the style
-   guide; the working mockup is coverage/overhaul/title.html, lifted below with three
+   guide). The TITLE section below is lifted from `coverage/overhaul/title.html` with three
    deliberate deviations, each called out where it happens:
      1. The rivets moved from the buttons' own `background-image` onto a `::before`
         pseudo-element (matching `.codex`/`.spine`, which already did this). Left
@@ -102,7 +103,8 @@
    behind it. Only `body` itself can say that, so this rule reaches for it, gated on
    `:has(#screen-title:not([hidden]))` so it applies only while the title is actually up —
    index.html's own file-banner comment names this same exception on the `<link>` tag. */
-body:has(#screen-title:not([hidden])) { overflow: hidden; height: 100%; }
+body:has(#screen-title:not([hidden])),
+body:has(#screen-scene:not([hidden])) { overflow: hidden; height: 100%; }
 
 /* THE FOLD (ADR-0037, docs/visual/concepts/README.md §d). Once the stage is
    taller than 8:5 the leaves would go portrait and both fill with dead
@@ -525,4 +527,723 @@ body:has(#screen-title:not([hidden])) { overflow: hidden; height: 100%; }
   line-height: 1.42;
   color: var(--ink);
   max-width: 34em;
+}
+
+/* ═══ THE OVERHAUL LOOK — SCENE PLAYER ═══════════════════════════════════════
+   Scoped under `#screen-scene`, same one exception as the title screen (the
+   `body:has(...)` rule near the top of this file, extended to list this id too —
+   `#screen-scene` is `position: fixed`, so only `body` can stop the document
+   scrolling behind it). Working mockup: `coverage/overhaul/scene.html` →
+   `docs/visual/concepts/README.md` §f. The DOM below is the one `src/render/
+   scene.ts` already builds; every change here is CSS.
+
+   `rem` in the mockup became `em`, exactly as the title screen's file banner
+   explains: nothing between `#screen-scene` and any `em` user below sets its own
+   font-size, so `em` scoped here is exactly as proportional as the mockup's `rem`
+   (relative to <html>) was — just scoped to this screen instead of the document.
+
+   TWO DEVIATIONS from the mockup, both measurement-integrity fixes rather than
+   taste, and both already precedented on THIS screen's sibling:
+     1. `button`'s four corner rivets move from its own `background-image` onto a
+        `::before`, matching deviation 1 above (title). Left inline,
+        `e2e/contrast.spec.ts`'s own-ground walk would pick up `--brass`/
+        `--brass-lit` as candidate grounds for the button's OWN centred text label,
+        which they are never actually under — a false failure, not a real one.
+     2. The portrait frame's four rivets get the same treatment, for the same
+        reason: inline, they contaminate the SAME `ownGrounds` walk for the
+        pending-placeholder figcaption, which sits close enough to two of the
+        four corners that the walk cannot tell "near" from "under". Moving them to
+        `::before` is what lets `figcaption.pending` get an explicit `z-index`
+        above the rivet layer, so the caption is never physically occluded by one.
+   Every other page-wide selector this screen's elements also match (`.card` and
+   its `::before`/`::after`/`> *`, `h1`, `button`, `button::before`,
+   `button[disabled]`, `.controls`, `.story`, `.portrait`, `.who`, `.line`, plus
+   `.story p.line:first-of-type::first-letter` and `.portrait[data-state="none"]`)
+   is named and overridden below wherever the page-wide rule sets a property this
+   block would otherwise leave unclaimed — see each comment for which property and
+   why; the mechanism is the one-property cascade rule from FIX 5/6 above. */
+
+#screen-scene {
+  /* ── sampled from Narration scene.png (docs/visual/concepts/README.md §a) ── */
+  --box-parch-hi: #c9a684;
+  --box-parch: #ccab8b;
+  --box-parch-lo: #bf9976;
+  --plate-parch: #be956f;
+  --iron: #1b1512;
+  --iron-hi: #b19a88;
+  --iron-lo: #221c19;
+  --rivet: #987152;
+  --rivet-lit: #eedcbf;
+  --rule: #372519;
+  --house-blue: #262b3b;
+  --house-blue-lit: #373e50;
+  /* Narration's ribbon (below): the SAME two stops, channel-averaged to remove
+     the blue tint at the same luminance, rather than picked by eye. */
+  --house-grey: #2f2f2f;
+  --house-grey-lit: #424242;
+
+  /* ── the title screen's plaque family, reused verbatim for the scene title and
+       every button (README §f: "the title screen's own vocabulary") ── */
+  --plaque: #1d1e1e;
+  --plaque-hi: #2b2725;
+  --plaque-lo: #1b1a17;
+  --plaque-lip: #282019;
+  --brass: #714b31;
+  --brass-lit: #d8a472;
+  --label: #fdf1dc;
+  --glow: #fcc14b;
+
+  --band: 0.5em;
+  --rv: 0.52em;
+
+  /* Same three noise/stain recipes as `#screen-title` (identical data URIs,
+     duplicated rather than hoisted to `:root` — scoping them there would leak a
+     scene-only concept onto every other screen for no shared benefit). */
+  --stain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700' viewBox='0 0 700 700' preserveAspectRatio='none'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='.46' stop-color='%23000'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='700' height='700' fill='url(%23g)'/%3E%3C/mask%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.009 .016' numOctaves='5' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='700' height='700' filter='url(%23s)' mask='url(%23m)' opacity='.5'/%3E%3C/svg%3E");
+  --tooth: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.36 0 0 0 .32 0 .36 0 0 .32 0 0 .36 0 .32 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23t)'/%3E%3C/svg%3E");
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006 .5' numOctaves='4' seed='11'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix type='matrix' values='.5 0 0 0 .25 0 .5 0 0 .25 0 0 .5 0 .25 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23w)'/%3E%3C/svg%3E");
+
+  /* One scale for this screen, scoped the same way `#screen-title` is (file
+     banner above) rather than on `<html>`. */
+  font-size: clamp(10px, calc(4px + 0.9vh + 0.6vw), 19px);
+
+  /* Escapes `.wrap`'s max-width/padding, exactly like `#screen-title` (both are
+     mutually-exclusive full-viewport takeovers, so sharing a z-index is safe). */
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 0.75em;
+  /* index.html's floating `button.help-btn` used to sit `bottom:18px; right:18px`
+     on every screen, directly over Continue's footer cell here — the first fix
+     padded this whole screen 62px on the right, which left a dead gap along the
+     card's own right edge at every fold (found against the mockup, not by any
+     assertion: a fixed overlay is invisible to a bounding-box check run against
+     `#screen-scene` alone). The real fix is index.html's own
+     `#screen-scene:not([hidden]) ~ .help-btn` rule, which moves the button to
+     TOP-right on this screen instead (the title plaque owns top-left; top-right
+     is free) — so the card gets its full width back and this screen adds no
+     right padding of its own. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  font-family: var(--book);
+  color: var(--ink);
+  background-color: #0a0806;
+}
+/* Belt-and-suspenders, same reasoning as `#screen-title[hidden]` above: this
+   element's own unconditional `display: flex` (1,0,0) beats the page-wide
+   `button[hidden]`-style rules for OTHER elements, but for ITSELF the UA
+   `[hidden]{display:none}` is only (0,1,0) — lower than (1,0,0) — so without this
+   explicit rule the section would never actually hide. */
+#screen-scene[hidden] {
+  display: none;
+}
+#screen-scene * {
+  box-sizing: border-box;
+}
+
+/* The painted backdrop — a real <img> (src/render/game.ts wires it from
+   `SCENE_ART.night`), not a CSS `background-image`: the title screen's castle/
+   ribbon/watermark are already wired this exact way, and a real element is what
+   lets `e2e/scene.spec.ts` read the resolved asset's name off its `src`. */
+#screen-scene .backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 26%;
+  pointer-events: none;
+}
+/* The dimming wash over the backdrop — unchanged from the mockup. */
+#screen-scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: linear-gradient(
+      180deg,
+      rgba(9, 7, 6, 0.62) 0%,
+      rgba(9, 7, 6, 0.3) 34%,
+      rgba(9, 7, 6, 0.62) 72%,
+      rgba(9, 7, 6, 0.86) 100%
+    ),
+    radial-gradient(120% 90% at 50% 34%, transparent 38%, rgba(6, 4, 3, 0.72) 100%);
+}
+
+/* ═══ THE SCENE TITLE — the title screen's own plaque vocabulary ═══════════ */
+#screen-scene h1 {
+  position: absolute;
+  top: 0.75em;
+  left: 0.9em;
+  z-index: 3;
+  margin: 0;
+  /* Page-wide `h1{line-height:1.03; text-wrap:balance}` (index.html) never
+     conflicts visually on this one-line caption, but both properties are named
+     here anyway so this rule is complete rather than accidentally complete. */
+  line-height: 1;
+  text-wrap: wrap;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.84em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+  padding: 0.44em 0.82em 0.4em;
+  border-radius: 0.08em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi), var(--plaque) 42%, var(--plaque-lo));
+  background-blend-mode: soft-light, normal;
+  background-size: 240px 240px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    0 0 0 0.14em var(--plaque-lip),
+    0 0 0 0.22em rgba(0, 0, 0, 0.6),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.7);
+}
+
+/* ═══ THE ASSEMBLY — one grid: [ portrait ][ dialogue box ][ Continue ] ═════
+   `#scene-story` and `.scene-body` (both built by scene.ts) go `display:contents`
+   so their children become items of THIS grid — no DOM change. */
+#screen-scene .card {
+  z-index: 2;
+  display: grid;
+  overflow: visible;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: var(--band);
+  align-items: stretch;
+  padding: var(--band);
+  height: min(52vh, 13.6em);
+  /* Page-wide `.card{position:relative}` would make `.card` itself the
+     containing block for the h1 plaque above (which is `position:absolute`),
+     landing it inside the card's own small box instead of top-left of the
+     whole screen — "dropping the title plaque onto the name plate". `border`
+     is reset for the same class of reason: the page-wide 1px brown rule would
+     ring the iron band, which nothing in the concept draws. The iron band
+     ITSELF moved to `.card::after` below, scoped to columns 2/4 — so `.card`
+     itself must also lose page-wide `.card{background-color/-image/box-shadow}`
+     (a light parchment wash) explicitly, or THAT leaks across the full grid
+     box instead, painting column 1 (the portrait) a flat tan slab — the same
+     class of bug the iron band used to cause there, just a different colour;
+     found by sampling the built narration frame, not by any assertion. */
+  position: static;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+/* The parchment field — a grid item of `.card`, spanning both the lines and the
+   footer, so both sit on one continuous sheet. Page-wide `.card::before` is the
+   scorch overlay (`position:absolute; inset:0; pointer-events:none;
+   filter:url(#scorch)`, per index.html) — every one of those four properties is
+   reset explicitly below, or this pseudo would inherit an absolute position, a
+   heat-displacement filter never meant for it, and lose its grid placement
+   entirely (an `inset:0` absolute box ignores `grid-column`/`grid-row`). */
+#screen-scene .card::before {
+  content: "";
+  position: static;
+  inset: auto;
+  pointer-events: auto;
+  filter: none;
+  grid-column: 2 / 4;
+  grid-row: 1 / 3;
+  z-index: 0;
+  /* Inset from the shared grid area (mockup `scene-851x324.png`: a thin dark
+     iron rim with corner rivets rings the dialogue box). Without this margin
+     the parchment and `.card::after`'s iron band below occupy the IDENTICAL
+     box, so the iron — sitting at z-index -1, directly behind — is fully
+     covered and paints nothing a player can see. `--rv` is reused here (the
+     same offset the iron's own rivet gradients are centered on) so the rim's
+     inner edge clears each rivet rather than slicing through it. */
+  margin: var(--rv);
+  border-radius: 0.06em;
+  background-color: var(--box-parch);
+  background-image: var(--stain), var(--tooth),
+    radial-gradient(132% 108% at 34% 30%, var(--box-parch-hi) 0%, var(--box-parch) 48%, var(--box-parch-lo) 100%);
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow:
+    inset 0 0 0.7em 0.28em rgba(74, 40, 14, 0.34),
+    inset 0 0 0 1px rgba(58, 32, 12, 0.55),
+    0 0 0 1px rgba(198, 166, 128, 0.22),
+    0 0.1em 0.5em rgba(0, 0, 0, 0.55);
+}
+/* THE IRON BAND, moved off `.card` itself and onto this pseudo, scoped to the
+   SAME `grid-column: 2/4` as the parchment `::before` above. `.card` used to
+   paint the iron band across its own full box — all three grid columns — which
+   was invisible while the portrait's own opaque background sat on top of column
+   1 (the speaking state), and read as a wood-grained slab the moment that
+   background went away (narration, drift 2: "the empty portrait column must
+   not paint a slab"). The mockup's iron frame only ever rings the dialogue box
+   and Continue; the portrait has its own separate frame (`.portrait`'s own
+   box-shadow). Page-wide `.card::after` is the parchment ruled frame — every
+   property it sets is overridden below, same four as `::before`'s reset, plus
+   `border`/`box-shadow` since this pseudo now carries the iron treatment
+   instead. */
+#screen-scene .card::after {
+  content: "";
+  position: static;
+  inset: auto;
+  pointer-events: none;
+  border: 0;
+  grid-column: 2 / 4;
+  grid-row: 1 / 3;
+  z-index: -1;
+  border-radius: 0.14em;
+  background-color: var(--iron);
+  background-image: radial-gradient(circle at var(--rv) var(--rv), var(--rivet-lit) 0 24%, var(--rivet) 24% 62%, rgba(0, 0, 0, 0.85) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--rv)) var(--rv), var(--rivet-lit) 0 24%, var(--rivet) 24% 62%, rgba(0, 0, 0, 0.85) 62% 82%, transparent 84%),
+    radial-gradient(circle at var(--rv) calc(100% - var(--rv)), var(--rivet-lit) 0 24%, var(--rivet) 24% 62%, rgba(0, 0, 0, 0.85) 62% 82%, transparent 84%),
+    radial-gradient(circle at calc(100% - var(--rv)) calc(100% - var(--rv)), var(--rivet-lit) 0 24%, var(--rivet) 24% 62%, rgba(0, 0, 0, 0.85) 62% 82%, transparent 84%),
+    var(--grain),
+    linear-gradient(180deg, #3a2e26 0%, var(--iron) 26%, var(--iron-lo) 82%, #100c0a 100%);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+  background-size: 1.04em 1.04em, 1.04em 1.04em, 1.04em 1.04em, 1.04em 1.04em, 240px 240px, auto;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%, 0 0, 0 0;
+  background-blend-mode: normal, normal, normal, normal, soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(230, 196, 150, 0.3),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 -0.16em 0.4em rgba(0, 0, 0, 0.7),
+    0 -0.1em 0.3em rgba(0, 0, 0, 0.5),
+    0 0.5em 1.6em rgba(0, 0, 0, 0.75);
+}
+/* Page-wide `.card > *{position:relative;z-index:2}` is not overridden here on
+   purpose: `h1` and `.controls` below both declare their OWN `position`/
+   `z-index` at higher specificity (id-scoped), which wins regardless; `#scene-
+   story`/`.scene-body` are `display:contents` and generate no box for `position`
+   or `z-index` to apply to. Checked, not a gap. */
+
+#screen-scene #scene-story:not([hidden]) {
+  display: contents;
+}
+#screen-scene .scene-body {
+  display: contents;
+}
+
+/* ═══ THE SPEAKER — a 3:4 head crop, no bust art exists (README §f) ═════════ */
+#screen-scene .portrait {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  z-index: 2;
+  position: relative;
+  margin: 0;
+  padding: 0.3em;
+  align-self: end;
+  justify-self: start;
+  height: calc(100% + 2.15em);
+  aspect-ratio: 3 / 4;
+  width: auto;
+  min-width: 0;
+  /* Page-wide `.portrait{border:1px solid var(--border-strong)}` would ring the
+     frame a second time alongside the box-shadow bevel below. */
+  border: 0;
+  border-radius: 0.06em;
+  background-color: var(--plate-parch);
+  background-image: var(--tooth), linear-gradient(168deg, var(--box-parch-hi), var(--plate-parch) 62%, var(--box-parch-lo));
+  background-repeat: repeat, no-repeat;
+  background-size: 180px 180px, auto;
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(58, 32, 12, 0.6),
+    0 0 0 0.14em var(--plaque-lip),
+    0 0 0 0.22em rgba(0, 0, 0, 0.65),
+    0 0.3em 0.7em rgba(0, 0, 0, 0.7);
+}
+/* Deviation 2 (file banner above): the four corner rivets, on their own layer —
+   never in `.portrait`'s own `background-image` — so `contrast.spec.ts`'s
+   own-ground walk never offers brass as a candidate ground for the pending
+   caption below. */
+#screen-scene .portrait::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: radial-gradient(circle at 0.38em 0.38em, var(--rivet-lit) 0 26%, var(--rivet) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.38em) 0.38em, var(--rivet-lit) 0 26%, var(--rivet) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at 0.38em calc(100% - 0.38em), var(--rivet-lit) 0 26%, var(--rivet) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.38em) calc(100% - 0.38em), var(--rivet-lit) 0 26%, var(--rivet) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%);
+  background-repeat: no-repeat;
+  background-size: 0.76em 0.76em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+#screen-scene .portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 16%;
+  border-radius: 0.03em;
+  box-shadow: inset 0 0 0 1px rgba(40, 22, 8, 0.7), inset 0 0 1.2em rgba(40, 22, 8, 0.45);
+}
+#screen-scene .portrait figcaption.pending {
+  position: absolute;
+  inset: auto 0.3em 0.3em 0.3em;
+  /* Above the rivet layer (z-index 1), so a rivet circle can never sit over the
+     caption's own text — see deviation 2. */
+  z-index: 2;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.6em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ink);
+  /* Page-wide `.portrait figcaption.pending{border-top:1px solid var(--border)}`
+     would draw a second, unwanted rule across the pill below. */
+  border: 0;
+  background: rgba(214, 180, 140, 0.86);
+  padding: 0.16em 0;
+}
+
+/* NARRATION: the frame keeps its space (nothing reflows mid-read) but loses its
+   own background; only the greyed ribbon (below) still shows. Page-wide
+   `.portrait[data-state="none"]{visibility:hidden}` would hide that ribbon too
+   — reset to `visible` is what makes the "narration reads as absent, not gone"
+   rule (README §f's ribbon paragraph) actually paint. */
+#screen-scene .portrait[data-state="none"] {
+  background: none;
+  box-shadow: none;
+  margin-top: 0;
+  visibility: visible;
+}
+/* The corner rivets (below) belong to the PORTRAIT FRAME, which narration has none
+   of — only the ribbon does. Left in, they painted four brass dots down an otherwise
+   empty column with no frame to justify them (drift 2: "nothing else in the figure
+   column has a painted background"). `content: none` removes the box outright, same
+   move as `.card::after` above. */
+#screen-scene .portrait[data-state="none"]::before {
+  content: none;
+}
+#screen-scene .scene-body[data-art="no"] .portrait {
+  display: none;
+}
+
+/* ═══ THE HOUSE RIBBON — blue while speaking, grey for narration (README §f: the
+   ribbon rule is UNDECIDED for which house owns which colour; this keys on the
+   one thing IN the data, `figure[data-state]`) ═══════════════════════════════
+   The FIELD is still a flat swallowtail of `--house-blue`/`--house-blue-lit` — that
+   is what makes the "assert the computed colour" check in `e2e/scene.spec.ts`
+   meaningful rather than a class-name check, and it is unchanged by the charge
+   below. The LION CHARGE is a separate layer (`.ribbon-charge`, a real `<img>` built
+   by `scene.ts`, `data/campaign/story/art/ribbon.webp` reused from the title screen)
+   because nothing in CSS draws a rampant lion (README §b). Drift 2's fix lives here
+   too: narration used to override left/top/width/height/bottom into a tall bare
+   slab; this rule now ONLY recolours — same box, both states, so a bounding-box
+   check on the ribbon reads identical within rounding. */
+#screen-scene .portrait::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  left: -0.7em;
+  top: -1.5em;
+  width: 2.4em;
+  height: 5.1em;
+  background-color: var(--house-blue);
+  background-image: linear-gradient(160deg, var(--house-blue-lit), var(--house-blue) 70%);
+  clip-path: polygon(3% 0, 97% 0, 97% 84%, 50% 100%, 3% 84%);
+  filter: drop-shadow(0.1em 0.22em 0.3em rgba(0, 0, 0, 0.8));
+}
+/* NOT a `filter: grayscale(...)` on the blue fill — a filter is a rendering-time
+   effect that never shows up in `getComputedStyle().backgroundColor`, so nothing
+   could assert it changed. `--house-grey`/`--house-grey-lit` are the SAME two
+   stops, luminance-preserved (channel-averaged) rather than picked by eye, so
+   the narration ribbon is a genuinely different COMPUTED colour, not a filtered
+   copy of the same one. Position/size are declared ONLY on the base rule above —
+   see the block comment for why. */
+#screen-scene .portrait[data-state="none"]::after {
+  background-color: var(--house-grey);
+  background-image: linear-gradient(160deg, var(--house-grey-lit), var(--house-grey) 70%);
+}
+
+/* The charge sits exactly over the field (same box, same clip, one z-index above),
+   painted by a real `<img>` rather than a second gradient layer on the pseudo-element
+   — `filter` on an `<img>` composites normally, unlike a `background-image` filter,
+   so `grayscale(1)` below is a genuinely different picture, not just a differently
+   named one. */
+#screen-scene .portrait .ribbon-charge {
+  position: absolute;
+  z-index: 4;
+  left: -0.7em;
+  top: -1.5em;
+  width: 2.4em;
+  height: 5.1em;
+  object-fit: cover;
+  object-position: 50% 12%;
+  clip-path: polygon(3% 0, 97% 0, 97% 84%, 50% 100%, 3% 84%);
+  filter: drop-shadow(0.1em 0.22em 0.3em rgba(0, 0, 0, 0.8));
+  pointer-events: none;
+}
+/* Grayscale, not a second crop — README §f's ribbon rule is undecided on colour and
+   no grey-field asset exists; a filter turns the SAME resolved asset grey without a
+   second HTTP request or a second name to keep in sync. */
+#screen-scene .portrait[data-state="none"] .ribbon-charge {
+  filter: grayscale(1) drop-shadow(0.1em 0.22em 0.3em rgba(0, 0, 0, 0.8));
+}
+
+/* ═══ THE LINES ══════════════════════════════════════════════════════════════
+   Page-wide `.scene-lines{border-left:2px solid var(--accent)}` would draw an
+   amber rule down the box's left edge that the concept does not have — reset
+   below. The hairline rule at the box's foot is `.scene-lines`'s own
+   `background-image` in the mockup, but see the note above it: here it is a
+   `::after` instead, for the same reason the portrait/button rivets moved —
+   `--rule` is a fully opaque stop, and inline it would read as a false "own
+   ground" for `.line`'s text across the WHOLE box, not just the 1px foot where
+   it actually sits. */
+#screen-scene .scene-lines {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  z-index: 1;
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.9em 1em 0.55em;
+  border: 0;
+}
+#screen-scene .scene-lines::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  left: 0.95em;
+  right: 0.95em;
+  bottom: 0;
+  height: 1px;
+  background: var(--rule);
+}
+#screen-scene .scene-lines::-webkit-scrollbar {
+  width: 0.28em;
+}
+#screen-scene .scene-lines::-webkit-scrollbar-thumb {
+  background: rgba(58, 32, 12, 0.4);
+  border-radius: 0.2em;
+}
+
+#screen-scene .line {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 0.5em;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.06em;
+  line-height: 1.36;
+  color: var(--ink);
+  max-width: 44em;
+  text-wrap: pretty;
+}
+#screen-scene .line:last-child {
+  margin-bottom: 0.1em;
+}
+/* Page-wide `.story p.line:first-of-type::first-letter` draws an illuminated
+   initial (a display-face drop cap in `--warn`) that the concept does not have;
+   `.scene-story` still carries the `.story` class the selector matches on, so it
+   is neutralised property-by-property back to plain inline text. */
+#screen-scene .line:first-of-type::first-letter {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  float: none;
+  margin: 0;
+  color: inherit;
+}
+
+/* ═══ THE NAME PLATE — only the FIRST straddles nothing (README §f note 2): the
+   scroll container clips an absolutely-positioned plate, and `sticky` keeps
+   naming a speaker through the narration line below it. Every plate sits in the
+   log, where it is true. Page-wide `.story .who` sets `letter-spacing:.22em` and
+   `text-transform:uppercase` for the OLD small-caps label style — both reset
+   below, or the plate would print "VANCE" wide-tracked instead of "Vance". ═══ */
+#screen-scene .who {
+  position: relative;
+  z-index: 1;
+  margin: 0.75em 0 0.34em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--book);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.06em;
+  line-height: 1.28;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  padding: 0.24em 0.95em 0.26em 0.42em;
+  border-radius: 0.05em;
+  background-color: var(--plate-parch);
+  background-image: var(--tooth), linear-gradient(172deg, var(--box-parch-hi), var(--plate-parch) 70%, var(--box-parch-lo));
+  background-blend-mode: overlay, normal;
+  background-size: 180px 180px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(58, 32, 12, 0.55),
+    0 0 0 0.13em var(--plaque-lip),
+    0 0 0 0.2em rgba(0, 0, 0, 0.6),
+    0 0.16em 0.38em rgba(0, 0, 0, 0.55);
+}
+#screen-scene .who::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.72em;
+  height: 1.5em;
+  margin: -0.36em 0;
+  background-color: var(--house-blue);
+  background-image: linear-gradient(160deg, var(--house-blue-lit), var(--house-blue) 70%);
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 50% 100%, 0 82%);
+}
+#screen-scene .who:first-child {
+  margin-top: 0.05em;
+}
+#screen-scene .who + .line {
+  margin-top: 0;
+}
+
+/* ═══ THE FOOTER STRIP, under the rule ═══════════════════════════════════════
+   Page-wide `.scene-controls{margin-top:14px; flex-wrap:wrap}` and `.controls
+   {gap:10px; flex-wrap:wrap; margin-top:20px}` would push the footer content
+   down out of vertical centre and let it wrap — neither ever happens with the
+   live content (two buttons + a readout; one Continue button) but both are
+   zeroed below so a future addition cannot silently start wrapping. */
+#screen-scene .scene-controls {
+  grid-column: 2;
+  grid-row: 2;
+  z-index: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0;
+  padding: 0.42em 0.3em 0.34em 1em;
+}
+#screen-scene .scene-progress {
+  order: -1;
+  margin: 0 auto 0 0;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.72em;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#screen-scene .controls {
+  grid-column: 3;
+  grid-row: 2;
+  z-index: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  margin-top: 0;
+  padding: 0.42em 1em 0.34em 0.3em;
+}
+
+/* ═══ IRON PLAQUE BUTTONS — the title screen's recipe, one size down ════════ */
+#screen-scene button {
+  position: relative;
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.08em;
+  padding: 0.4em 0.82em 0.36em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.78em;
+  letter-spacing: 0.085em;
+  /* Page-wide `button{text-transform:uppercase}` — this screen's captions
+     ("More ▸", "Show all", "Continue ▸") are authored mixed-case on purpose. */
+  text-transform: none;
+  color: var(--label);
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 40%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    inset 0 -0.14em 0.4em rgba(0, 0, 0, 0.6),
+    0 0 0 0.13em var(--plaque-lip),
+    0 0 0 0.21em rgba(0, 0, 0, 0.6),
+    0 0.16em 0.38em rgba(0, 0, 0, 0.6);
+}
+#screen-scene button[hidden] {
+  display: none;
+}
+/* Deviation 1 (file banner above): rivets on their own layer, never inline. */
+#screen-scene button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* Page-wide `button::before` is the FFT pointer diamond: `content:"\25C6"`,
+     `opacity:0` at rest, a hover/focus transform — every one of those is a
+     different value here, named explicitly so this rule stays complete under
+     the one-property cascade rule (FIX 5 above, same mechanism). */
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: radial-gradient(circle at 0.34em 0.34em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.34em) 0.34em, var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at 0.34em calc(100% - 0.34em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%),
+    radial-gradient(circle at calc(100% - 0.34em) calc(100% - 0.34em), var(--brass-lit) 0 26%, var(--brass) 26% 64%, rgba(0, 0, 0, 0.8) 64% 84%, transparent 86%);
+  background-repeat: no-repeat;
+  background-size: 0.68em 0.68em;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
+}
+#screen-scene button:hover {
+  background-color: #232324;
+}
+#screen-scene button:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.13),
+    0 0 0 0.16em var(--glow),
+    0 0 0 0.28em rgba(0, 0, 0, 0.6),
+    0 0 1em 0.08em rgba(252, 193, 75, 0.55);
+}
+/* Defensive only: no button on this screen is ever `disabled` today (Continue
+   never gets the attribute), but the page-wide `button[disabled]{opacity:.4}`
+   is neutralised anyway so a future disabled state does not silently wash the
+   plaque out from under whatever visual treatment it is given then. */
+#screen-scene button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+/* Continue is the terminal action; the concept's brass hardware, one size up. */
+#screen-scene #btn-scene-continue {
+  padding: 0.44em 1em 0.4em;
+  font-size: 0.8em;
+}
+
+/* ═══ THE FOLD (ADR-0037) ═══════════════════════════════════════════════════
+   Wide-and-short is the design case; on a TALL stage the painted backdrop keeps
+   the whole viewport (it is a picture, not a page, unlike the title's codex)
+   while the assembly is capped in width and centred so the lines never run to a
+   100-character measure. */
+@media (min-aspect-ratio: 8/5) {
+  #screen-scene .card {
+    height: min(52vh, 12.4em);
+  }
+}
+@media (max-aspect-ratio: 8/5) {
+  #screen-scene .card {
+    width: min(100%, 46em);
+    margin: 0 auto;
+    height: min(40vh, 15em);
+  }
+  #screen-scene h1 {
+    left: max(0.9em, calc((100% - 46em) / 2 + 0.2em));
+  }
 }

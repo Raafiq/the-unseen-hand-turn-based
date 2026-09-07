@@ -1,9 +1,10 @@
 # ADR-0040 — The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first
 
-- **Status:** Accepted.
+- **Status:** Accepted. Amended 2026-09-07 (scene player).
 - **Date:** 2026-09-06
-- **Owner docs:** `docs/10` **AC-V44 … AC-V46**, `docs/visual/concepts/README.md`
-- **Scope:** `#screen-title` (`src/render/overhaul.css`, `index.html`). No other screen.
+- **Owner docs:** `docs/10` **AC-V44 … AC-V50**, `docs/visual/concepts/README.md`
+- **Scope:** `#screen-title` (`src/render/overhaul.css`, `index.html`); amendment adds
+  `#screen-scene`. No other screen.
 
 ## Context
 
@@ -98,3 +99,35 @@ ADR or an AC — there is nothing to strike, only a change to record.
   painted gradient stops to the declared list as **sets**, not "each declared stop is
   present", so an extra, undeclared stop can no longer ship unnoticed alongside the ones
   still measured.
+
+## Amendment 2026-09-07 — the scene player
+
+**The owner picked the scene player second**, built with the existing 3:4 head crops, no
+bust art (2026-09-06). `#screen-scene` moves to this look; `scene.ts`'s DOM is unchanged —
+every change is CSS plus one new `<img>` per host.
+
+**Assets, both reused from the title's art pipeline, not new decisions:** a 41 KB
+`night.webp` backdrop, cropped text- and character-free (box `(490,0,1235,428)`), bundled
+through `SCENE_ART`; it upscales ~1.8x at desktop, survivable because the art is bokeh.
+And the title's `ribbon.webp` lion, reused as `img.ribbon-charge`, mounted **only** on the
+`scene-story` host — a review catch: it had shipped on all four story hosts, stacked on
+the briefing portrait.
+
+**The ribbon's colour stays undecided.** It keys on `figure[data-state]`: blue while a
+line has a speaker, grey for narration — the one thing the data carries. Which house owns
+which colour needs a field no character record has; the concept's red ribbon has no source.
+
+**Two keyboard fixes the title's `?` dialog exposed:** the help button now moves top-right
+while `#screen-scene` shows (a DOM-order-dependent sibling rule) instead of sitting over
+Continue; the scene's keydown handler now bails on an open `<dialog>`, where before it
+advanced the beat behind the modal and blocked Escape from closing it.
+
+**The iron rim under the dialogue box was invisible before this fix.** `.card::before`
+(parchment) and `.card::after` (iron) targeted one identical box; insetting the parchment
+by `--rv` is what makes the iron paint at all — an A/B now moves ≥2% of the card's pixels.
+
+### Consequences (amendment)
+
+`docs/10` AC-V47…AC-V50 cover the backdrop/ribbon identity, the help-button move and
+dialog bail, the log's scroll-to-end, and the visible-rim A/B. Three screens remain in the
+old look: prep, briefing, battle poses.

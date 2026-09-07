@@ -6,13 +6,14 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 986 tests, 152 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 986 tests, 163 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
 battle (ADR-0029, AC-M8/M9, AC-V16/V17). Six of ten approved portraits are wired (ADR-0039); monk, geomancer and
-summoner still show the self-labelling placeholder. The title screen ships in the owner's
-new concept look (ADR-0040); the other four screens do not.
+summoner still show the self-labelling placeholder. The title screen **and** the scene
+player ship in the owner's new concept look (ADR-0040); prep, briefing and battle poses
+do not.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 

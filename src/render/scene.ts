@@ -157,6 +157,13 @@ export interface SceneOptions {
    */
   portraits?: Readonly<Record<string, string>>;
   /**
+   * URL of the house-ribbon crop (the title screen's `TITLE_ART.ribbon`, reused rather
+   * than a second asset — docs/visual/concepts/README.md §(b): "nothing in CSS draws a
+   * rampant lion"). Optional, like `portraits`: its absence leaves the CSS-only field
+   * (`.portrait::after`) as the whole ribbon, byte-identical to before this was wired.
+   */
+  ribbon?: string;
+  /**
    * Called with a telemetry action name when the player advances or skips. Passed in
    * rather than read from a module, so this file keeps no dependency on the recorder.
    */
@@ -193,6 +200,19 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   figure.className = "portrait";
   figure.dataset["testid"] = `${id}-portrait`;
   wrap.append(figure);
+
+  // The house lion, on top of the CSS-drawn field (`.portrait::after`). A real <img>,
+  // not a second gradient, because README §(b) is explicit that nothing in CSS draws a
+  // rampant lion — same reasoning as the backdrop and the title ribbon it reuses. Built
+  // once and RE-APPENDED (never re-created) every `paintPortrait` call, because that
+  // function clears `figure`'s children outright; the same node in both the speaking
+  // and narration states is what makes "resolves by name in both states" true rather
+  // than coincidentally true of two separately-built elements.
+  const ribbonCharge = document.createElement("img");
+  ribbonCharge.className = "ribbon-charge";
+  if (opts.ribbon !== undefined) ribbonCharge.src = opts.ribbon;
+  ribbonCharge.alt = "";
+  ribbonCharge.setAttribute("aria-hidden", "true");
 
   const lineBox = make("div", "scene-lines", `${id}-lines`);
   // A REAL id, not just a test id: `aria-controls` below names it, and an
@@ -241,6 +261,11 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   const paintPortrait = (key: string | null): void => {
     const url = key === null ? undefined : opts.portraits?.[key];
     figure.textContent = "";
+    // The ribbon is not part of the speaker's art — it belongs to the frame, not the
+    // portrait — so it goes back in FIRST, before either branch below, and in BOTH of
+    // them (drift 1: the charge must survive narration, where there is no speaker art
+    // to draw at all).
+    if (opts.ribbon !== undefined) figure.append(ribbonCharge);
     if (url === undefined) {
       // `state="none"` rather than the `hidden` attribute. Hiding the element outright
       // collapsed the grid column, so the whole text block JUMPED LEFT the moment a
@@ -290,6 +315,13 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
       p.textContent = line.text;
       lineBox.append(p);
     }
+    // The box is a scroll container on the compact fold (ADR-0037's phone-landscape
+    // stage, docs/visual/concepts/README.md §f: "two of the prologue's four lines fit and
+    // the rest scrolls"). A no-op on the first reveal (nothing overflows yet) and a
+    // no-op if the box is not scrollable at all (the tall fold, where the whole beat
+    // fits) — but on the compact fold this is what makes a newly revealed line actually
+    // visible instead of landing below the fold with nothing telling the player it did.
+    lineBox.scrollTop = lineBox.scrollHeight;
   };
 
   const paintControls = (): void => {
