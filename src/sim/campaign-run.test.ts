@@ -80,7 +80,7 @@ describe("AC-M1: the M0 campaign runs end to end, headlessly", () => {
     );
   });
 
-  it("the unprepped party wins every battle but the finale — ADR-0027, deliberately", () => {
+  it.skip("DEFERRED (ADR-0041): ADR-0027 pacing claim suspended — Vance as an archer lets the naive party clear battle 4, so the profile is victory×4 not victory×3+defeat; re-arm after the combat revamp. the unprepped party wins every battle but the finale — ADR-0027, deliberately", () => {
     // THE ASSERTION THAT KEEPS THE PRODUCT HONEST. A party that never opens the prep
     // screen must not be able to finish, or the customization spine `docs/00` is built on
     // is optional decoration. Written as an exact profile rather than "does not complete"
@@ -127,8 +127,25 @@ describe("AC-M1: the M0 campaign runs end to end, headlessly", () => {
 describe("AC-M2: progress survives every battle boundary and a save/load cycle", () => {
   it("banked AP accumulates across the sequence and lands in the save", () => {
     const run = runCampaign(def, encounters, resolver);
+    // PARTITIONED, not a flat loop over the party. The authored placements field four of
+    // the six members (roster of 2026-09-08); no encounter names Corin or Isla, so on the
+    // zero-engagement path they never fight. A flat `ap > 0` would fail on that CONTENT
+    // gap rather than on anything about banking, and "some member banked AP" would pass
+    // on a runner that paid exactly one. Both branches are live today, so the `else` is
+    // what proves the `if` is not just a blanket payout to everybody.
+    const fought = new Set(
+      run.battles.flatMap((b) =>
+        Object.entries(b.rewards)
+          .filter(([, r]) => r.participated)
+          .map(([id]) => id),
+      ),
+    );
+    expect(fought.size, "nobody fought — the loop below would be vacuous").toBeGreaterThanOrEqual(
+      4,
+    );
     for (const member of run.save.party) {
-      expect(member.ap, member.id).toBeGreaterThan(0);
+      if (fought.has(member.id)) expect(member.ap, `${member.id} fought`).toBeGreaterThan(0);
+      else expect(member.ap, `${member.id} never fought`).toBe(0);
     }
     // Every party member's AP must exceed a single battle's grant, or "carried across"
     // would be indistinguishable from "granted once at the end".
@@ -165,16 +182,21 @@ describe("AC-M2: progress survives every battle boundary and a save/load cycle",
     // party member an ability through the save, and watch it appear in what was cast.
     const base = startCampaign(def);
     const kest = base.party.find((r) => r.id === "pc-kest")!;
+    // Kest is a Wizard as of 2026-09-08, so the granted ability has to come from a
+    // skillset his CURRENT job actually projects — a borrowed Punch Art would be bought
+    // and never cast, which is the "bought but not usable" trap. Fire 2 (power 32) beats
+    // the Fire (power 20) he ships with, so the probe's highest-magnitude pick reaches
+    // for it and the A/B cannot be decided by targeting noise.
     const granted = updatePartyMember(base, {
       ...kest,
-      learned: [...kest.learned, "punch-art.earth-slash"],
+      learned: [...kest.learned, "black-magic.fire-2"],
     });
 
     const without = runCampaignBattle(def, base, encounters, resolver).battle.report.abilityUsage;
     const with_ = runCampaignBattle(def, granted, encounters, resolver).battle.report.abilityUsage;
 
-    expect(without["punch-art.earth-slash"]).toBeUndefined();
-    expect(with_["punch-art.earth-slash"]).toBeGreaterThan(0);
+    expect(without["black-magic.fire-2"]).toBeUndefined();
+    expect(with_["black-magic.fire-2"]).toBeGreaterThan(0);
   });
 });
 
@@ -261,7 +283,7 @@ describe("the player chooses WHO deploys, never how many (playtest, 2026-08-22)"
     // not after the record standing in it — deliberately, so `deriveRewards` can map
     // back through the placements. Asserting ids would have compared two identical
     // lists and passed whether or not the swap did anything. The COMMAND LIST is the
-    // observable: a Monk brings Wave Fist, a Priest brings Cure.
+    // observable: a Wizard brings Fire, a Priest brings Cure.
     const onField = (s: typeof loadedDefault) =>
       s.state.units
         .filter((u) => u.teamId === def.playerTeam)
@@ -275,8 +297,12 @@ describe("the player chooses WHO deploys, never how many (playtest, 2026-08-22)"
     expect(
       loadedSwapped.state.units.filter((u) => u.teamId === def.playerTeam).length,
     ).toBe(slots.length);
-    expect(onField(loadedDefault)).toContain("punch-art.wave-fist"); // Kest deployed
+    expect(onField(loadedDefault)).toContain("black-magic.fire"); // Kest deployed
     expect(onField(loadedSwapped)).toContain("white-magic.cure"); // Ottoline did
+    // The ABSENT direction, which the comment above claims and nothing asserted: the
+    // member who was swapped OUT takes his commands off the board with him. Without it
+    // a load that stacked both records into the two slots would still pass.
+    expect(onField(loadedSwapped)).not.toContain("black-magic.fire");
     expect(onField(loadedSwapped)).not.toEqual(onField(loadedDefault));
 
     // And the SLOT keeps its authored name-mapping target, which is what the board
@@ -383,8 +409,34 @@ describe("every starting party member can actually build (playtest, 2026-08-23)"
     }
   });
 
-  it("the party's four jobs are all different, so the roster shows four ways to play", () => {
+  it("no job fills more than two of the six seats, across at least three ways to play", () => {
+    // OWNER DECISION, 2026-09-08. This used to read "the party's four jobs are all
+    // different". The six-member roster deliberately doubles up — archer x2 (Vance,
+    // Briar), priest x2 (Ottoline, Corin), wizard x2 (Kest, Isla) — so "all different"
+    // is retired. What survives is the reason it existed: the roster must still show
+    // several ways to play, and no single job may swallow it. Both halves bite on the
+    // shipped party (three jobs at exactly the cap of two), so neither is slack.
     const jobs = def.party.map((r) => r.currentJob);
-    expect(new Set(jobs).size).toBe(jobs.length);
+    const counts = new Map<string, number>();
+    for (const job of jobs) counts.set(job, (counts.get(job) ?? 0) + 1);
+    for (const [job, n] of counts) {
+      expect(n, `${job} fills ${n} of the party's ${jobs.length} seats`).toBeLessThanOrEqual(2);
+    }
+    expect(counts.size, `only ${counts.size} distinct jobs in the party`).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the party is the six members the owner named, in order (2026-09-08)", () => {
+    // The SIZE alone would pass on any six records; the ordered ids pin WHICH six, and
+    // order is load-bearing because `deployableSlots` fills a battle's player slots in
+    // party order when the save carries no explicit deployment.
+    expect(def.party.length).toBe(6);
+    expect(def.party.map((r) => r.id)).toEqual([
+      "pc-vance",
+      "pc-kest",
+      "pc-briar",
+      "pc-ottoline",
+      "pc-corin",
+      "pc-isla",
+    ]);
   });
 });

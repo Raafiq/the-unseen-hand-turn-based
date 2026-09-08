@@ -2,20 +2,25 @@ import { test, expect } from "@playwright/test";
 import { dismissScene, startNewGame } from "./helpers.js";
 
 /**
- * ADR-0039: six real portraits are wired into the scene player and the unit card, for
- * the characters/units the table names — everyone else still reads as the placeholder.
+ * ADR-0039 + the six-member roster (owner decision, 2026-09-08): nine real portraits are
+ * wired into the scene player, the briefing party cards and the battle unit card.
  *
- * THE DISCRIMINATOR IS `naturalWidth` PLUS THE `src`. The placeholder SVG is 96px wide
- * (`data/campaign/story/portraits/placeholder.svg`'s `viewBox`); a real crop is bundled
- * at 192x256 (a 2x asset for the 96x128 CSS frame, ADR-0039) — that alone tells "real
- * art" from "placeholder" but NOT one real portrait from another: naturalWidth is 192
- * for every one of the six. Vite emits each as `assets/<key>-<hash>.png` (a ~100 KB
- * file, far past the 4 KB inline limit, so it is never a `data:` URI) — asserting the
- * `src` CONTAINS the expected key is what ties a card to the RIGHT unit's face, not
- * merely to "some" real portrait. Both checks run on the SAME page, in the SAME test,
- * so this cannot pass by exercising only the branch that already worked.
+ * THE DISCRIMINATOR IS THE `src`, NOT `naturalWidth`. Width separates ABSENT from
+ * PRESENT — the placeholder SVG is 96px wide, a real crop is 192 — and that is a
+ * different question from RIGHT vs WRONG: every one of the nine crops is 192 wide, so a
+ * knight's face on the archer passes a width check. Vite emits each as
+ * `assets/<key>-<hash>.png` (a ~100 KB file, far past the 4 KB inline limit, so never a
+ * `data:` URI), which makes the asset basename in `src` the thing that names the unit.
+ * Width is still asserted, because it is the one check that catches a `src` that is
+ * right and a FILE that never reached `dist`.
+ *
+ * WHAT THIS FILE NO LONGER COVERS, said plainly: every roster unit now has real art, so
+ * no in-play fixture reaches the placeholder branch (`data-state="pending"`, the
+ * "Portrait pending" caption, the `.pending` class and its `object-fit: contain` rule).
+ * The fallback itself is asserted in `src/render/campaign-data.test.ts` against an id the
+ * table does not name; its RENDERING is unasserted here until content needs it again.
  */
-test("ADR-0039: real art resolves per unit; unauthored units keep the placeholder", async ({
+test("ADR-0039: real art resolves per unit, by asset identity", async ({
   page,
 }) => {
   await page.goto("/");
@@ -69,32 +74,65 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   };
 
   // ── Branch one: the SCENE PLAYER ─────────────────────────────────────────────
-  // The prologue opens on Vance (geomancer — out of portrait scope, ADR-0039):
-  // placeholder, captioned.
+  // The prologue opens on Vance, an archer since the six-member roster — `archer-m`.
   await expect(page.getByTestId("screen-scene")).toBeVisible();
   const prologueFigure = page.getByTestId("scene-story-portrait");
   // Scoped off the house ribbon's own `<img class="ribbon-charge">`
   // (docs/visual/concepts/README.md §f) — always present, so an unscoped `img`
   // locator would match it too.
   const prologueImg = prologueFigure.locator("img:not(.ribbon-charge)");
-  await expect(prologueFigure).toHaveAttribute("data-state", "pending");
+  await expect(prologueFigure).toHaveAttribute("data-state", "art");
   await expect(prologueImg).toHaveCount(1);
-  await expect(prologueFigure.locator("figcaption")).toHaveText("Portrait pending");
+  await expect(prologueFigure.locator("figcaption")).toHaveCount(0);
   await expect
     .poll(async () => await prologueImg.evaluate((el) => (el as HTMLImageElement).naturalWidth))
-    .toBe(96);
-  await dismissScene(page);
+    .toBe(192);
+  // Vance and Briar are BOTH archers. Asserting `archer-m` here and `archer-f` for Briar
+  // below is what separates "the right face" from "an archer's face".
+  await expect(prologueImg).toHaveAttribute("src", /archer-m/);
 
-  // Battle 1's briefing text is Vance again (still placeholder); battle 2's briefing is
-  // Briar's first line in the pack — real art, since ADR-0039 moved her `asset` field
-  // from "placeholder" to "archer-f". Reaching it needs playing battle 1, which the
-  // balance probe on both seats wins deterministically (AC-M1's shipped seam).
+  // ── Branch two: the BRIEFING PARTY CARDS, all six at once ────────────────────
+  // The only surface that renders every party member. Corin and Isla are on NO
+  // encounter's placements, so a battle-screen loop could never reach their cards —
+  // a test that covered the four who deploy would read as covering the party.
+  await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  const EXPECTED_CARD_ASSET: ReadonlyArray<readonly [string, string]> = [
+    ["pc-vance", "archer-m"],
+    ["pc-kest", "wizard-m"],
+    ["pc-briar", "archer-f"],
+    ["pc-ottoline", "priest-f"],
+    ["pc-corin", "priest-m"],
+    ["pc-isla", "wizard-f"],
+  ];
+  // The loop is over the ROSTER the page drew, not over the literal list, so a card that
+  // stopped being drawn cannot be silently skipped by a list that still names it.
+  const drawnMembers = await page
+    .locator('[data-testid="prep-roster"] .ptab')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-member") ?? ""));
+  expect(drawnMembers).toEqual(EXPECTED_CARD_ASSET.map(([id]) => id));
+  for (const [id, asset] of EXPECTED_CARD_ASSET) {
+    const cardImg = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"] img`);
+    await expect(cardImg, `${id}'s card is not showing ${asset}`).toHaveAttribute(
+      "src",
+      new RegExp(asset),
+    );
+    // The FILE reached dist and decoded — a `src` naming the right asset over a 404 is
+    // the one failure the identity assertion above cannot see.
+    await expect
+      .poll(async () => await cardImg.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBe(192);
+  }
+  // Six DISTINCT faces: no two members can be satisfied by one crop.
+  expect(new Set(EXPECTED_CARD_ASSET.map(([, a]) => a)).size).toBe(EXPECTED_CARD_ASSET.length);
+
+  // Battle 2's briefing is Briar's first line in the pack. Reaching it needs playing
+  // battle 1, which the balance probe on both seats wins deterministically.
   await expect(page.getByTestId("brief-story")).toContainText("Vance");
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
 
-  // ── Branch two: an ENEMY unit card, battle 1 ─────────────────────────────────
+  // ── Branch three: an ENEMY unit card, battle 1 ───────────────────────────────
   // Battle 1's only enemy is `foe-brigand` (job knight, PORTRAIT_BY_UNIT["foe-brigand"]
   // = "knight-m") — a table row for an ENEMY, never asserted before this slice, so
   // nothing previously stopped a row pointing at the wrong job's face for a foe. Read
@@ -134,8 +172,8 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   expect(briefSrc === null ? "" : briefSrc).toMatch(/^(data:|\/|https?:)/);
   expect(briefSrc ?? "", "the briefing is not showing Briar's own asset").toContain("archer-f");
 
-  // ── Branch three: the UNIT CARD, on a battle screen ──────────────────────────
-  // Battle 2 fields Vance, Kest (both placeholder) and Briar (archer-f) against two
+  // ── Branch four: the UNIT CARD, on a battle screen ───────────────────────────
+  // Battle 2 fields Vance (archer-m), Kest (wizard-m) and Briar (archer-f) against two
   // Brigands (knight-m). Cards are found by NAME, never by battle unit id:
   // `state.units[].id` is the placement's SLOT id ("blue-briar"), not the roster
   // record id `PORTRAIT_BY_UNIT` is keyed by ("pc-briar") — there is no id here that
@@ -158,9 +196,11 @@ test("ADR-0039: real art resolves per unit; unauthored units keep the placeholde
   expect(briarCard.captioned, "Briar's card shows a pending caption").toBe(false);
   expect(briarCard.src, "Briar's card is not showing archer-f's asset").toContain("archer-f");
 
+  // Vance is the DISCRIMINATING second card: he and Briar are both archers, so a card
+  // wired to "an archer crop" rather than to this member satisfies one and not the other.
   const vanceCard = actorName === "Vance" ? actorCard : await findCard("Vance");
-  expect(vanceCard.width, "Vance (geomancer, out of portrait scope) should be the placeholder").toBe(
-    96,
-  );
-  expect(vanceCard.captioned, "Vance's card is missing the pending caption").toBe(true);
+  expect(vanceCard.width, "Vance (archer-m) should be real art").toBe(192);
+  expect(vanceCard.captioned, "Vance's card shows a pending caption").toBe(false);
+  expect(vanceCard.src, "Vance's card is not showing archer-m's asset").toContain("archer-m");
+  expect(vanceCard.src, "Vance's card is showing Briar's face").not.toContain("archer-f");
 });

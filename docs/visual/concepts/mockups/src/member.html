@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en" data-mockup="member">
+<head>
+<meta charset="utf-8" />
+<title>Mockup — member detail (ADR-0040 split, owner 2026-09-07)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!--
+  MEMBER DETAIL — screen 2 of the split.
+
+  Everything below `#prep-body` is `prep.ts`'s OWN markup, copied structure-for-
+  structure (unit head, three tab plaques, three panels, Job Customization strip).
+  Nothing about the split needs `prep.ts` to build a different tree: `#prep-body`
+  is already `display: contents`, so its children are direct flex items of the
+  leaf, and the leaf is simply the whole board now instead of 57% of it.
+
+  Content is Briar at battle 2 — the same unit the approved `prep-851x324.png`
+  mockup shows, so the two frames are comparable.
+
+  `?tab=skills` / `?tab=profile` opens that tab (the capture script uses it).
+-->
+
+<style>
+  @font-face { font-family: "Cinzel"; src: url("../../../../../public/fonts/cinzel-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400.woff2") format("woff2");
+               font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400i.woff2") format("woff2");
+               font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: "Grenze Gotisch"; src: url("../../../../../public/fonts/grenzegotisch-500.woff2") format("woff2");
+               font-weight: 500; font-style: normal; font-display: block; }
+</style>
+<link rel="stylesheet" href="page-wide-borrowed.css" />
+<link rel="stylesheet" href="split.css" />
+</head>
+<body>
+
+<section id="screen-briefing" class="member" data-testid="screen-briefing">
+
+  <!-- ═══ TOP RAIL. The back plaque now returns to PARTY SELECT, not to the title.
+       The battle title stays: you are still inside battle 2, and losing it here
+       would leave the deepest screen the only one with no orientation. ═══ -->
+  <header class="toprail">
+    <button id="btn-member-back" class="plaque riveted backplaque" data-testid="member-back"
+            aria-label="Back to party select" title="Back to party select"><i data-ico="back"></i></button>
+
+    <div class="banner" aria-hidden="true"><img src="../../../../../data/campaign/story/art/ribbon.webp" alt="" /></div>
+
+    <div class="plaque riveted companyplaque">
+      <h1 id="brief-title" data-testid="brief-title">Ambush at the Ford</h1>
+      <p class="eyebrow" id="brief-step" data-testid="brief-step">Battle 2 of 5 · managing Briar</p>
+    </div>
+  </header>
+
+  <div class="board">
+    <section class="leaf leaf-solo">
+      <div class="banner" aria-hidden="true"><img src="../../../../../data/campaign/story/art/ribbon.webp" alt="" /></div>
+
+      <div id="prep-body" data-testid="prep">
+
+        <header class="unit-head">
+          <div class="hero"><img src="../../../../../data/campaign/story/portraits/archer-f.png" alt="" /></div>
+          <div class="idcol">
+            <div class="nameline">
+              <h2>Briar</h2>
+              <span class="count" data-testid="prep-ap" title="Banked AP">240 AP</span>
+            </div>
+            <p class="jobline"><i data-ico="c-archer"></i><span>Archer</span></p>
+            <div class="rulehr"></div>
+          </div>
+        </header>
+
+        <nav class="tabs" role="tablist">
+          <button type="button" class="tab on" data-tab="equipment" role="tab" aria-selected="true"><i data-ico="sword"></i><span class="tlabel">Equipment</span></button>
+          <button type="button" class="tab" data-tab="skills" role="tab" aria-selected="false"><i data-ico="star"></i><span class="tlabel">Skills</span></button>
+          <button type="button" class="tab" data-tab="profile" role="tab" aria-selected="false"><i data-ico="scroll"></i><span class="tlabel">Profile</span></button>
+        </nav>
+
+        <div class="panels">
+
+          <section class="panel" data-panel="equipment">
+            <div class="col narrow" tabindex="0">
+              <h3 class="sect">Wielded Gear</h3>
+              <div class="gearrow">
+                <span class="roundel"><i data-ico="sword"></i></span>
+                <span class="gcap">Main Hand</span>
+                <select class="gval" data-testid="prep-weapon" aria-label="Equipped weapon">
+                  <option selected>Yew Longbow — 34 damage</option>
+                  <option>Unarmed — 12 damage</option>
+                </select>
+                <i data-ico="chev" data-ico-class="chev"></i>
+              </div>
+              <p class="hint" data-testid="prep-weapon-desc">3+ damage, +1 range. Scales with PA. Swaps are free.</p>
+              <p class="hint">The game models one hand. Where the concept has Off Hand, Head, Chest and Accessory, this build has nothing to put there.</p>
+            </div>
+            <div class="col wide" tabindex="0">
+              <h3 class="sect">Standing <span class="lock">at battle start</span></h3>
+              <div class="stats" data-testid="prep-stats">
+                <ul class="stat-row">
+                  <li><span class="k">HP</span><span class="v" data-stat="hp">216</span></li>
+                  <li><span class="k">Attack</span><span class="v" data-stat="attack">34</span></li>
+                  <li class="up"><span class="k">PA</span><span class="v" data-stat="pa">10</span></li>
+                  <li><span class="k">MA</span><span class="v" data-stat="ma">8</span></li>
+                  <li><span class="k">Move</span><span class="v" data-stat="move">4</span></li>
+                  <li><span class="k">Evade</span><span class="v" data-stat="evade">14%</span></li>
+                  <li><span class="k">Brave</span><span class="v" data-stat="brave">70</span></li>
+                  <li><span class="k">Faith</span><span class="v" data-stat="faith">50</span></li>
+                </ul>
+                <p class="hint">&#9650; lifted by an equipped trait.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" data-panel="skills" hidden>
+            <div class="col" tabindex="0">
+              <h3 class="sect">Active</h3>
+              <div class="gearrow" data-testid="prep-primary">
+                <span class="roundel"><i data-ico="sword"></i></span>
+                <span class="gcap">Primary</span>
+                <span class="gval">Aim (Archer) <span class="kind">locked to job</span></span>
+              </div>
+              <p class="hint"><span class="gcap">Commands</span> Attack, Charge, Take Aim</p>
+              <h3 class="sect">Passive</h3>
+              <div class="gearrow">
+                <span class="roundel"><i data-ico="counter"></i></span>
+                <span class="gcap">Reaction</span>
+                <select class="gval" data-testid="prep-reaction" aria-label="Reaction ability">
+                  <option selected>Counter</option><option>&mdash; none &mdash;</option>
+                </select>
+                <i data-ico="chev" data-ico-class="chev"></i>
+              </div>
+              <div class="gearrow">
+                <span class="roundel"><i data-ico="shield"></i></span>
+                <span class="gcap">Support</span>
+                <select class="gval" data-testid="prep-support" aria-label="Support ability">
+                  <option selected>Steady Hand</option><option>&mdash; none &mdash;</option>
+                </select>
+                <i data-ico="chev" data-ico-class="chev"></i>
+              </div>
+              <div class="gearrow">
+                <span class="roundel"><i data-ico="wing"></i></span>
+                <span class="gcap">Movement</span>
+                <select class="gval" data-testid="prep-movement" aria-label="Movement ability">
+                  <option selected>&mdash; none &mdash;</option><option>Move +1 — no effect yet</option>
+                </select>
+                <i data-ico="chev" data-ico-class="chev"></i>
+              </div>
+              <h3 class="sect">In battle <span class="count" data-testid="prep-command-count">4</span></h3>
+              <ul class="cmd-list" data-testid="prep-commands">
+                <li data-cmd="basic.attack">Attack<span class="desc">Weapon damage at 1 range.</span></li>
+                <li data-cmd="aim.charge">Charge<span class="desc">Slower shot, heavier hit.</span></li>
+                <li data-cmd="aim.take-aim">Take Aim<span class="desc">+1 range this turn.</span></li>
+                <li data-cmd="punch.wave" class="deferred">Wave Fist <span class="tag">no effect yet</span><span class="desc">Ranged blunt damage.</span></li>
+              </ul>
+            </div>
+            <div class="col wide" tabindex="0">
+              <div class="learnhead" data-testid="prep-progression">
+                <h3 class="sect">Learn &middot; Punch Art</h3>
+                <div class="gearrow">
+                  <span class="roundel"><i data-ico="scroll"></i></span>
+                  <select class="gval" data-testid="prep-tree" aria-label="Skill tree to browse" style="grid-row:1/3;">
+                    <option selected>Monk</option><option>Archer (current)</option>
+                  </select>
+                  <i data-ico="chev" data-ico-class="chev"></i>
+                </div>
+              </div>
+              <p class="hint tight" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>
+              <ul class="learn-list" data-testid="prep-learn" tabindex="0">
+                <li class="known" data-node="punch.wave"><span class="n">Wave Fist <span class="tag reach" data-testid="reach-secondary">needs Secondary</span></span><span class="s">learned</span><span class="desc">Ranged blunt damage at 3 tiles.</span></li>
+                <li data-node="punch.chakra"><span class="n">Chakra <span class="tag reach" data-testid="reach-secondary">needs Secondary</span></span><button type="button" class="buy" data-learn="punch.chakra" title="Spend 120 AP">120 AP</button><span class="desc">Restore HP to yourself and one ally.</span></li>
+                <li data-node="punch.counter"><span class="n">Counter <span class="kind">reaction</span></span><button type="button" class="buy" data-learn="punch.counter" title="Spend 90 AP">90 AP</button><span class="desc">Strike back when a melee hit lands.</span></li>
+                <li class="locked" data-node="punch.revive"><span class="n">Revive <span class="kind">support</span></span><button type="button" class="buy" data-learn="punch.revive" disabled title="Learn Chakra first">180 AP</button><span class="desc">Bring a fallen ally back at 1 HP.</span></li>
+                <li class="deferred" data-node="punch.earth"><span class="n">Earth Slash <span class="tag">no effect yet</span></span><button type="button" class="buy" data-learn="punch.earth" title="Spend 150 AP">150 AP</button><span class="desc">A line of ground damage.</span></li>
+              </ul>
+              <p class="receipt" data-testid="prep-receipt">Learned. <b>Counter</b> sits in the Reaction slot — equip it below.</p>
+            </div>
+          </section>
+
+          <section class="panel" data-panel="profile" hidden>
+            <div class="col narrow" tabindex="0">
+              <h3 class="sect">What this unit has done</h3>
+              <ul class="cmd-list">
+                <li>Banked <b>240 AP</b><span class="desc">One pool, spendable in any tree.</span></li>
+              </ul>
+              <p class="hint">Traits are permanent. Equipping and unequipping is free and reversible.</p>
+            </div>
+            <div class="col wide" tabindex="0">
+              <h3 class="sect">Acquired Traits <span class="lock">max 2</span></h3>
+              <div data-testid="prep-traits">
+                <label class="chk"><span class="ttile"><i data-ico="c-archer"></i><input type="checkbox" data-trait="keen-eye" checked /></span><span><span class="tname">Keen Eye</span><span class="tdesc">Mastered from Archer.</span></span></label>
+                <label class="chk"><span class="ttile"><i data-ico="c-monk"></i><input type="checkbox" data-trait="iron-will" /></span><span><span class="tname">Iron Will</span><span class="tdesc">Mastered from Monk.</span></span></label>
+                <p class="hint" data-testid="prep-traits-hint">Earned and not equipped — traits cost no AP.</p>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <div class="jobstrip">
+          <h3 class="sect">Job Customization</h3>
+          <div class="jobrow">
+            <div class="jplaque">
+              <span class="jcrest"><i data-ico="c-archer"></i></span>
+              <div class="jhead"><span class="jcap">Main</span><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></div>
+              <select class="jval" data-testid="prep-job" aria-label="Current job">
+                <option selected>Archer</option><option>Monk</option><option>Priest</option>
+              </select>
+            </div>
+            <div class="jplaque">
+              <span class="jcrest"><i data-ico="c-monk"></i></span>
+              <div class="jhead"><span class="jcap">Secondary</span><span class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></div>
+              <select class="jval" data-testid="prep-secondary" aria-label="Secondary command">
+                <option selected>Punch Art (Monk)</option><option>&mdash; none &mdash;</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <footer class="footrail">
+        <span class="frule" aria-hidden="true"></span>
+        <p class="ready">Changes save as you make them.</p>
+        <span class="frule" aria-hidden="true"></span>
+      </footer>
+
+    </section>
+  </div>
+</section>
+
+<button id="btn-help" class="help-btn ghost" data-testid="help-open"
+        aria-haspopup="dialog" title="How to play" aria-label="How to play">?</button>
+
+<script src="icons.js"></script>
+<script>
+  /* The capture script asks for a tab by query string; the shipped screen does it
+     with a click. Same class/`hidden`/`aria-selected` flip either way. */
+  const want = new URLSearchParams(location.search).get("tab") || "equipment";
+  for (const t of document.querySelectorAll(".tab")) {
+    const on = t.dataset.tab === want;
+    t.classList.toggle("on", on);
+    t.setAttribute("aria-selected", String(on));
+  }
+  for (const p of document.querySelectorAll(".panel")) p.hidden = p.dataset.panel !== want;
+  document.documentElement.dataset.tab = want;
+</script>
+</body>
+</html>

@@ -106,9 +106,18 @@ const BUILD_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
  */
 const CAMPAIGN_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
   "pc-vance": "tank",
-  "pc-kest": "mid",
+  // Kest was a Monk classed "mid" (2–3). He is a Wizard as of the six-member roster
+  // (owner decision, 2026-09-08) and builds to 142 maxHp — the frailest unit either side
+  // fields — so he is declared "squishy" alongside the other two casters. That TIGHTENS
+  // his ceiling from 3 actions to 2; it does not move him to pass, because 2 was already
+  // inside "mid". A row left stale here is exactly the failure this manifest exists for.
+  "pc-kest": "squishy",
   "pc-briar": "mid",
   "pc-ottoline": "squishy",
+  // The two members the six-member roster added, classed by ROLE like every row above:
+  // Corin is a Priest (Ottoline's class) and Isla a Wizard (the Hexer's class).
+  "pc-corin": "squishy",
+  "pc-isla": "squishy",
   "foe-brigand": "squishy",
   "foe-cutthroat": "mid",
   "foe-hexer": "squishy",

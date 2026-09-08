@@ -53,17 +53,26 @@ el<HTMLImageElement>("title-ribbon").src = TITLE_ART.ribbon;
 el<HTMLImageElement>("title-watermark").src = TITLE_ART.watermark;
 // The scene player's backdrop (docs/visual/concepts/README.md §e), same reasoning.
 el<HTMLImageElement>("scene-backdrop").src = SCENE_ART.night;
-// The briefing's own two ribbon crops and the tagline's castle end-cap — the SAME
+// The briefing's three ribbon crops (top rail, party leaf, member leaf) — the SAME
 // bundled art the title screen wears, reused rather than re-cropped, and set once for
 // the same reason: none of them ever changes while the page is open.
+//
+// The tagline's castle end-cap is GONE with the tagline itself: the split moved that
+// line into the party leaf's foot rail as a plain italic aside (the approved
+// `party-851x324.png` frame), where a decorative end-cap has no ribbon to cap. Its
+// former test (`e2e/briefing.spec.ts` D3) moved onto `brief-member-name`, which is the
+// element that now carries the same "a `.textContent` write destroys a sibling" trap.
 el<HTMLImageElement>("brief-ribbon-top").src = TITLE_ART.ribbon;
 el<HTMLImageElement>("brief-ribbon-side").src = TITLE_ART.ribbon;
-el<HTMLImageElement>("brief-castle").src = TITLE_ART.castle;
-// The two static plaque buttons' glyphs — inline SVG rather than a shared sprite (see
+el<HTMLImageElement>("brief-ribbon-member").src = TITLE_ART.ribbon;
+// The three static plaque buttons' glyphs — inline SVG rather than a shared sprite (see
 // `icons.ts`'s file banner: a `<symbol>` sprite would have to land before ANY of this
 // panel's three DOM sources paints its first `<use>`, and nothing enforces that order).
 el("btn-brief-quit").innerHTML = icon("back");
-el("btn-deploy").innerHTML = `${icon("flag")}Deploy`;
+el("btn-member-back").innerHTML = icon("back");
+// Crossed swords, not `flag`: the pennant read as a small filled square at this size
+// (owner, 2026-09-07). "March" is the verb this plate commits to.
+el("btn-deploy").innerHTML = `${icon("swords")}Deploy`;
 
 /**
  * `localStorage` can be missing entirely (a sandboxed frame), or PRESENT but unusable — a
@@ -253,7 +262,24 @@ const hud: HudHandle = mountHud(el("stage-host"), {
   conclude: () => ({ label: "Continue ▸", run: () => act("btn-conclude", () => concludeAndLog()) }),
 });
 
+/**
+ * The screen the last paint showed, so a TRANSITION can be told from a repaint.
+ *
+ * `refresh()` runs on every click; a screen change does not. The briefing's view
+ * (party / member) resets on ENTERING the screen and must survive every repaint after
+ * that, so it needs the edge, not the level. Enumerated by transition rather than by
+ * state on purpose (`src/render/CLAUDE.md`): a briefing is entered from the scene
+ * player, from Retry and from Next battle, and all three land here.
+ */
+let shownScreen: Screen | null = null;
+
 function renderScreens(): void {
+  if (shell.screen !== shownScreen) {
+    // Entering the briefing ALWAYS starts on party select — the member view is two
+    // taps deep and reaching a battle through it would be a second commit point.
+    if (shell.screen === "BRIEFING") briefView = "party";
+    shownScreen = shell.screen;
+  }
   for (const s of SCREENS) {
     el(SCREEN_EL[s]).hidden = s !== shell.screen;
   }
@@ -491,115 +517,185 @@ function seedPrepSeen(party: readonly UnitRecord[]): void {
   for (const r of party) prepSeen.set(r.id, r);
 }
 
+/**
+ * WHICH BRIEFING VIEW IS UP — party select, or one member's detail (owner decision,
+ * 2026-09-07).
+ *
+ * MODULE STATE, NEVER THE DOM. `renderBriefingText()` rewrites the roster's whole
+ * `innerHTML` on every deploy toggle and on every prep edit, so a view flag kept in an
+ * attribute, a class read back, or a child count would be destroyed by the first
+ * ordinary party edit — the same rule `scene.ts`'s reveal cursor follows
+ * (`src/render/CLAUDE.md`, "reveal state must never live in the DOM"). The `.party` /
+ * `.member` class on `#screen-briefing` is a WRITE TARGET derived from this variable
+ * on every paint, never a read source.
+ */
+type BriefView = "party" | "member";
+let briefView: BriefView = "party";
+
+/**
+ * Switch views. Does NO DOM work at all on an unchanged view — the same shape
+ * `scene.ts`'s `setBeat` and `prep.ts`'s `setTab` hold, so tapping the card that is
+ * already open cannot rebuild the panel or steal focus mid-edit.
+ */
+function setBriefView(next: BriefView): void {
+  if (next === briefView) return;
+  briefView = next;
+  renderBriefingText();
+  // FOCUS FOLLOWS THE VIEW, and only on an actual SWITCH.
+  //
+  // Both leaves are toggled with `display: none`, which blows focus away to `<body>`:
+  // a keyboard or screen-reader user who opened a member landed nowhere, and had to tab
+  // in from the top of the document to reach the panel they just asked for. Going back
+  // was worse — the roster is rebuilt wholesale on every paint, so the card they came
+  // from is a brand-new node with no focus on it.
+  //
+  // PARKED, not called: every caller of this function is inside `guard`, which repaints
+  // AGAIN after the mutation returns. Focusing here works for `btn-member-back` (an
+  // authored node that survives) and silently does nothing for a roster card (rebuilt,
+  // measured: `document.activeElement` came back `body`). Parking it is what makes the
+  // two directions behave the same way.
+  //
+  // Placed HERE rather than in `applyBriefView`, which every ordinary repaint calls: a
+  // job change or a purchase re-enters that function, and moving focus there would yank
+  // the caret out of the select the player is mid-edit in. `setBriefView` already
+  // returns early on an unchanged view, so this runs exactly on the two transitions.
+  const view = briefView;
+  pendingFocus = () => {
+    if (view === "member") {
+      el("btn-member-back").focus();
+    } else {
+      // The card that was open, not the first one: the last paint marked it `.on` from
+      // `prep.record()`, the same selection the member view was showing.
+      document.querySelector<HTMLElement>("#brief-party li.member.on button.ptab")?.focus();
+    }
+  };
+}
+
+/**
+ * Paint the current view. Idempotent, and called from every briefing repaint — that is
+ * what makes the view survive `refresh()`, which is reached from every deploy toggle.
+ *
+ * `memberName` rides the rail beside the battle number ("Battle 2 of 5 · managing
+ * Briar"), in its own span: `brief-step`'s own text is written with `.textContent`, and
+ * a `.textContent` write on a parent destroys every child node — the trap the tagline's
+ * castle end-cap was found in.
+ */
+function applyBriefView(memberName: string | null): void {
+  const screen = el("screen-briefing");
+  screen.classList.toggle("party", briefView === "party");
+  screen.classList.toggle("member", briefView === "member");
+  el("brief-member-name").textContent =
+    briefView === "member" && memberName !== null ? ` \u00b7 managing ${memberName}` : "";
+}
+
 /** Everything on the briefing EXCEPT the prep panel, which owns its own repaint. */
 function renderBriefingText(): void {
   const brief = shell.briefing();
   if (!brief) return;
-  el("brief-step").textContent = `Battle ${brief.step} of ${brief.total}`;
+  el("brief-step-text").textContent = `Battle ${brief.step} of ${brief.total}`;
   // The authored scene name when the story pack has one, the id-derived fallback when it
   // does not — the page prefers data over its own derivation, which is what makes the
   // title part of the story seam rather than a naming convention.
   el("brief-title").textContent = shell.sceneTitle() ?? battleTitle(brief.encounterId);
   renderStory("brief-story", preKey(), shell.preBeat());
-  // `brief-note-text`, never `brief-note` itself: the tagline `<p>` also holds
-  // `#brief-castle` (the ribbon's end-cap image), and `.textContent` on the parent
-  // would destroy that child on every repaint — it did, until this was scoped to the
-  // dedicated span (index.html's file banner for `#brief-note`).
+  // ONE element, so this write has no sibling to destroy — the tagline's castle end-cap
+  // (which this line used to sit beside) went with the split, and the same trap now
+  // lives on `brief-step` / `brief-member-name` instead.
   el("brief-note-text").textContent = brief.retrying
     ? "You lost this one. The party is exactly as it was before the first attempt."
     : "Your party carries everything it has earned so far.";
   const party = shell.save?.party ?? [];
-  const dep = shell.deployment();
-  const chosen = new Set(dep?.chosen ?? party.map((r) => r.id));
-  // Which card the right leaf is showing (prep's own selection), so the roster's gold
-  // glow never disagrees with the leaf it opens. `prep` is not yet mounted on the very
-  // first paint of a briefing — `renderBriefing()` mounts it before calling this, so by
-  // the time a real party is on screen `prep` is set; the fallback only covers a call
-  // with no party at all (nothing to select).
-  const selectedId = prep?.record().id;
+  // Which card the member view is showing (prep's own selection), so the roster's
+  // outline never disagrees with the leaf it opens. `prep` is not yet mounted on the
+  // very first paint of a briefing — `renderBriefing()` mounts it before calling this,
+  // so by the time a real party is on screen `prep` is set; the fallback only covers a
+  // call with no party at all (nothing to select).
+  const selected = prep?.record();
+  const selectedId = selected?.id;
+  applyBriefView(selected?.name ?? null);
 
   // THE ROSTER IS OMITTED ENTIRELY FOR ONE MEMBER (mirrors `prep.ts`'s own "< 2 ⇒
-  // absent" rule, since a single card offers no choice) — and with it the note that
-  // exists only to explain a swap nobody can make.
+  // absent" rule, since a single card offers no choice) — and with it the hint that
+  // exists only to explain a list.
   const showRoster = party.length >= 2;
   el("prep-roster-wrap").hidden = !showRoster;
   const note = el("brief-deploy-note");
-  if (!showRoster || dep === null) {
-    note.hidden = true;
-  } else {
-    note.hidden = false;
-    note.textContent =
-      `This battle fields ${dep.slots} of ${party.length}. ` +
-      `A benched member earns no AP — tap a portrait to view, tap the corner mark to swap.`;
-  }
+  note.hidden = !showRoster;
+  // SIX SHOWN, TWO FIGHT — SAID OUT LOUD (ADR-0041). The per-card deploy TOGGLE is gone
+  // (owner, 2026-09-08: "we don't worry about selection of party members yet"), and all
+  // six will deploy in a later slice — but the shipped encounters still author 2/3/4/4/4
+  // placements, so at battle 1 four of the six cards on this screen never reach the
+  // board. A screen that lists six and fields two without saying so is the pillar-4
+  // violation ("never render a state the sim did not produce" has a mirror: never let a
+  // list imply a state the sim will not honour). This line and the per-card mark are
+  // READ-ONLY: they report `shell.deploy()`'s authored set, they offer no control, and
+  // no click changes them.
+  //
+  // The count comes from the ENCOUNTER's placements, never from `save.deployment` —
+  // which is empty on every save this build writes (see `continueGame`), so a mark
+  // derived from it would say the whole party is in camp.
+  const authored = new Set(shell.deployment()?.authored ?? []);
+  note.textContent =
+    authored.size > 0 && authored.size < party.length
+      ? `This battle fields ${authored.size} of ${party.length}. Tap a member to manage them.`
+      : "Tap a member to manage them.";
 
-  // Every member is listed, but WHO FIGHTS is marked — the briefing used to show four
-  // names and then send two, which reads as a bug rather than as the authored ramp it is.
-  el("brief-party").innerHTML = party
+  // HOW MANY COLUMNS, written as a custom property rather than solved by `auto-fit`:
+  // the owner's ask is that a SIX-member party stands in ONE ROW at 832 CSS px, and
+  // `repeat(auto-fit, minmax(<floor>, 1fr))` cannot honour that and a readable floor at
+  // the same time — at 773px of leaf, six tracks are 124px each, under any floor wide
+  // enough to keep four cards from looking starved. The count is the data's, so the
+  // data supplies it. Capped at 6 so a seventh member wraps to a second row instead of
+  // shrinking the whole roster below a readable face.
+  const cardsList = el<HTMLUListElement>("brief-party");
+  cardsList.style.setProperty("--cards", String(Math.min(Math.max(party.length, 1), 6)));
+  cardsList.innerHTML = party
     .map((r) => {
-      const going = chosen.has(r.id);
       const on = r.id === selectedId;
       const portrait = resolvePortrait(r.id);
+      // IN CAMP = this battle's placements do not name them. An ATTRIBUTE plus a
+      // caption, and deliberately nothing else: no border change (which would read as
+      // a selection state next to `.on`) and no control (there is nothing to toggle).
+      // Suppressed entirely when the encounter fields everybody, so the mark means
+      // something wherever it appears.
+      const camp = authored.size > 0 && authored.size < party.length && !authored.has(r.id);
       return (
-        `<li class="member${on ? " on" : ""} ${going ? "deployed" : "benched"}">` +
+        `<li class="member${on ? " on" : ""}"${camp ? ' data-camp="true"' : ""}>` +
         `${icon("fleur", "finial")}` +
         `<button type="button" class="ptab${on ? " on" : ""}" data-member="${r.id}"${on ? ' aria-current="true"' : ""}>` +
         `<span class="face"><img class="${portrait.key === "placeholder" ? "pending" : ""}" src="${portrait.url}" alt="" /></span>` +
         `<span class="plate">` +
         `<span class="nline"><b class="pname">${r.name}</b><span class="pap">${r.ap} AP</span></span>` +
         `<span class="pjob">${icon(jobCrest(r.currentJob))}${jobLabel(r.currentJob)}</span>` +
+        (camp ? `<span class="camp">In camp</span>` : "") +
         `</span></button>` +
         `<span class="pennant" aria-hidden="true">${icon("fleur")}</span>` +
-        `<button type="button" class="pip" data-deploy="${r.id}"` +
-        ` aria-pressed="${going}" title="${going ? "Deployed — click to bench" : "Benched — click to deploy"}">` +
-        `${going ? "▪" : "▫"}</button>` +
         `</li>`
       );
     })
     .join("");
 
   // Rebound on every repaint because the list is rewritten wholesale.
-  for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-deploy]")) {
-    btn.addEventListener("click", () => guard(() => toggleDeploy(btn.dataset["deploy"] as string)));
-  }
-  // Selecting a card opens it in the right leaf — the same `select()` a test or the
-  // balance probe would drive, never a parallel "which card is on" of this file's own.
-  for (const btn of el("brief-party").querySelectorAll<HTMLButtonElement>("button[data-member]")) {
-    btn.addEventListener("click", () =>
+  //
+  // ONE TAP, ANYWHERE ON THE TILE. The handler is bound on the ROW (`li.member`), not on
+  // the card button, so the finial, the pennant, the gaps and the foot are all the same
+  // target — on a phone the difference between "the card" and "the button inside the
+  // card" is a mis-tap. Nothing inside the tile stops propagation, and a foot element
+  // that did would make part of the card dead; `e2e/briefing.spec.ts` taps the foot for
+  // exactly that reason.
+  for (const li of cardsList.querySelectorAll<HTMLLIElement>("li.member")) {
+    const card = li.querySelector<HTMLButtonElement>("button[data-member]");
+    if (!card) continue;
+    const id = card.dataset["member"] as string;
+    li.addEventListener("click", () =>
       guard(() => {
-        prep?.select(btn.dataset["member"] as string);
-        renderBriefingText();
+        // The same `select()` a test or the balance probe would drive, never a parallel
+        // "which card is on" of this file's own.
+        prep?.select(id);
+        setBriefView("member");
       }),
     );
   }
-}
-
-/**
- * Swap one member in or out.
- *
- * The slot count is FIXED by the encounter, so benching somebody is only legal when
- * another is benched to take their place — otherwise the click would silently shrink
- * the party the battle expects. Deploying somebody when the roster is full replaces the
- * FIRST currently-deployed member who was not just clicked, which is what "swap" means
- * with no drag-and-drop: one click, one exchange, and the reason is visible in the list.
- */
-function toggleDeploy(id: string): void {
-  const dep = shell.deployment();
-  if (!dep) return;
-  const chosen = [...dep.chosen];
-  const at = chosen.indexOf(id);
-  if (at !== -1) {
-    // Benching: only if somebody is waiting to take the slot.
-    const bench = dep.party.map((r) => r.id).filter((pid) => !chosen.includes(pid));
-    if (bench.length === 0) return;
-    chosen[at] = bench[0]!;
-  } else {
-    // Deploying: take the first slot, pushing its occupant to the bench.
-    chosen[0] = id;
-  }
-  shell.setDeployment(chosen);
-  telemetry.deploy(chosen);
-  refresh();
 }
 
 function renderBriefing(): void {
@@ -878,8 +974,26 @@ function guard(mutate: () => void): void {
     mutate();
   } finally {
     refresh();
+    // FOCUS IS APPLIED AFTER THE LAST PAINT, and this is why the hook exists.
+    //
+    // `refresh()` rebuilds whole panels — `renderBriefingText()` rewrites the roster's
+    // `innerHTML` wholesale — so an element focused DURING the mutation is a detached
+    // node by the time this returns and focus has fallen back to `<body>`. A mutation
+    // that wants to move focus therefore parks a closure here instead of calling
+    // `focus()` itself, and it runs once, after the final repaint, against the nodes
+    // that actually ended up on screen. One-shot and cleared before it runs, so a
+    // handler that re-enters `guard` cannot re-fire it.
+    const focusAfter = pendingFocus;
+    pendingFocus = null;
+    focusAfter?.();
   }
 }
+
+/**
+ * Where focus should land once the repaint {@link guard} runs is finished. `null` unless
+ * the mutation in flight asked for it. See {@link setBriefView}, the only writer.
+ */
+let pendingFocus: (() => void) | null = null;
 
 /**
  * A named player action: log it, then run it under {@link guard}.
@@ -1027,6 +1141,9 @@ on("btn-scene-continue", () => shell.endScene());
 on("btn-continue", () => shell.continueGame());
 on("btn-deploy", () => shell.deploy());
 on("btn-brief-quit", toTitle);
+// Same plaque, two destinations: quit-to-title on party select, back-to-party-select on
+// member detail. Only one is ever visible (overhaul.css keys both off the view class).
+on("btn-member-back", () => setBriefView("party"));
 on("btn-next", () => shell.nextBattle());
 on("btn-retry", () => shell.retry());
 on("btn-after-quit", toTitle);

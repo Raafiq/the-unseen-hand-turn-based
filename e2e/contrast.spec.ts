@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer, openMember, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 import { GROUNDS, paintedStops } from "./contrast-helpers.js";
 
@@ -370,46 +370,62 @@ test("contrast: briefing and prep, before and after spending", async ({ page }) 
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await briefingGroundsAreReal(page);
 
-  // Owner decision 2026-09-07 rebuilt this screen onto three tabs: Equipment, Skills
-  // and Profile show DIFFERENT content, so "how many text-bearing elements render"
-  // is now a per-tab question, not one screen-wide number. MEASURED live (not
-  // guessed) against THIS test's own flow — Equipment is measured before
-  // `brief-story-more` is clicked below; Skills and Profile after (that reveal
-  // persists across a tab switch, so it is part of both counts): Equipment 61,
-  // Skills 84, Profile 47. Floors sit a real margin below each — enough that the
-  // old single floor of 100 (which counted every chassis slot open at once, the
-  // pre-tab shape) could never have been met by any ONE tab today, which is the
-  // tell that a stale floor here would certify nothing.
-  // The floor above is a real number, not a guess — assert the actual count too
-  // (a checker that only ever reports "at least N" can decline to look and still
-  // pass): the entry tab's fresh-mount state is reproducible (no RNG, the same
-  // `startNewGame`/`dismissScene` path the measurement script drove), so it is
-  // pinned exactly rather than merely floored.
-  expect(await textNodeCount(page)).toBe(61);
-  await screenPasses(page, 55); // Equipment, the entry tab
+  // Owner decision 2026-09-07 split this screen into TWO VIEWS, and the member view
+  // into three tabs, so "how many text-bearing elements render" is a per-view,
+  // per-tab question rather than one screen-wide number. MEASURED live at 1000x780
+  // against THIS test's own order (party, party after the reveal, then member's
+  // Equipment / Skills / Profile): 30, 29, 37, 62, 24. Each floor sits a real margin
+  // below its own measurement, so a zone that stopped rendering is caught rather than
+  // absorbed — the 40-node slack this file used to carry is the mistake being avoided.
+  //
+  // Three of them moved with the six-member roster (owner, 2026-09-08). The first two
+  // were 25 and 24: each card carries a name, an AP readout and a job line, so two more
+  // members is five more text nodes on the party view, and the same five survive the
+  // reveal. Skills was 61: the member this walk opens is the FIRST party member, who
+  // changed job from geomancer to archer, and the two trees do not print the same
+  // number of nodes.
+  //
+  // The party counts moved again (30 -> 34, 29 -> 33) when the "In camp" caption landed
+  // (ADR-0041): battle 1 places two of the six, so FOUR cards each grow one text node.
+  // The delta is the mark's own arithmetic, which is why it is stated rather than just
+  // re-recorded — a different number here would mean the mark went on the wrong count
+  // of cards, and this test would be the thing that said so.
+  //
+  // Each count is also PINNED exactly, not merely floored: a checker that only ever
+  // reports "at least N" can decline to look and still pass, and every one of these
+  // states is reproducible (no RNG, the same `startNewGame`/`dismissScene` walk).
+  expect(await textNodeCount(page), "party select, as entered").toBe(34);
+  await screenPasses(page, 22);
 
+  // The story beat rides the TOP RAIL on party select now, so its reveal is measured
+  // here rather than beside the roster. Revealing the last line retires the More
+  // control and empties the progress line, which is why this count is one LOWER.
   await page.getByTestId("brief-story-more").click();
-  await screenPasses(page, 55);
+  expect(await textNodeCount(page), "party select, beat fully revealed").toBe(33);
+  await screenPasses(page, 22);
+
+  // MEMBER DETAIL — a different screen's worth of ink, on the same grounds.
+  await openMember(page);
+  expect(await textNodeCount(page), "member detail, Equipment (the entry tab)").toBe(37);
+  await screenPasses(page, 33);
 
   await page.locator('.tab[data-tab="skills"]').click();
-  // m11: pinned exactly, same reasoning as Equipment's 61 above — measured live
-  // (a real browser walk, not carried over from the Equipment number) on this
-  // reproducible state, AFTER `brief-story-more` above.
-  expect(await textNodeCount(page)).toBe(84);
-  await screenPasses(page, 70);
+  expect(await textNodeCount(page), "member detail, Skills").toBe(62);
+  await screenPasses(page, 55);
 
   await page.locator('.tab[data-tab="profile"]').click();
-  // m11: pinned exactly — measured live the same way.
-  expect(await textNodeCount(page)).toBe(47);
-  await screenPasses(page, 40);
+  expect(await textNodeCount(page), "member detail, Profile").toBe(24);
+  await screenPasses(page, 20);
 
   // Spending redraws the learn list with rows the first pass never held — the red
   // "needs Secondary" tag, spent-out seals, the receipt. New colours on new grounds.
-  // `prepEveryMember` ends on the Skills tab (it opens Skills for every member it
-  // touches), so the count only ever grows from the Skills floor above.
+  // `prepEveryMember` now ends back on PARTY SELECT (it has to, or the Deploy plate is
+  // unreachable), so walk back in to the Skills tab it left behind.
   await prepEveryMember(page);
+  await openMember(page);
+  await page.locator('.tab[data-tab="skills"]').click();
   await expect(page.getByTestId("prep-learn")).toBeVisible();
-  await screenPasses(page, 70);
+  await screenPasses(page, 55);
 });
 
 test("contrast: the help panel", async ({ page }) => {

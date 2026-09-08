@@ -329,8 +329,12 @@ degenerate fixture where all orderings coincide).
   **element count**, never visibility — a renderer that emits every line and hides the tail
   with `visibility: hidden` passes a visibility check exactly as a correct one does — plus
   `not.toContainText(lastLine)`, since `textContent` includes hidden text. Survival is
-  asserted against **two** entry points separately (a prep edit and a deploy toggle: they
-  are different code paths and fixing one does not imply the other), and the reset case is
+  asserted against **two edits** (~~two entry points: a prep edit and a deploy toggle,
+  different code paths where fixing one does not imply the other~~ — **corrected 2026-09-08,
+  ADR-0041 removed the deploy toggle. A weapon swap and a job change are now the pair, and
+  they run the SAME `onChange` → `updateParty` → `renderBriefingText` → `refresh()` chain.
+  Two paths are no longer claimed; what the pair buys is two different edits repainting
+  different amounts of the panel, and a second observation of the beat surviving**), and the reset case is
   **required**, or an implementation that never resets passes every survival assertion.
   Advancing SHALL append rather than rebuild, proved by holding an `ElementHandle` for the
   first line across an advance and asserting `isConnected` — no ARIA attribute check can
@@ -708,6 +712,17 @@ degenerate fixture where all orderings coincide).
   expands and never collapses passes the bound and permanently covers a third of the board,
   which is the failure this whole criterion exists to catch, one control further along.
 
+  > **PARKED ON `/` (ADR-0041, 2026-09-08), and this note covers AC-V34, AC-V36 and
+  > AC-V37.** The campaign page cannot reach a staged target: its first actor is the wizard
+  > Kest, and `isClickTargetable` (`src/render/preview.ts`) rejects every `aoe`/`speed`
+  > ability, so a wizard and a priest have no tap-castable action at all. Ten `/` cases
+  > across these three criteria are `test.fixme`'d with a `DEFERRED (ADR-0041)` reason, and
+  > so is `stage-capture.spec.ts`'s five-state frame walk — which **deleted seven tracked
+  > interaction frames**; the proof sheet keeps only the five `rest-*` ones.
+  > **Every `/viewer.html` twin still runs every assertion**, so each criterion keeps a
+  > live carrier; what is lost is the claim on the page a player actually loads. Re-arm by
+  > deleting the `test.fixme` line, never by loosening an assertion.
+
 - **AC-V35 (every control is thumb-sized where it is smallest)** `[ENHANCEMENT]`: At
   **640×300** — the narrowest supported viewport — every interactive control SHALL measure
   at least **44 × 44 CSS px**, measured **after** the stage transform.
@@ -957,37 +972,75 @@ decision, 2026-09-06). `scene.ts`'s DOM is unchanged — every change is CSS plu
   screen — review measured the pre-fix build at 159 of 275,724 card pixels moving under
   this same probe, effectively nothing, while three places described the band as live.
 
-### 6c. The briefing screen, in the overhaul look (ADR-0040, second amendment, option A)
+### 6c. The briefing screen: two views (ADR-0041, superseding ADR-0040's option A here)
 
-`#screen-briefing` moves to a two-pane look: portrait-card roster on the left leaf, a
-three-tab detail leaf (Equipment / Skills / Profile, built by `src/render/prep.ts` into
-`#prep-body`) on the right, briefing chrome on a top rail, a wax Deploy plate. `e2e/
-briefing.spec.ts` is the suite; each AC below names the test title that covers it.
+~~`#screen-briefing` moves to a two-pane look: portrait-card roster on the left leaf, a
+three-tab detail leaf on the right.~~ **Superseded 2026-09-08 by ADR-0041: the briefing is
+two VIEWS, not two panes, and the per-card deploy toggle is gone.**
+
+- **Party select** — six portrait cards in one 6×1 row, a read-only "This battle fields N
+  of 6. Tap a member to manage them.", an "In camp" caption on every card the encounter
+  does not field, the pre-battle beat on the **top rail**, and the wax Deploy plate on the
+  foot rail.
+- **Member detail** — reached by tapping a card. Equipment / Skills / Profile full-width
+  (built by `src/render/prep.ts` into `#prep-body`), a `member-back` plaque, and a top rail
+  reading "Battle N of 5 · managing \<name\>".
+
+View state is a module `let briefView` in `src/render/game.ts` (`setBriefView` writes,
+`applyBriefView` applies), reset to party on every transition into the briefing.
+
+**The asserted viewports for this screen are 832×328 and 832×384 — the owner's phone in
+landscape, and nothing else** (ADR-0041). 832×328 assumes a ~56 px Android browser bar and
+is **unverified on a real device**. The CSS stays fluid; 640×300, 851×324 and 1000×780 are
+no longer asserted here, and the `@media (min-height:401px)` and `(max-width:700px)`
+branches are untested by decision.
+
+`e2e/briefing.spec.ts` is the suite; each AC below names the test title that covers it.
 
 - **AC-V51 (portrait identity, not just presence):** The roster card and the unit-head
   portrait for a given member SHALL both resolve to that member's `PORTRAIT_BY_UNIT`
   asset (ADR-0039), and a member with no entry SHALL show the placeholder honestly.
-  Covered by "Briar's card and head portrait resolve to the bundled archer-f asset;
-  Vance's to the placeholder."
-- **AC-V52 (three tabs, Equipment first, and the choice survives navigation):** The right
-  leaf SHALL default to Equipment on entry, mark the open tab `aria-selected="true"`, and
+  ~~Covered by "Briar's card and head portrait resolve to the bundled archer-f asset;
+  Vance's to the placeholder."~~ **Retitled 2026-09-08 (ADR-0041): Vance has real art
+  (`archer-m`) now, so the pair is two DIFFERENT real assets, not art-vs-placeholder.**
+  Covered by "Briar's and Vance's cards, and the head portrait, resolve to their OWN
+  bundled assets." *Discriminator, unchanged and load-bearing:* assert the **asset
+  identity** in `src`, never that some image arrived — every real crop is 192 wide, so a
+  `naturalWidth` check passes a knight's face on the archer. **The placeholder half of
+  this AC now has no in-play fixture**: every shipped character has real art, so nothing
+  reachable exercises the honest-placeholder branch.
+- **AC-V52 (three tabs, Equipment first, and the choice survives navigation):** Member
+  detail SHALL default to Equipment on entry, mark the open tab `aria-selected="true"`, and
   keep the same tab open across a roster-member switch or an ability purchase. Covered by
   "Equipment is selected on entry; Skills reveals prep-reaction; Profile reveals
   prep-traits; aria-selected follows" and "switching roster member keeps Skills selected;
   buying an ability shows the receipt without a tab click."
-- **AC-V53 (the control manifest is an exact partition):** Every `prep-*` testid the
-  screen can emit (21, enumerated by grep, not prose) SHALL be attached and visible on
-  its declared tab, hidden on every other tab, and — for the five testids that are
-  absent-not-zero — SHALL be seen present at least once across the sweep, so a row that
-  stops being reachable goes red rather than reading as "legitimately absent" forever.
-  Covered by "every manifest control is attached on its tab, or legitimately absent;
-  nothing stray ships."
-- **AC-V54 (drift from the mockup, at 851×324):** The tab row's top, the right leaf's
-  right edge, the Deploy plate's bottom-right corner and the first roster card's box
-  SHALL sit within 12px of `docs/visual/concepts/mockups/prep-851x324.png`, measured
-  against the approved mockup's own rendered HTML, not eyeballed. Covered by "tab-row
-  top, leaf's right edge, Deploy plate's bottom-right, and the first card's box are
-  within 12px of the mockup."
+- **AC-V53 (the control manifest is an exact partition, across both views):** Every
+  `prep-*` / `member-*` testid the screen can emit (**23**, enumerated by grep, not prose)
+  SHALL be tagged with its **view** (party select / member detail) and, within member
+  detail, its tab; SHALL be attached and visible there; SHALL be hidden elsewhere; and —
+  for the testids that are absent-not-zero — SHALL be seen present at least once across the
+  sweep, so a row that stops being reachable goes red rather than reading as "legitimately
+  absent" forever. The partition is exact in **both** directions: a stray id fails, and a
+  stale key fails too. Covered by "every manifest control is attached on its view and tab,
+  or legitimately absent; nothing stray ships."
+- **AC-V54 (drift from the approved mockup, at 832×328):** Six values SHALL sit within 12px
+  of `docs/visual/concepts/mockups/party-832x328.png` — the card row's first left edge, its
+  last right edge, every card's top, the roster's right edge, and the Deploy plate's right
+  and bottom edges — measured against the mockup's own rendered HTML
+  (`mockups/src/party.html`, re-derivable with `node mockups/src/shoot.mjs`), not eyeballed.
+  Card **tracks** SHALL additionally be equal to 2px.
+  *Why invariants and not four pixel positions:* the approved frame drew **four** cards on
+  a `cardX: [44, 237, 430, 624] / cardWidth: 187` grid, which is unsatisfiable at six.
+  Re-recording six measured positions off the running build would assert whatever the CSS
+  did — a test that cannot come out the other way. The row's box and equal tracks still
+  bite: pinning `.cards` to five columns wraps the sixth card and fails on
+  "last card right edge: 192 is not within 12px of 811" (mutation run 2026-09-08).
+  **NOT ASSERTED, and owed to the art director:** nobody has approved a six-card frame. The
+  shipped card is 123px wide where the approved four-card frame drew 187, and whether a
+  face reads at that size is a taste call this suite cannot make. Covered by "the card
+  row's box, the roster's right edge and the Deploy plate are within 12px of the mockup"
+  and "a six-member party still stands in ONE ROW at both folds."
 - **AC-V55 (two named leaks stay fixed, and one coincidence is pinned):** A disabled buy
   plaque SHALL keep `opacity: 1` and the iron gradient (index.html's page-wide
   `button[disabled]{opacity:.4}` must not win); `brief-step` SHALL NOT be uppercased
@@ -997,24 +1050,30 @@ briefing.spec.ts` is the suite; each AC below names the test title that covers i
   plaque keeps opacity 1 and the iron gradient; the eyebrow keeps its mixed case" and
   "prep-stats stays an unboxed field, pinned rather than left to coincidence."
 - **AC-V56 (phone fit: no scroll, every control ≥44px, the plate stays in view):** At
-  640×300 and 851×324 the page SHALL NOT scroll horizontally; Deploy, Quit, the three
-  tabs, every roster card's short side, and every `prep-*` select (job, secondary,
-  weapon, reaction, support, movement) SHALL clear 44 CSS px; and the Deploy plate's box
-  SHALL stay inside the viewport. Covered by the "no horizontal scroll; Deploy/Quit/
-  tabs/roster cards clear 44px" case, and by "the Deploy plate clears every prep-*
-  control and every roster card" (B1) at 640×300, 851×324 and 1000×780.
-- **AC-V57 (the pre-battle story row never clips its own control or the roster):** At
-  every phone fold `brief-story`'s reveal control SHALL stay fully inside the left leaf
-  and clear of the roster's box, and the story line itself SHALL either show everything
-  it holds or offer the reveal control. Covered by "brief-story's reveal control stays
-  inside the leaf and clear of the roster; the line is not clipped" (D1), at 1000×780,
-  851×324 and 640×300.
-- **AC-V58 (contrast is measured per tab, and pinned exactly):** Every text-bearing
-  element on each tab SHALL clear WCAG AA against the worst ground it can be painted on.
-  Text-node counts are pinned exactly on the entry state, MEASURED not guessed — Equipment
-  61, Skills 84, Profile 47 — with a floor set a real margin under each, so a tab that
-  stops rendering is caught rather than absorbed by slack. Covered by "contrast: briefing
-  and prep, before and after spending" in `e2e/contrast.spec.ts`.
+  **832×328 and 832×384**, on **both views**, the page SHALL NOT scroll horizontally;
+  Deploy, Quit, `member-back`, the three tabs, every roster card's short side, and every
+  `prep-*` select (job, secondary, weapon, reaction, support, movement) SHALL clear 44 CSS
+  px; and the Deploy plate's box SHALL stay inside the viewport. Covered by the
+  "no horizontal scroll; every control on both views clears 44px; the Deploy plate stays
+  inside the viewport" case, and by "deploy's box intersects no roster card and no other
+  party-view control" (B1), both at 832×328 and 832×384.
+- **AC-V57 (the pre-battle story row never clips its own control or the roster):** At both
+  folds `brief-story`'s reveal control SHALL stay fully inside the **top rail** — the beat
+  moved onto the rail with the split, so the rail, not the leaf it used to share with the
+  roster, is the box it must fit — and clear of the roster's box; and the story line itself
+  SHALL either show everything it holds or offer the reveal control. Covered by
+  "brief-story's reveal control stays inside the leaf and clear of the roster; the line is
+  not clipped" (D1), at 832×328 and 832×384.
+- **AC-V58 (contrast is measured per view and per tab, and pinned exactly):** Every
+  text-bearing element on each view and tab SHALL clear WCAG AA against the worst ground it
+  can be painted on. Text-node counts are pinned exactly, MEASURED not guessed, in this
+  walk's order — **party select 34, party select after the beat is revealed 33, member
+  detail Equipment 37, Skills 62, Profile 24** — with a floor set a real margin under each,
+  so a view or tab that stops rendering is caught rather than absorbed by slack. The party
+  counts move with the roster **size** (two extra members are five more text nodes: a name,
+  an AP readout and a job line) and moved again when the "In camp" caption landed on the
+  four unfielded cards. Covered by "contrast: briefing and prep, before and after spending"
+  in `e2e/contrast.spec.ts`.
 - **AC-V59 (the CSS-leak probe's own coverage is an exact allowlist, not a floor):** Every
   page-wide `index.html` rule that CDP reports as directly matching an element inside
   `#screen-title`, `#screen-scene` or `#screen-briefing`, on a property the scoped rule
@@ -1023,9 +1082,34 @@ briefing.spec.ts` is the suite; each AC below names the test title that covers i
   not pruned) fails it too. Covered by "matched-rule leaks equal the recorded allowlist
   exactly, in both directions."
 
+- **AC-V60 (the two views, and entry is always party select):** Entering the briefing
+  SHALL show party select; tapping a card SHALL open that member; `member-back` SHALL
+  return to party select with the same member still selected; and an edit made in member
+  detail SHALL leave the screen in member detail, on the same member. *Discriminator:* the
+  reset must be on the **transition into** the briefing (`renderScreens`), not in
+  `applyBriefView` — an ordinary repaint that reset the view would also pass a
+  "entry shows party select" check while destroying an in-progress edit. Covered by
+  "entering shows party select only; a card opens that member; back keeps the same member
+  selected", "tapping the DEEPEST thing on a card opens that member — nothing inside the
+  tile swallows the tap", "the view survives a repaint…" and "opening a member focuses
+  Back; going back focuses the card that was open."
+- **AC-V61 (six shown, N fielded, said out loud):** The party view SHALL mark exactly the
+  members the **encounter** does not place, with an "In camp" caption, and state the count
+  in a read-only line. The marks SHALL follow the encounter even when a stale
+  `save.deployment` is present, and SHALL be suppressed entirely when the encounter fields
+  everybody. Covered by "battle 1 marks exactly the four members it does NOT field, and
+  says so in the hint" and "the fielded set follows the ENCOUNTER even when a stale
+  deployment is in the save."
+
 **AC-V35's 44px floor now ALSO binds on this screen, via AC-V56** — the briefing screen's
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already
 states, re-asserted here for this screen's own controls.
+
+**`brief-deploy-note` is now a READ-ONLY line.** It reads "This battle fields N of 6. Tap a
+member to manage them." — a statement of what the encounter authors, not a control. There
+is no deploy toggle: who fights is authored per encounter until ADR-0041's six-placement
+slice lands, and `continueGame` clears `save.deployment` so a stale pick from the old build
+cannot silently field a subset.
 
 **UNASSERTED, said plainly:** the one-member roster state (roster and `brief-deploy-note`
 both hidden) has no test — `e2e/briefing.spec.ts` documents it as `test.skip`, because no
@@ -1034,10 +1118,17 @@ so injecting a hand-built one-member save would assert a state the shipped game 
 reach. The rule itself is asserted one layer down instead, at `prep.ts`'s `mountPrepDemo`,
 which never draws a roster at all.
 
+**ALSO UNASSERTED for this screen since ADR-0041:** 640×300, 851×324 and 1000×780. They
+were dropped when the asserted set became the owner's phone alone; the CSS is still fluid,
+so a regression at those widths goes green. 832×328's ~56px browser-bar assumption is
+itself unverified on a real device.
+
 **NOT ASSERTED by AC-V47…AC-V50:** which house owns which ribbon colour (no field in the
-data names it); the prologue's placeholder portraits reading as the pending frame rather
-than art (a data gap, not a viewer defect); real-device scroll behaviour (Chromium only,
-same caveat as §6a).
+data names it); ~~the prologue's placeholder portraits reading as the pending frame rather
+than art (a data gap, not a viewer defect)~~ — **moot since ADR-0041: every shipped
+character has real art, so no placeholder figcaption renders on any scene, and that
+caption's contrast is no longer measured anywhere**; real-device scroll behaviour
+(Chromium only, same caveat as §6a).
 
 **NOT ASSERTED by AC-V33…AC-V42, said here rather than left implied:**
 
@@ -1329,7 +1420,10 @@ work is unstarted.
 **AC-V43 onward**, and it lands screen by screen. Naming it here is what stops "the viewer
 is built for a phone" from reading as a claim about screens nobody has measured. AC-V43
 itself stays reserved (§6a); the briefing screen's ACs start at V51 because V44…V50 are
-already spoken for by the title and scene ports.
+already spoken for by the title and scene ports. **AC-V60 and AC-V61 (ADR-0041, 2026-09-08)
+are also the briefing's**, minted at the end rather than as V52a/V52b — the letter set has
+no sub-numbering, and inventing one here would collide with the `AC-V22(g)` clause form
+already in use. **Next free viewer AC: V62.**
 
 ## 9. Determinism risks specific to this layer
 

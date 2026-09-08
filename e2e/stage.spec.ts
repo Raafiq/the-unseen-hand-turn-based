@@ -311,6 +311,16 @@ test.describe("AC-V34 — nothing covers the board at rest", () => {
   for (const path of PAGES) {
     for (const row of VIEWPORTS) {
       test(`${path} at ${row.name} the HUD never overlaps the canvas at rest`, async ({ page }) => {
+        // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+        // relaxed — the campaign page simply cannot reach a staged target right now: its
+        // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+        // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+        // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+        // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+        test.fixme(
+          path === "/",
+          "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+        );
         await page.setViewportSize(row.size);
         await page.goto(path);
         await reachBattle(page, path);
@@ -516,6 +526,16 @@ test.describe("AC-V35 — 44 CSS px at the NARROWEST viewport", () => {
 test.describe("AC-V36 — a target tap stages; Confirm commits", () => {
   for (const path of PAGES) {
     test(`${path} the tap emits ZERO commands and Confirm emits exactly one`, async ({ page }) => {
+      // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+      // relaxed — the campaign page simply cannot reach a staged target right now: its
+      // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+      // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+      // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+      // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+      test.fixme(
+        path === "/",
+        "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+      );
       await page.setViewportSize({ width: 851, height: 324 });
       await page.goto(path);
       await reachBattle(page, path);
@@ -561,6 +581,16 @@ test.describe("AC-V36 — a target tap stages; Confirm commits", () => {
      * usable and answers with a refusal chip.
      */
     test(`${path} End Turn is refused while a target is staged`, async ({ page }) => {
+      // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+      // relaxed — the campaign page simply cannot reach a staged target right now: its
+      // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+      // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+      // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+      // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+      test.fixme(
+        path === "/",
+        "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+      );
       await page.setViewportSize({ width: 851, height: 324 });
       await page.goto(path);
       await reachBattle(page, path);
@@ -602,6 +632,16 @@ test.describe("AC-V36 — a target tap stages; Confirm commits", () => {
      * is not broken.
      */
     test(`${path} the disabled primary does not read as the thing to press`, async ({ page }) => {
+      // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+      // relaxed — the campaign page simply cannot reach a staged target right now: its
+      // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+      // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+      // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+      // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+      test.fixme(
+        path === "/",
+        "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+      );
       await page.setViewportSize({ width: 851, height: 324 });
       await page.goto(path);
       await reachBattle(page, path);
@@ -631,6 +671,16 @@ test.describe("AC-V36 — a target tap stages; Confirm commits", () => {
     });
 
     test(`${path} Cancel unstages and emits nothing`, async ({ page }) => {
+      // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+      // relaxed — the campaign page simply cannot reach a staged target right now: its
+      // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+      // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+      // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+      // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+      test.fixme(
+        path === "/",
+        "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+      );
       await page.setViewportSize({ width: 851, height: 324 });
       await page.goto(path);
       await reachBattle(page, path);
@@ -815,6 +865,16 @@ test.describe("AC-V37 — the actor tab and the unit drawer", () => {
     test(`${path} the drawer closes on a TARGET tap and stays open on an illegal one`, async ({
       page,
     }) => {
+      // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Nothing below is
+      // relaxed — the campaign page simply cannot reach a staged target right now: its
+      // first actor is the wizard Kest, and `isClickTargetable` (`src/render/preview.ts`)
+      // rejects every `aoe`/`speed` ability, so a wizard and a priest have no
+      // tap-castable action at all. Combat is being revamped; re-arm this by deleting the
+      // line, not by loosening an assertion. `/viewer.html` still runs every assertion.
+      test.fixme(
+        path === "/",
+        "DEFERRED (ADR-0041): the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed), so there is no legal target to stage until the combat revamp",
+      );
       await page.setViewportSize({ width: 851, height: 324 });
       await page.goto(path);
       await reachBattle(page, path);

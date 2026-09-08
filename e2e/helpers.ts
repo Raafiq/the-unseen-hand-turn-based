@@ -35,7 +35,66 @@ export async function openPrepTab(
   page: Page,
   tab: "equipment" | "skills" | "profile",
 ): Promise<void> {
+  // The briefing is TWO views since 2026-09-07: the tabs live on the member view, two
+  // taps deep. Opening the member first is what a player does; without it every caller
+  // would click a `display: none` plaque and time out. A no-op on `/viewer.html`, whose
+  // prep screen has no roster at all.
+  await openMember(page);
   await page.locator(`.tab[data-tab="${tab}"]`).click();
+}
+
+/**
+ * Open a party member's detail view from the briefing's party select.
+ *
+ * TOLERANT about there being no roster at all — the engine viewer's prep screen mounts
+ * the same panel with no picker in front of it — and about already being in the member
+ * view when no particular member was asked for.
+ *
+ * STRICT ABOUT IDENTITY. The early return used to fire whenever the roster was hidden,
+ * INCLUDING when a caller had named a member: the helper then quietly left whichever
+ * member happened to be open and reported success, so a whole `for (const id of PARTY)`
+ * sweep could inspect the same member six times and read as covering six. A named call
+ * now backs out to party select first, and asserts afterwards that the member the screen
+ * is showing is the one that was asked for — by NAME, off the card, so a handler bound
+ * to the wrong card fails here instead of somewhere downstream.
+ *
+ * `memberId` is the ROSTER record id (`pc-briar`), not a battle slot id.
+ */
+export async function openMember(page: Page, memberId?: string): Promise<void> {
+  const roster = page.getByTestId("prep-roster");
+  if (!(await roster.isVisible())) {
+    if (memberId === undefined) return;
+    // Already in the member view: back out so the named card can actually be clicked.
+    const back = page.getByTestId("member-back");
+    if (!(await back.isVisible())) {
+      throw new Error(
+        `openMember("${memberId}"): no roster and no way back to one — this page cannot open a named member`,
+      );
+    }
+    await back.click();
+    await expect(roster).toBeVisible();
+  }
+  const card =
+    memberId === undefined
+      ? page.locator('[data-testid="prep-roster"] .ptab').first()
+      : page.locator(`[data-testid="prep-roster"] .ptab[data-member="${memberId}"]`);
+  // Read the name off the card BEFORE the click, so the assertion afterwards compares
+  // the screen against the roster rather than against a name written down here.
+  const wanted = (await card.locator(".pname").innerText()).trim();
+  await card.click();
+  await expect(page.getByTestId("prep")).toBeVisible();
+  await expect(
+    page.locator("#screen-briefing .nameline h2"),
+    `openMember(${memberId ?? "first"}): the member view opened on someone else`,
+  ).toHaveText(wanted);
+}
+
+/** Back out of a member's detail view to party select. A no-op if already there. */
+export async function backToParty(page: Page): Promise<void> {
+  const back = page.getByTestId("member-back");
+  if (!(await back.isVisible())) return;
+  await back.click();
+  await expect(page.getByTestId("prep-roster")).toBeVisible();
 }
 
 export async function prepEveryMember(page: Page): Promise<void> {
@@ -43,6 +102,7 @@ export async function prepEveryMember(page: Page): Promise<void> {
   for (let i = 0; i < members.length; i += 1) {
     // Re-resolve each pass: the panel re-renders after every purchase, so a handle taken
     // before the click is detached by the time the next one is needed.
+    await backToParty(page);
     await page.locator('[data-testid="prep-roster"] button.ptab').nth(i).click();
     // Owner decision 2026-09-07: buy/equip controls moved onto the right leaf's SKILLS
     // tab (Equipment is the default). Clicking a roster card does not reset the tab
@@ -67,6 +127,11 @@ export async function prepEveryMember(page: Page): Promise<void> {
       if (current === "" && values.length > 0) await select.selectOption(values[0]!);
     }
   }
+  // LEAVE THE SCREEN AS IT WAS FOUND. Every one of these edits happens on the MEMBER
+  // view (the split, owner 2026-09-07), where the Deploy plate does not exist — so a
+  // caller that walks the party and then clicks Deploy would time out on a hidden
+  // button, which reads exactly like a broken plate. Ten specs did.
+  await backToParty(page);
 }
 
 /**

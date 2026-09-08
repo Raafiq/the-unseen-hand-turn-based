@@ -1,0 +1,42 @@
+/* The SUBSET of `index.html`'s page-wide rules the two mockup pages actually need,
+   copied verbatim so the shared story component and the help disc render the way
+   they do in the running game.
+
+   THIS IS NOT THE WHOLE PAGE-WIDE SURFACE, AND THAT MATTERS. `overhaul.css`'s
+   `#screen-briefing` section fixes ~15 named leaks from rules that are NOT here
+   (`.panel` padding, `.stat-row .v` at 1.5rem, `body{line-height:1.55}`, and the
+   rest). A mockup that omits those rules cannot re-discover a leak, so a clean
+   frame here is NOT evidence the ported screen will be clean — the engineer still
+   owes `e2e/css-leaks.spec.ts` a run and a numeric diff (AC-V59). Said plainly
+   because the previous prep mockup had the same gap and four leaks were only
+   found after the port. */
+
+button.help-btn {
+  background: linear-gradient(180deg, #f0e6cb, #cdb27a);
+  border: 1px solid #6a5027;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* the shared scene component (scene.ts), as `index.html` styles it */
+.story .who { margin: 0 0 7px; font-family: var(--roman); font-size: .66rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--warn); }
+.story p.line { margin: 0 0 8px; color: var(--ink); font-size: 1.12rem; max-width: 56ch; }
+.story p.line:last-child { margin-bottom: 0; }
+.scene-lines { border-left: 2px solid var(--accent); padding: 2px 0 2px 18px; }
+.scene-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.scene-controls button { font-size: .68rem; padding: 8px 14px 8px 24px; }
+.scene-progress { margin: 0; font-family: var(--roman); font-size: .58rem; letter-spacing: .12em; text-transform: uppercase; }
+.portrait { margin: 0; width: 96px; flex: none; border: 1px solid var(--border-strong); box-shadow: inset 0 0 0 2px rgba(234, 218, 174, .3); }
+.portrait img { display: block; width: 100%; height: auto; aspect-ratio: var(--portrait-ratio); object-fit: cover; }
+.portrait figcaption.pending { font-family: var(--roman); font-size: .52rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); text-align: center; padding: 5px 3px; border-top: 1px solid var(--border); }
+button.ghost { background: linear-gradient(180deg, rgba(247, 238, 212, .6), rgba(197, 166, 106, .42)); color: var(--ink); border: 1px solid var(--border-strong); border-radius: 0; padding: 8px 14px; cursor: pointer; font-family: var(--sans); box-shadow: inset 0 1px 0 rgba(255, 250, 232, .55); }

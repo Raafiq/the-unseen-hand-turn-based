@@ -6,14 +6,14 @@
       "id": "vance",
       "name": "Vance",
       "portrait": {
-        "asset": "placeholder"
+        "asset": "archer-m"
       }
     },
     {
       "id": "kest",
       "name": "Kest",
       "portrait": {
-        "asset": "placeholder"
+        "asset": "wizard-m"
       }
     },
     {
@@ -245,7 +245,7 @@
         "lines": [
           {
             "speaker": "vance",
-            "text": "Four names on a contract and one road to walk. That is the whole of it."
+            "text": "Six names on a contract and one road to walk. That is the whole of it."
           },
           {
             "speaker": "kest",

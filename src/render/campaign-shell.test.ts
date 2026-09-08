@@ -707,11 +707,15 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
       selectedId: "pc-kest",
       onChange: (r) => s.updateParty(r),
     });
-    model.learn("monk", "chakra");
+    // Kest is a WIZARD as of 2026-09-08, so the purchase has to sit in a skillset his
+    // current job projects — a borrowed Punch Art would be bought and never reach the
+    // command list, and this test would fail for a reason that is not the prep loop.
+    // Fire 2's prerequisite is the Fire he ships with, so the node is buyable at once.
+    model.learn("wizard", "fire-2");
 
     s.deploy();
     const unit = s.session!.state.units.find((u) => u.id === deployedUnitId(s, "Kest"))!;
-    expect(unit.abilities.map((a) => a.id)).toContain("punch-art.chakra");
+    expect(unit.abilities.map((a) => a.id)).toContain("black-magic.fire-2");
   });
 
   it("and that is not vacuous — the SAME unit without the purchase does not have it", () => {
@@ -722,7 +726,7 @@ describe("docs/11 M0 item 3: the between-battle prep loop writes into the save",
     passScene(s);
     s.deploy();
     const unit = s.session!.state.units.find((u) => u.id === deployedUnitId(s, "Kest"))!;
-    expect(unit.abilities.map((a) => a.id)).not.toContain("punch-art.chakra");
+    expect(unit.abilities.map((a) => a.id)).not.toContain("black-magic.fire-2");
   });
 
   it("the party CANNOT be edited during a battle — the edit would apply to the next one", () => {
@@ -878,23 +882,33 @@ describe("AC-V17: a standalone scene is a screen, and it is seen once", () => {
   });
 });
 
-describe("AC-M9 / ADR-0039: six real portraits are wired, four wait unbundled", () => {
-  it("TRIPWIRE — the story pack names exactly its authored keys, and the bundle holds exactly the approved six plus the placeholder. Update this when either set moves.", () => {
+describe("AC-M9 / ADR-0039: nine real portraits are wired, one waits unbundled", () => {
+  it("TRIPWIRE — the story pack names exactly its authored keys, and the bundle holds exactly the approved nine plus the placeholder. Update this when either set moves.", () => {
     // Deliberately fails the day a character's asset changes without this test moving
     // with it, so the docs, the ADR and the "Portrait pending" caption are forced to
     // stay in sync with the art rather than being left behind saying something false.
-    // The pack names briar (archer-f) and ottoline (priest-f) directly; the four enemy
-    // keys are named only by PORTRAIT_BY_UNIT, not by any story character.
-    expect(portraitAssets(story)).toEqual(["archer-f", "placeholder", "priest-f"]);
+    //
+    // ALL FOUR story characters now name a real key — Vance (archer-m) and Kest
+    // (wizard-m) were `"placeholder"` until the six-member roster of 2026-09-08 claimed
+    // two more crops — so `"placeholder"` has left this list. It is still BUNDLED below,
+    // because `resolvePortrait` falls back to it for any unit id the table does not name.
+    // The five enemy keys are named only by PORTRAIT_BY_UNIT, not by any story character.
+    expect(portraitAssets(story)).toEqual(["archer-f", "archer-m", "priest-f", "wizard-m"]);
     expect(Object.keys(PORTRAITS)).toEqual([
       "placeholder",
       "archer-f",
+      "archer-m",
       "priest-f",
+      "priest-m",
       "knight-m",
       "knight-f",
       "thief-m",
       "wizard-f",
+      "wizard-m",
     ]);
+    // The tenth approved crop (thief-f) is deliberately NOT bundled: nothing names it,
+    // and the boot check throws on art wired to nothing.
+    expect(Object.keys(PORTRAITS)).not.toContain("thief-f");
   });
 
   it("the bundle and the pack agree in BOTH directions, against the UNION with PORTRAIT_BY_UNIT", () => {
@@ -947,7 +961,7 @@ describe("unitJobs — the deployed record's job, keyed the way a battle is", ()
     const jobs = s.unitJobs();
     const ids = s.session!.state.units.map((u) => u.id);
 
-    expect(jobs["blue-vance"]).toBe("geomancer");
+    expect(jobs["blue-vance"]).toBe("archer");
     expect(jobs["red-brigand-1"]).toBe("knight");
     expect(jobs["pc-vance"]).toBeUndefined();
     // …and every key is a unit that is genuinely on the field.

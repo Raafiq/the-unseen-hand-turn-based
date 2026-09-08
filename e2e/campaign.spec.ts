@@ -1,8 +1,10 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import {
+  backToParty,
   prepEveryMember,
   dismissScene,
   freezeMotion,
+  openMember,
   openPrepTab,
   settleMotion,
   startNewGame,
@@ -88,6 +90,9 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   // briefing screen has still started a run.
   expect(await stored(page)).not.toBeNull();
 
+  // Deploy lives on PARTY SELECT (the split, owner 2026-09-07); the tab walk above is
+  // two taps deep, so back out the way a player does before committing.
+  await backToParty(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await expect(page.getByTestId("timeline")).toContainText("Next up");
@@ -292,6 +297,7 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
 
   // And the edit is on the unit that DEPLOYS, not merely in the panel — the assertion
   // that reaches through `updatePartyMember` rather than stopping at it.
+  await backToParty(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   const abilities = await page.evaluate(() => {
@@ -423,7 +429,9 @@ test("equipment: a granted weapon can be equipped, and it survives a reload", as
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
-  // Battle one's grant is in hand before battle one is fought, so the row exists now.
+  // Battle one's grant is in hand before battle one is fought, so the row exists now —
+  // two taps in, on the member view (the split, owner 2026-09-07).
+  await openMember(page);
   const weapon = page.getByTestId("prep-weapon");
   await expect(weapon).toBeVisible();
   await weapon.selectOption("wpn-cestus");
@@ -431,6 +439,10 @@ test("equipment: a granted weapon can be equipped, and it survives a reload", as
   await page.reload();
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  // A reload lands on PARTY SELECT — entering the briefing always does (`renderScreens`)
+  // — so the assertion has to walk back in, which is also the honest read: what a
+  // returning player sees is the roster, and the saved weapon is where they left it.
+  await openMember(page);
   await expect(page.getByTestId("prep-weapon")).toHaveValue("wpn-cestus");
 });
 
@@ -446,7 +458,9 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
-  // Weapon lives on Equipment (the entry tab); traits live on Profile.
+  // Weapon lives on Equipment (the entry tab); traits live on Profile — both two taps in,
+  // on the member view.
+  await openMember(page);
   const weaponHint = page.getByTestId("prep-weapon-hint");
   const traitHint = page.getByTestId("prep-traits-hint");
 
@@ -464,40 +478,46 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   await expect(traitHint).toHaveCount(0);
 });
 
-test("deployment: the briefing shows who fights, and a click swaps them into the battle", async ({ page }) => {
-  // The gap: the briefing listed four names and then deployed two, which reads as a bug
-  // rather than the authored ramp it is. What only a browser proves is that the click
-  // reaches the SAVE and then the BOARD — the headless tests drive the shell directly.
+test("deployment: the briefing lists the whole party, and Deploy fields the authored set", async ({ page }) => {
+  // WHAT CHANGED AND WHY, stated rather than quietly narrowed: the per-card deploy
+  // toggle is gone (owner, 2026-09-08 — "work off the assumption that all battles will
+  // have 6 deployed. we don't worry about selection of party members yet"), so there is
+  // no click here that swaps anybody. `save.deployment` stays empty, which
+  // `campaign-shell.ts` reads as "as the encounter authored it".
+  //
+  // The half a browser still has to prove is the one that was never headless: the party
+  // leaf lists EVERY member, and the units that reach the BOARD are the encounter's
+  // authored set — which at battle 1 is FEWER than the roster shows. That gap is real
+  // and currently unstated on screen; it is recorded here rather than asserted away.
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
 
-  await expect(page.getByTestId("brief-deploy-note")).toContainText("fields 2 of 4");
-  const benched = page.locator('[data-testid="brief-party"] li.benched');
-  await expect(benched).toHaveCount(2);
-
-  // Bench somebody who is going, by deploying somebody who is not.
-  await page.locator('[data-testid="brief-party"] li.benched button[data-deploy]').first().click();
-  await expect(benched).toHaveCount(2); // the COUNT never moves — the ramp is the battle's
-
-  const chosen = await page.evaluate(() => window.tuhGame.save()?.deployment ?? []);
-  expect(chosen).toHaveLength(2);
-
-  // The names still on the briefing's DEPLOYED rows are the ones that must appear on
-  // the board. Read them off the page rather than writing them down: which member the
-  // click promoted depends on the authored roster, and hard-coding it would rot the
-  // moment the campaign's opening battle is re-authored.
-  const going = await page
-    .locator('[data-testid="brief-party"] li:not(.benched) b')
-    .allInnerTexts();
-  expect(going).toHaveLength(2);
+  const listed = await page.locator('[data-testid="brief-party"] li.member .pname').allInnerTexts();
+  const partySize = await page.evaluate(() => window.tuhGame.save()?.party.length ?? 0);
+  expect(listed.length, "the roster lists every party member").toBe(partySize);
+  expect(await page.evaluate(() => window.tuhGame.save()?.deployment ?? null)).toEqual([]);
 
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   // The timeline names every unit due to act, so it is where "who actually took the
   // field" is observable to a player.
   const timeline = page.getByTestId("timeline");
-  for (const name of going) await expect(timeline).toContainText(name);
+  // FEWER than the roster listed, and specifically the encounter's own set: the count is
+  // read off the sim's board rather than written down here, because which members the
+  // encounter authors is content and would rot the moment battle 1 is re-authored.
+  const fieldedCount = await page.evaluate(
+    () => window.tuhGame.state()?.units.filter((u) => u.teamId === 0).length ?? 0,
+  );
+  expect(fieldedCount, "battle 1 fields fewer than the party — the ramp is authored").toBeLessThan(listed.length);
+  expect(fieldedCount).toBeGreaterThan(0);
+  // The timeline names exactly those party members and no others — a stronger read than
+  // "some name is there", which a timeline showing the whole roster would also pass.
+  const timelineText = await timeline.innerText();
+  const named = listed.filter((n) => timelineText.includes(n));
+  expect(named.length, `the timeline named ${named.length} party members, the board fielded ${fieldedCount}`).toBe(
+    fieldedCount,
+  );
 });
 
 test("learnability: the board explains itself and the buttons drop engine jargon", async ({ page }) => {
@@ -858,12 +878,23 @@ test("AC-V16: a beat is revealed one line at a time, not hidden with CSS", async
   await expect(page.getByTestId("brief-story-progress")).toBeEmpty();
 });
 
-test("AC-V16: the read position survives a prep edit AND a deploy toggle", async ({ page }) => {
+test("AC-V16: the read position survives two different prep edits", async ({ page }) => {
   // The bug this whole module is shaped around. `renderBriefingText()` is re-entered by
-  // the prep panel's onChange and by every deploy toggle, and the old renderer wiped and
+  // the prep panel's onChange on every party edit, and the old renderer wiped and
   // rebuilt its box on every call — so a cursor held in the DOM is destroyed by an
-  // ordinary party edit. TWO entry points, asserted separately: they are different code
-  // paths and a fix for one does not imply the other.
+  // ordinary edit.
+  //
+  // WHAT THE TWO EDITS ARE, CORRECTED (2026-09-08). They are NOT two different code
+  // paths any more. The second used to be a deploy toggle, which had its own handler;
+  // the owner removed it that day and a job change took its place, and a job change goes
+  // through exactly the same `onChange` → `shell.updateParty` → `renderBriefingText` →
+  // `refresh()` chain the weapon swap does. So "a fix for one does not imply the other"
+  // is no longer true and is not claimed here. What the pair still buys is coverage of
+  // two different EDITS through that one path — a `<select>` write on the equipment tab
+  // and one on the job strip, which repaint different amounts of the panel — and a
+  // second observation of the beat surviving a repaint. The single-path fact is the
+  // reason nothing was added to make them differ: inventing a third control to get a
+  // second path would be a test written for its own shape.
   //
   // Run at battle TWO, not battle one, because nobody has banked any AP before the first
   // fight — there is no enabled buy button to click, so the prep-edit path would be
@@ -900,10 +931,22 @@ test("AC-V16: the read position survives a prep edit AND a deploy toggle", async
   await expect(weapon).toHaveValue(options[1]!); // the edit really landed
   expect(await lineCount(page)).toBe(2);
 
-  // Path two: benching someone, which runs toggleDeploy -> refresh().
-  const bench = page.locator('[data-testid="brief-party"] li button[data-deploy]').first();
-  await bench.click();
+  // Path two: a second prep edit, down the SAME onChange -> shell.updateParty ->
+  // renderBriefingText -> refresh() chain as path one (see the banner: this stopped
+  // being a second path when the deploy toggle was removed). The claim is unchanged —
+  // an ordinary party edit must not rebuild the beat — and this is still an ordinary
+  // party edit, on a different control.
+  const job = page.getByTestId("prep-job");
+  const jobValues = await job.locator("option").evaluateAll((os) =>
+    os.map((o) => (o as HTMLOptionElement).value),
+  );
+  const currentJob = await job.inputValue();
+  const otherJob = jobValues.find((v) => v !== currentJob);
+  expect(otherJob, "nothing to change is no edit").toBeDefined();
+  await job.selectOption(otherJob!);
+  await expect(job).toHaveValue(otherJob!); // the edit really landed
   expect(await lineCount(page)).toBe(2);
+  await backToParty(page);
 
   // THE OTHER HALF, and it is required: without it a handle that NEVER resets passes
   // everything above. A genuinely different beat must start from line one again.
@@ -956,23 +999,30 @@ test("AC-M9: the portrait slot is WIRED, and an unauthored portrait reads as abs
   // too and this "reads as absent" count would never actually reach 0.
   const img = figure.locator("img:not(.ribbon-charge)");
 
-  // Branch one — a character the pack gives art to.
+  // Branch one — a character the pack gives art to. The prologue opens on VANCE, whose
+  // `asset` was `"placeholder"` until the six-member roster (2026-09-08) claimed
+  // `archer-m` for him; this branch asserted `data-state="pending"` then, which is the
+  // opposite verdict from the same rule — the content moved, so the honest state did.
   await expect(figure).toBeVisible();
-  await expect(figure).toHaveAttribute("data-state", "pending");
+  await expect(figure).toHaveAttribute("data-state", "art");
   await expect(img).toHaveCount(1);
   // naturalWidth is the load-bearing assertion and the only one that can fail when the
   // renderer puts the asset KEY in src, when the URL is wrong for the base path, or when
   // the file never reached dist. "An img exists" is satisfied by a broken image.
   expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-  // Either form is correct: the placeholder is 1.2 KB, under Vite's 4 KB inline limit,
-  // so it ships as a data: URI rather than a hashed file. Pinning one form would flake
-  // the day the art grows past the limit.
+  // Either form is correct: a hashed file for a ~100 KB crop, a data: URI for anything
+  // under Vite's 4 KB inline limit. Pinning one form would flake the day the art moves
+  // across that limit.
   const src = await img.getAttribute("src");
   expect(src === null ? "" : src).toMatch(/^(data:|\/|https?:)/);
+  // IDENTITY, not merely presence: `naturalWidth > 0` above is satisfied by ANY loaded
+  // image, and every one of the nine crops is 192 wide, so a knight's face on Vance
+  // would pass everything before this line. The asset basename is what names HIM.
+  expect(src ?? "", "the prologue is not showing Vance's own asset").toContain("archer-m");
 
-  // The caption is REAL DOM TEXT, not just words drawn inside the SVG — which is what
-  // makes it announceable and measurable for contrast.
-  await expect(figure.locator("figcaption")).toHaveText("Portrait pending");
+  // No caption: the "Portrait pending" text is keyed on the placeholder KEY, so it
+  // disappears by itself the moment the pack names real art.
+  await expect(figure.locator("figcaption")).toHaveCount(0);
 
   // Branch two — the same page, same renderer, a line with no speaker. The prologue
   // closes on narration, so reading to the end reaches it.
