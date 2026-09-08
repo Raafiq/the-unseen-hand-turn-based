@@ -38,7 +38,7 @@ sources. Returns the final save plus a per-battle report. This is the AC-M1 inst
 ### 3. `data/campaign/camp-the-first-march.json` + 5 encounter defs
 
 Purpose-built, not borrowed from the benchmark set (whose five encounters all lose from
-team 0 as authored — `docs/NEXT.md` trap 9). A 5-battle ramp: 2v1 → 3v2 → 3v3 → 4v4 →
+team 0 as authored — `docs/INTENT.md` trap 9). A 5-battle ramp: 2v1 → 3v2 → 3v3 → 4v4 →
 4v4 with a `defeatUnit` boss objective.
 
 ### 4. Tests

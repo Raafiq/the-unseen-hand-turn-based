@@ -5,7 +5,7 @@
 #
 # Design note: everything printed here is derived from git at session start, so it
 # cannot go stale. The parts a machine CANNOT derive — what the next slice is and
-# why — live in docs/NEXT.md, which is stamped with the commit it was written
+# why — live in docs/INTENT.md, which is stamped with the commit it was written
 # against; this hook flags it when it falls behind. A handoff that looks identical
 # whether it is current or three slices old is worse than none (CLAUDE.md, the
 # evidence principle), so staleness has to be visible.
@@ -47,22 +47,22 @@ fi
 DIRTY="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 [ "${DIRTY:-0}" != "0" ] && echo "[session-start] ${DIRTY} uncommitted change(s) in the working tree."
 
-# docs/NEXT.md carries the intent a machine cannot derive. Flag it when it has fallen
+# docs/INTENT.md carries the intent a machine cannot derive. Flag it when it has fallen
 # behind the commit it was written against, so a reader knows whether to trust it.
-if [ -f docs/NEXT.md ]; then
-  STAMP="$(grep -o 'written-against: [0-9a-f]\{7,40\}' docs/NEXT.md 2>/dev/null | head -1 | awk '{print $2}')"
+if [ -f docs/INTENT.md ]; then
+  STAMP="$(grep -o 'written-against: [0-9a-f]\{7,40\}' docs/INTENT.md 2>/dev/null | head -1 | awk '{print $2}')"
   if [ -n "${STAMP:-}" ] && git cat-file -e "${STAMP}^{commit}" 2>/dev/null; then
     DRIFT="$(git rev-list --count "${STAMP}..HEAD" 2>/dev/null || echo 0)"
     if [ "${DRIFT:-0}" -gt 10 ]; then
-      echo "[session-start] ⚠ docs/NEXT.md is ${DRIFT} commits behind HEAD — treat its plan as POSSIBLY STALE and re-derive before acting."
+      echo "[session-start] ⚠ docs/INTENT.md is ${DRIFT} commits behind HEAD — treat its intent and plan as POSSIBLY STALE and re-derive before acting."
     else
-      echo "[session-start] docs/NEXT.md is current (${DRIFT} commits since it was written) — read it for the next slice."
+      echo "[session-start] docs/INTENT.md is current (${DRIFT} commits since it was written) — read it for the standing intent and the next slice."
     fi
   else
-    echo "[session-start] docs/NEXT.md has no resolvable stamp — treat its plan as unverified."
+    echo "[session-start] docs/INTENT.md has no resolvable stamp — treat its plan as unverified."
   fi
 else
-  echo "[session-start] no docs/NEXT.md — ask the user what the next slice is before starting work."
+  echo "[session-start] no docs/INTENT.md — ask the user for the intent and the next slice before starting work."
 fi
 
 exit 0

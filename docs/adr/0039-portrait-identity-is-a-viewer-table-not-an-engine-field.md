@@ -9,7 +9,7 @@
 
 ## Context
 
-`docs/NEXT.md`'s handoff assumed `look()` in `src/render/game.ts` would resolve
+`docs/INTENT.md`'s handoff assumed `look()` in `src/render/game.ts` would resolve
 "job x gender" straight from battle state. That assumption was wrong on one fact:
 **nothing in the game knows a character's gender.** The roster schema
 (`rosterSchemaVersion` 3, `data/campaign/camp-the-first-march.json`) has no gender

@@ -13,7 +13,7 @@ old `/game.html` keeps working as a redirect so no shared link dies.
 It is a developer instrument, and it is what a stranger currently lands on. The thing we
 want played is the campaign, and it is one click *away* behind a link in the header.
 
-`docs/NEXT.md`'s next step is a person playing `/game.html` cold. Handing them a URL that
+`docs/INTENT.md`'s next step is a person playing `/game.html` cold. Handing them a URL that
 opens a debug view first is the cheapest possible way to lose the first thirty seconds of
 the only playtest we have.
 
@@ -39,7 +39,7 @@ A rename lands in docs, code AND tests in one slice, or not at all (`CLAUDE.md`)
   i.e. it is not shipped. Three entries in, three out.
 - **Docs:** `docs/10` §7a is authoritative and currently states the opposite ("the site
   ships two entry points: `index.html`, the engine viewer"). It is now **three**, and one
-  of them is a redirect. `docs/11` (3 places), `docs/NEXT.md` (2), `README.md`,
+  of them is a redirect. `docs/11` (3 places), `docs/INTENT.md` (2), `README.md`,
   `src/render/README.md`, and the page docstrings in `game.ts` / `prep.ts`.
 - **Specs:** `campaign.spec.ts` ×13 and `playtest-capture.spec.ts` ×1 go `/game.html` →
   `/`. `play.spec.ts` ×3, `prep.spec.ts` ×4, `viewer.spec.ts` ×1 go `/` →
@@ -61,7 +61,7 @@ A rename lands in docs, code AND tests in one slice, or not at all (`CLAUDE.md`)
    `<meta http-equiv="refresh">` typo renders a perfectly ordinary blank page.
 5. `state/index.html` and the gallery's `index.html` are different files in different
    directories. Do not touch them.
-6. **`npm run state` last**, and re-stamp `docs/NEXT.md`.
+6. **`npm run state` last**, and re-stamp `docs/INTENT.md`.
 
 ## Order of work
 

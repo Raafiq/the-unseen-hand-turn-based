@@ -1427,7 +1427,7 @@ already in use. **Next free viewer AC: V62.**
 
 ## 9. Determinism risks specific to this layer
 
-> **This section was §8 until 2026-09-05.** ADR-0032, `docs/NEXT.md`,
+> **This section was §8 until 2026-09-05.** ADR-0032, `docs/INTENT.md`,
 > `docs/proposals/action-menu.md` and `src/render/iso.test.ts` all cite it as "`docs/10`
 > §8"; those citations mean **this** section. Said here so the old references resolve
 > rather than silently pointing at the stage spec above.

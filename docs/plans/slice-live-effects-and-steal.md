@@ -6,7 +6,7 @@ the follow-up control slice (ADR-0018) — the probe values control, Charm has b
 below did NOT predict: Step 3 changed **zero** shipped runs on its own (magnitude is only
 the comparator's SECOND key), and Charm behaviour required a **victory-condition** change
 to avoid a livelock. Written against `6b4b887` (main).
-Source of the slice: `docs/NEXT.md` § "The next slice", **redirected by the decisions in §0**.
+Source of the slice: `docs/INTENT.md` § "The next slice", **redirected by the decisions in §0**.
 
 ---
 
@@ -23,7 +23,7 @@ Source of the slice: `docs/NEXT.md` § "The next slice", **redirected by the dec
    defect-fix that claims nothing new. **Steps 3 and 4** (the AI comparator, Charm, the
    Thief build, the variety-target bump) become the *next* slice.
 
-`docs/NEXT.md`'s "make `battle-skill` live" slice is therefore **superseded**, not merely
+`docs/INTENT.md`'s "make `battle-skill` live" slice is therefore **superseded**, not merely
 re-ordered. That file must be re-stamped as part of this slice's retrospective, and must
 carry Steps 3–4 forward as the next slice.
 
@@ -65,7 +65,7 @@ Six shipped abilities carry a `power` that does nothing: `punch-art.wave-fist` (
 `punch-art.earth-slash` (14), `aim.aimed-shot` (12), `aim.piercing-shot` (16),
 `aim.head-shot` (13), `aim.leg-shot` (9).
 All deal exactly the wearer's basic-attack damage.
-For `bld-aggro-tank` that is **90**, not the 157 `docs/NEXT.md` quotes — 157 is
+For `bld-aggro-tank` that is **90**, not the 157 `docs/INTENT.md` quotes — 157 is
 `abilityDamage()`'s number, which the driver never calls on this path.
 
 Consequence: the archer's `aim.` identity is **range only**, and the monk's `punch-art.`

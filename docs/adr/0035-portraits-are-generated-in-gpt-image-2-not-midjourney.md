@@ -10,7 +10,7 @@
 
 Sixteen job portraits are needed: eight jobs, two genders.
 Until 2026-09-05 they were to come from Midjourney, styled against one locked reference, `docs/visual/portraits/reference/archer-f.png`.
-That plan was recorded in the `midjourney` skill and in `docs/NEXT.md`.
+That plan was recorded in the `midjourney` skill and in `docs/INTENT.md`.
 
 Four Midjourney singles exist.
 Two are in the set (archer-female, priest-female, run with the style reference locked).
@@ -19,7 +19,7 @@ The knight-female read 16-22 where the brief asked for mid-thirties (eyeballed, 
 The framing put the headband on the top edge across three paid runs of wording, and headroom had to be bought afterwards in the Editor.
 
 On 2026-09-05 the same brief was run on GPT Image 2 (ChatGPT app, "high thinking", `archer-f.png` attached as Image 1) as a probe, twice.
-The prompts and settings are in `docs/visual/portraits/reference/gpt-probe-prompts.md`; the measured comparison is the table below (its only copy since `docs/NEXT.md` was cut down on 2026-09-06).
+The prompts and settings are in `docs/visual/portraits/reference/gpt-probe-prompts.md`; the measured comparison is the table below (its only copy since `docs/INTENT.md` was cut down on 2026-09-06).
 
 | Image | Line edge (foreground) | Skin distance | Blue-cloth distance | Background distance |
 |---|---|---|---|---|
@@ -77,7 +77,7 @@ Age and gender follow the prompt, which the Midjourney runs did not reliably do.
 - The Midjourney singles `knight-f.png`, `knight-m.png` and `wizard-f.png` are retired as candidates. They stay in the tree as evidence only.
 - The in-set Midjourney `priest-f.png` is also replaced by a GPT priest, so the set does not split. The archer stays, as the reference.
 - The `midjourney` skill's sixteen portrait prompts (`references/portrait-prompts.md`) and the reframe blocks become historical. They are kept as the character briefs, which the GPT prompts translate.
-- The three open Midjourney re-runs in `docs/NEXT.md` (wizard hood, knight age, priest age) are moot.
+- The three open Midjourney re-runs in `docs/INTENT.md` (wizard hood, knight age, priest age) are moot.
 
 **Known GPT limits, accepted.**
 
@@ -97,7 +97,7 @@ Two things under it changed the same evening.
 The decision stands.
 One consequence above is now false: with `style-ref-1..4.png` attached, GPT renders the refs' paper (`#e2c18a` to `#e9c88b`) and not the prompt's `#e9d7a8`, in all ten v4 outputs (measured, art-director, 31-38 units off).
 A prompt edit cannot fix it; ~~the hex is enforced post-process at asset-build time, or the darker card is accepted.
-The owner has not chosen (`docs/NEXT.md`, Ask B).~~ Decided the same day, below.
+The owner has not chosen (`docs/INTENT.md`, Ask B).~~ Decided the same day, below.
 Eight of the ten v4 portraits are approved by the art-director and the main session, eyeballed; `archer-f` and `priest-m` are sent back for v4.1.
 No portrait ships in this amendment either.
 
@@ -112,7 +112,7 @@ The decision stands.
 **Amendment, 2026-09-06 (third). The ten-set is approved at the prompt level.**
 The art-director approved both v4.1 reruns on 2026-09-06, agreed by the main session, eyeballed against the four refs; the per-file record is `docs/visual/portraits/reference/README.md`.
 The owner has not judged any portrait in words.
-Still open on the owner's side: the shipped crop format (Ask E, `docs/NEXT.md`) and confirmation of the v4 settings (Ask C).
+Still open on the owner's side: the shipped crop format (Ask E, `docs/INTENT.md`) and confirmation of the v4 settings (Ask C).
 No portrait ships in this amendment either.
 
 **Invariants this creates.**
@@ -132,7 +132,7 @@ No portrait ships in this amendment either.
 
 ## References
 
-- `docs/NEXT.md` at `6067276` held Ask 5 and the probe write-up; it was cut down on 2026-09-06 and the probe table now lives only in this ADR.
+- `docs/INTENT.md` at `6067276` held Ask 5 and the probe write-up; it was cut down on 2026-09-06 and the probe table now lives only in this ADR.
 - `docs/visual/portraits/reference/gpt-probe-prompts.md` (v1 and v2 prompts and settings).
 - `docs/visual/portraits/gpt-portrait-prompts.md` (the sixteen GPT prompts).
 - `docs/visual/portraits/reference/README.md` (the manifest).

@@ -144,7 +144,7 @@ Said here rather than left implied.
   the claim being made.
 - **The card's colours were never designed.** They are inherited from `.card.board`, so
   the plate reads as board chrome rather than as a window. Open, routed to
-  `art-director` in `docs/NEXT.md`.
+  `art-director` in `docs/INTENT.md`.
 
 ## References
 

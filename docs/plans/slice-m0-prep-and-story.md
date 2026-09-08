@@ -63,4 +63,4 @@ touching the variety score.
 ## Done means
 
 `npm run check` green, `npm run test:visual` green, `docs/11` §3 and `docs/08` §1a moved,
-an ADR for the story contract, `npm run state` regenerated last, `docs/NEXT.md` rewritten.
+an ADR for the story contract, `npm run state` regenerated last, `docs/INTENT.md` rewritten.
