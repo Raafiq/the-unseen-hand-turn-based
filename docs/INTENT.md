@@ -1,6 +1,6 @@
-<!-- written-against: e28fbf2 -->
-<!-- The slice this file describes IS COMMITTED at e28fbf2: the two-view briefing, the
-     six-member party, ADR-0041 and the 13 parked tests are all in the ref. -->
+<!-- written-against: 4fe3abb -->
+<!-- 4fe3abb merges the INTENT.md migration (PR #64's two commits, which had landed on the
+     already-merged prep-screen branch, not main) onto main. No code or data changed. -->
 
 # INTENT — where this game is going, and what comes next
 

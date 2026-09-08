@@ -25,6 +25,10 @@
 #                      starts with "SECOND-PASS-OK:" — docs are written once, at
 #                      the end, against verified code. Marker per session under
 #                      coverage/agent-spawns/ (gitignored).
+#   release-engineer : a brief that names a PR is denied while .claude/.retro-done
+#                      is missing or older than 240 min — the retro runs BEFORE the
+#                      release engineer, or it bounces off require-retro-before-pr.sh
+#                      (2026-09-07: 57k; 2026-09-08: 45k).
 set -u
 input=$(cat)
 [ "$(printf '%s' "$input" | jq -r '.tool_name // empty')" = "Agent" ] || exit 0
@@ -55,6 +59,14 @@ case "$type" in
         SECOND-PASS-OK:*) ;;
         *) missing+=("SECOND-PASS-OK: <why> at the start — docs-steward already ran this session. Docs are written ONCE, at the end, against verified code (two passes cost 150k on 2026-09-06)");;
       esac
+    fi
+    ;;
+  release-engineer)
+    if printf '%s\n' "$prompt" | grep -Eiq 'pull request|(^|[^[:alnum:]])PR([^[:alnum:]]|$)|create_pull_request'; then
+      retro="${RETRO_MARKER:-$repo_root/.claude/.retro-done}"
+      if [ ! -f "$retro" ] || [ -z "$(find "$retro" -mmin -240 2>/dev/null)" ]; then
+        missing+=("a retrospective — run the retrospective skill FIRST (it touches .claude/.retro-done); a release engineer spawned before it bounces off require-retro-before-pr.sh (57k on 2026-09-07, 45k on 2026-09-08)")
+      fi
     fi
     ;;
 esac
