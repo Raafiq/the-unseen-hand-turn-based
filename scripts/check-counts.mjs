@@ -2,7 +2,7 @@
 /**
  * A COUNT IN PROSE THAT NOTHING DERIVES GOES STALE, AND NOTHING GOES RED.
  *
- * `CLAUDE.md`, `README.md` and `docs/NEXT.md` each state how many tests this repo has.
+ * `CLAUDE.md`, `README.md` and `docs/INTENT.md` each state how many tests this repo has.
  * The number went wrong twice in two commits — 809 → 884 while the real figure was 884,
  * then 884 while it was 886 — and both times it was caught by a human happening to look,
  * not by a check. `docs/` outranks the code here, so a wrong count is a wrong instruction
@@ -36,7 +36,7 @@ const SUMMARY = "coverage/vitest-summary.json";
  * Files scanned for a live count. Not a whitelist of who MAY carry one — the pattern is
  * matched wherever it appears — but the list whose absence is itself a failure.
  */
-const WATCHED = ["CLAUDE.md", "README.md", "docs/NEXT.md"];
+const WATCHED = ["CLAUDE.md", "README.md", "docs/INTENT.md"];
 
 /** Fewer live claims than this means the phrasing drifted and the guard stopped guarding. */
 const MIN_SITES = 3;

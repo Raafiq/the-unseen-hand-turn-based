@@ -19,4 +19,4 @@ first draft and looked fine. That claim is carried by `e2e/contrast.spec.ts` and
 **AC-V15** in `docs/10`; see ADR-0028 for why axe-core cannot make it here.
 
 They also say nothing about whether the prep screen is understandable. That question is
-still open and still needs a person (`docs/NEXT.md`).
+still open and still needs a person (`docs/INTENT.md`).

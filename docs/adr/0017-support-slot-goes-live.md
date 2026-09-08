@@ -7,7 +7,7 @@
 
 ## Context
 
-`docs/NEXT.md` scoped this slice as *"give black magic a viable carrier"*, and ADR-0016 recorded the reason it needed one: `bld-arcane-artillery` is *"a 144-HP caster whose 81-damage spell needs four casts to drop a 315-HP tank that kills it in two."*
+`docs/INTENT.md` scoped this slice as *"give black magic a viable carrier"*, and ADR-0016 recorded the reason it needed one: `bld-arcane-artillery` is *"a 144-HP caster whose 81-damage spell needs four casts to drop a 315-HP tank that kills it in two."*
 
 That reason was arithmetic. Nothing had traced a run. **The trace says something else.**
 

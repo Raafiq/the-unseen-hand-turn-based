@@ -26,7 +26,7 @@ Engine roadmap sits at **P2**. Open exit criterion: the build-diversity gate at 
 
 ## Source of truth — read these first
 
-- **`docs/NEXT.md` — FIRST if you are picking up work.** The next slice and what will bite. Stamped with the commit it was written against; the SessionStart hook flags it when stale — then treat its claims as hypotheses. (Branch, merge status and unpushed work are printed by the hook, so they cannot rot.)
+- **`docs/INTENT.md` — FIRST if you are picking up work.** The standing intent — where the game is going, the owner directives in force, what is not green-lit — plus the next slice and what will bite. Stamped with the commit it was written against; the SessionStart hook flags it when stale — then treat its claims as hypotheses. (Branch, merge status and unpushed work are printed by the hook, so they cannot rot.)
 - `README.md` — overview, pillars, conventions, doc index.
 - `docs/00-vision-and-pillars.md` — pillars, the customization spine, testable success criteria. **The constitution seed.**
 - `docs/01-combat-system.md` — the faithful FFT baseline + fidelity contract.
@@ -76,7 +76,7 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 - **Prose that describes evidence IS an assertion — including a comment explaining why a check is weakened.** A PR caption, a visual-proof README, an ADR's "we verified X": each is trusted without re-derivation. Either the test asserts the claim, or the prose says it is unasserted. A wrong *reason* is worse than none: `benchmark-suite.test.ts` exempted `black-magic` "because the spellblade is masked", which was not the binding constraint at all, making the gap look smaller than it was. A proof-sheet caption once described an enemy's charge reticle as an attack option. When a frame shows less than you hoped, the honest reading is usually the **stronger** argument.
 - **External precedents lend credibility past what they support.** Name the claim a citation backs and say where it stops. Triangle Strategy and Fire Emblem were cited for a level-gap EXP curve — real — and silently read as backing "levels grant zero stats", which their levels contradict (ADR-0021; XCOM / Into the Breach are the precedents that fit).
 - **A claim that something is UNASSERTED rots the day someone asserts it, and nothing
-  goes red.** `docs/NEXT.md` said the range panel's separation from every ground had
+  goes red.** `docs/INTENT.md` said the range panel's separation from every ground had
   **nothing asserting any of it** — false as of the very commit the file was stamped
   against, which had added perceptual-distance floors for exactly that. The prose was
   then relayed to the user as a live coverage gap. A "nothing covers X" you read in a
@@ -122,7 +122,7 @@ Stack locked at P0 (ADR-0007): headless `src/sim/` + thin `src/render/`. **npm, 
 | `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
-| `npm run check:handoff` | fails if `docs/NEXT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
+| `npm run check:handoff` | fails if `docs/INTENT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
 | `npm run test:visual` | build + Playwright screenshots/video → `npm run gallery` for the proof-sheet |
@@ -153,7 +153,7 @@ Invoke by name:
 
 - `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
   project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
-  about it is stale — two wrong flags reached `docs/NEXT.md` that way. Read the skill first.
+  about it is stale — two wrong flags reached `docs/INTENT.md` that way. Read the skill first.
   Portraits now come from GPT Image 2 (ADR-0035), styled against four owner-supplied
   `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
@@ -266,8 +266,8 @@ put Fable in every specialist.
   own call passes. And after a rejected push (the owner pushed to the same branch meanwhile),
   spawn a FRESH `release-engineer` with the owner's words quoted — a resumed one reads the
   resume message as the coordinator's words, not the owner's, and refuses.
-- **Retrospective before every PR — and re-write `docs/NEXT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/NEXT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/NEXT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
-  **`docs/NEXT.md` holds ONLY the next slice** (user, 2026-09-06: it had grown to 843 lines and was "so bloated with unnecessary information"). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
+- **Retrospective before every PR — and re-write `docs/INTENT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/INTENT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/INTENT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
+  **`docs/INTENT.md` holds the STANDING INTENT and the next slice** (owner, 2026-09-08) — where the game is going, the directives still in force, what is not green-lit, the open asks, then the slice. Nothing else. Keep it tight: it once grew to 843 lines and the user called it "so bloated with unnecessary information" (2026-09-06). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
 - **When the sandbox cannot reach an API, a CI runner can.** A temporary workflow step querying it with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Details in the `pages-deploy` skill.
 - **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** The
@@ -309,7 +309,7 @@ put Fable in every specialist.
     the prompts; four approved images whose settings nobody wrote down) is in the `midjourney` skill.
   - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
     A status reply did exactly that with three asks open. Open asks need ONE home
-    you read before answering "what do you need from me". `docs/NEXT.md`'s
+    you read before answering "what do you need from me". `docs/INTENT.md`'s
     **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
 - **Present implementation plans as a readable HTML artifact** (via the `lavish` skill — there is no `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.

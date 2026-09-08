@@ -184,7 +184,7 @@ practice — it reads as `AC-01` next to `docs/01`'s set.
 - **Tab order:** `play.spec.ts` asserts `index.html`'s tab order exactly. `campaign.spec.ts`
   does not, so the briefing can gain controls freely. Keep the hint block in `game.html`.
 - **Removing wave-fist changes the AP table and the difficulty of b1–b2.** Re-measure both;
-  do not carry NEXT.md's numbers forward.
+  do not carry INTENT.md's numbers forward.
 - **Browser tests are not in `npm run check`** — run `npm run test:visual` separately.
 - Regenerate `npm run state` as the **last** step; it goes stale on any commit that adds a
   counted artifact, including the new ADR.

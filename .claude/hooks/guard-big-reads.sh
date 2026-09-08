@@ -9,7 +9,7 @@
 # WHAT IT DOES. A Read of a text file longer than $MAX_LINES with no `limit` is
 # denied, with the line count and the ask: pass offset/limit, or grep first.
 # In Bash, `cat <big file>` with no bounded consumer is denied the same way.
-# Images, PDFs and files under the threshold pass. docs/NEXT.md passes whole:
+# Images, PDFs and files under the threshold pass. docs/INTENT.md passes whole:
 # it is the handoff, and its own rule keeps it under ~150 lines.
 set -u
 MAX_LINES=400
@@ -18,7 +18,7 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 is_text() { case "$1" in *.png|*.jpg|*.jpeg|*.gif|*.webp|*.pdf|*.ipynb|*.woff|*.woff2|*.ttf) return 1;; esac; return 0; }
-exempt() { case "$1" in */docs/NEXT.md|docs/NEXT.md) return 0;; esac; return 1; }
+exempt() { case "$1" in */docs/INTENT.md|docs/INTENT.md) return 0;; esac; return 1; }
 lines_of() { wc -l <"$1" 2>/dev/null | tr -d ' '; }
 
 refuse() { # $1 = path, $2 = line count, $3 = how

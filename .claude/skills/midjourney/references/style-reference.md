@@ -20,7 +20,7 @@ Compatible with **version 6 and later**.
 
 Verbatim, from the official page. Any plan that says "generate an image, then hand
 back its `--sref` code" is describing something Midjourney does not do. This exact
-error was written into this repo's `docs/NEXT.md`.
+error was written into this repo's `docs/INTENT.md`.
 
 `--sref random` is **not** the workaround. It applies a **random style from
 Midjourney's library** and then prints the code it happened to use — a way to
