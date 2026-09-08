@@ -29,6 +29,15 @@ const PATHS: Record<string, string> = {
     '<path d="M12 1.4c-2 2.7-2 4.8 0 6.6 2-1.8 2-3.9 0-6.6Z"/><path d="M11.1 8.6c-2.5-2.1-5.6-1.7-6.2.6-.5 2.1 1.3 3.8 3.3 3.4 1.3-.3 2.2-1.1 2.9-2.1Z"/><path d="M12.9 8.6c2.5-2.1 5.6-1.7 6.2.6.5 2.1-1.3 3.8-3.3 3.4-1.3-.3-2.2-1.1-2.9-2.1Z"/><rect x="7.4" y="12.3" width="9.2" height="1.6" rx=".6"/><path d="M11.1 13.9h1.8l-.35 5-.55 2-.55-2Z"/>',
   sword:
     '<path d="M20.5 3.5 10 14"/><path d="M17 3.5h3.5V7"/><path d="M7.2 12.8l4 4"/><path d="M8.6 15.4 5.2 18.8"/><circle cx="3.9" cy="20.1" r="1.5"/>',
+  /**
+   * CROSSED SWORDS — the Deploy plate's glyph (owner, 2026-09-07: `flag`'s filled
+   * pennant "reads as a small square" at 1.15em and is "out of place"). Composed from
+   * the `sword` path above and its mirror rather than drawn fresh, so it inherits the
+   * same blade, guard and pommel and mints no second drawing style.
+   */
+  swords:
+    '<g><path d="M20.5 3.5 10 14"/><path d="M17 3.5h3.5V7"/><path d="M7.2 12.8l4 4"/><path d="M8.6 15.4 5.2 18.8"/><circle cx="3.9" cy="20.1" r="1.5"/></g>' +
+    '<g transform="translate(24,0) scale(-1,1)"><path d="M20.5 3.5 10 14"/><path d="M17 3.5h3.5V7"/><path d="M7.2 12.8l4 4"/><path d="M8.6 15.4 5.2 18.8"/><circle cx="3.9" cy="20.1" r="1.5"/></g>',
   "c-archer": '<circle cx="12" cy="12" r="5.6"/><path d="M12 1.6v3.8M12 18.6v3.8M1.6 12h3.8M18.6 12h3.8"/>',
   "c-geomancer": '<path d="M1.8 20.4 9 6.6l4 6.6 3-4.4 6.2 11.6Z"/>',
   "c-monk": '<path d="M12 2.2 21.8 12 12 21.8 2.2 12Z"/><path d="M12 7.6 16.4 12 12 16.4 7.6 12Z" fill="currentColor"/>',

@@ -149,7 +149,16 @@ export class CampaignShell {
    */
   continueGame(): boolean {
     if (this.slotState.kind !== "save") return false;
-    this.save = this.slotState.save;
+    // DROP ANY STORED DEPLOYMENT ON LOAD (owner decision, 2026-09-08; ADR-0041).
+    // The per-card deploy toggle is gone, so nothing on screen writes this field and
+    // nothing on screen can show what it holds — but `applyDeployment` still obeys it,
+    // so a save written by an OLDER build (or by `playtest.ts`, which still calls
+    // `setDeployment`) would silently field a different party from the one the encounter
+    // authors, with no control anywhere to correct it. Empty means "as authored", which
+    // is the only answer this build can honestly render. Not persisted here on its own:
+    // the next `persist()` (any prep edit, any battle boundary) writes the cleared value,
+    // and a load must never be able to fail on a write.
+    this.save = { ...this.slotState.save, deployment: [] };
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
@@ -499,7 +508,13 @@ export class CampaignShell {
    *
    * `null` when there is no battle to deploy into (the title or ending screen).
    */
-  deployment(): { slots: number; chosen: string[]; party: UnitRecord[] } | null {
+  deployment(): {
+    slots: number;
+    chosen: string[];
+    /** The record ids the encounter itself places on the player team, in authored order. */
+    authored: string[];
+    party: UnitRecord[];
+  } | null {
     if (!this.save) return null;
     const battle = currentBattle(this.def, this.save);
     if (!battle) return null;
@@ -511,7 +526,12 @@ export class CampaignShell {
       .filter((p) => p.teamId === this.def.playerTeam)
       .map((p) => (p.unit.kind === "ref" ? p.unit.recordId : ""));
     const chosen = this.save.deployment.length > 0 ? [...this.save.deployment] : authored;
-    return { slots: slots.length, chosen, party: [...this.save.party] };
+    // `authored` is handed back SEPARATELY from `chosen` because the briefing's "in camp"
+    // mark is a statement about the ENCOUNTER — who this battle was written to field —
+    // not about a choice the player made. Reading it off `chosen` (or off
+    // `save.deployment`) would make the mark say "nobody is fielded" on any save whose
+    // deployment is empty, which after the clear above is every save.
+    return { slots: slots.length, chosen, authored, party: [...this.save.party] };
   }
 
   /**

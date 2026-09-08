@@ -34,6 +34,8 @@ export default tseslint.config(
       // Owner-local, git-ignored tooling (Markdown Preview Enhanced setup); not project code.
       ".crossnote/**",
       "mpe-setup/**",
+      // Mockup source (art-director scratch, shot by Playwright into docs/visual); not project code.
+      "docs/visual/concepts/mockups/src/**",
     ],
   },
   js.configs.recommended,

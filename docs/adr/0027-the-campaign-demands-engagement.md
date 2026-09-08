@@ -1,6 +1,11 @@
 # ADR-0027 — The campaign demands engagement: the finale is tuned so ignoring the prep screen loses
 
-- **Status:** Accepted — **the number is MVP-PROVISIONAL** (the standing note from ADR-0025/0026). What is not provisional: the campaign must not be winnable without using the systems it is built around.
+- **Status:** Accepted, but **the pacing claim is SUSPENDED by ADR-0041 (2026-09-08)**
+  until the combat revamp. The warchief's PA 8 → 11 stands in the data; what no longer
+  holds is the persona profile it produced. With the six-member party (Vance is now an
+  archer) the naive run clears battle 4 as well, so the two tests that carried this are
+  parked. The finding is unmeasured, not disproved — re-measure, do not re-tune from the
+  numbers below. Original status: **the number is MVP-PROVISIONAL** (the standing note from ADR-0025/0026). What is not provisional: the campaign must not be winnable without using the systems it is built around.
 - **Date:** 2026-08-24
 - **Amends:** `docs/11` **AC-M1**, which asserted a finishable playthrough without saying which player it assumed.
 - **Owner docs:** `docs/11` AC-M1, `docs/06` (encounters), `docs/07` §3 (pacing)

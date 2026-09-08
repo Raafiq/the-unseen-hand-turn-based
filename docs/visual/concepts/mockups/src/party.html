@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en" data-mockup="party">
+<head>
+<meta charset="utf-8" />
+<title>Mockup — party select (ADR-0040 split, owner 2026-09-07)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!--
+  PARTY SELECT — screen 1 of the split the owner ruled on 2026-09-07.
+
+  The section keeps `id="screen-briefing"` ON PURPOSE: every rule in `split.css`
+  before the override block is byte-identical to the shipped `overhaul.css`
+  section, so this page is a numeric diff target rather than a re-drawing. The
+  `.party` class is the only new hook.
+
+  Content is the REAL campaign's battle 2 — `data/campaign/camp-the-first-march
+  .json` (four members, their jobs and AP) and the story pack's own `b2` pre-beat.
+  Two of the four portraits are the honest self-labelling placeholder, because
+  geomancer and monk art does not exist yet (ADR-0039).
+-->
+
+<style>
+  @font-face { font-family: "Cinzel"; src: url("../../../../../public/fonts/cinzel-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400.woff2") format("woff2");
+               font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400i.woff2") format("woff2");
+               font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: "Grenze Gotisch"; src: url("../../../../../public/fonts/grenzegotisch-500.woff2") format("woff2");
+               font-weight: 500; font-style: normal; font-display: block; }
+</style>
+<link rel="stylesheet" href="page-wide-borrowed.css" />
+<link rel="stylesheet" href="split.css" />
+</head>
+<body>
+
+<section id="screen-briefing" class="party" data-testid="screen-briefing">
+
+  <!-- ═══ TOP RAIL — back · banner · battle title/number · THE STORY BEAT ═══
+       The owner put the story line up here. It is the same `scene.ts` component
+       `#brief-story` already mounts, wearing the tagline ribbon's parchment. -->
+  <header class="toprail">
+    <button id="btn-brief-quit" class="plaque riveted backplaque" data-testid="brief-quit"
+            aria-label="Quit to title" title="Quit to title"><i data-ico="back"></i></button>
+
+    <div class="banner" aria-hidden="true"><img id="brief-ribbon-top" src="../../../../../data/campaign/story/art/ribbon.webp" alt="" /></div>
+
+    <div class="plaque riveted companyplaque">
+      <h1 id="brief-title" data-testid="brief-title">Ambush at the Ford</h1>
+      <p class="eyebrow" id="brief-step" data-testid="brief-step">Battle 2 of 5</p>
+    </div>
+
+    <div id="brief-story" class="story" data-testid="brief-story">
+      <div class="scene-body" data-art="yes">
+        <figure class="portrait" data-testid="brief-story-portrait">
+          <img src="../../../../../data/campaign/story/portraits/archer-f.png" alt="" />
+        </figure>
+        <div class="scene-lines" id="brief-story-lines" role="log">
+          <!-- scene.ts appends ONE `.story` block per speaker run inside `.scene-lines`;
+               both `index.html`'s and `overhaul.css`'s rules key off `.story .who` /
+               `.story p.line`, so this wrapper is load-bearing, not decoration. -->
+          <div class="story">
+            <p class="who">Briar</p>
+            <p class="line">The water is shallow and the far bank is high. Whoever waits up there gets the first shot and the last word.</p>
+          </div>
+        </div>
+      </div>
+      <div class="scene-controls">
+        <button type="button" class="ghost" id="brief-story-more">More&nbsp;&#9656;</button>
+        <p class="scene-progress" id="brief-story-progress">Line 1 of 2</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ THE BOARD — ONE leaf. The spine and the second leaf are what the split
+       removes; the iron frame, brass rivets, burnt edge and gold rule stay. ═══ -->
+  <div class="board">
+    <section class="leaf leaf-solo">
+      <div class="banner" aria-hidden="true"><img id="brief-ribbon-side" src="../../../../../data/campaign/story/art/ribbon.webp" alt="" /></div>
+
+      <div class="pane-head">
+        <h2>Party Members</h2>
+        <span class="count">3 / 4 deployed</span>
+      </div>
+      <p class="hint deploynote" id="brief-deploy-note" data-testid="brief-deploy-note">This battle fields 3 of 4. A benched member earns no AP — tap a card to manage them, tap the mark to deploy or bench.</p>
+      <div class="rulehr"></div>
+
+      <div class="roster" id="prep-roster-wrap" data-testid="prep-roster" tabindex="0">
+        <ul class="cards" id="brief-party" data-testid="brief-party">
+
+          <li class="member deployed">
+            <i data-ico="fleur" data-ico-class="finial"></i>
+            <button type="button" class="ptab" data-member="pc-briar">
+              <span class="face"><img src="../../../../../data/campaign/story/portraits/archer-f.png" alt="" /></span>
+              <span class="plate">
+                <span class="nline"><b class="pname">Briar</b><span class="pap">240 AP</span></span>
+                <span class="pjob"><i data-ico="c-archer"></i>Archer</span>
+                <span class="pstate">Deployed</span>
+              </span>
+            </button>
+            <span class="pennant" aria-hidden="true"><i data-ico="fleur"></i></span>
+            <button type="button" class="pip" data-deploy="pc-briar" aria-pressed="true"
+                    title="Deployed — click to bench">&#9642;</button>
+          </li>
+
+          <li class="member deployed">
+            <i data-ico="fleur" data-ico-class="finial"></i>
+            <button type="button" class="ptab" data-member="pc-vance">
+              <span class="face"><img class="pending" src="../../../../../data/campaign/story/portraits/placeholder.svg" alt="" /></span>
+              <span class="plate">
+                <span class="nline"><b class="pname">Vance</b><span class="pap">180 AP</span></span>
+                <span class="pjob"><i data-ico="c-geomancer"></i>Geomancer</span>
+                <span class="pstate">Deployed</span>
+              </span>
+            </button>
+            <span class="pennant" aria-hidden="true"><i data-ico="fleur"></i></span>
+            <button type="button" class="pip" data-deploy="pc-vance" aria-pressed="true"
+                    title="Deployed — click to bench">&#9642;</button>
+          </li>
+
+          <li class="member deployed">
+            <i data-ico="fleur" data-ico-class="finial"></i>
+            <button type="button" class="ptab" data-member="pc-kest">
+              <span class="face"><img class="pending" src="../../../../../data/campaign/story/portraits/placeholder.svg" alt="" /></span>
+              <span class="plate">
+                <span class="nline"><b class="pname">Kest</b><span class="pap">180 AP</span></span>
+                <span class="pjob"><i data-ico="c-monk"></i>Monk</span>
+                <span class="pstate">Deployed</span>
+              </span>
+            </button>
+            <span class="pennant" aria-hidden="true"><i data-ico="fleur"></i></span>
+            <button type="button" class="pip" data-deploy="pc-kest" aria-pressed="true"
+                    title="Deployed — click to bench">&#9642;</button>
+          </li>
+
+          <li class="member benched">
+            <i data-ico="fleur" data-ico-class="finial"></i>
+            <button type="button" class="ptab" data-member="pc-ottoline">
+              <span class="face"><img src="../../../../../data/campaign/story/portraits/priest-f.png" alt="" /></span>
+              <span class="plate">
+                <span class="nline"><b class="pname">Ottoline</b><span class="pap">240 AP</span></span>
+                <span class="pjob"><i data-ico="c-priest"></i>Priest</span>
+                <span class="pstate">Benched</span>
+              </span>
+            </button>
+            <span class="pennant" aria-hidden="true"><i data-ico="fleur"></i></span>
+            <button type="button" class="pip" data-deploy="pc-ottoline" aria-pressed="false"
+                    title="Benched — click to deploy">&#9643;</button>
+          </li>
+
+        </ul>
+      </div>
+
+      <footer class="footrail">
+        <span class="frule" aria-hidden="true"></span>
+        <p class="note" id="brief-note-text" data-testid="brief-note">Your party carries everything it has earned so far.</p>
+        <span class="frule" aria-hidden="true"></span>
+        <p class="ready">Ready when you are.</p>
+      </footer>
+
+      <button id="btn-deploy" class="seal" data-testid="deploy"><i data-ico="flag"></i>Deploy</button>
+    </section>
+  </div>
+</section>
+
+<button id="btn-help" class="help-btn ghost" data-testid="help-open"
+        aria-haspopup="dialog" title="How to play" aria-label="How to play">?</button>
+
+<script src="icons.js"></script>
+</body>
+</html>

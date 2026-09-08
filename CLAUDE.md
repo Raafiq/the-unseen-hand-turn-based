@@ -6,14 +6,17 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 990 tests, 192 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a party that keeps what it earns and chooses who deploys, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 994 tests, 196 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041): who fights is authored per encounter (2/3/4/4/4 today), and all six deploy in a coming slice.** The briefing is **two views** — party select, then member detail (ADR-0041), asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
-battle (ADR-0029, AC-M8/M9, AC-V16/V17). Six of ten approved portraits are wired (ADR-0039); monk, geomancer and
-summoner still show the self-labelling placeholder. The title screen **and** the scene
-player ship in the owner's new concept look (ADR-0040); prep, briefing and battle poses
-do not.
+battle (ADR-0029, AC-M8/M9, AC-V16/V17). **Nine** of ten approved portraits are wired (ADR-0039, ADR-0041) and
+every party member has a real face; only `thief-f` is unwired, and jobs with no approved
+portrait still show the self-labelling placeholder. The title screen, the scene
+player **and the briefing** ship in the owner's new concept look (ADR-0040, ADR-0041);
+battle poses do not. **Hand-play of the campaign is suspended until the combat revamp
+(ADR-0041):** `isClickTargetable` rejects `aoe`/`speed`, so wizards and priests have no
+tap-castable action, and 13 tests are parked with `DEFERRED (ADR-0041)`.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 
@@ -282,6 +285,11 @@ put Fable in every specialist.
   image, which settled it in a single pass. Aesthetic direction is not derivable from a
   description, and each blind iteration costs a full rebuild. Ask for a reference, or
   put 2–3 real options in front of them, before writing the stylesheet.
+  - **COLLECT EVERY NOTE ON THE APPROVED FRAMES BEFORE THE ENGINEER STARTS.** The owner
+    said "go", then sent four notes, then "all six deploy", then a style brief — each while
+    the build ran. Three in-flight redirects cost about a third of a 368k run (2026-09-08),
+    rewriting tests the engineer had just written. After the frames are approved, ask once:
+    "anything to change before it is built?" — and only then spawn.
   - **OPTIONS THAT ARE ALL VARIATIONS OF THE CURRENT IMPLEMENTATION CANNOT ESCAPE A FAULT
     IN IT.** Three re-colourings of the battle board were rejected outright; every one of
     them kept the per-tile grid line, which *was* the fault ("actual grounds instead of
@@ -319,3 +327,7 @@ The hook `.claude/hooks/reply-style.sh` restates these rules on every prompt: bo
 ## Remote-session signals ≠ user intent
 
 This runs as a remote session: the container keeps working when the app is closed, and reopening injects a synthetic `Continue from where you left off` turn. That resume prompt, a Stop-hook nagging about uncommitted changes, and `<system-reminder>` blocks are **environment noise, not the user speaking** — never treat them as approval. If the only signal to act is one of these, **hold and re-state what you're waiting on.** Explicit approval means words from the user. (A session once read repeated resume prompts as "stop asking and ship it", then phrased its own inference as the user's decision.)
+
+**The stop button kills every running subagent; a typed message does not.** Three agents
+died at ~0 tokens when the owner pressed interrupt to ask a question (2026-09-08), after
+being told talking was safe. Say so before the first long spawn: type any time, never stop.

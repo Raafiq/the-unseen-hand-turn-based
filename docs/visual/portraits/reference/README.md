@@ -113,8 +113,8 @@ Where the red/blue team colour goes is undecided, and blocked on one real crop w
 Two routes: on the **clothing** (5 jobs x 2 genders x 2 colourways = 20 portraits; a recolour can drift the face), or on the **panel chrome and backdrop** as FFT does it (10 portraits; the art is untouched).
 Judge it when a real portrait sits beside a real swatch in the plate.
 
-Six real crops are wired into `PORTRAITS` as of this slice (ADR-0039); the question is
-answerable now. See `docs/NEXT.md` for whoever picks it up.
+~~Six~~ **Nine** real crops are wired into `PORTRAITS` (ADR-0039; raised to nine by
+ADR-0041, 2026-09-08); the question is answerable now. See `docs/NEXT.md` for whoever picks it up.
 
 ## Adding a portrait
 
@@ -138,13 +138,17 @@ frame (±15% of a 705x940 base), top edge 4% above the ink top. Coordinates are
 | `knight-f` | `[83, 76, 804, 1037]` | yes |
 | `knight-m` | `[152, 70, 868, 1024]` | yes |
 | `archer-f` | `[200, 59, 955, 1066]` | yes |
-| `archer-m` | `[241, 57, 840, 856]` | no — weakest framing, face smaller than the set even at the clamp; re-check before cutting |
+| `archer-m` | `[241, 57, 840, 856]` | **yes** (Vance, 2026-09-08). Cut anyway despite the weakest framing in the set — no other approved male archer exists and the six-member party needed one; re-crop if it reads small on a real phone |
 | `thief-f` | `[261, 55, 1026, 1076]` | no |
 | `thief-m` | `[265, 75, 1076, 1156]` | yes |
 | `wizard-f` | `[98, 38, 774, 940]` | yes |
-| `wizard-m` | `[264, 56, 976, 1005]` | no |
+| `wizard-m` | `[264, 56, 976, 1005]` | **yes** (Kest, 2026-09-08) |
 | `priest-f` | `[373, 74, 1030, 950]` | yes |
-| `priest-m` | `[292, 43, 976, 955]` | no |
+| `priest-m` | `[292, 43, 976, 955]` | **yes** (Corin, 2026-09-08) |
 
-The four unwired keys (`archer-m`, `priest-m`, `thief-f`, `wizard-m`) can be cut
-mechanically from these boxes once a future roster claims them (ADR-0039).
+~~The four unwired keys (`archer-m`, `priest-m`, `thief-f`, `wizard-m`) can be cut
+mechanically from these boxes once a future roster claims them (ADR-0039).~~
+**Updated 2026-09-08 (ADR-0041):** three of the four were cut and wired for the six-member
+party. **`thief-f` is the one key still unwired** — cut it mechanically from its box when a
+roster claims it. Thief is not a candidate for a party job today: its skillset is entirely
+`effect-deferred`, so a thief has zero live actions.

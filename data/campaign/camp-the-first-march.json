@@ -10,7 +10,7 @@
       "id": "pc-vance",
       "name": "Vance",
       "level": 1,
-      "currentJob": "geomancer",
+      "currentJob": "archer",
       "raw": {
         "pa": 8,
         "ma": 8,
@@ -22,7 +22,7 @@
       "faith": 50,
       "ap": 0,
       "learned": [
-        "geomancy.pitfall"
+        "aim.aimed-shot"
       ],
       "mastered": [
         "knight"
@@ -41,7 +41,7 @@
       "id": "pc-kest",
       "name": "Kest",
       "level": 1,
-      "currentJob": "monk",
+      "currentJob": "wizard",
       "raw": {
         "pa": 8,
         "ma": 8,
@@ -53,7 +53,7 @@
       "faith": 50,
       "ap": 0,
       "learned": [
-        "punch-art.wave-fist"
+        "black-magic.fire"
       ],
       "mastered": [
         "monk"
@@ -119,6 +119,68 @@
       ],
       "mastered": [
         "priest"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 3,
+      "weapon": null,
+      "id": "pc-corin",
+      "name": "Corin",
+      "level": 1,
+      "currentJob": "priest",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 210,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "white-magic.cure"
+      ],
+      "mastered": [
+        "priest"
+      ],
+      "loadout": {
+        "secondary": null,
+        "reaction": null,
+        "support": null,
+        "movement": null,
+        "traits": []
+      }
+    },
+    {
+      "rosterSchemaVersion": 3,
+      "weapon": null,
+      "id": "pc-isla",
+      "name": "Isla",
+      "level": 1,
+      "currentJob": "wizard",
+      "raw": {
+        "pa": 8,
+        "ma": 8,
+        "speed": 8,
+        "hp": 238,
+        "mp": 24
+      },
+      "brave": 70,
+      "faith": 50,
+      "ap": 0,
+      "learned": [
+        "black-magic.fire"
+      ],
+      "mastered": [
+        "wizard"
       ],
       "loadout": {
         "secondary": null,

@@ -1,22 +1,34 @@
 import { test, expect, type Page } from "@playwright/test";
-import { dismissScene, openPrepTab, openViewerPrep, startNewGame } from "./helpers.js";
+import { backToParty, dismissScene, openMember, openPrepTab, openViewerPrep, startNewGame } from "./helpers.js";
 // `with { type: "json" }` is required here: this file goes through Node's ESM loader,
 // not Vite's, and a bare JSON import breaks only the browser job (campaign.spec.ts's
 // own file-banner comment).
 import storyPack from "../data/campaign/story/camp-the-first-march.story.json" with { type: "json" };
 
 /**
- * The briefing screen in the overhaul look (owner decision 2026-09-07, option A): one
- * two-pane screen, portrait cards on the left leaf, a three-tab detail leaf (Equipment /
- * Skills / Profile) on the right, briefing chrome on a top rail, a wax Deploy plate
- * breaking the right leaf's bottom-right corner. Third screen ported after the title
- * (ADR-0040) and the scene player (ADR-0040 amendment).
+ * The briefing screen, SPLIT INTO TWO VIEWS (owner decision 2026-09-07):
  *
- * `src/render/prep.ts` builds the right leaf into `#prep-body`; `src/render/game.ts`
- * builds the left leaf's roster cards (`brief-party`, shared between the deploy roster
- * and the prep member picker — one list, not two). `src/render/overhaul.css` is scoped
- * under `#screen-briefing`.
+ *   PARTY  — the roster alone on one full-width leaf, one big portrait card per member,
+ *            the battle title/number AND the story beat on the top rail, the wax Deploy
+ *            plate. One tap anywhere on a card opens that member.
+ *   MEMBER — everything the old right leaf held, full width: unit head, Equipment /
+ *            Skills / Profile, gear, standing, job strip, and a back plaque. No Deploy.
+ *
+ * `src/render/prep.ts` builds the member leaf into `#prep-body`; `src/render/game.ts`
+ * builds the party leaf's roster cards (`brief-party`). `src/render/overhaul.css` is
+ * scoped under `#screen-briefing`, and the VIEW is a class on that section written from
+ * a module variable in `game.ts` — never read back off the DOM.
+ *
+ * VIEWPORTS: the owner's phone in landscape and nothing else (directive, 2026-09-07) —
+ * 832x328 (a ~56px browser bar, unverified) and 832x384 (none). The CSS stays fluid so
+ * larger screens lay out sensibly, but no assertion here is made at another fold.
  */
+
+/** The owner's phone, landscape, with and without the browser bar. */
+const FOLDS = [
+  [832, 328],
+  [832, 384],
+] as const;
 
 /** Every party member id the shipped campaign's battle 1 fields, in roster order. */
 const PARTY = ["pc-vance", "pc-kest", "pc-briar", "pc-ottoline"] as const;
@@ -40,7 +52,7 @@ test.describe("briefing: portrait identity", () => {
   // MUTATION: swap `pc-briar`'s `PORTRAIT_BY_UNIT` entry for `"knight-m"` in
   // src/render/campaign-data.ts → both assertions below go red (the card and the head
   // portrait both resolve to the knight crop instead of archer-f).
-  test("Briar's card and head portrait resolve to the bundled archer-f asset; Vance's to the placeholder", async ({
+  test("Briar's and Vance's cards, and the head portrait, resolve to their OWN bundled assets", async ({
     page,
   }) => {
     await toBriefing(page);
@@ -52,21 +64,18 @@ test.describe("briefing: portrait identity", () => {
     await briarCard.click();
     const hero = page.locator(".hero img");
     await expect(hero).toHaveAttribute("src", /archer-f/);
+    await backToParty(page);
 
-    // Vance's job (geomancer) has no approved portrait — the honest answer is the
-    // bundled placeholder, not a substituted face (ADR-0039). Vite inlines the small
-    // placeholder SVG as a `data:` URI rather than emitting a `placeholder.svg` file,
-    // so identity is asserted on the SVG's own content (its `aria-label`, unique to
-    // the placeholder) plus the `.pending` class prep.ts/game.ts mark it with —
-    // neither a real portrait crop carries either.
+    // Vance was a geomancer with no approved portrait and this test asserted he showed
+    // the PLACEHOLDER. The six-member roster (2026-09-08) made him an archer and claimed
+    // `archer-m` for him, so the honest answer flipped. He is the DISCRIMINATING second
+    // card precisely because he and Briar are both archers: a card wired to "the archer
+    // crop" rather than to this member would satisfy one of these two and not the other.
     const vanceCard = page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-vance"] img');
-    await expect(vanceCard).toHaveClass(/pending/);
-    await expect(vanceCard).toHaveAttribute("src", /Portrait%20pending/);
-    // m14b: `.ptab .face img` is `object-fit: cover` (a real crop fills the frame);
-    // the placeholder SVG needs `contain` or it is cropped illegibly.
-    await expect(vanceCard).toHaveCSS("object-fit", "contain");
-    // MUTATION (run, see the fix report): drop `#screen-briefing .ptab .face
-    // img.pending` from `overhaul.css` — this reads "cover", red.
+    await expect(vanceCard).toHaveAttribute("src", /archer-m/);
+    await expect(vanceCard).not.toHaveClass(/pending/);
+    // A real crop fills the frame; only the placeholder SVG asks for `contain`.
+    await expect(vanceCard).toHaveCSS("object-fit", "cover");
   });
 });
 
@@ -75,6 +84,9 @@ test.describe("briefing: tabs", () => {
     page,
   }) => {
     await toBriefing(page);
+    // The tabs live on the MEMBER view (the split, owner 2026-09-07): "Equipment is
+    // selected on entry" is a claim about entering a member, not the screen.
+    await openMember(page);
 
     const equipmentTab = page.locator('.tab[data-tab="equipment"]');
     const skillsTab = page.locator('.tab[data-tab="skills"]');
@@ -141,6 +153,7 @@ test.describe("briefing: tab persistence", () => {
     // Path one: selecting a different member repaints the whole briefing (the roster
     // click goes through `prep.select()` then `renderBriefingText()`), which must NOT
     // reset the render-layer tab state.
+    await backToParty(page);
     await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-kest"]').click();
     await expect(page.locator('.tab[data-tab="skills"]')).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("prep-reaction")).toBeVisible();
@@ -150,6 +163,7 @@ test.describe("briefing: tab persistence", () => {
     // if the tab survived the purchase's own repaint too. Discover whichever member
     // actually banked enough AP rather than assuming which one did.
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
@@ -172,101 +186,168 @@ test.describe("briefing: tab persistence", () => {
 
 test.describe("briefing: control manifest", () => {
   /**
-   * Every `prep-*` testid this screen's code can emit, tagged with which tab shows it
-   * ("always" = the unit-head/Job Customization strip, visible regardless of tab) and
-   * whether the DOM node itself may be OMITTED (not merely hidden) in some states —
-   * the absent-not-zero rule (a weapon row before any weapon is owned, a receipt
-   * before any purchase). Built from `grep -oE 'data-testid="prep-[a-z-]*"'` across
-   * `prep.ts`/`game.ts`/`index.html`, not copied from prose — the exact 21 that exist.
+   * AC-V53. Every testid this screen's code can emit that the split OWNS, tagged with
+   * which VIEW it belongs to (party select / member detail), which TAB shows it within
+   * the member view ("always" = the unit head and Job Customization strip, visible on
+   * every tab) and whether the node itself may be OMITTED — not merely hidden — in some
+   * state, the absent-not-zero rule (a weapon row before any weapon is owned, a receipt
+   * before any purchase).
+   *
+   * Built from `grep -oE 'data-testid="(prep|member)-[a-z-]*"'` across `prep.ts` /
+   * `game.ts` / `index.html`, plus the two ids the split adds, not copied from prose.
+   * The partition below is EXACT in both directions: a stray id fails, and a stale key
+   * here fails too (its per-view loop demands the node be present).
    */
-  const MANIFEST: Record<string, { tab: "always" | "equipment" | "skills" | "profile"; optional?: true }> = {
-    "prep-roster": { tab: "always" },
-    "prep-ap": { tab: "always" },
-    "prep-job": { tab: "always" },
-    "prep-secondary": { tab: "always" },
-    "prep-weapon": { tab: "equipment", optional: true },
-    "prep-weapon-desc": { tab: "equipment", optional: true },
-    "prep-weapon-hint": { tab: "equipment", optional: true },
-    "prep-stats": { tab: "equipment" },
-    "prep-primary": { tab: "skills" },
-    "prep-reaction": { tab: "skills" },
-    "prep-support": { tab: "skills" },
-    "prep-movement": { tab: "skills" },
-    "prep-commands": { tab: "skills" },
-    "prep-command-count": { tab: "skills" },
-    "prep-progression": { tab: "skills" },
-    "prep-tree": { tab: "skills" },
-    "prep-learn": { tab: "skills" },
-    "prep-spend-hint": { tab: "skills" },
-    "prep-receipt": { tab: "skills", optional: true },
-    "prep-traits": { tab: "profile" },
-    "prep-traits-hint": { tab: "profile", optional: true },
+  const MANIFEST: Record<
+    string,
+    { view: "party" | "member"; tab: "always" | "equipment" | "skills" | "profile"; optional?: true }
+  > = {
+    // ── party select ────────────────────────────────────────────────────────────
+    "prep-roster": { view: "party", tab: "always" },
+    // ── member detail ───────────────────────────────────────────────────────────
+    "member-back": { view: "member", tab: "always" },
+    "brief-member-name": { view: "member", tab: "always" },
+    "prep-ap": { view: "member", tab: "always" },
+    "prep-job": { view: "member", tab: "always" },
+    "prep-secondary": { view: "member", tab: "always" },
+    "prep-weapon": { view: "member", tab: "equipment", optional: true },
+    "prep-weapon-desc": { view: "member", tab: "equipment", optional: true },
+    "prep-weapon-hint": { view: "member", tab: "equipment", optional: true },
+    "prep-stats": { view: "member", tab: "equipment" },
+    "prep-primary": { view: "member", tab: "skills" },
+    "prep-reaction": { view: "member", tab: "skills" },
+    "prep-support": { view: "member", tab: "skills" },
+    "prep-movement": { view: "member", tab: "skills" },
+    "prep-commands": { view: "member", tab: "skills" },
+    "prep-command-count": { view: "member", tab: "skills" },
+    "prep-progression": { view: "member", tab: "skills" },
+    "prep-tree": { view: "member", tab: "skills" },
+    "prep-learn": { view: "member", tab: "skills" },
+    "prep-spend-hint": { view: "member", tab: "skills" },
+    "prep-receipt": { view: "member", tab: "skills", optional: true },
+    "prep-traits": { view: "member", tab: "profile" },
+    "prep-traits-hint": { view: "member", tab: "profile", optional: true },
   };
 
-  test("every manifest control is attached on its tab, or legitimately absent; nothing stray ships", async ({
+  /** Every testid the partition scans. Widened with the split's own two prefixes. */
+  const PARTITION_SELECTOR =
+    '[data-testid^="prep-"], [data-testid^="member-"], [data-testid="brief-member-name"]';
+
+  test("every manifest control is attached on its view and tab, or legitimately absent; nothing stray ships", async ({
     page,
   }) => {
     await toBriefing(page);
     // M3: `if (spec.optional && count === 0) continue` alone can never tell "this
     // optional row is absent in THIS state, correctly" from "this row can never be
-    // produced and nothing here would notice" — five rows (prep-receipt, prep-weapon,
-    // prep-weapon-desc, prep-weapon-hint, prep-traits-hint) were skipped every run.
+    // produced and nothing here would notice" — five rows were skipped every run.
     // `seenOptional` collects every optional testid that was actually PRESENT at least
-    // once, and the test fails unless it equals the full optional set — so a row that
-    // stops being reachable (a content or code change) goes red here instead of
-    // silently reading as "legitimately absent" forever.
+    // once, and the test fails unless it equals the full optional set.
     const seenOptional = new Set<string>();
 
-    const checkTabs = async (): Promise<void> => {
-      for (const tab of ["equipment", "skills", "profile"] as const) {
-        await openPrepTab(page, tab);
-        for (const [testid, spec] of Object.entries(MANIFEST)) {
-          const el = page.locator(`[data-testid="${testid}"]`);
-          const count = await el.count();
-          if (spec.tab === "always" || spec.tab === tab) {
-            if (spec.optional) {
-              if (count === 0) continue; // absent-not-zero in THIS state, not a failure
-              seenOptional.add(testid);
-            }
-            expect(count, `${testid} must be attached on the ${tab} tab`).toBeGreaterThan(0);
-            await expect(el.first(), `${testid} must be VISIBLE on the ${tab} tab`).toBeVisible();
-          } else if (count > 0) {
-            await expect(el.first(), `${testid} must be hidden while ${tab} is open`).toBeHidden();
+    /** Assert every entry of `view` against the live DOM, and every OTHER view's absent. */
+    const checkView = async (view: "party" | "member", tab: string): Promise<void> => {
+      for (const [testid, spec] of Object.entries(MANIFEST)) {
+        const el = page.locator(`[data-testid="${testid}"]`);
+        const count = await el.count();
+        const showing = spec.view === view && (spec.tab === "always" || spec.tab === tab);
+        if (showing) {
+          if (spec.optional) {
+            if (count === 0) continue; // absent-not-zero in THIS state, not a failure
+            seenOptional.add(testid);
           }
+          expect(count, `${testid} must be attached on the ${view} view's ${tab} tab`).toBeGreaterThan(0);
+          await expect(el.first(), `${testid} must be VISIBLE on the ${view} view's ${tab} tab`).toBeVisible();
+        } else if (count > 0) {
+          await expect(
+            el.first(),
+            `${testid} must be hidden while the ${view} view's ${tab} tab is open`,
+          ).toBeHidden();
         }
       }
     };
 
+    /** Walk the member view's three tabs. */
+    const checkMemberTabs = async (): Promise<void> => {
+      for (const tab of ["equipment", "skills", "profile"] as const) {
+        await openPrepTab(page, tab);
+        await checkView("member", tab);
+      }
+    };
+
+    /**
+     * Both views, FOR A NAMED MEMBER.
+     *
+     * The id is not decoration. This helper used to call `openMember(page)` with no
+     * argument, which opens the FIRST card — so the `for (const id of PARTY)` sweep
+     * below inspected Vance on every pass and a manifest that was wrong for every other
+     * member read as green four times over. The rail assertion is what makes the id
+     * load-bearing: it names who is actually on screen, and it is checked here rather
+     * than at the end so a wrong member fails on the pass that caused it.
+     *
+     * NOT usable right after a purchase: backing out to party select and re-opening the
+     * member calls `prep.select()`, which re-points the panel and clears
+     * `learnReceipt()` — so `prep-receipt`, whose whole point is "only until the panel is
+     * re-pointed", would be gone before it was ever seen. The receipt pass below uses
+     * {@link checkMemberTabs} for exactly that reason.
+     */
+    const checkTabs = async (id: string, name: string): Promise<void> => {
+      await backToParty(page);
+      // The party view has no tabs; "equipment" is passed only so the member entries are
+      // all judged as not-showing here.
+      await checkView("party", "equipment");
+      await openMember(page, id);
+      await expect(
+        page.getByTestId("brief-member-name"),
+        `the manifest sweep asked for ${id} and the rail is managing someone else`,
+      ).toContainText(name);
+      await checkMemberTabs();
+    };
+
     // Pass 1: every party member, as-shipped battle-1 state. `startCampaign` grants
-    // battle 1's weapons (`wpn-arming-sword`, `wpn-cestus`) into the save's inventory
-    // BEFORE the first briefing (src/sim/campaign.ts's own comment: "the first battle —
-    // the one a new player meets — as the single fight with no gear in it" is exactly
-    // what that grant-at-start avoids), and every starting record's `weapon` field is
-    // `null` — so prep-weapon and prep-weapon-hint ("owns N, none equipped") are both
-    // reachable with no state change at all. Every party member also starts with a
-    // mastered job and an EMPTY `loadout.traits` (`data/campaign/camp-the-first-
-    // march.json`), which is exactly `prep-traits-hint`'s condition — so that one is
-    // reachable here too, on the Profile tab.
+    // battle 1's weapons into the save's inventory BEFORE the first briefing and every
+    // starting record's `weapon` is `null` — so prep-weapon and prep-weapon-hint are
+    // both reachable with no state change. Every member also starts with a mastered job
+    // and an EMPTY `loadout.traits`, which is exactly `prep-traits-hint`'s condition.
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
-      await card.click();
-      await checkTabs();
+      const name = (await card.locator(".pname").innerText()).trim();
+      await checkTabs(id, name);
     }
 
     // Drive prep-weapon-desc: it needs the OPPOSITE state from prep-weapon-hint (a
-    // weapon actually equipped), so equip the first owned weapon on whichever member
-    // is currently open.
-    await openPrepTab(page, "equipment");
-    const weaponSelect = page.getByTestId("prep-weapon");
-    expect(await weaponSelect.count(), "no member has an owned, equippable weapon at battle 1").toBeGreaterThan(0);
-    await weaponSelect.selectOption({ index: 1 });
-    await checkTabs();
+    // weapon actually equipped). DISCOVERED, not assumed: which member owns an
+    // equippable weapon at battle 1 is authored content, and the pass has to re-inspect
+    // THAT member — equipping on one and then walking Vance's tabs (which is what the
+    // no-argument `checkTabs()` did) leaves `prep-weapon-desc` unreached here and lets a
+    // later, unrelated pass be the only thing that ever sees it.
+    let equipped: { id: string; name: string } | null = null;
+    for (const id of PARTY) {
+      await backToParty(page);
+      const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
+      if ((await card.count()) === 0) continue;
+      const name = (await card.locator(".pname").innerText()).trim();
+      await openMember(page, id);
+      await openPrepTab(page, "equipment");
+      const weaponSelect = page.getByTestId("prep-weapon");
+      if ((await weaponSelect.count()) === 0) continue;
+      const values = await weaponSelect.locator("option").evaluateAll((os) =>
+        os.map((o) => (o as HTMLOptionElement).value),
+      );
+      if (values.length < 2) continue;
+      await weaponSelect.selectOption(values[1]!);
+      await expect(weaponSelect).toHaveValue(values[1]!); // the edit really landed
+      equipped = { id, name };
+      break;
+    }
+    expect(equipped, "no member has an owned, equippable weapon at battle 1").not.toBeNull();
+    await checkTabs(equipped!.id, equipped!.name);
 
-    // Drive prep-receipt: reuse the tab-persistence fixture (0 AP campaign-wide until
-    // two battles are banked) — play two, then buy whichever party member's cheapest
-    // affordable node.
+    // Drive prep-receipt: 0 AP campaign-wide until two battles are banked — play two,
+    // then buy whichever party member's cheapest affordable node.
     for (let i = 0; i < 2; i++) {
+      await backToParty(page);
       await playCurrentBattle(page);
       await expect(page.getByTestId("screen-after")).toBeVisible();
       await page.getByTestId("next").click();
@@ -275,6 +356,7 @@ test.describe("briefing: control manifest", () => {
     await expect(page.getByTestId("screen-briefing")).toBeVisible();
     let bought = false;
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
@@ -286,7 +368,7 @@ test.describe("briefing: control manifest", () => {
       break;
     }
     expect(bought, "no party member has an affordable node after two battles — nothing to buy").toBe(true);
-    await checkTabs();
+    await checkMemberTabs();
 
     const expectedOptional = new Set(
       Object.entries(MANIFEST)
@@ -297,74 +379,469 @@ test.describe("briefing: control manifest", () => {
       [...expectedOptional].sort(),
     );
 
-    // THE EXACT PARTITION: every `prep-*` testid actually in the DOM must be a key of
-    // MANIFEST — a stray id (a leftover, a typo, an un-catalogued new control) fails
-    // here even though every per-control loop above stayed green.
-    const found = await page.evaluate(() =>
-      [...document.querySelectorAll('[data-testid^="prep-"]')].map((e) => (e as HTMLElement).dataset["testid"]),
-    );
-    const stray = [...new Set(found)].filter((id) => id !== undefined && !(id in MANIFEST));
-    expect(stray, `stray prep-* testid(s) not in MANIFEST: ${stray.join(", ")}`).toEqual([]);
-    // MUTATION 1: delete `prep-support`'s testid attribute in `prep.ts` → the Skills-tab
-    // loop's `toBeGreaterThan(0)` for `prep-support` goes red.
-    // MUTATION 2: add `data-testid="prep-extra"` to any element in `prep.ts` → the
-    // stray-partition assertion goes red, even though nothing else in this test does.
-    // MUTATION 3 (M3, run — see the fix report): delete the `data-testid="prep-weapon-
-    // hint"` attribute in `weaponSlotHtml()` (prep.ts) → `seenOptional` never gains
-    // "prep-weapon-hint", and the `expectedOptional` equality assertion goes red, even
-    // though every other assertion in this test stays green.
+    // THE EXACT PARTITION, in both views: every `prep-*` / `member-*` testid actually in
+    // the DOM must be a key of MANIFEST — a stray id (a leftover, a typo, an
+    // un-catalogued new control) fails here even though every per-control loop above
+    // stayed green. Scanned on BOTH views, since each hides the other's markup by CSS
+    // (the nodes are still in the document, so one scan would have found them anyway —
+    // the two passes are what would survive a switch to conditional rendering).
+    const found: string[] = [];
+    for (const goToMember of [false, true]) {
+      await backToParty(page);
+      if (goToMember) await openMember(page);
+      found.push(
+        ...(await page.evaluate(
+          (sel) =>
+            [...document.querySelectorAll(sel)].map((e) => (e as HTMLElement).dataset["testid"] ?? ""),
+          PARTITION_SELECTOR,
+        )),
+      );
+    }
+    const stray = [...new Set(found)].filter((id) => id !== "" && !(id in MANIFEST));
+    expect(stray, `stray testid(s) not in MANIFEST: ${stray.join(", ")}`).toEqual([]);
+    // MUTATION 1 (run): delete `member-back`'s entry from MANIFEST → the stray-partition
+    // assertion goes red (`member-back` is on the page and in no manifest key).
+    // MUTATION 2 (run): add a STALE key (`member-bogus`) to MANIFEST → the member-view
+    // loop's `toBeGreaterThan(0)` for it goes red; the partition alone cannot see it,
+    // which is why both directions are asserted.
+    // MUTATION 3: delete `data-testid="prep-support"` in `prep.ts` → the Skills-tab
+    // loop goes red.
+    // MUTATION 4 (M3, previously run): delete `data-testid="prep-weapon-hint"` in
+    // `weaponSlotHtml()` → `seenOptional` never gains it and the equality goes red.
+    // MUTATION 5 (RUN 2026-09-08): make `checkTabs` ignore its id and call
+    // `openMember(page)` (the first card, every time) — the rail assertion goes red on
+    // the first non-Vance member of the sweep. That is the bug this sweep shipped with:
+    // it walked four ids and inspected one member.
   });
 });
 
-test.describe("briefing: drift from the mockup, at 851x324", () => {
-  // Measured against `docs/visual/concepts/mockups/prep-851x324.png` by rendering the
-  // APPROVED MOCKUP's own HTML (`coverage/overhaul/prep.html`, the file the PNG was
-  // captured from) at the same viewport and reading real element boxes — more precise
-  // than a pixel colour scan, and still the mockup's own numbers, not eyeballed.
-  test("tab-row top, leaf's right edge, Deploy plate's bottom-right, and the first card's box are within 12px of the mockup", async ({
+test.describe("briefing: six shown, two fight (ADR-0041)", () => {
+  test("battle 1 marks exactly the four members it does NOT field, and says so in the hint", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 851, height: 324 });
+    await page.setViewportSize({ width: 832, height: 328 });
     await toBriefing(page);
-    // CHECKED, NOT ASSUMED: every one of the five shipped battles authors a
-    // pre-battle beat (the story pack's own `pre` field, read directly rather than
-    // trusting a stale doc claim — see the comment this replaced). The mockup's own
-    // `brief-story` ships permanently `hidden` (README §(f)), so there is no briefing
-    // state in this build that matches the mockup's story-free assumption; the first
-    // card's Y position is therefore NOT held to the mockup's number below (a real,
-    // permanent content difference, not a layout bug) — only its X position and width
-    // are, since the story's height cannot move the roster sideways.
+
+    // THE ENCOUNTER IS THE SOURCE, and the assertion names the two it fields rather than
+    // counting marks: a count alone passes on a mark put on the wrong four cards.
+    // `camp-b1-the-toll-road.json` places `pc-vance` and `pc-kest` on team 0.
+    const marked = await page
+      .locator('[data-testid="prep-roster"] li.member')
+      .evaluateAll((lis) =>
+        lis.map((li) => ({
+          name: (li.querySelector(".pname") as HTMLElement).innerText.trim(),
+          camp: li.getAttribute("data-camp"),
+          caption: (li.querySelector(".camp") as HTMLElement | null)?.innerText.trim() ?? null,
+        })),
+      );
+    expect(marked.length, "the shipped party is six").toBe(6);
+    expect(
+      marked.filter((m) => m.camp === null).map((m) => m.name).sort(),
+      "battle 1's authored placements are Vance and Kest",
+    ).toEqual(["Kest", "Vance"]);
+    // The mark is VISIBLE, not just an attribute: every camp-marked card carries the
+    // caption too, and no fielded card does.
+    for (const m of marked) {
+      expect(m.caption === null, `${m.name}: caption/attribute disagree`).toBe(m.camp === null);
+    }
+
+    await expect(page.getByTestId("brief-deploy-note")).toHaveText(
+      "This battle fields 2 of 6. Tap a member to manage them.",
+    );
+
+    // …and it is READ-ONLY: a camp-marked card still opens its member like any other.
+    // (`data-camp` must not have become a disabled state — the whole party is editable.)
+    await openMember(page, "pc-isla");
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Isla");
+
+    // MUTATION (RUN 2026-09-08): derive the mark and the count from `save.deployment`
+    // (`shell.deployment()?.chosen` reading the save's own array) instead of the
+    // encounter's `authored` — the save's deployment is empty at battle 1, so every card
+    // is marked, the "fields 2 of 6" hint disappears, and both assertions go red.
+  });
+
+  test("the fielded set follows the ENCOUNTER even when a stale deployment is in the save", async ({
+    page,
+  }) => {
+    // A save written by an older build (or by `playtest.ts`, which still calls
+    // `setDeployment`) can carry a deployment this build has no control for. Nothing on
+    // screen would show it and nothing could change it, so `continueGame` drops it —
+    // empty means "as the encounter authored it".
+    //
+    // THE FIXTURE IS DISCRIMINATING: it names Ottoline, who battle 1 does NOT place, so
+    // an honoured stale deployment and a dropped one field different units. A fixture
+    // naming Vance and Kest would pass either way.
+    await page.goto("/");
+    await startNewGame(page);
+    await dismissScene(page);
+    await expect(page.getByTestId("screen-briefing")).toBeVisible();
+    await page.evaluate(() => {
+      // `SAVE_KEY` from `src/render/storage.ts`; the same literal `campaign.spec.ts`
+      // uses, and the whole point is to go through the REAL slot, not a memory one.
+      const stored = localStorage.getItem("tuh.campaign.v1");
+      if (stored === null) throw new Error("no save in localStorage after New Game");
+      const raw = JSON.parse(stored) as { deployment?: unknown };
+      raw.deployment = ["pc-vance", "pc-ottoline"];
+      localStorage.setItem("tuh.campaign.v1", JSON.stringify(raw));
+    });
+    await page.reload();
+    await page.getByTestId("continue").click();
+    await dismissScene(page);
+    await expect(page.getByTestId("screen-briefing")).toBeVisible();
+
+    // WHO IS ON THE BOARD, read the way a player reads it. NOT by battle-unit id:
+    // `applyDeployment` SUBSTITUTES THE RECORD and keeps every slot id as authored
+    // (`campaign-run.ts`), so the ids are `blue-vance` / `blue-kest` under both answers
+    // and an id assertion here would be green either way — the exact "cannot come out
+    // the other way" trap. The NAME is what changes, and the timeline is where it shows.
+    const roster = await page
+      .locator('[data-testid="prep-roster"] li.member .pname')
+      .allInnerTexts();
+    expect(roster.length, "the shipped party is six").toBe(6);
+    await page.getByTestId("deploy").click();
+    await expect(page.getByTestId("screen-battle")).toBeVisible();
+    const timeline = await page.getByTestId("timeline").innerText();
+    const fielded = roster.map((n) => n.trim()).filter((n) => timeline.includes(n)).sort();
+    expect(fielded, "the stale deployment was honoured — Ottoline reached the board").toEqual([
+      "Kest",
+      "Vance",
+    ]);
+    // MUTATION (RUN 2026-09-08): drop the `deployment: []` clear in
+    // `CampaignShell.continueGame` (`this.save = this.slotState.save`) — Ottoline is
+    // fielded in Kest's place and this assertion goes red.
+  });
+});
+
+test.describe("briefing: focus follows the view switch", () => {
+  test("opening a member focuses Back; going back focuses the card that was open", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 832, height: 328 });
+    await toBriefing(page);
+
+    // BOTH LEAVES ARE `display: none`-TOGGLED, which drops focus to `<body>`. A keyboard
+    // player who opened a member landed nowhere and had to tab in from the top of the
+    // document; going back was worse, because the roster is rebuilt wholesale and the
+    // card they came from is a brand-new node.
+    const active = (): Promise<string> =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (el === null) return "null";
+        return el.dataset["testid"] ?? el.dataset["member"] ?? el.tagName.toLowerCase();
+      });
+
+    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-briar"]').click();
+    await expect(page.getByTestId("member-back")).toBeVisible();
+    expect(await active(), "opening a member left focus on the body").toBe("member-back");
+
+    await page.getByTestId("member-back").click();
+    await expect(page.getByTestId("prep-roster")).toBeVisible();
+    // THE CARD THAT WAS OPEN, named — "some card is focused" would pass on the first one.
+    expect(await active(), "back left focus on the body or on the wrong card").toBe("pc-briar");
+
+    // MUTATION (RUN 2026-09-08): delete both `focus()` calls from `setBriefView` in
+    // `game.ts` — `document.activeElement` is `<body>` after each switch and both
+    // assertions go red.
+  });
+});
+
+test.describe("briefing: drift from the approved party mockup, at 832x328", () => {
+  // Measured against `docs/visual/concepts/mockups/src/party.html` — the source the
+  // approved `party-851x324.png` frame was captured from — re-shot at the OWNER'S fold
+  // (832x328). Real element boxes, not a pixel scan: more precise, and still the mockup's
+  // own numbers rather than eyeballed ones.
+  //
+  // RE-DERIVABLE. The first version of these constants came off a re-shoot into a
+  // gitignored `coverage/` directory, so the numbers were an assertion nobody could
+  // check. The frame is now tracked as `docs/visual/concepts/mockups/party-832x328.png`
+  // and `docs/visual/concepts/mockups/src/shoot.mjs` prints exactly the six values below
+  // (its `constants: true` shot). Re-derive with:
+  //
+  //     node docs/visual/concepts/mockups/src/shoot.mjs
+  //
+  // which re-shot 2026-09-08 as, verbatim:
+  //   MOCKUP_832x328 (4 mockup cards) = {"cardFirstX":44,"cardLastRight":811,
+  //     "cardTop":97,"rosterRight":814,"sealRight":828,"sealBottom":324}
+  //
+  // Two deliberate deviations from the approved frame:
+  //  1. the mockup's per-card deploy pip is GONE (owner, 2026-09-08);
+  //  2. the party is SIX members (owner, 2026-09-08) where the mockup drew four.
+  //
+  // (2) is why the per-card numbers below are the mockup's INVARIANTS rather than its
+  // four pixel positions. `cardX: [44, 237, 430, 624]` and `cardWidth: 187` describe a
+  // four-track grid and are unsatisfiable at six; re-recording six measured positions
+  // off the running build would be a test that cannot come out the other way — it would
+  // assert whatever the CSS did. What the mockup actually fixes, independent of the
+  // count, is the ROW's box: where the first card starts, where the last one ends, how
+  // tall the row sits, and that the tracks are equal and side by side. Those still bite
+  // (see the mutation at the end), and they hold at the shipped six: measured x = 44,
+  // 173, 301, 430, 559, 688 at width 123, last right edge 811 — the same 811 the
+  // mockup's fourth card reached at width 187.
+  //
+  // NOT ASSERTED, and owed to the art director: nobody has approved a SIX-card frame.
+  // The card width is 123px where the approved four-card frame drew 187, and whether a
+  // face still reads at that size is a taste call this file cannot make.
+  const MOCKUP_832x328 = {
+    cardFirstX: 44,
+    cardLastRight: 811,
+    cardTop: 97,
+    rosterRight: 814,
+    sealRight: 828,
+    sealBottom: 324,
+  };
+
+  test("the card row's box, the roster's right edge and the Deploy plate are within 12px of the mockup", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 832, height: 328 });
+    await toBriefing(page);
+    // CHECKED, NOT ASSUMED: every shipped battle authors a pre-battle beat, read off the
+    // pack rather than trusting a doc claim. The mockup ships one too (on the rail), so
+    // unlike the pre-split screen there is no content mismatch to except.
     expect(storyPack.entries.every((e) => e.pre !== undefined)).toBe(true);
     await expect(page.getByTestId("brief-story")).toBeVisible();
 
-    // Scoped to #screen-briefing: the title screen's OWN `.leaf-right` sits in the DOM
-    // too (every screen's markup coexists, only `hidden` toggles), so a bare `.leaf-
-    // right` is a strict-mode violation, not a wrong answer.
-    const tabsBox = await page.locator("#screen-briefing .tabs").boundingBox();
-    const leafRightBox = await page.locator("#screen-briefing .leaf-right").boundingBox();
-    const sealBox = await page.getByTestId("deploy").boundingBox();
-    const firstCardBox = await page
+    const boxes = await page
       .locator('[data-testid="prep-roster"] .ptab')
-      .first()
-      .boundingBox();
-    expect(tabsBox, "tabs has no box").not.toBeNull();
-    expect(leafRightBox, "leaf-right has no box").not.toBeNull();
-    expect(sealBox, "deploy seal has no box").not.toBeNull();
-    expect(firstCardBox, "first roster card has no box").not.toBeNull();
+      .evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((b) => ({ x: b.x, w: b.width, y: b.y })));
+    expect(boxes.length, "the shipped party is six members").toBe(6);
 
     const near = (label: string, actual: number, wanted: number): void => {
-      expect(Math.abs(actual - wanted), `${label}: ${actual} is not within 12px of the mockup's ${wanted}`).toBeLessThanOrEqual(12);
+      expect(
+        Math.abs(actual - wanted),
+        `${label}: ${actual} is not within 12px of the mockup's ${wanted}`,
+      ).toBeLessThanOrEqual(12);
     };
-    near("tab-row top", tabsBox!.y, 111);
-    near("leaf's right edge", leafRightBox!.x + leafRightBox!.width, 841);
-    near("Deploy plate's right edge", sealBox!.x + sealBox!.width, 847);
-    near("Deploy plate's bottom edge", sealBox!.y + sealBox!.height, 320);
-    // X only — see the comment above for why Y is not held to the mockup's number.
-    near("first card's left edge", firstCardBox!.x, 21);
-    near("first card's width", firstCardBox!.width, 165);
-    // MUTATION: change `.leaf` padding (`--burn`/`--burn-spread` in overhaul.css) by
-    // 20px worth — the leaf's right edge and the first card's left edge both shift by
-    // more than 12px, and at least one `near()` call goes red.
+
+    near("the row's first card left edge", boxes[0]!.x, MOCKUP_832x328.cardFirstX);
+    near(
+      "the row's last card right edge",
+      boxes.at(-1)!.x + boxes.at(-1)!.w,
+      MOCKUP_832x328.cardLastRight,
+    );
+    for (const [i, box] of boxes.entries()) {
+      near(`card ${i} top`, box.y, MOCKUP_832x328.cardTop);
+      // Equal tracks, to 2px — the mockup's grid is `1fr` per card at every count, so a
+      // row that filled the same box with UNEVEN cards would pass the two edges above.
+      expect(
+        Math.abs(box.w - boxes[0]!.w),
+        `card ${i} is ${Math.round(box.w)}px against card 0's ${Math.round(boxes[0]!.w)}px`,
+      ).toBeLessThanOrEqual(2);
+    }
+
+    const rosterBox = await page.getByTestId("prep-roster").boundingBox();
+    const sealBox = await page.getByTestId("deploy").boundingBox();
+    expect(rosterBox, "prep-roster has no box").not.toBeNull();
+    expect(sealBox, "deploy seal has no box").not.toBeNull();
+    near("roster's right edge", rosterBox!.x + rosterBox!.width, MOCKUP_832x328.rosterRight);
+    near("Deploy plate's right edge", sealBox!.x + sealBox!.width, MOCKUP_832x328.sealRight);
+    near("Deploy plate's bottom edge", sealBox!.y + sealBox!.height, MOCKUP_832x328.sealBottom);
+    // MUTATION (RUN 2026-09-08): pin `#screen-briefing.party .cards`'s track count to
+    // five (`grid-template-columns: repeat(5, minmax(0, 1fr))`, overhaul.css) — the sixth
+    // card wraps to a second row and the run failed on
+    // "the row's last card right edge: 192.375 is not within 12px of the mockup's 811".
+    // The `card 5 top` assertion behind it sees the same wrap (the ONE ROW test below
+    // went red on it in the same run, y 188 against card 0's 97).
+  });
+
+  test("a six-member party still stands in ONE ROW at both folds", async ({ page }) => {
+    // THE FIXTURE IS NOW THE SHIPPED CAMPAIGN. This test used to seed a synthetic
+    // six-member save into `localStorage`, because the campaign shipped four and the
+    // owner's directive (2026-09-08) was that six is the working assumption. The roster
+    // landed six that same day, so the synthetic save would now grow the party to EIGHT
+    // and measure a layout no player ever sees. Reading the real save is strictly
+    // stronger: it drives the real codec, the real shell and the real content.
+    for (const [w, h] of FOLDS) {
+      await page.setViewportSize({ width: w, height: h });
+      await toBriefing(page);
+      const shipped = await page.evaluate(() => {
+        const raw = localStorage.getItem("tuh.campaign.v1");
+        if (raw === null) return 0;
+        return (JSON.parse(raw) as { party: unknown[] }).party.length;
+      });
+      // Guards the fixture: if the campaign ever ships a different party size, this test
+      // says so instead of silently measuring a four- or eight-card row against a claim
+      // about six.
+      expect(shipped, "the shipped campaign save is not a six-member party").toBe(6);
+
+      const boxes = await page
+        .locator('[data-testid="prep-roster"] .ptab')
+        .evaluateAll((els) =>
+          els.map((e) => {
+            const b = e.getBoundingClientRect();
+            return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width) };
+          }),
+        );
+      expect(boxes.length, `${w}x${h}: six cards must be drawn`).toBe(6);
+      // ONE ROW is the assertion, and it is stated as "every card shares the first
+      // card's top", not "the roster is short" — an aggregate could not tell a single
+      // row from two half-height ones.
+      for (const [i, b] of boxes.entries()) {
+        expect(b.y, `${w}x${h}: card ${i} is on a second row (y ${b.y} vs ${boxes[0]!.y})`).toBe(boxes[0]!.y);
+      }
+      // …and they are genuinely side by side, in order, none of them collapsed.
+      for (let i = 1; i < boxes.length; i += 1) {
+        expect(boxes[i]!.x, `${w}x${h}: card ${i} is not right of card ${i - 1}`).toBeGreaterThan(boxes[i - 1]!.x);
+      }
+      for (const [i, b] of boxes.entries()) {
+        expect(b.w, `${w}x${h}: card ${i} is too narrow to read a face`).toBeGreaterThanOrEqual(100);
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
+        `${w}x${h}: six cards made the page scroll horizontally`,
+      ).toBe(true);
+      // MUTATION (run): drop `--cards` from `#screen-briefing.party .cards`'s
+      // `grid-template-columns` (back to `repeat(auto-fit, minmax(138px, 1fr))`) — at
+      // 773px of leaf `auto-fit` yields FIVE tracks, the sixth card wraps, and the
+      // shared-top assertion goes red at both folds.
+    }
+  });
+});
+
+test.describe("briefing: the two views", () => {
+  test("entering shows party select only; a card opens that member; back keeps the same member selected", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 832, height: 328 });
+    await toBriefing(page);
+
+    // ON ENTRY: the roster is up and NOTHING of the member leaf is.
+    await expect(page.getByTestId("prep-roster")).toBeVisible();
+    await expect(page.getByTestId("brief-quit")).toBeVisible();
+    await expect(page.getByTestId("deploy")).toBeVisible();
+    await expect(page.getByTestId("prep-weapon")).toBeHidden();
+    await expect(page.getByTestId("member-back")).toBeHidden();
+
+    // BRIAR by name, not "some card": a view switch that opened the wrong member, or the
+    // first member every time, passes an "is a member open" assertion.
+    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-briar"]').click();
+    await expect(page.getByTestId("prep-weapon")).toBeVisible();
+    await expect(page.getByTestId("member-back")).toBeVisible();
+    await expect(page.getByTestId("deploy")).toBeHidden();
+    await expect(page.getByTestId("prep-roster")).toBeHidden();
+    await expect(page.getByTestId("brief-quit")).toBeHidden();
+    await expect(page.getByTestId("brief-member-name")).toContainText("Briar");
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Briar");
+
+    // BACK: party select again, and the SAME member is still the selected card.
+    await page.getByTestId("member-back").click();
+    await expect(page.getByTestId("prep-roster")).toBeVisible();
+    await expect(page.getByTestId("prep-weapon")).toBeHidden();
+    await expect(page.getByTestId("deploy")).toBeVisible();
+    const selected = await page.locator('[data-testid="prep-roster"] li.member.on .pname').innerText();
+    expect(selected, "back reset the selection instead of keeping it").toBe("Briar");
+    // MUTATION 1 (run): make `setBriefView` ignore its argument (`briefView = "member"`)
+    // — the back click leaves the member leaf up and the roster assertion goes red.
+    // MUTATION 2 (run): have `btn-member-back` also call `prep?.select(<first member>)`
+    // — the selected card reads "Vance" and the last assertion goes red.
+  });
+
+  test("tapping the DEEPEST thing on a card opens that member — nothing inside the tile swallows the tap", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 832, height: 328 });
+    await toBriefing(page);
+
+    // WHAT THIS CAN AND CANNOT SEE, measured rather than assumed (2026-09-08).
+    //
+    // The previous version clicked `.plate` and called that "the card's foot, outside
+    // the button". It is not: `.plate` is a CHILD of `button.ptab` (`game.ts`'s card
+    // markup), so the click landed inside the button no matter where the open handler
+    // was bound, and the mutation the comment named — move the handler from `li.member`
+    // onto `.ptab` — could not turn it red.
+    //
+    // Nor can any click, because the two boxes are the SAME box: `.member` is a column
+    // flex container with no padding and `.ptab` is `flex: 1 1 auto`, so at 832x328 the
+    // row and the button both measure 123x176 at the same origin (asserted below, so a
+    // future padding on the row is not silently taken as coverage this test does not
+    // have). The ornaments that DO stick out — `.finial`, `.pennant` — are
+    // `pointer-events: none` by design. "The handler is on the row, not the button" is
+    // therefore currently unobservable from outside, and saying so is the honest
+    // reading; if the owner wants a real row band around the card, that is a layout
+    // change and this assertion is where it would show up.
+    //
+    // WHAT IS STILL LOAD-BEARING, and is what the title claims: a tap on the deepest,
+    // smallest descendant of the tile — the job label, and the portrait image — reaches
+    // the handler and opens THE RIGHT member. That catches a child that swallows its own
+    // click, a child that is not a descendant of the bound node, and a handler bound to
+    // the wrong card.
+    //
+    // KEST BY NAME. A handler bound to the wrong card — or to the first card always —
+    // passes a bare "the member view opened" assertion, because Vance is already the
+    // SELECTED member on entry and would be the one a broken binding lands on. Kest is
+    // neither first nor pre-selected, so the rail naming him is the discriminating read.
+    const kest = page
+      .locator('[data-testid="prep-roster"] li.member')
+      .filter({ hasText: "Kest" });
+    const geometry = await kest.evaluate((li) => {
+      const row = li.getBoundingClientRect();
+      const btn = li.querySelector("button.ptab")!.getBoundingClientRect();
+      return {
+        row: [row.x, row.y, row.width, row.height].map(Math.round),
+        btn: [btn.x, btn.y, btn.width, btn.height].map(Math.round),
+      };
+    });
+    expect(
+      geometry.btn,
+      `the card button no longer fills its row (row ${geometry.row.join()}, button ${geometry.btn.join()}) — there IS now a row-only band, so this test can and should click it`,
+    ).toEqual(geometry.row);
+
+    // THE JOB LABEL: the deepest text node on the card, two elements below the button.
+    const label = kest.locator(".pjob");
+    const box = await label.boundingBox();
+    expect(box, "Kest's job label has no box").not.toBeNull();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    await expect(page.getByTestId("prep-weapon")).toBeVisible();
+    await expect(page.getByTestId("brief-member-name")).toContainText("Kest");
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Kest");
+
+    // …and the PORTRAIT IMAGE, a different subtree of the same card. Briar this time, so
+    // "it opened Kest again" cannot pass.
+    await backToParty(page);
+    const briarFace = page
+      .locator('[data-testid="prep-roster"] li.member')
+      .filter({ hasText: "Briar" })
+      .locator(".face img");
+    const faceBox = await briarFace.boundingBox();
+    expect(faceBox, "Briar's portrait has no box").not.toBeNull();
+    await page.mouse.click(faceBox!.x + faceBox!.width / 2, faceBox!.y + faceBox!.height / 2);
+    await expect(page.getByTestId("brief-member-name")).toContainText("Briar");
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Briar");
+    // MUTATION (RUN 2026-09-08): bind the card handler to `.face` instead of `li.member`
+    // in `renderBriefingText()` — the job-label tap no longer reaches any handler, the
+    // member view never opens, and the `prep-weapon` assertion goes red.
+  });
+
+  test("the view survives a repaint: editing in member view stays in member view, on the same member", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 832, height: 328 });
+    await toBriefing(page);
+    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-briar"]').click();
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Briar");
+
+    // A JOB CHANGE is the discriminating edit: it goes through `onChange` →
+    // `shell.updateParty` → `renderBriefingText`, which rewrites the whole roster. A view
+    // flag living in the DOM, or reset on every paint, dies exactly here.
+    const job = page.getByTestId("prep-job");
+    const values = await job.locator("option").evaluateAll((os) =>
+      os.map((o) => (o as HTMLOptionElement).value),
+    );
+    const current = await job.inputValue();
+    const next = values.find((v) => v !== current);
+    expect(next, "prep-job offers only one job — nothing to change, the edit would be a no-op").toBeDefined();
+    await job.selectOption(next!);
+    await expect(job).toHaveValue(next!); // the edit really landed
+
+    await expect(page.getByTestId("prep-weapon")).toBeVisible();
+    await expect(page.getByTestId("prep-roster")).toBeHidden();
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Briar");
+    await expect(page.getByTestId("brief-member-name")).toContainText("Briar");
+    // MUTATION (run): read the view back off the DOM in `applyBriefView`
+    // (`briefView = screen.classList.contains("member") ? "member" : "party"` before the
+    // toggles) or reset `briefView = "party"` at the top of `renderBriefingText` — the
+    // edit's repaint drops back to party select and `prep-weapon` goes hidden, red.
   });
 });
 
@@ -376,6 +853,7 @@ test.describe("briefing: the leak check", () => {
     // Battle 1: at least one party member has 0 AP, so the FIRST buy button their
     // learn list offers is genuinely disabled (a real state, not staged).
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
@@ -407,8 +885,11 @@ test.describe("briefing: the leak check", () => {
       // THE OTHER LEAK: index.html's page-wide `.eyebrow { text-transform: uppercase }`
       // (the other four screens' small caption). "Battle 1 of 5" is mixed case here.
       expect(eyebrowTransform, "brief-step must not be uppercased").toBe("none");
+      // The rail reads "Battle 1 of 5 · managing <name>" on the member view — the
+      // battle number in its own span, the member suffix in a second one, so a
+      // `.textContent` write on either cannot destroy the other (D3 asserts that half).
       const eyebrowText = await page.getByTestId("brief-step").innerText();
-      expect(eyebrowText).toBe("Battle 1 of 5");
+      expect(eyebrowText).toMatch(/^Battle 1 of 5 · managing \S/);
       return;
     }
     throw new Error("no party member offered a disabled buy button at battle 1 — nothing to assert");
@@ -421,6 +902,7 @@ test.describe("briefing: the leak check", () => {
 
   test("prep-stats stays an unboxed field, pinned rather than left to coincidence", async ({ page }) => {
     await toBriefing(page);
+    await openMember(page);
     // index.html's page-wide `.stats` (the OLD engine-viewer panel) has no scoped
     // competitor here — the leak-probe pass (viewer-engineer, see overhaul.css's own
     // comment on this rule) verified the leaked value already matches this screen's
@@ -448,6 +930,7 @@ test.describe("briefing: states", () => {
     // find a member with zero owned weapons (the drip may have already reached the
     // party by battle 1 for some jobs, so this discovers rather than assumes).
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
@@ -481,6 +964,7 @@ test.describe("briefing: states", () => {
   test("an empty traits state names itself for a unit with no mastered job", async ({ page }) => {
     await toBriefing(page);
     for (const id of PARTY) {
+      await backToParty(page);
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
@@ -524,11 +1008,8 @@ test.describe("briefing: states", () => {
 });
 
 test.describe("briefing: phone fit", () => {
-  for (const [w, h] of [
-    [640, 300],
-    [851, 324],
-  ] as const) {
-    test(`${w}x${h}: no horizontal scroll; Deploy/Quit/tabs/roster cards clear 44px; the Deploy plate stays inside the viewport`, async ({
+  for (const [w, h] of FOLDS) {
+    test(`${w}x${h}: no horizontal scroll; every control on both views clears 44px; the Deploy plate stays inside the viewport`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: w, height: h });
@@ -539,71 +1020,78 @@ test.describe("briefing: phone fit", () => {
       expect(scrollWidth, `${w}x${h}: page scrolls horizontally`).toBeLessThanOrEqual(clientWidth + 1);
 
       const floor = 44;
-      // M5: `prep-job`/`prep-secondary` (always visible) and `prep-weapon` (the
-      // default Equipment tab) are checked here; `prep-reaction`/`prep-support`/
-      // `prep-movement` live on Skills and are checked further below, after
-      // switching tabs — a `getByTestId` on a hidden element resolves to a box with
-      // zero size, which would silently pass a `>= 0` floor, so each is only
-      // measured on the tab where the manifest says it is visible.
-      const targets: Record<string, ReturnType<Page["getByTestId"]>> = {
-        deploy: page.getByTestId("deploy"),
-        "brief-quit": page.getByTestId("brief-quit"),
-      };
-      for (const [name, locator] of Object.entries(targets)) {
+      const shortSide = async (
+        name: string,
+        locator: ReturnType<Page["getByTestId"]>,
+      ): Promise<void> => {
         const box = await locator.boundingBox();
         expect(box, `${w}x${h}: ${name} has no box`).not.toBeNull();
-        expect(box!.width, `${w}x${h}: ${name} width`).toBeGreaterThanOrEqual(floor);
+        expect(
+          Math.min(box!.width, box!.height),
+          `${w}x${h}: ${name} short side (${Math.round(box!.width)}x${Math.round(box!.height)})`,
+        ).toBeGreaterThanOrEqual(floor);
+      };
+      const tallEnough = async (
+        name: string,
+        locator: ReturnType<Page["getByTestId"]>,
+      ): Promise<void> => {
+        const box = await locator.boundingBox();
+        expect(box, `${w}x${h}: ${name} has no box`).not.toBeNull();
         expect(box!.height, `${w}x${h}: ${name} height`).toBeGreaterThanOrEqual(floor);
-      }
-      // M5's brief names the ≥44px floor for HEIGHT ("tall") — these are wide, full-
-      // row selects, not square buttons, so only height is asserted, the same shape
-      // as the reaction/support/movement checks below.
-      for (const testid of ["prep-job", "prep-secondary"]) {
-        const box = await page.getByTestId(testid).boundingBox();
-        expect(box, `${w}x${h}: ${testid} has no box`).not.toBeNull();
-        expect(box!.height, `${w}x${h}: ${testid} height`).toBeGreaterThanOrEqual(floor);
-      }
-      // `prep-weapon` is absent-not-zero (owned-weapon state) — check its size only
-      // when it is actually attached, same guard the manifest test uses.
-      const weaponSelect = page.getByTestId("prep-weapon");
-      if ((await weaponSelect.count()) > 0) {
-        const box = await weaponSelect.boundingBox();
-        expect(box, `${w}x${h}: prep-weapon has no box`).not.toBeNull();
-        expect(box!.height, `${w}x${h}: prep-weapon height`).toBeGreaterThanOrEqual(floor);
-      }
-      await openPrepTab(page, "skills");
-      for (const testid of ["prep-reaction", "prep-support", "prep-movement"]) {
-        const box = await page.getByTestId(testid).boundingBox();
-        expect(box, `${w}x${h}: ${testid} has no box`).not.toBeNull();
-        expect(box!.height, `${w}x${h}: ${testid} height`).toBeGreaterThanOrEqual(floor);
-      }
-      await openPrepTab(page, "equipment");
-      for (const tab of ["equipment", "skills", "profile"]) {
-        const box = await page.locator(`.tab[data-tab="${tab}"]`).boundingBox();
-        expect(box, `${w}x${h}: ${tab} tab has no box`).not.toBeNull();
-        expect(box!.height, `${w}x${h}: ${tab} tab height`).toBeGreaterThanOrEqual(floor);
-      }
+      };
+
+      // ── PARTY VIEW. Every card's SHORT side, plus the two rail/plate controls that
+      // live here. A card is the one control on this view, so it is measured whole
+      // rather than by height alone.
+      await shortSide("deploy", page.getByTestId("deploy"));
+      await shortSide("brief-quit", page.getByTestId("brief-quit"));
       const cards = await page.locator('[data-testid="prep-roster"] .ptab').all();
       expect(cards.length, `${w}x${h}: no roster cards found`).toBeGreaterThan(0);
-      for (const card of cards) {
+      for (const [i, card] of cards.entries()) {
         const box = await card.boundingBox();
-        expect(box, `${w}x${h}: a roster card has no box`).not.toBeNull();
-        // Cards are wide, dense grid tiles — the 44px floor applies to their SHORT
-        // axis; both are asserted since a card can be taller-than-wide at 2 columns.
-        expect(Math.min(box!.width, box!.height), `${w}x${h}: roster card short side`).toBeGreaterThanOrEqual(
-          floor,
-        );
+        expect(box, `${w}x${h}: roster card ${i} has no box`).not.toBeNull();
+        expect(
+          Math.min(box!.width, box!.height),
+          `${w}x${h}: roster card ${i} short side`,
+        ).toBeGreaterThanOrEqual(floor);
       }
 
       const sealBox = await page.getByTestId("deploy").boundingBox();
       expect(sealBox!.x, `${w}x${h}: Deploy plate left edge off-screen`).toBeGreaterThanOrEqual(0);
       expect(sealBox!.y, `${w}x${h}: Deploy plate top edge off-screen`).toBeGreaterThanOrEqual(0);
       expect(sealBox!.x + sealBox!.width, `${w}x${h}: Deploy plate right edge off-screen`).toBeLessThanOrEqual(w + 1);
-      expect(sealBox!.y + sealBox!.height, `${w}x${h}: Deploy plate bottom edge off-screen`).toBeLessThanOrEqual(
-        h + 1,
-      );
-      // MUTATION: shrink `.tab`'s `min-height` (overhaul.css) from 44px to 30px →
-      // the per-tab height assertion above goes red at both folds.
+      expect(sealBox!.y + sealBox!.height, `${w}x${h}: Deploy plate bottom edge off-screen`).toBeLessThanOrEqual(h + 1);
+
+      // ── MEMBER VIEW. `member-back` is the split's new control and gets the same
+      // SHORT-side floor the other two plaques do; the selects are wide full-row
+      // controls, so only their height is asserted (the same shape the pre-split test
+      // used) — each on the tab where the manifest says it is visible, because a
+      // `getByTestId` on a hidden element resolves to a zero-size box that would pass a
+      // `>= 0` floor silently.
+      await openMember(page);
+      await shortSide("member-back", page.getByTestId("member-back"));
+      for (const testid of ["prep-job", "prep-secondary"]) {
+        await tallEnough(testid, page.getByTestId(testid));
+      }
+      const weaponSelect = page.getByTestId("prep-weapon");
+      if ((await weaponSelect.count()) > 0) await tallEnough("prep-weapon", weaponSelect);
+      await openPrepTab(page, "skills");
+      for (const testid of ["prep-reaction", "prep-support", "prep-movement"]) {
+        await tallEnough(testid, page.getByTestId(testid));
+      }
+      await openPrepTab(page, "equipment");
+      for (const tab of ["equipment", "skills", "profile"]) {
+        const box = await page.locator(`#screen-briefing .tab[data-tab="${tab}"]`).boundingBox();
+        expect(box, `${w}x${h}: ${tab} tab has no box`).not.toBeNull();
+        expect(box!.height, `${w}x${h}: ${tab} tab height`).toBeGreaterThanOrEqual(floor);
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
+        `${w}x${h}: the member view scrolls horizontally`,
+      ).toBe(true);
+      // MUTATION: shrink `.tab`'s `min-height` (overhaul.css) from 44px to 30px → the
+      // per-tab height assertion goes red at both folds. Same for `.backplaque`'s floor
+      // and `member-back`.
     });
   }
 });
@@ -636,11 +1124,7 @@ function boxesIntersect(
 }
 
 test.describe("briefing: D1 — the pre-battle story row never clips its own control or the roster", () => {
-  for (const [w, h] of [
-    [1000, 780],
-    [851, 324],
-    [640, 300],
-  ] as const) {
+  for (const [w, h] of FOLDS) {
     test(`${w}x${h}: brief-story's reveal control stays inside the leaf and clear of the roster; the line is not clipped`, async ({
       page,
     }) => {
@@ -649,13 +1133,15 @@ test.describe("briefing: D1 — the pre-battle story row never clips its own con
 
       const story = page.getByTestId("brief-story");
       await expect(story).toBeVisible();
-      const leafBox = await page.locator("#screen-briefing .leaf-left").boundingBox();
+      // The beat moved ONTO THE TOP RAIL with the split (owner, 2026-09-07), so the box
+      // it must stay inside is the rail, not the leaf it used to share with the roster.
+      const leafBox = await page.locator("#screen-briefing .toprail").boundingBox();
       const rosterBox = await page.getByTestId("prep-roster").boundingBox();
       // The "More" control — `id="<host>-more"` in scene.ts, `data-testid` on the same
       // element (`brief-story-more`), not a bare `#brief-story-more` (the button only
       // carries a `dataset.testid`, never a real `id`).
       const more = page.locator('[data-testid="brief-story-more"]');
-      expect(leafBox, "leaf-left has no box").not.toBeNull();
+      expect(leafBox, "toprail has no box").not.toBeNull();
       expect(rosterBox, "prep-roster has no box").not.toBeNull();
 
       if (await more.isHidden()) {
@@ -666,7 +1152,7 @@ test.describe("briefing: D1 — the pre-battle story row never clips its own con
         expect(moreBox, "brief-story-more has no box").not.toBeNull();
         expect(
           boxInside(moreBox!, leafBox!),
-          `${w}x${h}: More control ${JSON.stringify(moreBox)} is not fully inside the leaf ${JSON.stringify(leafBox)}`,
+          `${w}x${h}: More control ${JSON.stringify(moreBox)} is not fully inside the top rail ${JSON.stringify(leafBox)}`,
         ).toBe(true);
         expect(
           boxesIntersect(moreBox!, rosterBox!),
@@ -688,26 +1174,28 @@ test.describe("briefing: D1 — the pre-battle story row never clips its own con
         lineState!.scrollHeight <= lineState!.clientHeight + 1 || controlOffered,
         `${w}x${h}: the story line is clipped (scrollHeight ${lineState!.scrollHeight} > clientHeight ${lineState!.clientHeight}) with no reveal control offered`,
       ).toBe(true);
-      // MUTATION (run, see the fix report): revert `#screen-briefing
-      // #brief-story:not([hidden])` to its pre-fix rule (`flex: 0 1 auto; max-height:
-      // 42%; overflow: auto;`, dropping the grid layout and `display: contents`) —
-      // at 640×300 the More control's box intersects the roster's box, red.
+      // MUTATION: drop `#screen-briefing #brief-story p.line`'s `-webkit-line-clamp: 2`
+      // (overhaul.css) — the beat's line runs to full height inside a ribbon that has
+      // `overflow: hidden`, `scrollHeight` exceeds `clientHeight`, and if the beat is
+      // fully revealed (no More control offered) the last assertion goes red. Note that
+      // rule's OWN history: it was written as `#brief-story .story p.line`, which needs a
+      // nested `.story` wrapper `scene.ts` does not emit, so it matched NOTHING and the
+      // clamp was dead for the life of the screen — found by measuring the rail's height
+      // against the mockup's, not by this test, which the offered control kept green.
     });
   }
 });
 
 test.describe("briefing: D2 — Equipment and Skills content survives the short folds", () => {
-  for (const [w, h] of [
-    [851, 324],
-    [640, 300],
-  ] as const) {
+  for (const [w, h] of FOLDS) {
     test(`${w}x${h}: Equipment's gear row and first four Standing rows, Skills' Primary/Reaction/Support rows, are fully inside the leaf`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: w, height: h });
       await toBriefing(page);
-      const leafBox = await page.locator("#screen-briefing .leaf-right").boundingBox();
-      expect(leafBox, "leaf-right has no box").not.toBeNull();
+      await openMember(page);
+      const leafBox = await page.locator("#screen-briefing #leaf-member").boundingBox();
+      expect(leafBox, "the member leaf has no box").not.toBeNull();
 
       // m14a: `.jcap` used to be `display: none` at this fold, so the Main/Secondary
       // job plaques lost their captions entirely. Both must still be readable text,
@@ -738,7 +1226,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
       expect(gearRowBox, "gear row has no box").not.toBeNull();
       expect(
         boxInside(gearRowBox!, leafBox!),
-        `${w}x${h}: gear row ${JSON.stringify(gearRowBox)} is not fully inside the leaf ${JSON.stringify(leafBox)}`,
+        `${w}x${h}: gear row ${JSON.stringify(gearRowBox)} is not fully inside the member leaf ${JSON.stringify(leafBox)}`,
       ).toBe(true);
 
       const statCells = await page.locator('[data-testid="prep-stats"] .stat-row li').all();
@@ -748,7 +1236,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
         expect(cellBox, `Standing row ${i} has no box`).not.toBeNull();
         expect(
           boxInside(cellBox!, leafBox!),
-          `${w}x${h}: Standing row ${i} ${JSON.stringify(cellBox)} is not fully inside the leaf ${JSON.stringify(leafBox)}`,
+          `${w}x${h}: Standing row ${i} ${JSON.stringify(cellBox)} is not fully inside the member leaf ${JSON.stringify(leafBox)}`,
         ).toBe(true);
       }
 
@@ -759,7 +1247,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
       expect(primaryBox, "prep-primary has no box").not.toBeNull();
       expect(
         boxInside(primaryBox!, leafBox!),
-        `${w}x${h}: prep-primary ${JSON.stringify(primaryBox)} is not fully inside the leaf`,
+        `${w}x${h}: prep-primary ${JSON.stringify(primaryBox)} is not fully inside the member leaf`,
       ).toBe(true);
 
       for (const testid of ["prep-reaction", "prep-support"]) {
@@ -770,7 +1258,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
         expect(rowBox, `${testid}'s row has no box`).not.toBeNull();
         expect(
           boxInside(rowBox!, leafBox!),
-          `${w}x${h}: ${testid}'s row ${JSON.stringify(rowBox)} is not fully inside the leaf`,
+          `${w}x${h}: ${testid}'s row ${JSON.stringify(rowBox)} is not fully inside the member leaf`,
         ).toBe(true);
       }
       // MUTATION (run, see the fix report): disable the whole `@media (max-height:
@@ -782,12 +1270,8 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
   }
 });
 
-test.describe("briefing: D3 — the tagline ribbon and the help plaque stay clear of each other", () => {
-  for (const [w, h] of [
-    [1000, 780],
-    [851, 324],
-    [640, 300],
-  ] as const) {
+test.describe("briefing: D3 — the party foot-rail note and the help plaque stay clear of each other", () => {
+  for (const [w, h] of FOLDS) {
     test(`${w}x${h}: brief-note's text is not clipped, help-open clears the ribbon and reads as an iron plaque`, async ({
       page,
     }) => {
@@ -803,8 +1287,11 @@ test.describe("briefing: D3 — the tagline ribbon and the help plaque stay clea
         `${w}x${h}: help-open ${JSON.stringify(helpBox)} intersects the ribbon ${JSON.stringify(noteBox)}`,
       ).toBe(false);
 
-      // The ribbon's own text is not clipped: it fits its two-line clamp (scrollHeight
-      // <= clientHeight — no line is cut mid-word the way the delivered frame showed).
+      // The note's own text is not clipped VERTICALLY: it is a one-line ellipsised aside
+      // on the party foot rail now (it lost the tagline ribbon with the split), so a
+      // second line appearing — or the line being cut mid-height the way the delivered
+      // frame showed — is what this catches. Horizontal truncation IS the design here
+      // (`text-overflow: ellipsis`) and is deliberately not asserted.
       const clip = await page.evaluate(() => {
         const el = document.querySelector('[data-testid="brief-note"]');
         return el ? { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight } : null;
@@ -815,10 +1302,29 @@ test.describe("briefing: D3 — the tagline ribbon and the help plaque stay clea
         `${w}x${h}: ribbon text clipped (scrollHeight ${clip!.scrollHeight} > clientHeight ${clip!.clientHeight})`,
       ).toBeLessThanOrEqual(clip!.clientHeight + 1);
 
-      // The castle end-cap survives the repaint: `renderBriefingText` used to
-      // `.textContent =` the whole `<p>`, destroying `#brief-castle` on every call.
-      const castleSrc = await page.locator("#brief-castle").getAttribute("src");
-      expect(castleSrc, "brief-castle was destroyed by a repaint").not.toBe("");
+      // THE SAME TRAP, MOVED. `#brief-castle` went with the tagline ribbon (the note is a
+      // plain italic aside on the party foot rail now, per the approved mockup), so a
+      // `getAttribute` on it would return `null` and pass VACUOUSLY — worse than no
+      // check. The element that now holds a `.textContent`-written sibling is
+      // `#brief-step`, whose two spans `renderBriefingText` writes independently: assert
+      // BOTH survive a real repaint, which is what destroying a sibling would break.
+      await openMember(page);
+      await expect(page.getByTestId("brief-member-name")).not.toHaveText("");
+      const job = page.getByTestId("prep-job");
+      const jobValues = await job.locator("option").evaluateAll((os) =>
+        os.map((o) => (o as HTMLOptionElement).value),
+      );
+      const currentJob = await job.inputValue();
+      const other = jobValues.find((v) => v !== currentJob);
+      if (other !== undefined) await job.selectOption(other);
+      await expect(page.getByTestId("brief-step"), "the battle number was destroyed by a repaint").toContainText(
+        "Battle 1 of 5",
+      );
+      await expect(
+        page.getByTestId("brief-member-name"),
+        "the rail's member name was destroyed by a repaint",
+      ).not.toHaveText("");
+      await backToParty(page);
 
       // help-open reads as the iron plaque, not the page-wide pale disc.
       const bg = await page.getByTestId("help-open").evaluate((el) => getComputedStyle(el).backgroundImage);
@@ -834,10 +1340,7 @@ test.describe("briefing: D3 — the tagline ribbon and the help plaque stay clea
 });
 
 test.describe("briefing: D4 — the first roster row keeps its name/job foot on screen", () => {
-  for (const [w, h] of [
-    [851, 324],
-    [640, 300],
-  ] as const) {
+  for (const [w, h] of FOLDS) {
     test(`${w}x${h}: the first card, including its foot, is fully inside the roster's visible box`, async ({
       page,
     }) => {
@@ -868,64 +1371,63 @@ test.describe("briefing: D4 — the first roster row keeps its name/job foot on 
   }
 });
 
-test.describe("briefing: B1 — the Deploy plate clears every prep-* control and every roster card", () => {
-  for (const [w, h] of [
-    [640, 300],
-    [851, 324],
-  ] as const) {
-    test(`${w}x${h}: deploy's box intersects no prep-* control and no roster card, on every tab`, async ({
+test.describe("briefing: B1 — the Deploy plate clears every roster card", () => {
+  for (const [w, h] of FOLDS) {
+    test(`${w}x${h}: deploy's box intersects no roster card and no other party-view control`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: w, height: h });
       await toBriefing(page);
 
-      for (const tab of ["equipment", "skills", "profile"] as const) {
-        await openPrepTab(page, tab);
-        const sealBox = await page.getByTestId("deploy").boundingBox();
-        expect(sealBox, `${w}x${h} ${tab}: deploy has no box`).not.toBeNull();
+      // The plate is a PARTY-VIEW control now (the split put it there and nowhere else),
+      // so the things it can collide with are the roster cards and the foot rail — the
+      // `prep-*` controls it used to share a leaf with are two taps away and cannot be
+      // on screen at the same time. That the plate is absent from the member view is
+      // asserted in "briefing: the two views"; this is the geometry half.
+      const sealBox = await page.getByTestId("deploy").boundingBox();
+      expect(sealBox, `${w}x${h}: deploy has no box`).not.toBeNull();
 
-        // Every VISIBLE `prep-*` control plus every roster card (`.ptab`) — the same
-        // manifest the control-manifest test walks, read directly off the live DOM
-        // rather than re-listed here, so a future control needs no update to this
-        // test to be covered.
-        const otherBoxes = await page.evaluate(() =>
-          [...document.querySelectorAll<HTMLElement>('[data-testid^="prep-"], .ptab')]
-            .map((el) => {
-              const r = el.getBoundingClientRect();
-              const cs = getComputedStyle(el);
-              if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) {
-                return null;
-              }
-              return {
-                label: el.dataset["testid"] ?? ".ptab",
-                x: r.x,
-                y: r.y,
-                width: r.width,
-                height: r.height,
-              };
-            })
-            .filter((b): b is { label: string; x: number; y: number; width: number; height: number } => b !== null),
-        );
-        for (const box of otherBoxes) {
-          expect(
-            boxesIntersect(sealBox!, box),
-            `${w}x${h} ${tab}: deploy ${JSON.stringify(sealBox)} intersects ${box.label} ${JSON.stringify(box)}`,
-          ).toBe(false);
-        }
+      // Read off the LIVE DOM rather than re-listed here, so a future party-view control
+      // is covered with no change to this test.
+      const otherBoxes = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('#leaf-party .ptab, #leaf-party .note, #leaf-party .ready, [data-testid="brief-deploy-note"]')]
+          .map((el) => {
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) {
+              return null;
+            }
+            return {
+              label: el.dataset["testid"] ?? el.className,
+              x: r.x,
+              y: r.y,
+              width: r.width,
+              height: r.height,
+            };
+          })
+          .filter((b): b is { label: string; x: number; y: number; width: number; height: number } => b !== null),
+      );
+      expect(otherBoxes.length, `${w}x${h}: nothing was measured — the selector found no live control`).toBeGreaterThan(4);
+      for (const box of otherBoxes) {
+        expect(
+          boxesIntersect(sealBox!, box),
+          `${w}x${h}: deploy ${JSON.stringify(sealBox)} intersects ${box.label} ${JSON.stringify(box)}`,
+        ).toBe(false);
       }
-      // MUTATION (run, see the fix report): remove `.jobrow { padding-right: 7.6em; }`
-      // (overhaul.css, inside `@media (max-height: 400px)`) — at 640x300, on every
-      // tab (the job strip is "always" visible), the Secondary plaque's box
-      // intersects `deploy`'s box, red.
+      // MUTATION (run): remove `#screen-briefing.party .roster { padding-bottom: 1.8em; }`
+      // (overhaul.css) — the cards fill the roster box right down to the leaf's bottom
+      // corner, the last card's foot runs under the wax plate, and this goes red at both
+      // folds. That reservation exists BECAUSE the split's cards fill their box; the old
+      // fixed-aspect cards left slack that hid the collision.
     });
   }
 });
 
 test.describe("briefing: B2 — the body scroll lock extends to the briefing screen", () => {
-  test("1000x780: body.overflow matches title/scene's own rule, and the page does not scroll", async ({
+  test("832x328: body.overflow matches title/scene's own rule, and the page does not scroll", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1000, height: 780 });
+    await page.setViewportSize({ width: 832, height: 328 });
     await toBriefing(page);
 
     // "What the rule sets for title/scene" — read straight off the CSSOM rule ITSELF
@@ -961,7 +1463,7 @@ test.describe("briefing: B2 — the body scroll lock extends to the briefing scr
     expect(bodyOverflow, "body overflow with the briefing screen up").toBe(rule!.overflow);
 
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
-    await page.mouse.move(500, 400);
+    await page.mouse.move(400, 200);
     await page.mouse.wheel(0, 500);
     expect(await page.evaluate(() => window.scrollY), "the page scrolled behind the briefing screen").toBe(0);
     const scroll = await page.evaluate(() => {
@@ -980,11 +1482,7 @@ test.describe("briefing: B2 — the body scroll lock extends to the briefing scr
 });
 
 test.describe("briefing: M6 — the portrait-pending caption never overlaps the story text", () => {
-  for (const [w, h] of [
-    [1000, 780],
-    [851, 324],
-    [640, 300],
-  ] as const) {
+  for (const [w, h] of FOLDS) {
     test(`${w}x${h}: figcaption.pending's box (if visible) does not intersect .story p.line's box`, async ({
       page,
     }) => {

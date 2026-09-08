@@ -30,16 +30,21 @@ import pack from "../../data/base-pack.json" with { type: "json" };
 // than a relative-path convention every future author has to remember. Spelled out one
 // per line for the same reason the five encounter imports are (see above).
 import placeholderPortrait from "../../data/campaign/story/portraits/placeholder.svg";
-// The six approved portraits this slice bundles (ADR-0039). Ten were approved; the
-// other four (archer-m, priest-m, thief-f, wizard-m) are NOT imported here on purpose —
-// nothing in {@link PORTRAIT_BY_UNIT} names them, and the boot check below throws on
-// bundled art nothing names. Their source PNGs wait in `docs/visual/portraits/reference/`.
+// The nine approved portraits bundled today (ADR-0039 shipped six; the six-member party
+// of 2026-09-08 claimed `archer-m` for Vance, `priest-m` for Corin and `wizard-m` for
+// Kest, cut from the same crop boxes in `docs/visual/portraits/reference/README.md`).
+// Ten were approved; the last one (thief-f) is NOT imported here on purpose — nothing in
+// {@link PORTRAIT_BY_UNIT} names it, and the boot check below throws on bundled art
+// nothing names. Its source PNG waits in `docs/visual/portraits/reference/`.
 import archerF from "../../data/campaign/story/portraits/archer-f.png";
+import archerM from "../../data/campaign/story/portraits/archer-m.png";
 import priestF from "../../data/campaign/story/portraits/priest-f.png";
+import priestM from "../../data/campaign/story/portraits/priest-m.png";
 import knightM from "../../data/campaign/story/portraits/knight-m.png";
 import knightF from "../../data/campaign/story/portraits/knight-f.png";
 import thiefM from "../../data/campaign/story/portraits/thief-m.png";
 import wizardF from "../../data/campaign/story/portraits/wizard-f.png";
+import wizardM from "../../data/campaign/story/portraits/wizard-m.png";
 // The title screen's three photographic crops (docs/visual/concepts/README.md §e),
 // imported the same way and for the same reason as the portraits above — so VITE
 // resolves each to a hashed, `base`-aware URL instead of a hand-written relative path
@@ -102,11 +107,14 @@ export const story: StoryPack = parseStoryPack(storyJson);
 export const PORTRAITS: Readonly<Record<string, string>> = Object.freeze({
   placeholder: placeholderPortrait,
   "archer-f": archerF,
+  "archer-m": archerM,
   "priest-f": priestF,
+  "priest-m": priestM,
   "knight-m": knightM,
   "knight-f": knightF,
   "thief-m": thiefM,
   "wizard-f": wizardF,
+  "wizard-m": wizardM,
 });
 
 /** The title screen's bundled art (docs/visual/concepts/README.md §e), by name. */
@@ -127,18 +135,23 @@ export const SCENE_ART: Readonly<{ night: string }> = Object.freeze({ night: sce
  * answer and does not need one. So the answer lives here instead, keyed by the same
  * unit ids the roster and the encounters already use.
  *
- * Only six of the ten approved keys are cut and bundled this slice (see the import
- * comment above `archerF`). `pc-vance` (geomancer) and `pc-kest` (monk) are deliberately
- * ABSENT from this table — those jobs are out of portrait scope — so `look()` in
- * `game.ts` falls back to `"placeholder"` for them, which is the honest answer.
+ * Nine of the ten approved keys are cut and bundled (see the import comment above
+ * `archerF`), and every one of the six party members has a distinct real portrait as of
+ * the six-member roster (owner decision, 2026-09-08) — the two wizards take `wizard-m`
+ * and `wizard-f`. The fallback path in {@link resolvePortrait} is still live for any
+ * unit id this table does not name (every foe outside the five listed below).
  *
  * A dead row here (a key naming a retired unit id) is a silent no-op, not a render
  * error — the boot check below turns that into a loud one instead, so a renamed
  * roster entry cannot leave a row that reads as wired but resolves for nobody.
  */
 export const PORTRAIT_BY_UNIT: Readonly<Record<string, string>> = Object.freeze({
+  "pc-vance": "archer-m",
+  "pc-kest": "wizard-m",
   "pc-briar": "archer-f",
   "pc-ottoline": "priest-f",
+  "pc-corin": "priest-m",
+  "pc-isla": "wizard-f",
   "foe-brigand": "knight-m",
   "foe-marauder": "knight-f",
   "foe-warchief": "knight-m",
@@ -168,7 +181,14 @@ export function portraitArtCoverage(): { missing: string[]; extra: string[] } {
   const base = portraitCoverage(story, bundled);
   const missing = new Set(base.missing);
   for (const key of tableValues) if (!bundledSet.has(key)) missing.add(key);
-  const extra = base.extra.filter((key) => !tableValues.has(key));
+  // `"placeholder"` is never "extra". It is the FALLBACK — `resolvePortrait` returns it
+  // for any unit id the table does not name, and `PORTRAIT_PLACEHOLDER` resolves it at
+  // module load — so it is wired by code rather than by a table row, and no row is
+  // required to keep it honest. It was only ever named incidentally, by Vance and Kest's
+  // story-pack `asset` before they had real crops; the six-member roster (2026-09-08)
+  // gave every character real art and this check then declared the fallback unused. The
+  // exemption is exactly one key by name, so any OTHER unwired crop still fails loudly.
+  const extra = base.extra.filter((key) => key !== "placeholder" && !tableValues.has(key));
   return { missing: [...missing].sort(), extra: [...extra].sort() };
 }
 
@@ -210,8 +230,9 @@ export const PORTRAIT_PLACEHOLDER: string = (() => {
 
 /**
  * Portrait key + URL for a unit id (ADR-0039) — `PORTRAIT_BY_UNIT[id]`, or the bundled
- * `"placeholder"` for a unit the table names nothing for (today: `pc-vance`, `pc-kest`,
- * whose jobs are out of portrait scope).
+ * `"placeholder"` for a unit the table names nothing for. Every PARTY member is named
+ * as of the six-member roster (2026-09-08); the fallback covers the foes the table
+ * leaves out.
  *
  * THE ONE PLACE THIS RESOLUTION HAPPENS. `game.ts`'s `look()` calls this rather than
  * indexing the two tables itself, so there is exactly one function to A/B-test and no

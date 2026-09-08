@@ -1646,11 +1646,11 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
   border: 1px solid rgba(138, 101, 36, 0.55);
   box-shadow: inset 0 0 0 3px rgba(138, 101, 36, 0.34);
 }
-#screen-briefing .leaf-left { flex: 0 0 43%; }
-#screen-briefing .leaf-right { flex: 1 1 0; padding-left: calc(var(--burn) + var(--burn-spread) + 1.9em); }
-#screen-briefing .leaf-right > .banner { position: absolute; left: 0.55em; top: -0.5em; z-index: 6; width: 2.1em; height: 0; }
-#screen-briefing .leaf-right > .banner img { width: 2.1em; height: 4.2em; }
-#screen-briefing .leaf-right > .banner::before { left: -0.2em; width: 2.5em; }
+/* The `.leaf-left` / `.leaf-right` pair that used to live here is GONE with the two-view
+   split: `index.html` emits `.leaf-solo` twice on this screen and neither class is
+   written anywhere under `#screen-briefing` any more (they survive on `#screen-title`,
+   which still opens as a codex). Their replacements are in the "one leaf, not two"
+   block at the foot of this file. */
 
 /* ── shared parchment typography. ONLY --ink is text here (README §a.1). ──────── */
 #screen-briefing h2,
@@ -1713,7 +1713,6 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
 @media (min-width: 900px) {
   #screen-briefing .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   #screen-briefing { --face-ar: 0.82; }
-  #screen-briefing .leaf-left { flex: 0 0 45%; }
   #screen-briefing .roundel { width: 2.3em; height: 2.3em; }
   #screen-briefing .gearrow { padding: 0.28em 0.4em 0.3em 0.28em; }
   #screen-briefing .panel[data-panel="equipment"] .stat-row { grid-template-columns: 1fr; gap: 0.2em; }
@@ -1763,6 +1762,26 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
 #screen-briefing .ptab .pap { margin-left: auto; font-family: var(--roman); font-size: 0.56em; letter-spacing: 0.08em; }
 #screen-briefing .ptab .pjob { display: flex; align-items: center; gap: 0.24em; font-size: 0.72em; line-height: 1.2; }
 #screen-briefing .ptab .pjob svg { width: 0.95em; height: 0.95em; color: var(--ink); }
+/* IN CAMP — the encounter does not place this member in THIS battle (ADR-0041). A
+   caption and nothing else: no border, no ring, no opacity change on the face. A card
+   dimmed or outlined would read as a selection or a disabled control, and this member is
+   neither — they are still fully editable and their card still opens on a tap.
+
+   SUBDUED BY SIZE AND SHAPE, NOT BY COLOUR, and that is measured rather than chosen:
+   `--ink-soft` (#55401f) on the card's own ground (rgb(191, 153, 118)) is 3.75:1 against
+   a 4.5:1 floor for text this small, and `e2e/contrast.spec.ts` failed on exactly those
+   four captions (ADR-0028, docs/10 AC-V15). It carries the same `--ink` the name and job
+   line do, and reads as an aside through the roman face, the tracking, the italic and
+   the size. */
+#screen-briefing .ptab .camp {
+  display: block;
+  font-family: var(--roman);
+  font-size: 0.58em;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  color: var(--ink);
+  font-style: italic;
+}
 #screen-briefing .pennant {
   position: absolute;
   right: 0.42em;
@@ -1803,27 +1822,13 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
   box-shadow: 0 0 0 0.14em var(--glow), 0 0 1em 0.07em rgba(252, 193, 75, 0.55), 0 0.16em 0.35em rgba(0, 0, 0, 0.4);
 }
 #screen-briefing .member.on .ptab .face { box-shadow: inset 0 0 0 1px rgba(138, 101, 36, 0.9), inset 0 0 0.7em rgba(74, 40, 14, 0.35); }
-#screen-briefing .pip {
-  position: absolute;
-  left: 0.42em;
-  top: 0.42em;
-  z-index: 2;
-  width: 1.25em;
-  height: 1.25em;
-  cursor: pointer;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  font-size: 0.86em;
-  line-height: 1;
-  color: var(--ink);
-  border: 1px solid rgba(55, 37, 25, 0.8);
-  background: var(--plate-parch);
-  box-shadow: 0 0.1em 0.24em rgba(0, 0, 0, 0.5);
-}
-#screen-briefing .member.benched .ptab .face img { filter: grayscale(0.85); opacity: 0.72; }
-#screen-briefing .member.benched .ptab { opacity: 0.9; }
-#screen-briefing .member.benched .pip { background: rgba(190, 149, 111, 0.45); }
+/* The corner deploy pip is GONE (owner, 2026-09-07) — the DEPLOYED/BENCHED band at the
+   card's foot is the toggle now, and its rules live with the party view below. Nothing
+   in `game.ts` emits a `.pip` any more, so its rules went with it rather than sitting
+   here as dead CSS a future reader would take for a live control. */
+/* The benched treatment went with the deploy toggle (owner, 2026-09-08): no card
+   carries a deployed/benched state any more, so nothing emits `.benched` and these
+   rules went with it rather than sitting here as dead CSS. */
 
 /* ═══ RIGHT LEAF — unit head, tab plaques, roundel rows, job strip ═══════════ */
 #screen-briefing .unit-head { flex: 0 0 auto; display: flex; gap: 0.6em; align-items: stretch; }
@@ -2283,11 +2288,20 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
 #screen-briefing #brief-story .portrait img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; }
 #screen-briefing #brief-story .portrait figcaption.pending { font-size: 0.42rem; padding: 2px; }
 #screen-briefing #brief-story .scene-lines { grid-column: 2; grid-row: 1; min-width: 0; border: 0; padding: 0; }
-#screen-briefing #brief-story .story .who { margin: 0 0 0.1em; font-size: 0.6em; }
+/* NO NESTED `.story` WRAPPER EXISTS. `scene.ts` appends `.who` / `p.line` DIRECTLY
+   into `.scene-lines`, and `#brief-story` IS the `.story` element — so every rule here
+   that read `#brief-story .story …` needed a SECOND `.story` inside the first and
+   matched nothing at all. Measured, not guessed: with those selectors the line rendered
+   at index.html's page-wide `.story p.line { font-size: 1.12rem }` (17.92px against the
+   0.76em this rule intends) and the two-line clamp below — "the two-line cap the whole
+   fix rests on" — was never applied. `e2e/briefing.spec.ts`'s D1 stayed green because it
+   accepts an offered reveal control INSTEAD of a fitted box, so the dead clamp read as
+   a long beat. Found by measuring the rail's height against the approved mockup. */
+#screen-briefing #brief-story .who { margin: 0 0 0.1em; font-size: 0.6em; }
 /* The two-line cap THE WHOLE FIX RESTS ON: no matter how long a beat's line runs, this
    box's height is fixed by CSS rather than by content, so nothing downstream (the
    roster, its own reveal control) can ever be pushed off-screen by it. */
-#screen-briefing #brief-story .story p.line {
+#screen-briefing #brief-story p.line {
   margin: 0;
   font-size: 0.76em;
   line-height: 1.26;
@@ -2310,7 +2324,22 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
    — but it is the SAME leak (index.html's `.story p.line:first-of-type::first-letter
    { color: var(--warn) }`, the drop-cap), caught by opening the frame rather than by
    an assertion, and fixed for the same reason the others were. */
-#screen-briefing .story p.line:first-of-type::first-letter { color: var(--ink); }
+/* THE DROP CAP IS A LEAK HERE, not an ornament: index.html's page-wide rule sets
+   `font-family: var(--display); font-size: 2.8rem; line-height: .82; float: left;
+   margin: 5px 8px 0 0` as well as the colour, and a 44.8px floated capital inside a
+   two-line ribbon is most of why the beat measured 70px tall instead of ~20. Colour
+   alone was named before; every property that rule sets is named now — the trap this
+   subtree's CLAUDE.md states as "a page-wide rule on a property the scoped rule does
+   not name still wins". `::first-letter` is invisible to `e2e/css-leaks.spec.ts` (no
+   pseudo-element is a node its DOM walk can see), so only measurement finds this. */
+#screen-briefing .story p.line:first-of-type::first-letter {
+  color: var(--ink);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  float: none;
+  margin: 0;
+}
 /* Same leak, third and last piece of this shared component: index.html's page-wide
    `.portrait figcaption.pending { color: var(--ink-soft) }` (the "Portrait pending"
    caption under an unauthored asset) is 3.12:1 here too. */
@@ -2489,7 +2518,7 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
      margins further rather than let it re-eat the roster's share. */
   #screen-briefing #brief-story:not([hidden]) { margin-bottom: 0.2em; padding-bottom: 0.2em; }
   #screen-briefing #brief-story .portrait { width: 30px; height: 30px; }
-  #screen-briefing #brief-story .story p.line { font-size: 0.7em; line-height: 1.16; }
+  #screen-briefing #brief-story p.line { font-size: 0.7em; line-height: 1.16; }
   #screen-briefing #brief-story .scene-controls { margin-top: 0.1em; }
   #screen-briefing .pane-head h2 { font-size: 0.98em; }
   #screen-briefing .deploynote { font-size: 0.64em; }
@@ -2548,4 +2577,256 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
      this seal; `.jobrow` gets the identical reservation, same width, so its second
      column stops rendering under the plate. */
   #screen-briefing .jobrow { padding-right: 7.6em; }
+}
+
+
+/* ═══ THE TWO-VIEW BRIEFING (owner decision, 2026-09-07) ══════════════════════
+   ADR-0040's option-A briefing is SPLIT: party select and member detail, one
+   full-width leaf each. Ported from the approved mockups
+   (`docs/visual/concepts/mockups/party-851x324.png`, `member-851x324.png`); the
+   mockup's own source keeps every rule above this block byte-identical to the
+   shipped screen and puts the whole diff in `split.overrides.css`, so this block is
+   that file, plus the two deliberate deviations named inline (the 44px pip floor,
+   the view-switching rules the mockup did not need because it is two static pages).
+
+   THE VIEW IS A CLASS on `#screen-briefing`, written by `game.ts` from a module
+   variable. Everything view-scoped below keys off `.party` / `.member` and hides with
+   `display: none` rather than the `hidden` attribute — `#screen-briefing .leaf` sets
+   `display: flex` at (1,1,0), which outranks a page-wide `[hidden]{display:none}`
+   at (0,1,0), and `#brief-story`'s `hidden` belongs to `scene.ts`'s own closure.
+
+   No colour token is minted and NO NEW GROUND is introduced: the one new surface is the
+   story ribbon on the rail, which sits on `--box-parch` — the same ground the `.tagline`
+   it replaces already used and this screen already measured (ADR-0028, docs/10 AC-V15). */
+
+/* ── which view is on ──────────────────────────────────────────────────────── */
+#screen-briefing.party #leaf-member { display: none; }
+#screen-briefing.member #leaf-party { display: none; }
+#screen-briefing.party #btn-member-back { display: none; }
+#screen-briefing.member #btn-brief-quit { display: none; }
+#screen-briefing.member .toprail > #brief-story { display: none; }
+/* The rail's "· managing Briar" suffix belongs to the member view only; it is a
+   dedicated span inside `#brief-step` so a `.textContent` write on either cannot
+   destroy the other. */
+#screen-briefing.party #brief-member-name { display: none; }
+
+/* ── shared: one leaf, not two ────────────────────────────────────────────────
+   `.leaf-solo` replaces the `.leaf-left` (43%) / `.leaf-right` (1 1 0) pair. The
+   spine goes with it — a codex opened to one page is still a codex, and the 0.5em
+   spine plus a second set of burn bands cost ~2.4em of horizontal room the cards
+   need more than the ornament does. */
+#screen-briefing .leaf-solo { flex: 1 1 auto; }
+/* The side banner keeps its hook on the solo leaf (it hung off `.leaf-right`). */
+#screen-briefing .leaf-solo > .banner { position: absolute; left: 0.55em; top: -0.5em; z-index: 6; width: 2.1em; height: 0; }
+#screen-briefing .leaf-solo > .banner img { width: 2.1em; height: 4.2em; }
+#screen-briefing .leaf-solo > .banner::before { left: -0.2em; width: 2.5em; }
+#screen-briefing .leaf-solo { padding-left: calc(var(--burn) + var(--burn-spread) + 1.9em); }
+
+/* ═══ PARTY SELECT ═══════════════════════════════════════════════════════════ */
+
+/* ── the story beat moves ONTO the top rail (owner: "the battle title/number and
+   story line on the top rail"). It keeps `scene.ts`'s own DOM — portrait, `.who`,
+   the clamped line, the reveal control — and wears the parchment ribbon the tagline
+   used to, instead of sitting inside the leaf. That is the single biggest reason the
+   cards can get bigger: the beat used to cost the leaf ~54px of its own height. */
+#screen-briefing.party .toprail > #brief-story:not([hidden]) {
+  flex: 0 1 22em;
+  min-width: 8em;
+  align-self: center;
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  padding: 0.3em 0.7em 0.36em 0.5em;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.44em;
+  align-items: center;
+  border-bottom: 0;
+  clip-path: polygon(2% 6%, 26% 0, 62% 5%, 100% 0, 99% 94%, 66% 100%, 24% 95%, 0 100%);
+  background-color: var(--box-parch);
+  background-image: var(--stain), var(--tooth), radial-gradient(130% 120% at 20% 30%, var(--box-parch-hi), var(--box-parch) 55%, var(--box-parch-lo));
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow: 0 0.2em 0.45em rgba(0, 0, 0, 0.6);
+}
+#screen-briefing.party .toprail #brief-story .portrait { grid-column: 1; grid-row: 1 / 3; }
+#screen-briefing.party .toprail #brief-story .scene-lines { grid-column: 2; grid-row: 1 / 3; }
+#screen-briefing.party .toprail #brief-story p.line { font-size: 0.68em; line-height: 1.2; }
+#screen-briefing.party .toprail #brief-story .who { font-size: 0.54em; }
+/* The ribbon's controls stack, so "More" and the line counter cost ~4.5em of rail
+   width instead of ~11em. */
+#screen-briefing.party .toprail #brief-story .scene-controls { grid-column: 3; grid-row: 1 / 3; margin: 0; flex-direction: column; align-items: flex-start; gap: 0.15em; }
+#screen-briefing.party .toprail #brief-story .scene-controls button { font-size: 0.58em; padding: 0.3em 0.5em; }
+#screen-briefing.party .toprail #brief-story .scene-progress { font-size: 0.5em; white-space: nowrap; }
+
+/* ── the leaf: head, note, then the cards get everything left ───────────────── */
+#screen-briefing.party .pane-head { align-items: center; gap: 0.5em; }
+#screen-briefing.party .pane-head .count {
+  margin-left: auto;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.66em;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* ── THE CARDS. ONE ROW, ALWAYS (owner, 2026-09-07: a six-member party must stand side
+   by side at 832 CSS px). The track count comes from the DATA — `game.ts` writes
+   `--cards` on the `<ul>` — because `repeat(auto-fit, minmax(<floor>, 1fr))` cannot
+   give six tracks at 773px of leaf AND keep a floor wide enough that four cards do not
+   look starved: six tracks are 124px each, four are 187px, and one `minmax` floor
+   cannot want both. Measured at 832x328, both counts, in the report.
+
+   `grid-auto-rows: minmax(0, 1fr)` + `height: 100%` is what makes the card's height the
+   ROSTER's height rather than the card's own content: the portrait then takes every
+   pixel the fold leaves over, which is the owner's "show as much of the portrait as
+   vertical space allows". A seventh member wraps (game.ts caps `--cards` at 6) and the
+   two rows split the same height rather than overflowing. */
+#screen-briefing.party .cards {
+  grid-template-columns: repeat(var(--cards, 4), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0.5em;
+  height: 100%;
+}
+@media (min-width: 900px) {
+  #screen-briefing.party .cards { gap: 0.66em; }
+}
+
+/* THE CARD IS A COLUMN: portrait (all the slack) over name + AP + job. `--face-ar` is
+   deliberately NOT used in this view — an aspect ratio fixes the face's height from its
+   WIDTH, and the width is 187px at four cards and 124px at six, so one ratio would
+   letterbox one count or overflow the other. The face is sized by what is LEFT instead,
+   which is both counts' honest answer and the owner's "show as much of the portrait as
+   vertical space allows".
+
+   ONE TAP, ANYWHERE. `game.ts` binds the open-member handler on the `<li>`, so nothing
+   inside the tile may swallow a click: the finial and the pennant are already
+   `pointer-events: none` (they are `aria-hidden` ornaments), and there is no second
+   control on the card at all — the deploy toggle went with the owner's 2026-09-08
+   directive. */
+/* THE WAX PLATE BREAKS THE LEAF'S CORNER, so the roster has to get out of its way. The
+   foot rail already reserves 7.6em on its own row; the roster never had to, because the
+   old fixed-aspect cards left slack at the bottom of the box. Cards that FILL the box do
+   not, and the last card's foot ran under the plate — `e2e/briefing.spec.ts`'s B1 ("the
+   Deploy plate intersects no roster card") is what states this, and it is the assertion
+   that catches a future change to the plate's size or offset. */
+#screen-briefing.party .roster { padding-bottom: 1.8em; }
+
+#screen-briefing.party .member { display: flex; flex-direction: column; min-height: 0; }
+#screen-briefing.party .ptab { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0.2em 0.2em 0.24em; }
+#screen-briefing.party .ptab .face { flex: 1 1 auto; min-height: 0; width: 100%; aspect-ratio: auto; }
+#screen-briefing.party .ptab .plate { flex: 0 0 auto; display: block; padding: 0.18em 0.2em 0.06em; }
+#screen-briefing.party .ptab .pname { font-size: 0.92em; }
+#screen-briefing.party .ptab .pjob { font-size: 0.7em; }
+
+/* ON A TALL SCREEN the fill-the-box rule turns a card into a poster: at 1280x900 the
+   roster is ~730px and a four-card row stretched every face to it, which reads as a
+   banner rather than a portrait (and as a very large empty frame for the two jobs whose
+   art does not exist yet, ADR-0039). Above the phone folds the card goes back to the
+   mockup's own desktop shape — `--face-ar`, a portrait-proportioned face, packed to the
+   top of the roster. THE OWNER'S TWO FOLDS (832x328, 832x384) are both under 401px tall
+   and keep the fill behaviour unchanged; this branch cannot reach them. */
+@media (min-height: 401px) {
+  #screen-briefing.party .cards { grid-auto-rows: auto; align-content: start; height: auto; }
+  #screen-briefing.party .member { min-height: 0; }
+  #screen-briefing.party .ptab .face { flex: 0 0 auto; aspect-ratio: var(--face-ar); }
+}
+
+/* THE SELECTED CARD — the one whose detail was last opened — keeps the shipped gold
+   mark: a brass border, a gold ring and the finial fleur breaking its top edge. It is
+   the only state a card carries now, so there is nothing for it to be confused with. */
+
+/* ── the foot rail keeps the wax plate's reservation and now also carries
+   `brief-note-text` — the "your party carries everything it has earned so far." /
+   retry line that used to be the top rail's second ribbon. */
+#screen-briefing.party .footrail .ready { font-style: italic; }
+#screen-briefing.party .footrail .note { margin: 0; font-size: 0.72em; font-style: italic; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+
+/* ═══ MEMBER DETAIL ══════════════════════════════════════════════════════════ */
+
+/* Nothing under here changes `prep.ts`'s DOM. `#prep-body` stays `display: contents`,
+   so its children — unit head, tab nav, panels, job strip — are still direct items of
+   the leaf, in the same order. The only change is that the leaf is now the WHOLE board
+   instead of 57% of it. */
+
+/* The hero portrait can afford to be a portrait again, not a thumbnail. */
+#screen-briefing.member .hero { width: 5.4em; aspect-ratio: 3 / 4; }
+@media (max-height: 400px) {
+  #screen-briefing.member .hero { width: 44px; height: 58px; aspect-ratio: auto; }
+}
+
+/* Two panel columns over a full-width leaf: at the phone folds the pair used to share
+   ~450px. Equipment's Standing block gets four stat columns instead of two, which is
+   what stops the 8 rows costing four rows of height. */
+#screen-briefing.member .panel { gap: 1.1em; }
+#screen-briefing.member .panel[data-panel="equipment"] .stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 700px) {
+  #screen-briefing.member .panel[data-panel="equipment"] .stat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* The shipped `min-width: 900px` block forces Standing back to ONE column (it was
+   sized for the narrow leaf). Over a full-width leaf that wastes the room. */
+@media (min-width: 900px) {
+  #screen-briefing.member .panel[data-panel="equipment"] .stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.2em 0.34em; }
+  #screen-briefing.member .panel[data-panel="equipment"] .stat-row li { font-size: 0.8em; padding: 0.22em 0.5em; }
+}
+
+/* Skills over a full-width leaf: the learn list is the column that was starved. */
+#screen-briefing.member .panel[data-panel="skills"] .col:first-child { flex: 1 1 0; }
+#screen-briefing.member .panel[data-panel="skills"] .col.wide { flex: 1.35 1 0; }
+#screen-briefing.member .learnhead { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+/* The wax Deploy plate is NOT on this view — the owner put it on party select, and a
+   second commit point two taps deep is a second way to start a battle. So the foot
+   rail and the job strip stop reserving 7.6em for a plate that is not there. */
+#screen-briefing.member .footrail { padding-right: 0; }
+#screen-briefing.member .jobrow { padding-right: 0; }
+@media (max-height: 400px) {
+  #screen-briefing.member .jobrow { padding-right: 0; }
+}
+
+/* `.idcol`'s base `justify-content: center` is vertical while it is a column; the
+   shipped `max-height:400px` block flips it to a ROW, where the same declaration
+   centres the name horizontally. On a 450px leaf that read as "roughly left"; on an
+   800px one the name floats in the middle of nowhere. */
+@media (max-height: 400px) {
+  #screen-briefing.member .idcol { justify-content: flex-start; }
+}
+
+/* Three tab plaques stretched across a full-width leaf are ~500px each — a button the
+   size of a banner reads as a header, not a control. They size to their own labels
+   instead. A `max-width` cap was the mockup's first attempt and it ellipsised
+   "Equipm…" at 640x300, which is worse than a wide button. */
+#screen-briefing.member .tabs { max-width: none; justify-content: flex-start; }
+#screen-briefing.member .tab { flex: 0 1 auto; padding: 0.28em 1.1em 0.3em; }
+
+/* THE HEAD AND THE TABS SHARE A ROW ON A SHORT SCREEN. Found on the mockup's Skills
+   frame: at this fold the head (58px) + the 44px tab floor + the job strip left the two
+   skill columns ~68px, and the learn list — the whole point of the Skills tab — did not
+   render a single row.
+
+   The leaf becomes a GRID at this fold and places `#prep-body`'s children into it. That
+   works with no `prep.ts` change because `#prep-body` is already `display: contents`, so
+   its four children are grid items of the leaf, IN DOM ORDER. It buys the panels ~46px,
+   which is the difference between "the learn list is absent" and "the learn list has
+   rows".
+
+   It is the one rule here that depends on `mountPrep`'s EMIT ORDER (head, tabs, panels,
+   strip). Reorder that and these grid areas move in the same commit. The leaf's
+   `> .banner` is `position: absolute`, so it takes no grid slot. */
+@media (max-height: 400px) {
+  #screen-briefing.member .leaf-solo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 0.8em;
+    align-content: stretch;
+  }
+  #screen-briefing.member .unit-head { grid-column: 1; grid-row: 1; align-self: center; }
+  #screen-briefing.member .tabs { grid-column: 2; grid-row: 1; align-self: center; margin: 0; justify-self: start; }
+  #screen-briefing.member .panels { grid-column: 1 / 3; grid-row: 2; }
+  #screen-briefing.member .jobstrip { grid-column: 1 / 3; grid-row: 3; }
+  #screen-briefing.member .footrail { grid-column: 1 / 3; grid-row: 4; }
 }

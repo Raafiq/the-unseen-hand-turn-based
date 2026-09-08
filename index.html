@@ -789,68 +789,101 @@
       </section>
 
       <!-- BRIEFING — the overhaul look (src/render/overhaul.css), owner decision
-           2026-09-07 (option A): one two-pane screen, portrait cards on the left leaf,
-           a three-tab detail leaf on the right, briefing chrome on a top rail, a wax
-           Deploy plate breaking the right leaf's bottom-right corner. Third screen
-           ported after the title (ADR-0040) and the scene player (ADR-0040 amendment).
-           The right leaf's own content — the unit head, the three tab panels and the
-           Job Customization strip — is BUILT by `src/render/prep.ts` into `#prep-body`,
-           the same "screen holds the mount point, the module owns the markup" split
-           `#stage-host` uses for the battle. `#prep-body` is `display:contents`
-           (overhaul.css) so its children lay out as direct flex items of `.leaf-right`,
-           the same trick `#scene-story` uses on the scene screen. -->
+           2026-09-07: the option-A two-pane screen is SPLIT INTO TWO VIEWS, because at
+           the owner's phone fold (832x328) two leaves left the portrait cards ~165px
+           and the detail leaf ~450px — "can barely see the party member portrait on the
+           left and the right side". Approved mockups:
+           `docs/visual/concepts/mockups/party-851x324.png` / `member-851x324.png`.
+
+             PARTY  — the roster ALONE on one full-width leaf: big cards, a per-card
+                      deploy pip, the battle title/number AND the story beat on the top
+                      rail, the wax Deploy plate. Tap a card → member.
+             MEMBER — everything the old right leaf held, full width: the unit head, the
+                      Equipment / Skills / Profile tabs and the Job Customization strip,
+                      still BUILT by `src/render/prep.ts` into `#prep-body`. No Deploy
+                      plate — a second commit point two taps deep is a second way to
+                      start a battle. The back plaque returns to party select.
+
+           BOTH leaves live in the DOM at once and the VIEW IS A CLASS on the section
+           (`.party` / `.member`), written by `game.ts` from a module-scope variable —
+           never read back off the DOM. `renderBriefingText()` rewrites the roster on
+           every party edit, so a view flag kept in an attribute would die on the first
+           deploy toggle (`src/render/CLAUDE.md`, "reveal state must never live in the
+           DOM"). The two rail buttons, the story ribbon, the member-name suffix and the
+           two leaves are shown/hidden by CSS keyed on that class, NOT by the `hidden`
+           attribute: `scene.ts`'s `setBeat` does no DOM work on an unchanged key, so a
+           `hidden` this file toggled on `#brief-story` would never be toggled back.
+
+           `#prep-body` is `display:contents` (overhaul.css) so its children — the unit
+           head, the tab nav, the panels, the Job Customization strip — lay out as direct
+           items of the member leaf, IN DOM ORDER. The member leaf's short-fold grid
+           (overhaul.css) places them by that order, so `mountPrep`'s emit order is
+           load-bearing; changing it means updating the grid areas in the same commit. -->
       <section id="screen-briefing" data-testid="screen-briefing" hidden>
         <header class="toprail">
+          <!-- Two rail buttons, one visible per view. Same plaque, two destinations. -->
           <button id="btn-brief-quit" class="plaque riveted backplaque" data-testid="brief-quit"
                   aria-label="Quit to title" title="Quit to title"></button>
+          <button id="btn-member-back" class="plaque riveted backplaque" data-testid="member-back"
+                  aria-label="Back to party select" title="Back to party select"></button>
           <div class="banner" aria-hidden="true"><img id="brief-ribbon-top" src="" alt="" /></div>
           <div class="plaque riveted companyplaque">
             <h1 id="brief-title" data-testid="brief-title"></h1>
-            <p class="eyebrow" id="brief-step" data-testid="brief-step"></p>
+            <!-- `brief-step-text` and `brief-member-name` are DEDICATED children, not
+                 the `<p>` itself: `renderBriefingText` writes each with `.textContent`,
+                 and a `.textContent` write on the parent destroys every sibling node.
+                 That is the same trap the tagline's castle end-cap was found in. -->
+            <p class="eyebrow" id="brief-step" data-testid="brief-step"><span
+                 id="brief-step-text"></span><span id="brief-member-name"
+                 data-testid="brief-member-name"></span></p>
           </div>
-          <!-- `.tagline-text` is a DEDICATED child, not the `<p>` itself: `game.ts`'s
-               `renderBriefingText` writes this line every repaint via `.textContent`,
-               and a `.textContent` write on the `<p>` destroys every child node —
-               including `#brief-castle` below it. Found on the capture: the castle
-               end-cap never rendered past the first paint. -->
-          <p class="tagline" id="brief-note" data-testid="brief-note">
-            <span class="tagline-text" id="brief-note-text"></span>
-            <img id="brief-castle" class="tagline-cap" src="" alt="" aria-hidden="true" />
-          </p>
+          <!-- THE STORY BEAT LIVES ON THE RAIL on party select (owner, 2026-09-07) and
+               is hidden on member. It is the same `scene.ts` component, wearing the
+               parchment ribbon the tagline used to; moving it off the leaf is the single
+               biggest reason the cards can get bigger. -->
+          <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
         </header>
 
         <div class="board">
-          <!-- LEFT LEAF: the portrait-card roster. `brief-party` is BOTH the deploy
-               roster (docs/10) and the prep member picker (ADR "the board moves") —
-               one list, one set of cards, so a bench click and a "view this unit"
-               click cannot show two different rosters.
-
-               `brief-story` (the pre-battle beat) is FIRST — every shipped battle
-               authors one (the mockup's own copy ships it permanently hidden, which
-               is why the mockup never modelled where it goes), so it needs a real,
-               permanent home above the roster it must never cover. -->
-          <section class="leaf leaf-left">
-            <div id="brief-story" class="story" data-testid="brief-story" hidden></div>
-            <div class="pane-head"><h2>Party Members</h2></div>
+          <!-- PARTY LEAF. `brief-party` is BOTH the deploy roster (docs/10) and the prep
+               member picker — one list, one set of cards, so a bench click and a "view
+               this unit" click cannot show two different rosters. -->
+          <section class="leaf leaf-solo" id="leaf-party">
+            <div class="banner" aria-hidden="true"><img id="brief-ribbon-side" src="" alt="" /></div>
+            <div class="pane-head">
+              <h2>Party Members</h2>
+            </div>
+            <!-- One line, and it says what the one tap on a card does. The deploy toggle,
+                 the deployed/benched marks and the "fields N of M" readout went with the
+                 owner's 2026-09-08 directive ("all battles will have 6 deployed; we don't
+                 worry about selection of party members yet"). -->
             <p class="hint deploynote" id="brief-deploy-note" data-testid="brief-deploy-note" hidden></p>
             <div class="rulehr"></div>
             <div class="roster" id="prep-roster-wrap" data-testid="prep-roster" tabindex="0">
               <ul class="cards" id="brief-party" data-testid="brief-party"></ul>
             </div>
+            <footer class="footrail">
+              <span class="frule" aria-hidden="true"></span>
+              <!-- The retry / "carries everything it has earned" aside. It used to be the
+                   top rail's second ribbon; two ribbons do not fit one phone rail beside
+                   the story beat, and this line is an aside, not a beat. One element, so
+                   `renderBriefingText`'s `.textContent` write has no sibling to destroy. -->
+              <p class="note" id="brief-note-text" data-testid="brief-note"></p>
+              <span class="frule" aria-hidden="true"></span>
+              <p class="ready">Ready when you are.</p>
+            </footer>
+            <button id="btn-deploy" class="seal" data-testid="deploy">Deploy</button>
           </section>
 
-          <div class="spine"></div>
-
-          <!-- RIGHT LEAF: built by prep.ts (see the file banner above). -->
-          <section class="leaf leaf-right">
-            <div class="banner" aria-hidden="true"><img id="brief-ribbon-side" src="" alt="" /></div>
+          <!-- MEMBER LEAF: built by prep.ts (see the file banner above). -->
+          <section class="leaf leaf-solo" id="leaf-member">
+            <div class="banner" aria-hidden="true"><img id="brief-ribbon-member" src="" alt="" /></div>
             <div id="prep-body" data-testid="prep"></div>
             <footer class="footrail">
               <span class="frule" aria-hidden="true"></span>
-              <p class="ready">Ready when you are.</p>
+              <p class="ready">Changes save as you make them.</p>
               <span class="frule" aria-hidden="true"></span>
             </footer>
-            <button id="btn-deploy" class="seal" data-testid="deploy">Deploy</button>
           </section>
         </div>
       </section>

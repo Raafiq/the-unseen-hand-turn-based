@@ -1,7 +1,9 @@
 # ADR-0040 — The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first
 
 - **Status:** Accepted. Amended 2026-09-07 (scene player); amended again 2026-09-07
-  (briefing screen).
+  (briefing screen). **The second amendment (option A, the briefing's two panes) is
+  superseded in part by ADR-0041, 2026-09-08 — the briefing is now two VIEWS, not two
+  panes. Title and scene player are unchanged.**
 - **Date:** 2026-09-06
 - **Owner docs:** `docs/10` **AC-V44 … AC-V50, AC-V51 …**, `docs/visual/concepts/README.md`
 - **Scope:** `#screen-title` (`src/render/overhaul.css`, `index.html`); first amendment
@@ -138,11 +140,17 @@ briefing screen has since moved. Only battle poses remain.
 
 ## Amendment 2026-09-07 — the briefing screen (option A)
 
-**The owner picked the briefing screen third**, and ruled **option A**: one two-pane
+> **Superseded in part by ADR-0041 (2026-09-08).** The two-pane layout below is gone: the
+> briefing is now two VIEWS — party select, then member detail — and the per-card deploy
+> toggle no longer exists. What survives is the look (parchment, portrait cards, iron
+> plaques, the wax Deploy plate) and the three-tab detail. Read the strikethroughs below
+> as history, not as the shipped screen.
+
+~~**The owner picked the briefing screen third**, and ruled **option A**: one two-pane
 screen — a portrait-card roster on the left leaf, a three-tab detail leaf (Equipment /
 Skills / Profile) on the right — over "prep panel only". The rejected alternative would
 have left two looks stitched into one screen: the concept's identity is the two panes
-plus the wax Deploy plate together, not the prep controls alone.
+plus the wax Deploy plate together, not the prep controls alone.~~
 
 **The three tabs are a DOM change, not CSS-only like the scene port.** `src/render/prep.ts`
 now builds a `mountPrep` closure that tracks which tab is open — state that is never

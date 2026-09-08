@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
 import {
+  backToParty,
   prepEveryMember,
   dismissScene,
   freezeMotion,
+  openMember,
+  openPrepTab,
   settleMotion,
   startNewGame,
   watchStep,
@@ -80,7 +83,17 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await shot("02b-prologue-read", "screen-scene");
 
   await dismissScene(page);
-  await shot("02c-briefing-battle-1", "screen-briefing");
+  await shot("02c-briefing-party-select", "screen-briefing");
+
+  // THE MEMBER VIEW IS A SCREEN A PLAYER PASSES THROUGH (the split, owner 2026-09-07),
+  // and a state no capture reaches has no proof frame. Two frames, because the Skills
+  // tab is where the learn list — the whole customization spine — actually lives, and
+  // the Equipment tab cannot show whether it fits the fold.
+  await openMember(page, "pc-briar");
+  await shot("02d-briefing-member-equipment", "screen-briefing");
+  await openPrepTab(page, "skills");
+  await shot("02e-briefing-member-skills", "screen-briefing");
+  await backToParty(page);
 
   await page.getByTestId("help-open").click();
   await shot("03-help-panel", "help");
@@ -141,7 +154,10 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   }
   await page.getByTestId("next").click();
   await dismissScene(page);
-  await shot("08-briefing-battle-5-full-prep", "screen-briefing");
+  await shot("08-briefing-battle-5-party", "screen-briefing");
+  await openMember(page);
+  await shot("08b-briefing-battle-5-full-prep", "screen-briefing");
+  await backToParty(page);
 
   // ADR-0027: an unprepped party LOSES the finale, so without this the walkthrough ends
   // on the after-battle screen and the last frame is a defeat under a caption saying

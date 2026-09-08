@@ -651,46 +651,6 @@
   },
   {
     "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "border-top"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "color"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "font-family"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "font-size"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "letter-spacing"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "padding"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "text-align"
-  },
-  {
-    "screenRoot": "#screen-briefing",
-    "selector": ".portrait figcaption.pending",
-    "property": "text-transform"
-  },
-  {
-    "screenRoot": "#screen-briefing",
     "selector": ".portrait img",
     "property": "aspect-ratio"
   },
@@ -1533,46 +1493,6 @@
     "screenRoot": "#screen-scene",
     "selector": ".portrait",
     "property": "width"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "border-top"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "color"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "font-family"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "font-size"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "letter-spacing"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "padding"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "text-align"
-  },
-  {
-    "screenRoot": "#screen-scene",
-    "selector": ".portrait figcaption.pending",
-    "property": "text-transform"
   },
   {
     "screenRoot": "#screen-scene",

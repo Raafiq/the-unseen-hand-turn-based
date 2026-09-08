@@ -97,8 +97,10 @@ test("scene: narration holds no portrait", async ({ page }) => {
 
 test("scene: the portrait frame breaks the rail for a real-art speaker", async ({ page }) => {
   // Walk to the interlude before battle 3 (`sc-interlude-ford`) — the one scene beat
-  // where a real-art unit (Briar, `archer-f`) speaks first, rather than the prologue's
-  // placeholder-only cast. Both battles are won by the balance probe on both seats
+  // where Briar (`archer-f`) speaks first. This walk predates the six-member roster,
+  // which gave the prologue's speaker real art too — it is kept because it reaches a
+  // DIFFERENT scene anchor (an interlude, not the prologue), not because it is the only
+  // real-art speaker left. Both battles are won by the balance probe on both seats
   // (AC-M1's shipped seam), the same walk `e2e/portraits.spec.ts` uses one step further.
   await page.goto("/");
   await startNewGame(page);
@@ -149,7 +151,10 @@ test("scene: the house ribbon is blue while speaking, grey for narration — com
   await expect(page.getByTestId("screen-scene")).toBeVisible();
 
   const figure = page.getByTestId("scene-story-portrait");
-  await expect(figure).toHaveAttribute("data-state", "pending"); // Vance speaks first
+  // Vance speaks first, and he has real art (`archer-m`) since the six-member roster
+  // of 2026-09-08 — this line read "pending" while his job was out of portrait scope.
+  // "art" is still a SPEAKING state, which is what the blue/grey split below turns on.
+  await expect(figure).toHaveAttribute("data-state", "art");
   const speaking = await figure.evaluate((el) => getComputedStyle(el, "::after").backgroundColor);
   expect(speaking).toBe(GROUNDS.houseBlue);
 
@@ -173,7 +178,10 @@ test("scene: the ribbon carries the house lion charge, resolved by name, in both
   const figure = page.getByTestId("scene-story-portrait");
   const charge = figure.locator("img.ribbon-charge");
 
-  await expect(figure).toHaveAttribute("data-state", "pending"); // Vance speaks first
+  // Vance speaks first, and he has real art (`archer-m`) since the six-member roster
+  // of 2026-09-08 — this line read "pending" while his job was out of portrait scope.
+  // "art" is still a SPEAKING state, which is what the blue/grey split below turns on.
+  await expect(figure).toHaveAttribute("data-state", "art");
   await expect(charge).toHaveCount(1);
   const speakingSrc = await charge.getAttribute("src");
   expect(
@@ -202,7 +210,7 @@ test("scene: narration's ribbon is the SAME box as speaking's, and the column pa
   await expect(page.getByTestId("screen-scene")).toBeVisible();
 
   const figure = page.getByTestId("scene-story-portrait");
-  await expect(figure).toHaveAttribute("data-state", "pending");
+  await expect(figure).toHaveAttribute("data-state", "art"); // Vance, archer-m
   // The FIELD (`.portrait::after`) is a pseudo-element — `getBoundingClientRect` cannot
   // reach it, but `getComputedStyle(el, "::after")` resolves an absolutely-positioned
   // pseudo's `left/top/width/height` to real pixels, which is what makes this a genuine
@@ -668,11 +676,14 @@ test("scene: contrast — the name plate's own ground, and every text element cl
   });
   // EXACT, not a floor: a screen that rendered NOTHING (a beat that failed to mount,
   // scene.ts throwing before it appended a single line) would also produce zero
-  // findings below, passing identically to a fully-legible one. Eight is the prologue's
+  // findings below, passing identically to a fully-legible one. SEVEN is the prologue's
   // first-line state, scoped to `#screen-scene`: the title plaque, the name plate, one
-  // dialogue line, the pending-placeholder figcaption, the progress readout, and the
-  // three controls (More, Show all, Continue).
-  expect(findings.examined, "scene screen text-element count").toBe(8);
+  // dialogue line, the progress readout, and the three controls (More, Show all,
+  // Continue). It was EIGHT until the six-member roster (2026-09-08) gave Vance real
+  // art: the eighth was the placeholder's "Portrait pending" figcaption, which is keyed
+  // on the placeholder asset key and no longer renders for any shipped character. That
+  // caption's contrast is therefore no longer measured anywhere.
+  expect(findings.examined, "scene screen text-element count").toBe(7);
   expect(findings.out, `contrast failures: ${JSON.stringify(findings.out)}`).toEqual([]);
   // MUTATION this catches: colour `p.line` with `--ink-soft` (index.html's own softer ink
   // role, which README §a note 1 says fails on this darker parchment) — `p.line`'s `color`

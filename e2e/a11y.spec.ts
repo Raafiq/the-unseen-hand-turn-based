@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer, openMember, openPrepTab, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -56,25 +56,42 @@ async function scan(page: Page): Promise<string[]> {
   );
 }
 
+/** How many rule/node pairs axe actually evaluated — its REACH, not its verdict. */
+async function reach(page: Page): Promise<number> {
+  const results = await new AxeBuilder({ page }).withTags(TAGS).disableRules(UNMEASURABLE_HERE).analyze();
+  return results.passes.reduce((n, p) => n + p.nodes.length, 0);
+}
+
 test("a11y: the title screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("screen-title")).toBeVisible();
   expect(await scan(page)).toEqual([]);
 });
 
-test("a11y: the briefing and prep screens", async ({ page }) => {
+test("a11y: the briefing's BOTH views, and the prep panel after spending", async ({ page }) => {
   await page.goto("/");
   await startNewGame(page);
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
-  // Scan the panel as first rendered…
+  // PARTY SELECT as first rendered…
+  await expect(page.getByTestId("prep-roster")).toBeVisible();
+  const partyReach = await reach(page);
   expect(await scan(page)).toEqual([]);
 
-  // …and again once AP has been spent, because buying redraws the learn list with
-  // rows the first pass never contained: the red "needs Secondary" tag, disabled buy
-  // seals, and the receipt. Those are new colour pairs on new backgrounds.
+  // …then MEMBER DETAIL, which is a different screen's worth of controls (the split,
+  // owner 2026-09-07) and a scan that never left party select could not see one of them.
+  // ASSERTED, not assumed: axe's reach must GROW, for the same reason the stage test
+  // below asserts its own — a walk that silently failed to change view reports the same
+  // zero violations as a clean member leaf.
   await prepEveryMember(page);
+  await openMember(page);
+  await openPrepTab(page, "skills");
   await expect(page.getByTestId("prep-learn")).toBeVisible();
+  const memberReach = await reach(page);
+  expect(memberReach, "the member view added nothing to axe's reach").toBeGreaterThan(partyReach);
+  // Scanned once AP has been spent, because buying redraws the learn list with rows the
+  // first pass never contained: the red "needs Secondary" tag, disabled buy seals, and
+  // the receipt. Those are new colour pairs on new backgrounds.
   expect(await scan(page)).toEqual([]);
 });
 

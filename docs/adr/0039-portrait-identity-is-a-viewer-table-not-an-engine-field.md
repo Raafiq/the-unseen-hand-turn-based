@@ -78,10 +78,16 @@ reasons (AI flavor text, a stat modifier, anything the sim itself needs), that
 field can supersede this table — but nothing requires it, and the table is not
 a stand-in waiting to be promoted.
 
-**Six of ten approved portraits ship; four sit approved but unwired.** Any
+~~**Six of ten approved portraits ship; four sit approved but unwired.** Any
 roster that later adds a unit named `archer-m`, `priest-m`, `thief-f` or
 `wizard-m` needs that key cut and bundled before the table can point to it, or
-the boot check refuses to load.
+the boot check refuses to load.~~
+
+**Updated 2026-09-08 (ADR-0041): NINE of ten approved portraits ship.** The
+six-member party wired `archer-m` (Vance), `wizard-m` (Kest) and `priest-m`
+(Corin), each cut with Pillow at 192×256 from this doc's crop boxes. Only
+`thief-f` sits approved and unwired; a roster that adds a unit needing it must
+cut and bundle it first, or the boot check refuses to load.
 
 **Four boot checks now police the table**, all in `campaign-data.ts`: (1)
 `portraitArtCoverage` — the table's and the story pack's keys, union-checked

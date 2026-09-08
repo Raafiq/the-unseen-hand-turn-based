@@ -16,7 +16,7 @@ Real and tested, not aspirational:
 - A deterministic combat simulation with a CT scheduler, five equip slots, AP-driven job
   trees, mastery, and free respec.
 - A playable viewer: click to move and attack, full resolution previews, keyboard control.
-- Encounters and builds as **data**. ~~Six encounters shipped, all winnable (AC-E6).~~ Re-counted 2026-09-01: **eleven** encounter files ship — six benchmark (`data/encounters/`: five `enc-*` plus `skirmish-a`) and five campaign battles (`data/campaign/encounters/`). **AC-E6 covers five of the eleven**: the `SUITE` list in `benchmark-suite.test.ts` is the five `enc-*` files, so `skirmish-a` and all five campaign battles have no winnability check. The campaign battles are covered differently: `campaign-run.test.ts` asserts the unprepped party wins four and loses the finale by design (ADR-0027), and `src/render/playtest.test.ts` asserts an ending is reachable under a real player policy. Neither is AC-E6's per-encounter reachability check.
+- Encounters and builds as **data**. ~~Six encounters shipped, all winnable (AC-E6).~~ Re-counted 2026-09-01: **eleven** encounter files ship — six benchmark (`data/encounters/`: five `enc-*` plus `skirmish-a`) and five campaign battles (`data/campaign/encounters/`). **AC-E6 covers five of the eleven**: the `SUITE` list in `benchmark-suite.test.ts` is the five `enc-*` files, so `skirmish-a` and all five campaign battles have no winnability check. The campaign battles are covered differently: ~~`campaign-run.test.ts` asserts the unprepped party wins four and loses the finale by design (ADR-0027), and `src/render/playtest.test.ts` asserts an ending is reachable under a real player policy.~~ **Both of those tests are PARKED as of 2026-09-08 (ADR-0041): with the six-member party the naive run clears battle 4 too, so ADR-0027's pacing profile is suspended until the combat revamp. The five campaign battles now have NO win/lose assertion at all.** Neither was AC-E6's per-encounter reachability check either.
 - A prep screen that equips abilities and traits.
 - Save/replay **substrate** — `(seed, commands)` reproduces any battle byte-for-byte.
 
@@ -46,7 +46,10 @@ anything, and reaches a real ending — win or lose.**
 2. **Campaign container** — an authored sequence of **5–6 battles**. The party persists
    between them: HP restored, AP banked, learned abilities kept, the dead handled.
 3. **Between-battle loop** — the existing prep screen, reached between battles: spend AP,
-   change job, change loadout, then deploy.
+   change job, change loadout, then deploy. **Two views since ADR-0041 (2026-09-08):**
+   party select (six cards, read-only "fields N of 6", the Deploy plate) then member
+   detail per member. There is no deploy toggle — **who fights is authored by the
+   encounter**, and all six deploy in a coming slice.
 4. **Story stubs** — plain text before and after each battle, authored as data in the
    `docs/08` §4 contract shape. Placeholder prose; the point is the seam, not the writing.
 5. **Equipment, minimal** — ADR-0021's horizontal gear, ~8 items on an authored drip.
@@ -77,7 +80,7 @@ anything, and reaches a real ending — win or lose.**
 > |---|---|
 > | 1. Shell | **done** — `index.html` (the site root) + `src/render/campaign-shell.ts`; title, New Game, Continue, quit, one slot |
 > | 2. Campaign container | **done** — headless (ADR-0022) and played (ADR-0023) |
-> | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy |
+> | 3. Between-battle loop | **done** (ADR-0024) — the prep panel is mounted on the briefing over the save's party: spend AP, change job, change loadout, then deploy. Every edit is in the save file before Deploy. **Re-shaped by ADR-0041 (2026-09-08):** the briefing is two views (party select → member detail); ~~the party chooses who deploys~~ — the deploy toggle is gone, `continueGame` clears `save.deployment`, and each encounter authors its own player placements (2/3/4/4/4 across battles 1–5 today) |
 > | 4. Story stubs | **done** (ADR-0024), and **superseded by story v2** (ADR-0029). ~~`src/sim/story.ts` (schema, no prose) + a pack with pre / victory / defeat per battle~~ — the pack is now `storySchemaVersion: 2`: per-line speakers, a `characters` registry, and **3 standalone scenes** (prologue, interlude, epilogue) that belong to no battle. Text is read one line at a time beside a portrait frame (`src/render/scene.ts`, AC-V16/V17). `mid` hooks are still deliberately out |
 > | 5. Equipment | **done** (ADR-0026) — `UnitRecord.weapon` (rosterSchemaVersion 3) + an 8-weapon horizontal catalog + `CampaignBattle.grants` paying into a set-valued inventory (campaignSchemaVersion 2 **at that slice; it is 4 today** — v2→v3 added the deployment list, v3→v4 the seen-scenes list, each with a migration). The reference builds stay on the placeholder, so the variety score is unchanged — gear is an axis the gate does not yet use |
 > | 6. Failure handling | **done** — a loss reaches a game-over screen the player can act on, and retry restores the party exactly |
@@ -245,7 +248,7 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   built page**: a character with art against one without, asserting `naturalWidth > 0`
   rather than "an `<img>` exists" — the latter is satisfied by a broken image, by the asset
   KEY landing in `src`, and by a file that never reached `dist`. **Met** (ADR-0029).
-  **Now asserted (ADR-0039):** six of ten approved portraits are wired and render as real
+  **Now asserted (ADR-0039; ~~six~~ NINE of ten since ADR-0041, 2026-09-08):** nine of ten approved portraits are wired and render as real
   art in the scene player and the unit card, per `e2e/portraits.spec.ts`. **Still not
   asserted:** that a real-art unit card appears in the playtest capture — that spec never
   opens the drawer that holds it, so the claim rests on `e2e/portraits.spec.ts` alone.

@@ -185,10 +185,22 @@ check reads the battle board's legibility, and none of this says the screen is *
 ## (g) Briefing / prep screen
 
 Seven concept frames (`Preparation scene (Equipment overview|Inventory|Job tree|Menu
-dropdown|Profile|Skills learning|Skills overview).png`), ruled **option A** by the owner
+dropdown|Profile|Skills learning|Skills overview).png`), ~~ruled **option A** by the owner
 2026-09-07: one two-pane screen over "prep panel only" — the concept's identity is the
-two panes plus the wax Deploy plate together. Mockup `coverage/overhaul/prep.html` →
-`mockups/prep-{640x300,851x324,1000x780,851x324-skills,851x324-profile}.png`. Colours by
+two panes plus the wax Deploy plate together.~~ **Superseded by ADR-0041 (2026-09-08): the
+briefing is two VIEWS, not two panes, and the per-card deploy toggle is gone.**
+
+Mockups, in order:
+
+| Mockup | What it is |
+|---|---|
+| `mockups/prep-{640x300,851x324,1000x780,851x324-skills,851x324-profile}.png` | The option-A two-pane frames. Historical — the shipped screen no longer matches them. |
+| `mockups/party-{640x300,832x328,851x324,1000x780}.png` | Party select. `party-832x328.png` is the one AC-V54 measures against, and `mockups/src/shoot.mjs` re-derives its six pinned values. It draws **four** cards; the shipped party is six, which is why AC-V54 asserts the row's invariants rather than four pixel positions. **No six-card frame has been approved.** |
+| `mockups/member-{640x300,851x324,851x324-skills,1000x780}.png` | Member detail. |
+
+Source for the new pair lives in `mockups/src/` (`party.html`, `member.html`, `shoot.mjs`,
+`build-css.sh`). **`build-css.sh` hard-codes `overhaul.css` lines 1254-2551**; the file is
+longer than that now, so the appended split block falls outside its range. Colours by
 `sample-palette.py` (this screen reuses ADR-0028's palette, adds none of its own except
 `--seal-red`); contrast by `measure-prep.mjs`. Delivered captures:
 `docs/visual/overhaul/prep-*.png`.

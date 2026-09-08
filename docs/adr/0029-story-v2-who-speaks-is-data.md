@@ -136,8 +136,9 @@ both motion modes rather than written in a comment.
 
 ### 8. Reveal state lives outside the DOM
 
-`renderStory` is reached from `refresh()`, which the prep panel's `onChange` and every
-deploy toggle also trigger — on the briefing, which is exactly where a scene is read — and
+`renderStory` is reached from `refresh()`, which the prep panel's `onChange` ~~and every
+deploy toggle~~ **and the party↔member view switch** (the deploy toggle was removed by
+ADR-0041, 2026-09-08) also trigger — on the briefing, which is exactly where a scene is read — and
 the old renderer wiped and rebuilt its box on every call. So the model lives in a closure,
 `game.ts` holds handles in a module-scope map, and `setBeat(key, lines)` does **no DOM work
 at all** on an unchanged key. Keys are strings built from save state, never object
