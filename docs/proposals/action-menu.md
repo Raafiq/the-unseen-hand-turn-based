@@ -126,7 +126,7 @@ So green has real content, but only if the player spends AP, and never in battle
 |---|---|---|
 | "Where the active unit can walk" | **remove** | The blue panel now only exists because the player chose `Move` a moment ago. The menu row is the label |
 | "Whose turn it is" | **remove** | The stat plate names the acting unit (ADR-0033) and the turn plate names them over their head (ADR-0032). Three surfaces say it |
-| "Your party" / "Enemies" | **keep for now** | The only key to the unit tokens, which are still flat kites — and the token treatment is **parked** (`docs/NEXT.md` visual slice 3). Removing it is a real loss until that lands |
+| "Your party" / "Enemies" | **keep for now** | The only key to the unit tokens, which are still flat kites — and the token treatment is **parked** (`docs/INTENT.md` visual slice 3). Removing it is a real loss until that lands |
 
 **And relocate the swatch:** each menu row carries the swatch of the range it paints (Move blue, Attack red, Chakra green), painted from the theme constants by the same mechanism `paintLegend()` uses. The key then appears where and when it is needed, next to a word — `docs/04` §7 satisfied structurally.
 

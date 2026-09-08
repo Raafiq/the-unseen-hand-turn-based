@@ -68,7 +68,7 @@ Prompting craft, not documented model behaviour. The model rewards visual facts;
 
 ## 4. House knowledge - portrait probe, 2026-09-05
 
-`[VERIFIED]` by the measured table in `docs/NEXT.md` "GPT Image 2 probe - 2026-09-05" and the byte-for-byte prompts in `docs/visual/portraits/reference/gpt-probe-prompts.md`.
+`[VERIFIED]` by the measured table in `docs/INTENT.md` "GPT Image 2 probe - 2026-09-05" and the byte-for-byte prompts in `docs/visual/portraits/reference/gpt-probe-prompts.md`.
 
 - Naming the line concretely worked: "broken, scratchy, varying in weight, short overlapping strokes" plus "hatching only in the shadows and hair" put v2 at foreground line energy 27.6 and 27.5 against the locked archer's 27.2.
 - "In the manner of X" plus "keep the medium, ink-line quality, texture and palette identical" (v1) did not: v1 measured 25.4 and lost the scratchy line.

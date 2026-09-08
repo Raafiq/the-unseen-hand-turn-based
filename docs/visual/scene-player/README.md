@@ -17,7 +17,7 @@ that pair a half-revealed beat would sit under a caption saying "read".
   caption. Every portrait on screen is that same file.
 - **Nothing here is evidence about onboarding.** These frames show that a scene renders
   and advances. Whether the game reads to a first-time player is still unmeasured, and
-  `docs/NEXT.md` still holds that as the open question.
+  `docs/INTENT.md` still holds that as the open question.
 - **The gutter in `02b` is empty on purpose.** The last line is narration, which has no
   speaker and therefore no portrait; the column keeps its width so the text does not jump
   mid-read. An earlier build hid it outright and the whole block shifted left — found by

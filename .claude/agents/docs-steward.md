@@ -2,7 +2,8 @@
 name: docs-steward
 description: >-
   Owner of the written record for the-unseen-hand. Delegate to this agent to
-  write or amend a design doc, an ADR, an Acceptance Criterion, or `docs/NEXT.md`
+  write or amend a design doc, an ADR, an Acceptance Criterion, or `docs/INTENT.md`
+  (the standing intent doc: where the game is going, plus the next slice)
   — and, more importantly, to AUDIT the record against the code and report every
   claim that has gone false. In this repo `docs/` outranks the code, so a stale
   doc is not untidiness, it is a wrong instruction to every future agent. Writes
@@ -77,7 +78,7 @@ The AC sections are the testable spec, so an AC is a promise someone must keep:
   `N tests, M browser specs` is a number `check:counts` enforces, not a lesson — updating it
   needs no owner words (owner, 2026-09-07). A pass that left it stale handed a red
   `npm run check` back to the coordinator; that line is the one root-`CLAUDE.md` edit you own.
-- **`npm run check:handoff` must pass.** `docs/NEXT.md` carries a `written-against` stamp;
+- **`npm run check:handoff` must pass.** `docs/INTENT.md` carries a `written-against` stamp;
   re-stamp it to the branch head and never let it go stale.
 - **Write plainly** (user directive). Bottom line first, sentences 15–20 words, tables over
   paragraphs, no audit trail. That applies to docs, not only to chat.

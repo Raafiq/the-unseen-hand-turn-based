@@ -71,7 +71,7 @@ Three supporting text changes:
 - A new help topic, **Where to spend AP**, states the one-Secondary constraint plainly: "buying cheap actions from three different jobs leaves you able to use one of them."
 - **Losing a battle** said losing costs nothing and you go back with the same party. True, and it implied a retry is a fresh chance — it is not: the retry is the same fight, a loss banks no AP, so going straight back in changes nothing on its own. That now says so.
 
-**Still not fixed, and it is a real limit:** whether a newcomer *reads* any of this is exactly the question no agent can answer (`docs/11` AC-M6, `docs/NEXT.md` trap 4). What is asserted is that the warning is produced by the shipped content, that it names the right rows, and that it agrees with the real command projection — not that it lands.
+**Still not fixed, and it is a real limit:** whether a newcomer *reads* any of this is exactly the question no agent can answer (`docs/11` AC-M6, `docs/INTENT.md` trap 4). What is asserted is that the warning is produced by the shipped content, that it names the right rows, and that it agrees with the real command projection — not that it lands.
 
 ## Consequences
 

@@ -39,7 +39,7 @@ pages are pasted again.
 
 ## The two errors this skill exists to prevent
 
-Both were live in `docs/NEXT.md` and both would have cost the owner real money.
+Both were live in `docs/INTENT.md` and both would have cost the owner real money.
 
 1. **`--style raw` is now `--raw`.** The old spelling is not in the V8.2 parameter
    list at all.
@@ -77,7 +77,7 @@ any doc, and re-reading the reference would never have found them.
   ⚠️ **UNVERIFIED.** The Multi-Prompts & Weights page
   (`/hc/en-us/articles/32658968492557`) is not captured. **Ask the owner for it before
   writing any `::` syntax** — guessing at syntax is exactly what put `--style raw` into
-  `docs/NEXT.md`.
+  `docs/INTENT.md`.
 
 ## Reference files
 
@@ -169,7 +169,7 @@ to get sixteen portraits that do not match.
 - **Set defaults once in the settings panel** (Raw, aspect ratio) rather than
   typing the same flags on nineteen prompts.
 - **If Midjourney rejects a flag, get the exact error from the owner.** Guessing is
-  what put `--style raw` into `docs/NEXT.md`.
+  what put `--style raw` into `docs/INTENT.md`.
 
 ## What only the owner can do
 

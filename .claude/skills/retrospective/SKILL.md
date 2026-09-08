@@ -111,6 +111,6 @@ Load-bearing because: a future agent asks before publishing from staging. No gua
 
 Offer a retrospective when a session shows the symptoms it cures — several user corrections, an artifact regenerated three or more times, or improvised steps no skill documents. Those are exactly the sessions whose lessons are most worth catching, so don't wait to be asked.
 
-## Before you finish: re-stamp the handoff
+## Before you finish: re-stamp the intent doc
 
-A retrospective banks what went wrong; `docs/NEXT.md` banks what comes next, and it must be written while the context is hot. Rewrite it — next slice, the landmines, what is explicitly not green-lit — re-stamp `<!-- written-against: <sha> -->` to the branch head, and run `npm run check:handoff`. CI fails the build once the stamp is stale.
+A retrospective banks what went wrong; `docs/INTENT.md` banks the standing intent and what comes next, and it must be written while the context is hot. Rewrite it — standing intent, open owner asks, what is explicitly not green-lit, the next slice and its landmines — re-stamp `<!-- written-against: <sha> -->` to the branch head, and run `npm run check:handoff`. CI fails the build once the stamp is stale.

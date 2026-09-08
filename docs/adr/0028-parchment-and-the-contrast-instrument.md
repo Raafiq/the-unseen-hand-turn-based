@@ -77,7 +77,7 @@ the numbers above showed how badly that goes by eye.
   wash deepened), plus one against the stale-grounds guard.
 - **What this does NOT establish.** Nothing here says the game is understandable. A green
   contrast run on an illegible prep screen is byte-identical to a green run on a clear
-  one. `docs/NEXT.md`'s open question — whether a newcomer grasps the five-slot chassis —
+  one. `docs/INTENT.md`'s open question — whether a newcomer grasps the five-slot chassis —
   is untouched and still needs a person.
 
 ## Alternatives considered

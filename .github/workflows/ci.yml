@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # fetch-depth: 0 is required by the handoff gate below — it measures how far
-      # docs/NEXT.md's stamp is behind HEAD, which needs real history, not a shallow clone.
+      # docs/INTENT.md's stamp is behind HEAD, which needs real history, not a shallow clone.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # docs/NEXT.md is the session-to-session handoff — the one piece of state a machine
+      # docs/INTENT.md is the session-to-session handoff — the one piece of state a machine
       # cannot derive, and therefore the one that can silently rot. The SessionStart hook
       # warns as it ages; this is the hard stop, so the convention cannot decay into a lie
       # that reads as authoritative (CLAUDE.md, the evidence principle).
@@ -33,7 +33,7 @@ jobs:
       # ref (PR head merged into base), so the drift count would include base commits the
       # branch never authored and the gate would fail for the wrong reason. Every PR branch
       # is pushed, so this still runs on everything.
-      - name: Handoff (docs/NEXT.md) is not stale
+      - name: Handoff (docs/INTENT.md) is not stale
         if: github.event_name == 'push'
         run: npm run check:handoff
 

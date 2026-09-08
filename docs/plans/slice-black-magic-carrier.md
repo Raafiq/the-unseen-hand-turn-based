@@ -1,7 +1,7 @@
 # Slice plan — give black magic a viable carrier
 
 **Status: proposed, awaiting green-light.** Written against `1c812b4` (main).
-Source of the slice: `docs/NEXT.md` § "The next slice".
+Source of the slice: `docs/INTENT.md` § "The next slice".
 
 ---
 
@@ -17,7 +17,7 @@ The one missing identity is `black-magic.`. Its two carriers:
 
 ### The handoff's diagnosis was wrong
 
-`docs/NEXT.md` said the wizard "needs **four casts** to drop a body that kills it in **two**"
+`docs/INTENT.md` said the wizard "needs **four casts** to drop a body that kills it in **two**"
 — arithmetic, not a traced run. Tracing `skirmish-a` shows something else:
 
 ```
@@ -173,7 +173,7 @@ across the band. The plateau is the evidence, not the score.
 7. A new ADR recording the support-slot decision and the deferred-effect list.
 8. `docs/02` — record that the support slot is live and which effects are deferred.
 9. `npm run check` + `npm run test:visual` (the browser tests are not in `check`).
-10. Retrospective + rewrite `docs/NEXT.md`, re-stamped.
+10. Retrospective + rewrite `docs/INTENT.md`, re-stamped.
 
 ### Risks
 

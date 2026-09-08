@@ -35,6 +35,7 @@ To avoid "ten shallow systems sharing a menu," three axes are the identity. Ever
 
 | Doc | What it covers |
 |---|---|
+| [`docs/INTENT.md`](docs/INTENT.md) | Standing intent and the next slice: where the game is going, the owner's directives in force, what is not green-lit, what waits on the owner. Read after `CLAUDE.md` |
 | [`docs/00-vision-and-pillars.md`](docs/00-vision-and-pillars.md) | Vision, pillars, the spine decision, testable success criteria, non-goals |
 | [`docs/01-combat-system.md`](docs/01-combat-system.md) | **Faithful FFT baseline**: CT turns, charge timing, grid/height/facing, weapon & magic formulas, evasion, status, battle flow, permadeath |
 | [`docs/02-job-and-customization-system.md`](docs/02-job-and-customization-system.md) | **The core doc.** FFT job baseline + reconciled enhancement layer (currency table, spine, respec, anti-convergence) |

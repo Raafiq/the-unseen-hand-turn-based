@@ -63,7 +63,7 @@ Writes throw, and `CampaignShell` catches and *displays* the failure. A save tha
 
 ## Alternatives rejected
 
-- **Make `index.html` the game and move the viewer to `viewer.html`.** The right end state, and where this should go once the shell has the prep loop and story stubs. Rejected now: it would rewrite twelve browser specs' navigation for a shell that is still missing three M0 items, and `/` would stop being the engine showcase before the game is ready to replace it. Recorded in `docs/NEXT.md` as the follow-up.
+- **Make `index.html` the game and move the viewer to `viewer.html`.** The right end state, and where this should go once the shell has the prep loop and story stubs. Rejected now: it would rewrite twelve browser specs' navigation for a shell that is still missing three M0 items, and `/` would stop being the engine showcase before the game is ready to replace it. Recorded in `docs/INTENT.md` as the follow-up.
 - **Re-run the player's command log through `runFromState` to get the report.** Determinism says it would reproduce the battle exactly, and it would need no change to `Session`. Rejected: it fights every battle twice, and it makes the report a function of a *replay* rather than of what the player actually saw — a divergence would surface as a wrong reward, not as a failure.
 - **Let `Session` keep judging by team-wipe and have the shell re-judge afterwards.** Smaller diff. Rejected: the player would keep being asked for commands in a battle that was already decided, which is precisely the bug AC-V13 exists to prevent, and the banner would be a full turn late.
 - **Auto-conclude the battle the moment it is decided.** Rejected: the player never sees the final board. The battle screen holds, shows the banner, and offers `Continue ▸`.

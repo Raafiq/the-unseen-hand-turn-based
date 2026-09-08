@@ -114,7 +114,7 @@ Two routes: on the **clothing** (5 jobs x 2 genders x 2 colourways = 20 portrait
 Judge it when a real portrait sits beside a real swatch in the plate.
 
 ~~Six~~ **Nine** real crops are wired into `PORTRAITS` (ADR-0039; raised to nine by
-ADR-0041, 2026-09-08); the question is answerable now. See `docs/NEXT.md` for whoever picks it up.
+ADR-0041, 2026-09-08); the question is answerable now. See `docs/INTENT.md` for whoever picks it up.
 
 ## Adding a portrait
 

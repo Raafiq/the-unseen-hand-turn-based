@@ -184,7 +184,7 @@ may assume the textbox's shape.
   to 4 even though its own shape did not change — the same thing v2 → v3 did.
 - **Two things are NOT settled by this slice and must not be cited as if they were.** No
   portrait art exists, and nothing here is evidence about onboarding. Whether the game
-  reads to a first-time player is the same open question `docs/NEXT.md` has held since
+  reads to a first-time player is the same open question `docs/INTENT.md` has held since
   M0, and a scene player does not answer it.
 - **`check:story` was rewritten first**, deliberately, because the guard had to be
   trustworthy before the data changed shape under it. It had a live silent-green route —
