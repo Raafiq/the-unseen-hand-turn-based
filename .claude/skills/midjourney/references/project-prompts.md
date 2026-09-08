@@ -68,7 +68,7 @@ sand-tan background colour #e9d7a8
 
 ### Two corrections already applied to these
 
-Both were wrong in `docs/NEXT.md` before 2026-09-01.
+Both were wrong in `docs/INTENT.md` before 2026-09-01.
 
 | Was | Now | Why |
 |---|---|---|

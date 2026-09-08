@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Handoff freshness gate.
 #
-# `docs/NEXT.md` is the one piece of session-to-session state a machine cannot derive:
+# `docs/INTENT.md` holds the standing intent and the next slice — the one piece of session-to-session state a machine cannot derive:
 # what the next slice is, why, and what will bite. It is therefore also the one piece
 # that can silently rot — and per CLAUDE.md's evidence principle, a stale handoff reads
 # as authoritative exactly like a current one, which makes it worse than none.
@@ -16,7 +16,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 1
 
-FILE="docs/NEXT.md"
+FILE="docs/INTENT.md"
 MAX_DRIFT="${HANDOFF_MAX_DRIFT:-20}"
 
 fail() { echo "::error::$1"; echo "❌ check:handoff — $1" >&2; exit 1; }

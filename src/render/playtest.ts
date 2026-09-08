@@ -261,7 +261,7 @@ export const NAIVE: Persona = {
  * Someone who engages with the prep screen without a plan: fills every empty slot with
  * the cheapest live thing available, and swings the heaviest weapon they own.
  *
- * "Cheapest live option per empty slot" is the same walk `docs/NEXT.md`'s reachability
+ * "Cheapest live option per empty slot" is the same walk `docs/INTENT.md`'s reachability
  * table records, so this persona is the one whose AP spend is directly comparable to
  * the budget numbers already in the docs.
  */

@@ -9,7 +9,7 @@
 **The flag is `--raw`.** The older `--style raw` spelling does not appear in the
 V8.2 parameter list.
 
-This repo's `docs/NEXT.md` carried the old spelling in all three probe prompts. It
+This repo's `docs/INTENT.md` carried the old spelling in all three probe prompts. It
 is the single most common migration mistake.
 
 ## What it does

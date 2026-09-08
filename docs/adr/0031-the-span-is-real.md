@@ -55,7 +55,7 @@ build-variety score remains comparable to every past measurement (owner decision
 > benchmark slice (`6309a7f`), long before this ADR. **The decision is unchanged** — the
 > six test battles were not edited — but what makes the score comparable is that they did
 > not change, not that they are featureless. The same sentence in `docs/08` and
-> `docs/NEXT.md` is corrected.
+> `docs/INTENT.md` is corrected.
 
 ## The new invariant, and why it is one-directional
 

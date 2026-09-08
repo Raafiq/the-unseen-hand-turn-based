@@ -46,7 +46,7 @@
  * probed). The pre-fold pair straddled the Brawler at 75% vs 100%, so it moved the arc
  * NAME *and* the hit %; only the name moves now. These viewer fixtures ride on demo
  * content that a sim change can shift under them — the third time it has happened — so a
- * purpose-built board is recorded in docs/NEXT.md as work for the next slice.
+ * purpose-built board is recorded in docs/INTENT.md as work for the next slice.
  *
  * (Damage 100 either way — this engine's magnitude is deterministic given a hit, so
  * the arc buys accuracy, not size.) That is the discriminating pair test 3 needs: a

@@ -7,7 +7,7 @@ import { join, extname } from "node:path";
  * it**.
  *
  * WHY THIS EXISTS. `npx playwright test` does not rebuild — that trap is already in
- * `docs/NEXT.md`. The variant that actually cost time in this repo is nastier, because
+ * `docs/INTENT.md`. The variant that actually cost time in this repo is nastier, because
  * it does not look like a build problem at all: **a FAILED `npm run build` leaves the
  * previous `dist` standing.** A typecheck error (one unused constant) meant a run of
  * `contrast.spec.ts` measured the OLD stylesheet and reported ratios that were

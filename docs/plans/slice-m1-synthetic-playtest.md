@@ -40,7 +40,7 @@ anecdote. **It does not settle legibility — nothing but a person can.**
 
 ## Why this, and why now
 
-`docs/NEXT.md` says the next thing the project needs is a playtest, not a slice. That is
+`docs/INTENT.md` says the next thing the project needs is a playtest, not a slice. That is
 still true for **one** of the two open bets. The two are not equally stuck:
 
 | Open bet | Can an agent settle it? | Why |
@@ -199,7 +199,7 @@ Stated here so no future session cites the green suite as if it settled the ques
 
 1. **Legibility.** No agent can tell you whether a newcomer understands the five-slot
    chassis. `docs/11` AC-M6 asserts the help panel's *claims are deliverable*; it says
-   nothing about whether the game reads on its own (`docs/NEXT.md` trap 4).
+   nothing about whether the game reads on its own (`docs/INTENT.md` trap 4).
 2. **Absolute difficulty.** Agent skill is not human skill. The evidence supports reading
    these numbers as **relative** — battle 3 against battle 1, `naive` against `optimizer`
    — never as "60% of humans will win this".
@@ -242,4 +242,4 @@ systems that do not matter is the wrong next move.
 | A4 | `scripts/playtest.mts` → a readable table; numbers reported to the user |
 | B1 | `telemetry.ts` recorder, read-only over the session |
 | B2 | The "copy playtest log" control + a test that the log survives a reload |
-| — | Retrospective, `docs/NEXT.md` re-stamp, `npm run state` last |
+| — | Retrospective, `docs/INTENT.md` re-stamp, `npm run state` last |

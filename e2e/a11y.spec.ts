@@ -11,7 +11,7 @@ import { prepEveryMember } from "./helpers";
  * own figure is that automation catches on the order of a third of real accessibility
  * problems, and it catches **none** of "is this screen understandable". A green run
  * here on an incomprehensible prep screen is byte-identical to a green run on a clear
- * one, so this file must never be cited as onboarding evidence (`docs/NEXT.md` — that
+ * one, so this file must never be cited as onboarding evidence (`docs/INTENT.md` — that
  * question needs a person).
  *
  * It exists because the parchment treatment put dark ink on a tan field and gold

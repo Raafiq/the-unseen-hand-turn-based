@@ -20,7 +20,7 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 | `combat-engineer` | Pure/headless sim core, scheduler, determinism | now | `sonnet` | `sim-determinism-guard`; `docs/05` |
 | `viewer-engineer` | `src/render/` — renderer, camera, terrain painting, shell screens, the click seam | now | `sonnet` | `src/render/CLAUDE.md`; `docs/10` |
 | `art-director` | How it LOOKS — treatments, palettes, map art, tokens, motion | now | `opus` | ADR-0028/0030; `index.html` tokens |
-| `docs-steward` | The written record — docs, ADRs, Acceptance Criteria, `docs/NEXT.md` — and auditing it for drift | now | `sonnet` | `docs/` outranks the code; `decision-record` |
+| `docs-steward` | The written record — docs, ADRs, Acceptance Criteria, `docs/INTENT.md` (standing intent + next slice) — and auditing it for drift | now | `sonnet` | `docs/` outranks the code; `decision-record` |
 | `release-engineer` | Branches, commits, PR bodies, CI to green, the Pages deploy | now | `sonnet` | `pages.yml`; the check-runs API |
 | `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `sonnet` | `docs/05` schemas, `docs/01` fidelity |
 | `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `sonnet` | `docs/*` acceptance criteria |
@@ -55,7 +55,7 @@ to quietly pick up.
 
 | Uncovered work | Resolved |
 |---|---|
-| **The written record** — docs, ADRs, Acceptance Criteria, `docs/NEXT.md`. Every word of ADR-0030 and ADR-0031 was written by the main session, and a review found three of their claims false. | **HIRED: `docs-steward`** (owner, 2026-08-30) |
+| **The written record** — docs, ADRs, Acceptance Criteria, `docs/INTENT.md` (standing intent + next slice). Every word of ADR-0030 and ADR-0031 was written by the main session, and a review found three of their claims false. | **HIRED: `docs-steward`** (owner, 2026-08-30) |
 | **Repository and release operations** — branches, commits, PR bodies, CI, the Pages deploy. | **HIRED: `release-engineer`** (owner, 2026-08-30) |
 | **Process and tooling** — retrospectives, lint rules, hooks, CI guards, and the agent definitions themselves. | **STAYS WITH THE PO** (owner, 2026-08-30). An agent that rewrites its own team's definitions is a strange loop, and the `retrospective` skill is already approval-gated. This is the PO's one legitimate exception to "does not do the work" — do not quietly widen it. |
 
