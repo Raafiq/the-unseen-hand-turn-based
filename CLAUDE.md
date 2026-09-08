@@ -156,6 +156,7 @@ Invoke by name:
   about it is stale — two wrong flags reached `docs/INTENT.md` that way. Read the skill first.
   Portraits now come from GPT Image 2 (ADR-0035), styled against four owner-supplied
   `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
+- `capture-intent` — write an idea down as `intent/<slug>.md` (Problem, Proposed outcome, Affected users and systems, Constraints, Open questions) BEFORE a spec, a mockup or a build. Holds the playbook chapter locally.
 - `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
 
 ## Agent team (`.claude/agents/`)
@@ -312,6 +313,7 @@ put Fable in every specialist.
     you read before answering "what do you need from me". `docs/INTENT.md`'s
     **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
 - **Present implementation plans as a readable HTML artifact** (via the `lavish` skill — there is no `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
+- **An idea is written down as `intent/<slug>.md` BEFORE any spec, mockup or build** (`capture-intent` skill; the playbook's Stage 1). Problem, proposed outcome, affected users and systems, constraints, open questions — in the owner's words, corrected by the owner, then committed. Not `docs/INTENT.md`, which is the standing intent of the whole game.
 - **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
 - **Environment facts that cost real time to learn.** Scratch probes go in `coverage/` (gitignored, inside the repo) because `vite-node` resolves imports against the Vite root. A mutation verdict from a build that did not typecheck is not a verdict, and `git checkout` cannot restore an untracked file, so copy the file aside first. A pushed branch with no PR can read as lost: `git fetch origin` and check `origin/<branch>` before concluding anything. GitHub auto-merge is not enabled; watch the checks and merge.
 - **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
