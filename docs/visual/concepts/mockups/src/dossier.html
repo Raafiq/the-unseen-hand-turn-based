@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en" data-mockup="dossier">
+<head>
+<meta charset="utf-8" />
+<title>Mockup — the Character Details dossier (intent/character-dossier.md, owner 2026-09-08)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!--
+  THE DOSSIER — one screen, one sheet, no tabs.
+
+  `[ 6-person portrait rail ][ full Character Details dossier ]`, per the owner's TWO
+  briefs in `intent/character-dossier.md` and the Constraints above them that override
+  their wording: no Level (AP only); one hand, so Main Hand and no Off Hand row; no
+  armour slots, so Worn Armor is a heading plus one line; the passive slot keeps the
+  game's term REACTION, not "Counter" (an open question for the owner); no tabs; no
+  Deploy here; the top rail is kept.
+
+  PASS 2 applies the second brief: rail 9-10% and subdued, dossier 43/57, a bounded
+  identity block with the name as the dominant type, Profile as prose at 20-25% of the
+  height, Job Customization as one contained module at 57% of the dossier width, and
+  every placeholder chip, "MAX 2", "at battle start" and helper note struck out.
+
+  Content is the REAL campaign at battle 1 — `data/campaign/camp-the-first-march
+  .json` (six members, their jobs, 0 AP each) and Briar's stats read off
+  `buildBattleUnit()` (HP 216 / Attack 64 / PA 8 / MA 6 / Move 3 / Evade 10% /
+  Brave 70 / Faith 50), not invented. All six portraits are real crops.
+
+  `dossier.css` is the SHIPPED stylesheet, verbatim; every new rule is in
+  `dossier.overrides.css` — see `dossier.css`'s own header for the one-liner that
+  regenerates it (it takes overhaul.css 1254-EOF, NOT `build-css.sh`'s 1254-2551,
+  which stops before the whole ADR-0041 two-view block).
+
+  The frames `../dossier-832x328.png` and `../dossier-832x384.png` were taken with a
+  copy of `shoot.mjs` pointed at this file, viewports 832x328 and 832x384,
+  deviceScaleFactor 1, Chromium at /opt/pw-browsers (never `playwright install`).
+-->
+
+<style>
+  @font-face { font-family: "Cinzel"; src: url("../../../../../public/fonts/cinzel-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400.woff2") format("woff2");
+               font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-600.woff2") format("woff2");
+               font-weight: 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url("../../../../../public/fonts/ebgaramond-400i.woff2") format("woff2");
+               font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: "Grenze Gotisch"; src: url("../../../../../public/fonts/grenzegotisch-500.woff2") format("woff2");
+               font-weight: 500; font-style: normal; font-display: block; }
+</style>
+<link rel="stylesheet" href="page-wide-borrowed.css" />
+<link rel="stylesheet" href="dossier.css" />
+<link rel="stylesheet" href="dossier.overrides.css" />
+</head>
+<body>
+
+<section id="screen-briefing" class="dossier" data-testid="screen-briefing">
+
+  <!-- ═══ TOP RAIL — kept exactly: back plaque, banner, battle title and step. ═══ -->
+  <header class="toprail">
+    <button id="btn-member-back" class="plaque riveted backplaque" data-testid="member-back"
+            aria-label="Back to party select" title="Back to party select"><i data-ico="back"></i></button>
+
+    <div class="banner" aria-hidden="true"><img src="../../../../../data/campaign/story/art/ribbon.webp" alt="" /></div>
+
+    <div class="plaque riveted companyplaque">
+      <h1 id="brief-title" data-testid="brief-title">The Toll Road</h1>
+      <p class="eyebrow" id="brief-step" data-testid="brief-step">Battle 1 of 5 &middot; managing Briar</p>
+    </div>
+  </header>
+
+  <div class="board">
+    <section class="leaf leaf-solo">
+
+      <!-- ═══ THE 1x6 RAIL — 78px, 9.4% of the width. Tapping a face swaps the sheet;
+           the selected one keeps the gold mark and full colour, the other five are
+           desaturated so the rail cannot outshout the selected character. No names:
+           the brief forbids them and a 78x44 cell has no room for one anyway. The rail
+           ADDS to the party card tap, it does not replace it. ═══ -->
+      <ul class="rail" data-testid="dossier-rail">
+        <li class="rmember">
+          <button type="button" class="rtab" data-member="pc-vance" aria-label="Vance, Archer">
+            <img src="../../../../../data/campaign/story/portraits/archer-m.png" alt="" />
+          </button>
+        </li>
+        <li class="rmember">
+          <button type="button" class="rtab" data-member="pc-kest" aria-label="Kest, Wizard">
+            <img src="../../../../../data/campaign/story/portraits/wizard-m.png" alt="" />
+          </button>
+        </li>
+        <li class="rmember on">
+          <button type="button" class="rtab" data-member="pc-briar" aria-label="Briar, Archer" aria-current="true">
+            <img src="../../../../../data/campaign/story/portraits/archer-f.png" alt="" />
+          </button>
+        </li>
+        <li class="rmember">
+          <button type="button" class="rtab" data-member="pc-ottoline" aria-label="Ottoline, Priest">
+            <img src="../../../../../data/campaign/story/portraits/priest-f.png" alt="" />
+          </button>
+        </li>
+        <li class="rmember">
+          <button type="button" class="rtab" data-member="pc-corin" aria-label="Corin, Priest">
+            <img src="../../../../../data/campaign/story/portraits/priest-m.png" alt="" />
+          </button>
+        </li>
+        <li class="rmember">
+          <button type="button" class="rtab" data-member="pc-isla" aria-label="Isla, Wizard">
+            <img src="../../../../../data/campaign/story/portraits/wizard-f.png" alt="" />
+          </button>
+        </li>
+      </ul>
+
+      <!-- ═══ THE SHEET — one dossier, two columns, nothing behind a tab. ═══ -->
+      <div class="sheet" data-testid="dossier-sheet">
+
+        <div class="scol scol-main">
+
+          <!-- 2. IDENTITY — the subject of the screen. Name is the largest type here. -->
+          <header class="unit-head ident">
+            <div class="hero"><img src="../../../../../data/campaign/story/portraits/archer-f.png" alt="" /></div>
+            <div class="idcol">
+              <div class="nameline"><h2>Briar</h2></div>
+              <!-- Pass 10: a hairline under the name, spanning to the AP. No new content —
+                   it turns the void right of "Archer" into the span of a rule, and puts the
+                   job line and AP on one row at its two ends. -->
+              <div class="idrule" aria-hidden="true"></div>
+              <p class="jobline"><i data-ico="c-archer"></i><span>Archer</span></p>
+              <p class="apline" data-testid="prep-ap">0 AP</p>
+            </div>
+          </header>
+
+          <!-- 3. STATS — four compact columns, two rows. -->
+          <section class="blk">
+            <h3 class="sect">Stats</h3>
+            <ul class="stat-row" data-testid="prep-stats">
+              <li><span class="k">HP</span><span class="v" data-stat="hp">216</span></li>
+              <li><span class="k">Attack</span><span class="v" data-stat="attack">64</span></li>
+              <li><span class="k">PA</span><span class="v" data-stat="pa">8</span></li>
+              <li><span class="k">MA</span><span class="v" data-stat="ma">6</span></li>
+              <li><span class="k">Move</span><span class="v" data-stat="move">3</span></li>
+              <li><span class="k">Evade</span><span class="v" data-stat="evade">10%</span></li>
+              <li><span class="k">Brave</span><span class="v" data-stat="brave">70</span></li>
+              <li><span class="k">Faith</span><span class="v" data-stat="faith">50</span></li>
+            </ul>
+          </section>
+
+          <!-- 6. PROFILE. SAMPLE BIOGRAPHY, not shipped content: the story pack has no
+               lore yet, and the owner asked for polished sample prose rather than a
+               placeholder label. The real lines are authored per member into
+               `data/campaign/story/` (swappable by contract, docs/11 AC-M4), and no
+               test may pin the prose (`check:story`). -->
+          <section class="blk">
+            <h3 class="sect">Profile</h3>
+            <div class="profile">
+              <p class="lore">Marrowfield sent no soldiers to the toll road &mdash; only a fletcher&rsquo;s
+                daughter who could put an arrow through a hanging coin. She signed the muster
+                under her father&rsquo;s name and has corrected no one since. What she wants at the
+                end of this road she has not said, and nobody in the company has been fool
+                enough to ask her twice.</p>
+            </div>
+          </section>
+
+
+        </div>
+
+        <div class="scol scol-side">
+
+          <!-- 4. GEAR. One hand and no armour slots in the engine, so Wielded Gear is
+               Main Hand alone and Worn Armor is its heading plus one line (owner's
+               call, recorded in the intent file's Constraints). -->
+          <section class="blk">
+            <h3 class="sect">Wielded Gear</h3>
+            <div class="gearrow">
+              <span class="roundel"><i data-ico="sword"></i></span>
+              <span class="gcap">Main Hand</span>
+              <select class="gval" data-testid="prep-weapon" aria-label="Equipped weapon">
+                <option selected>Unarmed &mdash; 64 damage</option>
+              </select>
+              <i data-ico="chev" data-ico-class="chev"></i>
+            </div>
+          </section>
+
+          <!-- HORIZONTAL, NOT VERTICAL (owner: "favor horizontal organization"). Same
+               words, same order — the heading and its one line share a row instead of
+               costing two, which is where most of the pixels for the two new Skills
+               gaps come from. -->
+          <section class="blk blk-armor">
+            <h3 class="sect">Worn Armor</h3>
+            <div class="gearrow armorrow" data-testid="prep-armor" aria-disabled="true">
+              <span class="roundel roundel-empty"><i data-ico="cuirass"></i></span>
+              <span class="gval">No armor equipped</span>
+            </div>
+          </section>
+
+          <!-- 5. SKILLS — ONE shared section, two sub-columns. Same five slots, same
+               labels, same row treatment; they stop being one long stack and use the
+               402px the column already has. Active on the left, Passive on the right. -->
+          <section class="blk sep-large blk-skills">
+            <!-- Pass 14: the door to the learn list. Same `.jchange` plate recipe as
+                 CHANGE JOBS, right-aligned on this heading's own rule, scaled to this
+                 heading's rank so the row's height does not change. -->
+            <h3 class="sect">Skills<button type="button" class="jchange learnplate" data-testid="prep-learn-open">Learn</button></h3>
+            <div class="skillcols">
+
+              <div class="skillcol">
+                <p class="subhead">Active Skills</p>
+                <div class="gearrow" data-testid="prep-primary">
+                  <span class="roundel"><i data-ico="sword"></i></span>
+                  <span class="gcap">Primary</span>
+                  <span class="gval">Aim (Archer)</span>
+                  <i data-ico="lock" data-ico-class="chev lockmark" title="Locked to job"></i>
+                </div>
+                <div class="gearrow">
+                  <span class="roundel"><i data-ico="star"></i></span>
+                  <span class="gcap">Secondary</span>
+                  <select class="gval" data-testid="prep-secondary-skill" aria-label="Secondary skillset">
+                    <option selected>&mdash; none &mdash;</option>
+                  </select>
+                  <i data-ico="chev" data-ico-class="chev"></i>
+                </div>
+              </div>
+
+              <div class="skillcol">
+                <p class="subhead">Passive Skills</p>
+                <div class="gearrow">
+                  <span class="roundel"><i data-ico="counter"></i></span>
+                  <span class="gcap">Reaction</span>
+                  <select class="gval" data-testid="prep-reaction" aria-label="Reaction ability">
+                    <option selected>&mdash; none &mdash;</option>
+                  </select>
+                  <i data-ico="chev" data-ico-class="chev"></i>
+                </div>
+                <div class="gearrow">
+                  <span class="roundel"><i data-ico="shield"></i></span>
+                  <span class="gcap">Support</span>
+                  <select class="gval" data-testid="prep-support" aria-label="Support ability">
+                    <option selected>&mdash; none &mdash;</option>
+                  </select>
+                  <i data-ico="chev" data-ico-class="chev"></i>
+                </div>
+                <div class="gearrow">
+                  <span class="roundel"><i data-ico="wing"></i></span>
+                  <span class="gcap">Movement</span>
+                  <select class="gval" data-testid="prep-movement" aria-label="Movement ability">
+                    <option selected>&mdash; none &mdash;</option>
+                  </select>
+                  <i data-ico="chev" data-ico-class="chev"></i>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- 7. JOB CUSTOMIZATION — pass 9: it leaves the left column and the sheet's
+               row-2 band with it. It is now the last block of the RIGHT column, at the
+               column's full width, so the right side reads Gear -> Skills -> Job
+               Customization: configuration, top to bottom. CHANGE JOBS still shares the
+               heading row, now flush to the column's right edge. -->
+          <section class="blk sep-large jobstrip">
+          <div class="modhead">
+            <h3 class="sect">Job Customization</h3>
+            <button type="button" class="jchange" data-testid="prep-change-jobs">Change Jobs</button>
+          </div>
+          <div class="jobrow">
+            <div class="jplaque">
+              <span class="jcrest"><i data-ico="c-archer"></i></span>
+              <div class="jhead"><span class="jcap">Main</span><span class="pips"><i class="on"></i><i></i><i></i><i></i><i></i></span></div>
+              <select class="jval" data-testid="prep-job" aria-label="Current job">
+                <option selected>Archer</option><option>Wizard</option><option>Priest</option>
+              </select>
+            </div>
+            <div class="jplaque">
+              <span class="jcrest"><i data-ico="star"></i></span>
+              <div class="jhead"><span class="jcap">Secondary</span><span class="pips"><i></i><i></i><i></i><i></i><i></i></span></div>
+              <select class="jval" data-testid="prep-secondary" aria-label="Secondary command">
+                <option selected>&mdash; none &mdash;</option><option>Aim (Archer)</option>
+              </select>
+            </div>
+          </div>
+          </section>
+
+          <!-- ═══ THE LEARN OVERLAY — a parchment leaf laid over the right column.
+               Every part is a shipped recipe: `.plaque` iron for the header bar, the
+               leaf's own parchment for the sheet, `.gearrow` for the tree picker,
+               `.learn-list` / `.buy` / `.s` / `.receipt` for the rows, `.jchange` for
+               the close plate. Nothing is invented; only the arrangement is.
+               `?learn` opens it for the capture; the shipped screen opens it from the
+               LEARN plate. ═══ -->
+          <div class="learnoverlay" data-testid="dossier-learn" hidden>
+            <div class="learnsheet">
+
+              <header class="lbar">
+                <h3 class="ltitle">Learn &middot; Archer</h3>
+                <span class="lap" data-testid="learn-ap">0 AP</span>
+                <button type="button" class="jchange lclose" data-testid="prep-learn-close">Close</button>
+              </header>
+
+              <div class="gearrow ltree">
+                <span class="roundel"><i data-ico="scroll"></i></span>
+                <span class="gcap">Job tree</span>
+                <select class="gval" data-testid="prep-tree" aria-label="Skill tree to browse">
+                  <option selected>Archer (current)</option><option>Wizard</option><option>Priest</option>
+                </select>
+                <i data-ico="chev" data-ico-class="chev"></i>
+              </div>
+
+              <ul class="learn-list" data-testid="prep-learn" tabindex="0">
+                <li class="known" data-node="aimed-shot">
+                  <span class="n">Aimed Shot</span><span class="s">learned</span>
+                  <span class="desc">Physical damage &middot; power 9 &middot; range 5 (&plusmn;3 height)</span>
+                </li>
+                <li class="locked" data-node="piercing-shot">
+                  <span class="n">Piercing Shot</span>
+                  <button type="button" class="buy" data-learn="piercing-shot" disabled title="Needs 120 AP">120 AP</button>
+                  <span class="desc">Physical damage &middot; power 10 &middot; range 5 (&plusmn;3 height)</span>
+                </li>
+                <li class="locked" data-node="leg-shot">
+                  <span class="n">Leg Shot</span>
+                  <button type="button" class="buy" data-learn="leg-shot" disabled title="Needs 120 AP">120 AP</button>
+                  <span class="desc">Physical damage &middot; power 10 &middot; range 5 (&plusmn;3 height)</span>
+                </li>
+                <li class="locked" data-node="scout">
+                  <span class="n">Scout <span class="kind">movement</span></span>
+                  <button type="button" class="buy" data-learn="scout" disabled title="Needs 60 AP">60 AP</button>
+                  <span class="desc">Movement slot &middot; equip it below once bought</span>
+                </li>
+                <li class="locked" data-node="steady-aim">
+                  <span class="n">Steady Aim <span class="kind">support</span></span>
+                  <button type="button" class="buy" data-learn="steady-aim" disabled title="Needs 60 AP">60 AP</button>
+                  <span class="desc">Support slot &middot; equip it below once bought</span>
+                </li>
+              </ul>
+
+              <!-- THE RECEIPT'S SLOT. `.receipt` is the shipped element and it appears
+                   only AFTER a purchase; Briar banks 0 AP, so a receipt in this frame
+                   would be a lie. The shipped `prep-spend-hint` line stands in its
+                   place, which is what the built panel shows before any buy. -->
+              <p class="hint tight" data-testid="prep-spend-hint">AP is one pool and buys from any tree &mdash; but another job&rsquo;s actions stay unusable until you equip that job as this unit&rsquo;s one Secondary.</p>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+  </div>
+</section>
+
+<button id="btn-help" class="help-btn ghost" data-testid="help-open"
+        aria-haspopup="dialog" title="How to play" aria-label="How to play">?</button>
+
+<script src="icons.js"></script>
+<script>
+  /* The capture script asks for the overlay by query string; the shipped screen opens
+     it from the LEARN plate. Same `hidden` flip either way. */
+  const learn = new URLSearchParams(location.search).has("learn");
+  document.querySelector(".learnoverlay").hidden = !learn;
+  document.documentElement.dataset.learn = String(learn);
+</script>
+</body>
+</html>

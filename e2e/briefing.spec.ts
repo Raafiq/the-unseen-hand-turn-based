@@ -1,9 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
-import { backToParty, dismissScene, openMember, openPrepTab, openViewerPrep, startNewGame } from "./helpers.js";
+import {
+  backToParty,
+  closeLearn,
+  dismissScene,
+  openDossier,
+  openLearn,
+  openMember,
+  openViewerPrep,
+  startNewGame,
+} from "./helpers.js";
 // `with { type: "json" }` is required here: this file goes through Node's ESM loader,
 // not Vite's, and a bare JSON import breaks only the browser job (campaign.spec.ts's
 // own file-banner comment).
 import storyPack from "../data/campaign/story/camp-the-first-march.story.json" with { type: "json" };
+import campaignPack from "../data/campaign/camp-the-first-march.json" with { type: "json" };
+import basePack from "../data/base-pack.json" with { type: "json" };
 
 /**
  * The briefing screen, SPLIT INTO TWO VIEWS (owner decision 2026-09-07):
@@ -11,8 +22,10 @@ import storyPack from "../data/campaign/story/camp-the-first-march.story.json" w
  *   PARTY  — the roster alone on one full-width leaf, one big portrait card per member,
  *            the battle title/number AND the story beat on the top rail, the wax Deploy
  *            plate. One tap anywhere on a card opens that member.
- *   MEMBER — everything the old right leaf held, full width: unit head, Equipment /
- *            Skills / Profile, gear, standing, job strip, and a back plaque. No Deploy.
+ *   MEMBER — THE CHARACTER DOSSIER (owner: "Approve", 2026-09-09). One sheet, no tabs:
+ *            a 1x6 portrait rail at the far left, then identity / Stats / Profile on the
+ *            left and Wielded Gear / Worn Armor / Skills / Job Customization on the
+ *            right. The back plaque on the top rail is the only way out. No Deploy.
  *
  * `src/render/prep.ts` builds the member leaf into `#prep-body`; `src/render/game.ts`
  * builds the party leaf's roster cards (`brief-party`). `src/render/overhaul.css` is
@@ -30,8 +43,12 @@ const FOLDS = [
   [832, 384],
 ] as const;
 
-/** Every party member id the shipped campaign's battle 1 fields, in roster order. */
-const PARTY = ["pc-vance", "pc-kest", "pc-briar", "pc-ottoline"] as const;
+/**
+ * The party ids, IN ROSTER ORDER, READ FROM THE CAMPAIGN THE PAGE LOADS — not typed out.
+ * A literal list would keep passing after the roster changed under it, which is exactly
+ * how the old four-name copy of this constant went stale against a six-member party.
+ */
+const PARTY: readonly string[] = campaignPack.party.map((r) => r.id);
 
 async function toBriefing(page: Page): Promise<void> {
   await page.goto("/");
@@ -79,161 +96,633 @@ test.describe("briefing: portrait identity", () => {
   });
 });
 
-test.describe("briefing: tabs", () => {
-  test("Equipment is selected on entry; Skills reveals prep-reaction; Profile reveals prep-traits; aria-selected follows", async ({
+test.describe("briefing: the dossier is ONE sheet", () => {
+  test("no tab bar survives; Stats is titled Stats and names its eight keys in order", async ({
     page,
   }) => {
     await toBriefing(page);
-    // The tabs live on the MEMBER view (the split, owner 2026-09-07): "Equipment is
-    // selected on entry" is a claim about entering a member, not the screen.
-    await openMember(page);
+    await openDossier(page);
 
-    const equipmentTab = page.locator('.tab[data-tab="equipment"]');
-    const skillsTab = page.locator('.tab[data-tab="skills"]');
-    const profileTab = page.locator('.tab[data-tab="profile"]');
+    // THE TABS ARE GONE, asserted by ROLE rather than by class: `role="tab"` is what a
+    // tab IS to a screen reader, so a plaque that kept the look and dropped the role — or
+    // kept the role and dropped the look — is still caught. Scoped to the member view so
+    // this cannot be satisfied by some other screen having no tabs either.
+    await expect(page.locator('#screen-briefing [role="tab"]')).toHaveCount(0);
+    await expect(page.locator("#screen-briefing .tabs")).toHaveCount(0);
+    // MUTATION (run): leave ONE tab button in `prep.ts`'s dossier branch → this goes red.
 
-    await expect(equipmentTab).toHaveAttribute("aria-selected", "true");
-    await expect(skillsTab).toHaveAttribute("aria-selected", "false");
-    await expect(profileTab).toHaveAttribute("aria-selected", "false");
+    // Everything the three tabs used to hide is on one sheet, at the same time.
     await expect(page.getByTestId("prep-stats")).toBeVisible();
-    await expect(page.getByTestId("prep-reaction")).toBeHidden();
-    await expect(page.getByTestId("prep-traits")).toBeHidden();
-
-    await skillsTab.click();
-    await expect(skillsTab).toHaveAttribute("aria-selected", "true");
-    await expect(equipmentTab).toHaveAttribute("aria-selected", "false");
     await expect(page.getByTestId("prep-reaction")).toBeVisible();
-    await expect(page.getByTestId("prep-stats")).toBeHidden();
-    await expect(page.getByTestId("prep-traits")).toBeHidden();
-
-    // m13: the Primary row's command list used to be a bare, unlabelled `<p>` —
-    // give it the same leading caption every other row on this screen carries.
-    const commandsHint = page
-      .getByTestId("prep-primary")
-      .locator("xpath=following-sibling::p[contains(concat(' ', normalize-space(@class), ' '), ' hint ')][1]");
-    await expect(commandsHint).toContainText(/^Commands/);
-    // MUTATION: drop the `<span class="gcap">Commands</span>` from `prep.ts`'s
-    // Primary-row hint → this assertion reads the bare action list and goes red.
-
-    await profileTab.click();
-    await expect(profileTab).toHaveAttribute("aria-selected", "true");
-    await expect(skillsTab).toHaveAttribute("aria-selected", "false");
     await expect(page.getByTestId("prep-traits")).toBeVisible();
-    await expect(page.getByTestId("prep-reaction")).toBeHidden();
-    await expect(page.getByTestId("prep-stats")).toBeHidden();
-    // MUTATION: no-op the tab click handler in `prep.ts`'s `bind()` (drop the
-    // `container.querySelectorAll("button[data-tab]")` loop) → every assertion above
-    // that follows a `.click()` goes red; the ones before the first click stay green,
-    // which is what tells the two apart.
+    await expect(page.getByTestId("prep-weapon")).toBeVisible();
+    await expect(page.getByTestId("prep-job")).toBeVisible();
+
+    // "Standing" is gone from the screen and the block is titled "Stats" (owner). The
+    // heading is read off the block's own preceding heading, not searched for anywhere
+    // on the page — a page-level `toContainText("Stats")` would pass on any stray word.
+    const statsHeading = page
+      .getByTestId("prep-stats")
+      .locator("xpath=preceding-sibling::h3[1]");
+    await expect(statsHeading).toHaveText("Stats");
+    await expect(page.locator("#screen-briefing")).not.toContainText("Standing");
+
+    // THE EIGHT KEYS, IN ORDER — identity, not count. A grid that dropped MA and drew HP
+    // twice has eight cells and would pass a length check.
+    // The rendered form, uppercased by `.stat-row .k`'s own `text-transform` — the same
+    // reading (and the same reason) as the `.jcap` assertion further down this file.
+    const keys = await page.locator('[data-testid="prep-stats"] li .k').allInnerTexts();
+    expect(keys.map((k) => k.trim())).toEqual([
+      "HP",
+      "ATTACK",
+      "PA",
+      "MA",
+      "MOVE",
+      "EVADE",
+      "BRAVE",
+      "FAITH",
+    ]);
+  });
+
+  test("Worn Armor is a stated absence: one disabled row, no control, its own glyph", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+    await openDossier(page);
+
+    const armor = page.getByTestId("prep-armor");
+    await expect(armor).toBeVisible();
+    await expect(armor).toHaveText("No armor equipped");
+    // NO CONTROL, because the engine models no armour slot — the absent-not-zero rule
+    // drawn rather than hidden (the heading is the owner's). A `<select>` here would
+    // promise a choice the sim cannot honour, and a chevron would promise one too.
+    await expect(armor.locator("select")).toHaveCount(0);
+    await expect(armor.locator('svg[data-icon="chev"]')).toHaveCount(0);
+    // IDENTITY, not presence: every slot row on this screen holds *an* svg, so
+    // `svg` alone cannot tell the cuirass from the sword.
+    await expect(armor.locator('svg[data-icon="cuirass"]')).toHaveCount(1);
+    // MUTATION (run): put a `<select>` back in the armour row in `prep.ts` → the
+    // select assertion goes red.
+
+    // And the heading above it is the owner's word, not a paraphrase.
+    await expect(armor.locator("xpath=preceding-sibling::h3[1]")).toHaveText("Worn Armor");
+  });
+
+  test("every rule the sheet enforces is VISIBLE text, never a `title` a thumb cannot open", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+    await openDossier(page);
+
+    // THE PRIMARY SLOT'S LOCK. The padlock is the approved mark and it stays, but a mark
+    // plus a tooltip is nothing at all on a touch screen — the words ride the caption,
+    // where there is width for them, rather than the value line pass 7 had to clear.
+    const primary = page.getByTestId("prep-primary");
+    await expect(primary.locator('svg[data-icon="lock"]')).toHaveCount(1);
+    await expect(primary).toContainText(/locked to job/i);
+    await expect(primary.locator("select")).toHaveCount(0); // no control: it is the job's
+
+    // THE TRAIT CAP IS A REAL RULE — `onTraitToggle` slices the checked set to two — so a
+    // player who earns a third and finds the box refusing to tick must have been told.
+    await expect(page.getByTestId("prep-traits")).toContainText("max 2");
+
+    // THE UNUSED-WEAPON MARK carries its own COUNT rather than hiding it in a tooltip.
+    const weaponHint = page.getByTestId("prep-weapon-hint");
+    if ((await weaponHint.count()) > 0) await expect(weaponHint).toContainText(/\d+ owned/);
+
+    // NOTHING ON THIS SHEET SAYS SOMETHING ONLY IN A `title`. Enumerated rather than
+    // spot-checked: any element carrying a title whose words are not also on screen is a
+    // sentence a touch player can never read. `.lockwrap` is exempted by having no title
+    // at all now; the roundels and rails carry none.
+    const titleOnly = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const el of document.querySelectorAll<HTMLElement>("#screen-briefing [title]")) {
+        const t = (el.getAttribute("title") ?? "").trim();
+        if (t === "") continue;
+        const seen = (el.textContent ?? "").toLowerCase();
+        // A title that merely repeats or labels its own visible text is fine.
+        if (seen.includes(t.toLowerCase())) continue;
+        out.push(`${el.tagName.toLowerCase()}[${el.dataset["testid"] ?? el.className}] = ${t}`);
+      }
+      return out;
+    });
+    // The two that remain are labels on ICON-ONLY plaques (the back plaque, the help
+    // disc), where the title IS the accessible name and there is no text to duplicate —
+    // both also carry `aria-label`. Anything else is a sentence with nowhere to be read.
+    expect(titleOnly.filter((t) => !/member-back|help-open|brief-quit|prep-ap/.test(t))).toEqual([]);
+    // MUTATION (run): move "locked to job" back into a `title` on `.lockwrap` → the
+    // `toContainText` goes red AND the sweep above reports it.
   });
 });
 
-test.describe("briefing: tab persistence", () => {
-  test("switching roster member keeps Skills selected; buying an ability shows the receipt without a tab click", async ({
+test.describe("briefing: the 1x6 portrait rail", () => {
+  test("six cells in the campaign's own roster order; tapping one swaps the sheet in place", async ({
     page,
   }) => {
-    // Nobody has banked AP before battle 1 is fought (0 AP campaign-wide — matches
-    // `campaign.spec.ts`'s own "between-battle prep: an unaffordable ability is
-    // refused" fixture), and one battle's earnings still is not enough for even the
-    // cheapest tier-one node (that spec's own comment: "two battles of banked AP —
-    // enough for one 60-AP node and not much else"). Play two, the same way, so the
-    // purchase path below exercises a REAL purchase rather than finding nothing.
     await toBriefing(page);
-    for (let i = 0; i < 2; i++) {
-      await playCurrentBattle(page);
-      await expect(page.getByTestId("screen-after")).toBeVisible();
-      await page.getByTestId("next").click();
-      await dismissScene(page);
-    }
-    await expect(page.getByTestId("screen-briefing")).toBeVisible();
+    await openDossier(page, "pc-briar");
 
-    await openPrepTab(page, "skills");
-    await expect(page.locator('.tab[data-tab="skills"]')).toHaveAttribute("aria-selected", "true");
+    // EXACTLY THE CAMPAIGN'S PARTY, IN ITS OWN ORDER — read off the campaign JSON the
+    // page loads, so a rail that sorted, filtered or reversed fails here rather than
+    // looking plausible. A count check alone would pass a rail showing one member six
+    // times.
+    const ids = await page
+      .locator('[data-testid="dossier-rail"] button.rtab')
+      .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset["member"] ?? ""));
+    expect(ids).toEqual([...PARTY]);
+    expect(ids).toHaveLength(6);
+    // MUTATION (run): reverse `model.records()` in `railHtml()` → this goes red while a
+    // length-only check stays green.
 
-    // Path one: selecting a different member repaints the whole briefing (the roster
-    // click goes through `prep.select()` then `renderBriefingText()`), which must NOT
-    // reset the render-layer tab state.
+    // The open member is the one the sheet is showing, and it is marked.
+    await expect(page.locator('[data-testid="dossier-rail"] li.on button.rtab')).toHaveAttribute(
+      "data-member",
+      "pc-briar",
+    );
+
+    // TAP A DIFFERENT FACE: the sheet swaps IN PLACE. Three claims, because two of them
+    // pass on their own for the wrong reason — the name alone would pass if the tap had
+    // bounced back to party select and re-opened Kest, and the header alone would pass if
+    // only the chrome updated.
+    await page.locator('[data-testid="dossier-rail"] button.rtab[data-member="pc-kest"]').click();
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Kest");
+    await expect(page.getByTestId("brief-member-name")).toContainText("managing Kest");
+    await expect(page.getByTestId("prep-roster")).toBeHidden();
+    await expect(page.getByTestId("dossier-sheet")).toBeVisible();
+    await expect(page.locator('[data-testid="dossier-rail"] li.on button.rtab')).toHaveAttribute(
+      "data-member",
+      "pc-kest",
+    );
+
+    // THE RAIL ADDS TO THE CARD TAP, IT DOES NOT REPLACE IT (owner). Back out and the
+    // party card still opens the member it names — and it opens the one the rail left
+    // selected, so the two pickers cannot hold different opinions.
     await backToParty(page);
-    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-kest"]').click();
-    await expect(page.locator('.tab[data-tab="skills"]')).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByTestId("prep-reaction")).toBeVisible();
+    await expect(
+      page.locator('[data-testid="prep-roster"] li.member.on button.ptab'),
+    ).toHaveAttribute("data-member", "pc-kest");
+    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-isla"]').click();
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Isla");
+  });
+});
 
-    // Path two: a purchase (`act()` -> `render()`), a SEPARATE re-render path from the
-    // roster click above. The receipt is Skills-only content, so it can only be visible
-    // if the tab survived the purchase's own repaint too. Discover whichever member
-    // actually banked enough AP rather than assuming which one did.
-    for (const id of PARTY) {
-      await backToParty(page);
-      const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
-      if ((await card.count()) === 0) continue;
-      await card.click();
-      const buyable = page.locator('[data-testid="prep-learn"] li button[data-learn]:not([disabled])');
-      if ((await buyable.count()) > 0) break;
-    }
-    const buy = page.locator('[data-testid="prep-learn"] li button[data-learn]:not([disabled])').first();
-    expect(await buy.count(), "no party member has an affordable node at battle 1 — nothing to buy").toBeGreaterThan(0);
-    await buy.click();
-    await expect(page.locator('.tab[data-tab="skills"]')).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByTestId("prep-receipt")).toBeVisible();
-    // MUTATION: add `tab = "equipment";` at the top of `render()` in `prep.ts` →
-    // both `aria-selected` assertions above go red (the roster-click path fires
-    // `render()` via `select()`, the purchase path via `act()`, so a reset placed in
-    // the shared `render()` catches both — a reset placed only in one caller would
-    // pass the other, which is why this test drives two different call paths rather
-    // than clicking the tab once and checking it twice).
+test.describe("briefing: the Profile block", () => {
+  test("the lore on screen is the OPEN member's, read from the story pack at test time", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+
+    // THE EXPECTED STRING COMES OUT OF THE PACK, never out of this file: the pack is
+    // swappable by contract (docs/11 AC-M4) and `npm run check:story` fails a test that
+    // pins its prose.
+    const loreFor = (rosterId: string): string => {
+      const c = storyPack.characters.find((ch) => `pc-${ch.id}` === rosterId);
+      const lore = (c as { lore?: string } | undefined)?.lore;
+      expect(lore, `the pack authors no lore for ${rosterId}`).toBeTruthy();
+      return lore as string;
+    };
+
+    // TWO MEMBERS, and they must not share a line — a Profile hard-wired to one
+    // character, or to the first record in the party, passes a single-member check.
+    const briar = loreFor("pc-briar");
+    const kest = loreFor("pc-kest");
+    expect(briar).not.toBe(kest);
+
+    await openDossier(page, "pc-briar");
+    await expect(page.getByTestId("prep-lore")).toHaveText(briar);
+    await openDossier(page, "pc-kest");
+    await expect(page.getByTestId("prep-lore")).toHaveText(kest);
+    // MUTATION (run): point `loreFor` in `game.ts` at a fixed member (`pc-vance`) →
+    // both assertions go red.
+  });
+
+  test("the traits control is still on the sheet, still writes the save", async ({ page }) => {
+    await toBriefing(page);
+    await openDossier(page, "pc-briar");
+    const box = page.locator('[data-testid="prep-traits"] input[data-trait]').first();
+    await expect(box).toBeVisible();
+    const trait = await box.getAttribute("data-trait");
+    expect(trait).toBeTruthy();
+    await box.check();
+    // THE SAVE, not the checkbox: a control that ticks and tells nobody looks identical.
+    await page.reload();
+    await page.getByTestId("continue").click();
+    await openDossier(page, "pc-briar");
+    await expect(
+      page.locator(`[data-testid="prep-traits"] input[data-trait="${trait}"]`),
+    ).toBeChecked();
+  });
+});
+
+test.describe("briefing: Job Customization", () => {
+  test("CHANGE JOBS moves focus to the Main job select", async ({ page }) => {
+    await toBriefing(page);
+    await openDossier(page);
+    const changeJobs = page.getByTestId("prep-change-jobs");
+    await expect(changeJobs).toBeVisible();
+    await changeJobs.click();
+    // IDENTITY of the focused node, not "something is focused": the module holds two
+    // selects and the sheet holds seven, so `document.activeElement.tagName` would pass
+    // on any of them.
+    const focused = await page.evaluate(
+      () => (document.activeElement as HTMLElement | null)?.dataset["testid"] ?? null,
+    );
+    expect(focused).toBe("prep-job");
+    // MUTATION (run): drop the `job.focus()` call in `prep.ts`'s change-jobs handler →
+    // this goes red (focus stays on the plate itself).
+  });
+});
+
+/**
+ * The learn overlay (owner-approved pass 14): a LEARN plate on the Skills heading opens a
+ * parchment leaf over the right column. It exists because the approved dossier has no
+ * room for a permanent learn list and deleting the list would take AP spending out of
+ * the game (ADR-0027 tunes the finale so a party that never spends AP loses it).
+ */
+test.describe("briefing: the learn overlay", () => {
+  /** The tree of a job, straight out of the pack the page loads: node ids, in order. */
+  const treeNodes = (jobId: string): string[] => {
+    const job = basePack.jobs.find((j) => j.id === jobId);
+    expect(job, `the pack has no job "${jobId}"`).toBeTruthy();
+    return job!.tree.map((n) => n.node);
+  };
+  /**
+   * The node id as the panel prints it. MIRRORS `prep.ts`'s `prettify` — the pack ships
+   * no display name, so the label is derived, and a test that invented its own wording
+   * would be asserting itself. Kept to the de-kebab only; the ids that get a hand-written
+   * label (`ABILITY_LABEL`) are all in other skillsets.
+   */
+  const asLabel = (node: string): string =>
+    node.split("-").map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
+  /** The job a party member starts in, from the campaign def rather than from memory. */
+  const jobOf = (id: string): string => {
+    const rec = campaignPack.party.find((r) => r.id === id);
+    expect(rec, `the campaign has no member "${id}"`).toBeTruthy();
+    return rec!.currentJob;
+  };
+
+  test("LEARN sits on the Skills heading and opens a dialog named for the OPEN member's job", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+    await openDossier(page, "pc-briar");
+
+    const plate = page.getByTestId("prep-learn-open");
+    await expect(plate).toHaveText("Learn");
+    // ON THE HEADING, not merely near it: the plate is a DOM child of the Skills `<h3>`
+    // and the approved frame puts it on that rule. A box check is what would catch it
+    // drifting into the rows below.
+    const headBox = await page.locator("#screen-briefing .blk-skills > .sect").boundingBox();
+    const plateBox = await plate.boundingBox();
+    expect(boxInside(plateBox!, headBox!), "LEARN is not inside the Skills heading's box").toBe(true);
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+
+    await plate.click();
+    const dialog = page.locator('#screen-briefing [role="dialog"]');
+    await expect(dialog).toHaveCount(1);
+    // AND IT IS NOT `aria-modal`. The leaf covers the right column only — the rail, the
+    // identity block, Stats and the traits checkbox stay visible and tabbable under it —
+    // so a modal flag would tell a screen reader the rest of the page is inert when it is
+    // not. Asserted as ABSENT rather than left unsaid, because "we removed it" is a claim.
+    await expect(dialog).not.toHaveAttribute("aria-modal", /.*/);
+    // THE NAME CARRIES THE JOB, and the expected job is read from the campaign def — a
+    // literal "Archer" here would pass on a label hard-wired to one word.
+    const briarJob = jobOf("pc-briar");
+    expect(briarJob).not.toBe(jobOf("pc-kest")); // the two members must DIFFER, or this proves nothing
+    await expect(dialog).toHaveAttribute("aria-label", new RegExp(asLabel(briarJob), "i"));
+
+    // THE DISCRIMINATING SECOND MEMBER: Kest is a wizard. A label fixed to "Archer"
+    // satisfies Briar and fails here, which is the whole point of running both.
+    await closeLearn(page);
+    await openLearn(page, "pc-kest");
+    await expect(page.locator('#screen-briefing [role="dialog"]')).toHaveAttribute(
+      "aria-label",
+      new RegExp(asLabel(jobOf("pc-kest")), "i"),
+    );
+    // MUTATION (run): hard-code `Learn · Archer` as the title in `learnOverlayHtml()` →
+    // the Kest assertion goes red and the Briar one stays green.
+  });
+
+  test("the overlay lists the open member's OWN job tree, in the pack's order", async ({ page }) => {
+    await toBriefing(page);
+    await openLearn(page, "pc-briar");
+    // IDENTITY AND ORDER, off the pack: `data-node` is what the content authors, so this
+    // cannot be satisfied by a list of the right LENGTH or by the right names in the
+    // wrong order.
+    const nodes = await page
+      .locator('[data-testid="prep-learn"] li')
+      .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset["node"] ?? ""));
+    expect(nodes).toEqual(treeNodes(jobOf("pc-briar")));
+    // …and the ids are what the rows actually SAY, so a list keyed right and labelled
+    // wrong fails too.
+    // The row's own NAME, not its chips: `.n` also carries the slot mark ("support") and
+    // the "no effect yet" tag, which are a different claim and are asserted elsewhere.
+    const names = await page
+      .locator('[data-testid="prep-learn"] li .n')
+      .evaluateAll((els) => els.map((e) => (e.firstChild?.textContent ?? "").trim()));
+    expect(names).toEqual(nodes.map(asLabel));
+    // MUTATION (run): point `learnRowsHtml()` at another job's tree (`model.learnRows()`
+    // → the wizard's) → both assertions go red.
+  });
+
+  test("buying Piercing Shot stamps it LEARNED, charges BOTH AP readouts, and names it in the receipt", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+    // THE FIXTURE IS THE SAVE, through the real slot — nobody banks AP before battle 1,
+    // and a test that played two battles to earn some would be measuring the campaign's
+    // pacing instead of this control. 500 clears the 120-AP node with room to spare.
+    await page.evaluate(() => {
+      const stored = localStorage.getItem("tuh.campaign.v1");
+      if (stored === null) throw new Error("no save in localStorage after New Game");
+      const raw = JSON.parse(stored) as { party: { id: string; ap: number }[] };
+      const briar = raw.party.find((r) => r.id === "pc-briar");
+      if (!briar) throw new Error("no pc-briar in the save");
+      briar.ap = 500;
+      localStorage.setItem("tuh.campaign.v1", JSON.stringify(raw));
+    });
+    await page.reload();
+    await page.getByTestId("continue").click();
+    await dismissScene(page);
+    await openLearn(page, "pc-briar");
+
+    const row = page.locator('[data-testid="prep-learn"] li[data-node="piercing-shot"]');
+    const price = Number((await row.locator("button.buy").innerText()).replace(/[^0-9]/g, ""));
+    expect(price, "piercing-shot is priced in the pack").toBe(
+      basePack.jobs.find((j) => j.id === jobOf("pc-briar"))!.tree.find((n) => n.node === "piercing-shot")!
+        .apCost,
+    );
+    const apOf = async (testid: string): Promise<number> =>
+      Number((await page.getByTestId(testid).innerText()).replace(/[^0-9]/g, ""));
+    expect(await apOf("learn-ap")).toBe(500);
+    expect(await apOf("prep-ap")).toBe(500);
+
+    await row.locator("button.buy").click();
+
+    // The row is DONE, not merely un-buyable: `.known` and the LEARNED stamp, no plaque.
+    await expect(row).toHaveClass(/known/);
+    await expect(row.locator(".s")).toHaveText("learned");
+    await expect(row.locator("button.buy")).toHaveCount(0);
+    // BOTH readouts, because the overlay prints the AP a second time and a panel that
+    // updated only the one under the player's thumb looks correct from inside the overlay.
+    expect(await apOf("learn-ap")).toBe(500 - price);
+    expect(await apOf("prep-ap")).toBe(500 - price);
+    // The receipt names the ABILITY, and the name comes from the pack's node id — not
+    // from prose typed here.
+    await expect(page.getByTestId("prep-receipt")).toContainText(asLabel("piercing-shot"));
+    // MUTATION (run): print `record.ap` in the identity block from a value captured
+    // before the buy (a stale copy) → the `prep-ap` assertion goes red and the
+    // `learn-ap` one stays green, which is what tells the two readouts apart.
+
+    // AND IT REACHED THE SAVE, not just the panel: the reload is the load-bearing half.
+    await page.reload();
+    await page.getByTestId("continue").click();
+    await openLearn(page, "pc-briar");
+    await expect(
+      page.locator('[data-testid="prep-learn"] li[data-node="piercing-shot"]'),
+    ).toHaveClass(/known/);
+    expect(await apOf("prep-ap")).toBe(500 - price);
+  });
+
+  test("Close, Escape and a rail tap all shut it; focus goes back to LEARN", async ({ page }) => {
+    await toBriefing(page);
+    await openLearn(page, "pc-briar");
+    // FOCUS FOLLOWS THE PLAYER: on open it is on the way out, so a keyboard user is not
+    // dropped at the top of the document.
+    expect(
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset["testid"] ?? null),
+    ).toBe("prep-learn-close");
+
+    await page.getByTestId("prep-learn-close").click();
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset["testid"] ?? null),
+    ).toBe("prep-learn-open");
+
+    await page.getByTestId("prep-learn-open").click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset["testid"] ?? null),
+    ).toBe("prep-learn-open");
+
+    // A RAIL TAP WHILE IT IS OPEN closes it. Leaving it up would show Briar's tree over
+    // Kest's dossier, and its buy plaques would spend Kest's AP on Briar's prices.
+    await page.getByTestId("prep-learn-open").click();
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(1);
+    await page.locator('[data-testid="dossier-rail"] button.rtab[data-member="pc-kest"]').click();
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Kest");
+    // MUTATION (run): drop the `learn = "closed"` line from the rail handler in
+    // `prep.ts` → this assertion goes red with Briar's Aim tree over Kest's sheet.
+  });
+
+  test("it does not survive leaving the member view — Back, or the next briefing", async ({
+    page,
+  }) => {
+    // THE PANEL IS MOUNTED ONCE FOR THE WHOLE SESSION and the overlay is state inside that
+    // closure, so nothing in `prep.ts` can see a player leave. Both exits are asserted
+    // because they are two different call sites (`setBriefView` and `renderScreens`) and
+    // fixing one leaves the other.
+    await toBriefing(page);
+    await openLearn(page, "pc-briar");
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(1);
+
+    // EXIT ONE: the Back plaque, then a DIFFERENT member — the failure was Briar's job
+    // tree standing over Kest's sheet.
+    await page.getByTestId("member-back").click();
+    await expect(page.getByTestId("prep-roster")).toBeVisible();
+    await page.locator('[data-testid="prep-roster"] .ptab[data-member="pc-kest"]').click();
+    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Kest");
+    await expect(
+      page.getByTestId("dossier-learn"),
+      "the overlay survived Back and opened over the next member",
+    ).toHaveCount(0);
+    // MUTATION (run): drop the `prep?.closeLearn()` call from `setBriefView` in `game.ts`
+    // → this goes red and the re-entry half below stays green.
+
+    // EXIT TWO: the whole SCREEN. Leave the briefing with the overlay open, fight, come
+    // back — the entry reset (AC-V60) has to take the overlay with it.
+    await page.getByTestId("prep-learn-open").click();
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(1);
+    // THROUGH THE SEAM, and said plainly: no click reaches this today. The wax Deploy
+    // plate is on party select, so the only way out of the member view is Back — which is
+    // exit one. `window.tuhGame.deploy()` is the same command that plate emits (docs/10
+    // §7: the seam is the shipped path, not a parallel one), and it is what leaves the
+    // briefing with `briefView === "member"` still set. The reset in `renderScreens` is
+    // what makes that safe, and this is the only way to see it fail.
+    await page.evaluate(() => window.tuhGame.deploy());
+    await expect(page.getByTestId("screen-battle")).toBeVisible();
+    await page.evaluate(() => window.tuhGame.autoplay());
+    await page.getByTestId("conclude").click();
+    await expect(page.getByTestId("screen-after")).toBeVisible();
+    const nextBtn = page.getByTestId("next");
+    await ((await nextBtn.isVisible()) ? nextBtn : page.getByTestId("retry")).click();
+    await dismissScene(page);
+    await expect(page.getByTestId("screen-briefing")).toBeVisible();
+    await openMember(page, "pc-briar");
+    await expect(
+      page.getByTestId("dossier-learn"),
+      "the overlay survived a whole battle and reopened on the next briefing",
+    ).toHaveCount(0);
+    // MUTATION (run): drop the `prep?.closeLearn()` from `renderScreens` → this half goes
+    // red and the Back half stays green.
+  });
+
+  test("Escape closes it from anywhere in the member view, not only from inside it", async ({
+    page,
+  }) => {
+    await toBriefing(page);
+    await openLearn(page, "pc-briar");
+    // FOCUS SOMEWHERE THE OVERLAY DOES NOT COVER. The leaf is over the RIGHT column only,
+    // so the traits checkbox is visible, tabbable and outside it — which is exactly the
+    // spot a listener bound to the overlay node cannot hear.
+    await page.locator('[data-testid="prep-traits"] input[data-trait]').first().focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+    // MUTATION (run): move the listener back onto the `dossier-learn` node → red (the key
+    // never reaches it), while the "Close, Escape and a rail tap" test above stays green
+    // because there focus starts on Close, inside the overlay.
+  });
+
+  test("the AP readout is a readout: it is not a button and opens nothing", async ({ page }) => {
+    await toBriefing(page);
+    await openDossier(page, "pc-briar");
+    const ap = page.getByTestId("prep-ap");
+    // LEARN IS THE ONLY DOOR (owner, pass 14). The readout briefly WAS the door, which is
+    // an affordance nobody can see — so this asserts the tag as well as the behaviour.
+    expect(await ap.evaluate((e) => e.tagName)).toBe("P");
+    await ap.click();
+    await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
+    // MUTATION (run): restore the readout as a `<button>` with the open handler → both
+    // the tag assertion and the click assertion go red.
+  });
+
+  for (const [w, h] of FOLDS) {
+    test(`${w}x${h}: the overlay's last row stays inside its own leaf`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await toBriefing(page);
+      await openLearn(page, "pc-briar");
+      const sheet = await page.locator("#screen-briefing .learnsheet").boundingBox();
+      expect(sheet, `${w}x${h}: the learn leaf has no box`).not.toBeNull();
+      // THE SPEND LINE IS THE LAST THING IN THE LEAF, so it is what falls out when the
+      // overlay grows. The list itself scrolls by design (a long tree is longer than any
+      // fold), which is why the assertion is on the line UNDER it and not on the rows.
+      const hint = await page.getByTestId("prep-spend-hint").boundingBox();
+      expect(hint, `${w}x${h}: the spend line has no box`).not.toBeNull();
+      expect(
+        boxInside(hint!, sheet!),
+        `${w}x${h}: the spend line ${JSON.stringify(hint)} has left the leaf ${JSON.stringify(sheet)}`,
+      ).toBe(true);
+      // The rows are scrollable, so "the list fits" is not the claim; "the list has room
+      // to scroll IN" is, and a list squeezed to nothing is what that catches.
+      const list = await page.getByTestId("prep-learn").boundingBox();
+      expect(list!.height, `${w}x${h}: the learn list is squeezed to a sliver`).toBeGreaterThan(60);
+      // MUTATION (run): `.learn-list { flex: 0 1 auto }` → `0 0 auto` in overhaul.css (the
+      // list stops shrinking, so its full 324px of rows push the spend line out of a
+      // 238px leaf) → red at BOTH folds.
+      // MUTATION (run, and it does NOT fail — said because a mutation that stays green
+      // is the more useful half): +48px of padding on `.learnsheet` keeps everything
+      // inside, because the list shrinks by exactly that much and scrolls. The leaf
+      // absorbing extra chrome is correct; what this test guards is the list refusing to.
+    });
+  }
+});
+
+test.describe("briefing: an edit does not throw focus away", () => {
+  test("changing an equipped item leaves focus on the control that changed it", async ({ page }) => {
+    await toBriefing(page);
+    await openDossier(page, "pc-briar");
+    // THE WEAPON SELECT, not the Secondary: at battle 1 nobody has learned enough of a
+    // second job for `equippableSecondaryJobs()` to offer one, so that control has exactly
+    // one option and "change it" is not a thing a player can do. The weapon drip has
+    // already landed two, which makes this the discriminating edit AND the ordinary one.
+    const sec = page.getByTestId("prep-weapon");
+    const values = await sec.locator("option").evaluateAll((os) =>
+      os.map((o) => (o as HTMLOptionElement).value),
+    );
+    const current = await sec.inputValue();
+    const next = values.find((v) => v !== current);
+    expect(next, "prep-weapon offers nothing else to equip — nothing to change").toBeDefined();
+    await sec.focus();
+    await sec.selectOption(next!);
+    await expect(sec).toHaveValue(next!); // the edit really landed
+    // EVERY EDIT REPAINTS THE WHOLE PANEL, so the select the player just used is a
+    // detached node and focus falls to `<body>` — on a keyboard that is being thrown back
+    // to the top of the document on every equip.
+    expect(
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset["testid"] ?? null),
+      "the repaint dropped focus",
+    ).toBe("prep-weapon");
+    // MUTATION (run): drop the refocus from `act()` in `prep.ts` → red (focus is `body`).
   });
 });
 
 test.describe("briefing: control manifest", () => {
   /**
-   * AC-V53. Every testid this screen's code can emit that the split OWNS, tagged with
-   * which VIEW it belongs to (party select / member detail), which TAB shows it within
-   * the member view ("always" = the unit head and Job Customization strip, visible on
-   * every tab) and whether the node itself may be OMITTED — not merely hidden — in some
-   * state, the absent-not-zero rule (a weapon row before any weapon is owned, a receipt
-   * before any purchase).
+   * AC-V53. Every testid this screen's code can emit that the two views OWN, tagged with
+   * which VIEW it belongs to (party select / member detail), which STATE of the member
+   * view shows it, and whether the node itself may be OMITTED — not merely hidden — in
+   * some state, the absent-not-zero rule (a weapon row before any weapon is owned, a
+   * receipt before any purchase).
    *
-   * Built from `grep -oE 'data-testid="(prep|member)-[a-z-]*"'` across `prep.ts` /
-   * `game.ts` / `index.html`, plus the two ids the split adds, not copied from prose.
-   * The partition below is EXACT in both directions: a stray id fails, and a stale key
-   * here fails too (its per-view loop demands the node be present).
+   * "both" IS NOT LAZINESS: the learn overlay is laid OVER the right column, it does not
+   * replace the sheet, so every dossier control stays attached and visible underneath it
+   * (covered, which `toBeHidden()` cannot see and should not claim). Only the overlay's
+   * own ids and the door that opens it come and go.
+   *
+   * Built from `grep -oE 'data-testid="(prep|member|dossier)-[a-z-]*"'` across `prep.ts`
+   * / `game.ts` / `index.html`, not copied from prose. The partition below is EXACT in
+   * both directions: a stray id fails, and a stale key here fails too (its per-face loop
+   * demands the node be present).
    */
   const MANIFEST: Record<
     string,
-    { view: "party" | "member"; tab: "always" | "equipment" | "skills" | "profile"; optional?: true }
+    { view: "party" | "member"; face: "both" | "sheet" | "overlay"; optional?: true }
   > = {
     // ── party select ────────────────────────────────────────────────────────────
-    "prep-roster": { view: "party", tab: "always" },
-    // ── member detail ───────────────────────────────────────────────────────────
-    "member-back": { view: "member", tab: "always" },
-    "brief-member-name": { view: "member", tab: "always" },
-    "prep-ap": { view: "member", tab: "always" },
-    "prep-job": { view: "member", tab: "always" },
-    "prep-secondary": { view: "member", tab: "always" },
-    "prep-weapon": { view: "member", tab: "equipment", optional: true },
-    "prep-weapon-desc": { view: "member", tab: "equipment", optional: true },
-    "prep-weapon-hint": { view: "member", tab: "equipment", optional: true },
-    "prep-stats": { view: "member", tab: "equipment" },
-    "prep-primary": { view: "member", tab: "skills" },
-    "prep-reaction": { view: "member", tab: "skills" },
-    "prep-support": { view: "member", tab: "skills" },
-    "prep-movement": { view: "member", tab: "skills" },
-    "prep-commands": { view: "member", tab: "skills" },
-    "prep-command-count": { view: "member", tab: "skills" },
-    "prep-progression": { view: "member", tab: "skills" },
-    "prep-tree": { view: "member", tab: "skills" },
-    "prep-learn": { view: "member", tab: "skills" },
-    "prep-spend-hint": { view: "member", tab: "skills" },
-    "prep-receipt": { view: "member", tab: "skills", optional: true },
-    "prep-traits": { view: "member", tab: "profile" },
-    "prep-traits-hint": { view: "member", tab: "profile", optional: true },
+    "prep-roster": { view: "party", face: "both" },
+    // ── member detail: the DOSSIER, which the overlay COVERS rather than hides ───
+    "member-back": { view: "member", face: "both" },
+    "brief-member-name": { view: "member", face: "both" },
+    "dossier-rail": { view: "member", face: "both" },
+    "dossier-sheet": { view: "member", face: "both" },
+    "prep-ap": { view: "member", face: "both" },
+    "prep-stats": { view: "member", face: "both" },
+    "prep-lore": { view: "member", face: "both" },
+    "prep-traits": { view: "member", face: "both" },
+    "prep-traits-hint": { view: "member", face: "both", optional: true },
+    "prep-weapon": { view: "member", face: "both", optional: true },
+    "prep-weapon-hint": { view: "member", face: "both", optional: true },
+    "prep-armor": { view: "member", face: "both" },
+    "prep-primary": { view: "member", face: "both" },
+    "prep-secondary-skill": { view: "member", face: "both" },
+    "prep-reaction": { view: "member", face: "both" },
+    "prep-support": { view: "member", face: "both" },
+    "prep-movement": { view: "member", face: "both" },
+    "prep-change-jobs": { view: "member", face: "both" },
+    "prep-job": { view: "member", face: "both" },
+    "prep-secondary": { view: "member", face: "both" },
+    // The door stays ATTACHED under the overlay — it is covered, not hidden, which is
+    // what an overlay laid over one column actually does. Claiming otherwise would be a
+    // `toBeHidden()` this screen cannot honour.
+    "prep-learn-open": { view: "member", face: "both" },
+    // ── member detail: the LEARN OVERLAY, built on demand ────────────────────────
+    "dossier-learn": { view: "member", face: "overlay" },
+    "prep-progression": { view: "member", face: "overlay" },
+    "prep-tree": { view: "member", face: "overlay" },
+    "prep-learn": { view: "member", face: "overlay" },
+    "prep-learn-close": { view: "member", face: "overlay" },
+    "learn-ap": { view: "member", face: "overlay" },
+    "prep-spend-hint": { view: "member", face: "overlay", optional: true },
+    "prep-receipt": { view: "member", face: "overlay", optional: true },
   };
 
-  /** Every testid the partition scans. Widened with the split's own two prefixes. */
+  /** Every testid the partition scans. Widened with the dossier's own prefix. */
   const PARTITION_SELECTOR =
-    '[data-testid^="prep-"], [data-testid^="member-"], [data-testid="brief-member-name"]';
+    '[data-testid^="prep-"], [data-testid^="member-"], [data-testid^="dossier-"], [data-testid="brief-member-name"]';
 
-  test("every manifest control is attached on its view and tab, or legitimately absent; nothing stray ships", async ({
+  test("every manifest control is attached on its view and face, or legitimately absent; nothing stray ships", async ({
     page,
   }) => {
     await toBriefing(page);
@@ -245,33 +734,34 @@ test.describe("briefing: control manifest", () => {
     const seenOptional = new Set<string>();
 
     /** Assert every entry of `view` against the live DOM, and every OTHER view's absent. */
-    const checkView = async (view: "party" | "member", tab: string): Promise<void> => {
+    const checkView = async (view: "party" | "member", face: string): Promise<void> => {
       for (const [testid, spec] of Object.entries(MANIFEST)) {
         const el = page.locator(`[data-testid="${testid}"]`);
         const count = await el.count();
-        const showing = spec.view === view && (spec.tab === "always" || spec.tab === tab);
+        const showing = spec.view === view && (spec.face === "both" || spec.face === face);
         if (showing) {
           if (spec.optional) {
             if (count === 0) continue; // absent-not-zero in THIS state, not a failure
             seenOptional.add(testid);
           }
-          expect(count, `${testid} must be attached on the ${view} view's ${tab} tab`).toBeGreaterThan(0);
-          await expect(el.first(), `${testid} must be VISIBLE on the ${view} view's ${tab} tab`).toBeVisible();
+          expect(count, `${testid} must be attached on the ${view} view's ${face} face`).toBeGreaterThan(0);
+          await expect(el.first(), `${testid} must be VISIBLE on the ${view} view's ${face} face`).toBeVisible();
         } else if (count > 0) {
           await expect(
             el.first(),
-            `${testid} must be hidden while the ${view} view's ${tab} tab is open`,
+            `${testid} must be hidden while the ${view} view's ${face} face is open`,
           ).toBeHidden();
         }
       }
     };
 
-    /** Walk the member view's three tabs. */
-    const checkMemberTabs = async (): Promise<void> => {
-      for (const tab of ["equipment", "skills", "profile"] as const) {
-        await openPrepTab(page, tab);
-        await checkView("member", tab);
-      }
+    /** Walk the member view's two states: the dossier, and the dossier + overlay. */
+    const checkMemberFaces = async (): Promise<void> => {
+      await closeLearn(page);
+      await checkView("member", "sheet");
+      await openLearn(page);
+      await checkView("member", "overlay");
+      await closeLearn(page);
     };
 
     /**
@@ -288,19 +778,19 @@ test.describe("briefing: control manifest", () => {
      * member calls `prep.select()`, which re-points the panel and clears
      * `learnReceipt()` — so `prep-receipt`, whose whole point is "only until the panel is
      * re-pointed", would be gone before it was ever seen. The receipt pass below uses
-     * {@link checkMemberTabs} for exactly that reason.
+     * {@link checkMemberFaces} for exactly that reason.
      */
-    const checkTabs = async (id: string, name: string): Promise<void> => {
+    const checkFaces = async (id: string, name: string): Promise<void> => {
       await backToParty(page);
-      // The party view has no tabs; "equipment" is passed only so the member entries are
+      // The party view has no faces; "sheet" is passed only so the member entries are
       // all judged as not-showing here.
-      await checkView("party", "equipment");
+      await checkView("party", "sheet");
       await openMember(page, id);
       await expect(
         page.getByTestId("brief-member-name"),
         `the manifest sweep asked for ${id} and the rail is managing someone else`,
       ).toContainText(name);
-      await checkMemberTabs();
+      await checkMemberFaces();
     };
 
     // Pass 1: every party member, as-shipped battle-1 state. `startCampaign` grants
@@ -313,7 +803,7 @@ test.describe("briefing: control manifest", () => {
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       const name = (await card.locator(".pname").innerText()).trim();
-      await checkTabs(id, name);
+      await checkFaces(id, name);
     }
 
     // Drive prep-weapon-desc: it needs the OPPOSITE state from prep-weapon-hint (a
@@ -328,8 +818,7 @@ test.describe("briefing: control manifest", () => {
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       const name = (await card.locator(".pname").innerText()).trim();
-      await openMember(page, id);
-      await openPrepTab(page, "equipment");
+      await openDossier(page, id);
       const weaponSelect = page.getByTestId("prep-weapon");
       if ((await weaponSelect.count()) === 0) continue;
       const values = await weaponSelect.locator("option").evaluateAll((os) =>
@@ -342,7 +831,7 @@ test.describe("briefing: control manifest", () => {
       break;
     }
     expect(equipped, "no member has an owned, equippable weapon at battle 1").not.toBeNull();
-    await checkTabs(equipped!.id, equipped!.name);
+    await checkFaces(equipped!.id, equipped!.name);
 
     // Drive prep-receipt: 0 AP campaign-wide until two battles are banked — play two,
     // then buy whichever party member's cheapest affordable node.
@@ -360,7 +849,7 @@ test.describe("briefing: control manifest", () => {
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
-      await openPrepTab(page, "skills");
+      await openLearn(page);
       const buyable = page.locator('[data-testid="prep-learn"] li button[data-learn]:not([disabled])').first();
       if ((await buyable.count()) === 0) continue;
       await buyable.click();
@@ -368,7 +857,7 @@ test.describe("briefing: control manifest", () => {
       break;
     }
     expect(bought, "no party member has an affordable node after two battles — nothing to buy").toBe(true);
-    await checkMemberTabs();
+    await checkMemberFaces();
 
     const expectedOptional = new Set(
       Object.entries(MANIFEST)
@@ -383,12 +872,14 @@ test.describe("briefing: control manifest", () => {
     // the DOM must be a key of MANIFEST — a stray id (a leftover, a typo, an
     // un-catalogued new control) fails here even though every per-control loop above
     // stayed green. Scanned on BOTH views, since each hides the other's markup by CSS
-    // (the nodes are still in the document, so one scan would have found them anyway —
-    // the two passes are what would survive a switch to conditional rendering).
+    // (the party/member split hides the other view's markup by CSS, but the dossier's two
+    // FACES are conditionally rendered — one is not in the document at all while the other
+    // is up — so the sweep opens both.)
     const found: string[] = [];
-    for (const goToMember of [false, true]) {
+    for (const where of ["party", "sheet", "overlay"] as const) {
       await backToParty(page);
-      if (goToMember) await openMember(page);
+      if (where === "sheet") await openDossier(page);
+      if (where === "overlay") await openLearn(page);
       found.push(
         ...(await page.evaluate(
           (sel) =>
@@ -404,11 +895,11 @@ test.describe("briefing: control manifest", () => {
     // MUTATION 2 (run): add a STALE key (`member-bogus`) to MANIFEST → the member-view
     // loop's `toBeGreaterThan(0)` for it goes red; the partition alone cannot see it,
     // which is why both directions are asserted.
-    // MUTATION 3: delete `data-testid="prep-support"` in `prep.ts` → the Skills-tab
+    // MUTATION 3: delete `data-testid="prep-support"` in `prep.ts` → the sheet-face
     // loop goes red.
     // MUTATION 4 (M3, previously run): delete `data-testid="prep-weapon-hint"` in
     // `weaponSlotHtml()` → `seenOptional` never gains it and the equality goes red.
-    // MUTATION 5 (RUN 2026-09-08): make `checkTabs` ignore its id and call
+    // MUTATION 5 (RUN 2026-09-08): make `checkFaces` ignore its id and call
     // `openMember(page)` (the first card, every time) — the rail assertion goes red on
     // the first non-Vance member of the sweep. That is the bug this sweep shipped with:
     // it walked four ids and inspected one member.
@@ -857,7 +1348,7 @@ test.describe("briefing: the leak check", () => {
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
-      await openPrepTab(page, "skills");
+      await openLearn(page);
       const disabledBuy = page.locator('[data-testid="prep-learn"] button.buy[disabled]').first();
       if ((await disabledBuy.count()) === 0) continue;
 
@@ -968,9 +1459,11 @@ test.describe("briefing: states", () => {
       const card = page.locator(`[data-testid="prep-roster"] .ptab[data-member="${id}"]`);
       if ((await card.count()) === 0) continue;
       await card.click();
-      await openPrepTab(page, "profile");
       const traits = page.getByTestId("prep-traits");
-      const empty = traits.locator(".empty");
+      // `.tnone` is the dossier's empty state; `.empty` is the classic panel's, which the
+      // viewer fallback below reads. Both, so neither branch can pass by looking at the
+      // other's markup.
+      const empty = traits.locator(".empty, .tnone");
       if ((await empty.count()) > 0) {
         await expect(empty).toContainText("No mastered jobs yet");
         return;
@@ -983,7 +1476,9 @@ test.describe("briefing: states", () => {
     // mounts `makeEmptyDemoRecord()` (prep.ts), whose `mastered` is `[]`.
     await page.goto("/viewer.html?prep=empty");
     await openViewerPrep(page);
-    await openPrepTab(page, "profile");
+    // The VIEWER's panel is still the classic tabbed layout — it is a showcase over a
+    // fixed record, not the campaign's dossier — so this half drives its tab directly.
+    await page.locator('.tab[data-tab="profile"]').click();
     const empty = page.locator('[data-testid="prep-traits"] .empty');
     await expect(empty).toBeVisible();
     await expect(empty).toContainText("No mastered jobs yet");
@@ -1068,30 +1563,148 @@ test.describe("briefing: phone fit", () => {
       // used) — each on the tab where the manifest says it is visible, because a
       // `getByTestId` on a hidden element resolves to a zero-size box that would pass a
       // `>= 0` floor silently.
-      await openMember(page);
+      await openDossier(page);
       await shortSide("member-back", page.getByTestId("member-back"));
-      for (const testid of ["prep-job", "prep-secondary"]) {
+      // EVERY SELECT ON THE DOSSIER, all on one sheet now — seven of them, not the four
+      // the tabbed layout could show at once.
+      for (const testid of [
+        "prep-job",
+        "prep-secondary",
+        "prep-secondary-skill",
+        "prep-reaction",
+        "prep-support",
+        "prep-movement",
+      ]) {
         await tallEnough(testid, page.getByTestId(testid));
       }
       const weaponSelect = page.getByTestId("prep-weapon");
       if ((await weaponSelect.count()) > 0) await tallEnough("prep-weapon", weaponSelect);
-      await openPrepTab(page, "skills");
-      for (const testid of ["prep-reaction", "prep-support", "prep-movement"]) {
-        await tallEnough(testid, page.getByTestId(testid));
+      // THE RAIL'S SIX CELLS. 44px is the whole reason the rail bleeds through the
+      // leaf's burn padding (overhaul.css): inside it the cells measure 43.3px at 328.
+      const cellsEl = await page.locator('[data-testid="dossier-rail"] button.rtab').all();
+      expect(cellsEl.length, `${w}x${h}: no rail cells`).toBe(6);
+      for (const [i, cell] of cellsEl.entries()) {
+        const box = await cell.boundingBox();
+        expect(box, `${w}x${h}: rail cell ${i} has no box`).not.toBeNull();
+        expect(box!.height, `${w}x${h}: rail cell ${i} height`).toBeGreaterThanOrEqual(floor);
       }
-      await openPrepTab(page, "equipment");
-      for (const tab of ["equipment", "skills", "profile"]) {
-        const box = await page.locator(`#screen-briefing .tab[data-tab="${tab}"]`).boundingBox();
-        expect(box, `${w}x${h}: ${tab} tab has no box`).not.toBeNull();
-        expect(box!.height, `${w}x${h}: ${tab} tab height`).toBeGreaterThanOrEqual(floor);
+      // The two plate-shaped controls the dossier adds. Both are ~12-15px PICTURES with a
+      // 44px overlay taken out of flow (the same construction `select.jval` uses), so
+      // their `boundingBox()` is the wrong thing to measure — what a thumb hits is the
+      // `::after`. MEASURED THROUGH `elementFromPoint`, walking y and taking the
+      // CONTIGUOUS run that resolves to this control: that is direction-agnostic, so it
+      // passes for Change Jobs (centred) and for the AP readout (anchored upward, because
+      // `.ident`'s clip leaves it nowhere else to grow) without encoding either choice.
+      // A stacking bug is invisible in a screenshot; only this can see one.
+      const tapRun = async (testid: string): Promise<number> => {
+        const box = await page.getByTestId(testid).boundingBox();
+        expect(box, `${w}x${h}: ${testid} has no box`).not.toBeNull();
+        return page.evaluate(
+          ([id, x, y0]) => {
+            const at = (y: number): string | null =>
+              document
+                .elementFromPoint(x as number, y)
+                ?.closest("[data-testid]")
+                ?.getAttribute("data-testid") ?? null;
+            let top = y0 as number;
+            let bottom = y0 as number;
+            while (at(top - 1) === id && top > 0) top -= 1;
+            while (at(bottom + 1) === id && bottom < window.innerHeight - 1) bottom += 1;
+            return at(y0 as number) === id ? bottom - top + 1 : 0;
+          },
+          [testid, box!.x + box!.width / 2, box!.y + box!.height / 2] as const,
+        );
+      };
+      // The AP readout is NOT in this list any more, and that is the point: pass 14 made
+      // it plain text again, so a 44px floor on it would be asserting a control that no
+      // longer exists. The two plates are the controls; both are ~9-15px PICTURES.
+      for (const testid of ["prep-change-jobs", "prep-learn-open"]) {
+        expect(await tapRun(testid), `${w}x${h}: ${testid}'s tappable height`).toBeGreaterThanOrEqual(floor);
       }
+      await openLearn(page);
+      expect(await tapRun("prep-learn-close"), `${w}x${h}: the overlay's Close`).toBeGreaterThanOrEqual(floor);
+      await closeLearn(page);
+
+      // A PACK-LEGAL LORE MUST NOT PUSH THE TRAITS CONTROL OFF THE SHEET. The story pack
+      // is swappable by contract (`docs/11` AC-M4) and its schema allows 240 characters
+      // (`StorySchema`'s `lore.max(240)`); the shipped lines are about half that, so the
+      // fit measured above proves nothing about the NEXT pack.
+      //
+      // THE STRING IS PATHOLOGICAL ON PURPOSE, and that is the difference between a test
+      // and a formality: 240 characters of ORDINARY prose wrap into three lines here and
+      // fit with or without the clamp (measured — the first cut of this fixture used
+      // "Lorem ipsum…" and stayed green against the very mutant it names). 240 characters
+      // of twenty-letter words wrap into SIX, which is the case a pack can legally ship
+      // and this screen cannot survive. Generated, not prose, so `check:story` has nothing
+      // to pin and the fixture cannot drift into a copy of the shipped text.
+      await page.evaluate(() => {
+        const lore = document.querySelector('[data-testid="prep-lore"]');
+        if (lore) lore.textContent = "Wwwwwwwwwwwwwwwwwwww ".repeat(12).slice(0, 240);
+      });
+      const sheetLong = await page.getByTestId("dossier-sheet").boundingBox();
+      const traitsLong = await page.locator("#screen-briefing .traitline").boundingBox();
+      expect(traitsLong, `${w}x${h}: the traits line has no box under a 240-char lore`).not.toBeNull();
       expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
-        `${w}x${h}: the member view scrolls horizontally`,
+        boxInside(traitsLong!, sheetLong!),
+        `${w}x${h}: a 240-character lore pushed the traits control off the sheet`,
       ).toBe(true);
-      // MUTATION: shrink `.tab`'s `min-height` (overhaul.css) from 44px to 30px → the
-      // per-tab height assertion goes red at both folds. Same for `.backplaque`'s floor
-      // and `member-back`.
+      // MUTATION (run): remove `-webkit-line-clamp` from `.lore` in overhaul.css → the
+      // lore grows to 71px, the traits line's bottom lands at 325.5 against a sheet that
+      // ends at 307.5, red at 832x328 — and green at 832x384, which is what tells the two
+      // folds apart.
+      // MUTATION (run): delete `.jchange::after` in overhaul.css → all three runs collapse
+      // to the plates' own ~9-15px and this goes red at both folds.
+      // ── NO VERTICAL SCROLL, and then the check that can actually fail.
+      //
+      // The document-level reading is kept because it is the literal claim ("both folds
+      // fit, no scroll") — but said plainly: on this screen it is NEARLY UNFALSIFIABLE.
+      // `#screen-briefing` is pinned to the viewport and every box inside it has a fixed
+      // height, so content that does not fit is clipped or painted outside its box rather
+      // than lengthening the document. MEASURED, not assumed: adding 10px to `.profile`
+      // leaves `documentElement.scrollHeight` at exactly `innerHeight`.
+      //
+      // `scrollHeight` on the SHEET is no better, for a reason worth writing down: every
+      // 44px tap overlay (`select.gval`, `select.jval`, `.jchange::after`,
+      // `.apline::after`) is `position: absolute` and overflows its own row BY DESIGN, so
+      // `.sheet` reports scrollHeight 254 against clientHeight 238 on a perfectly fitting
+      // page. A fit test built on it would be red from the first commit.
+      //
+      // WHAT DOES DISCRIMINATE is box containment of the LAST thing in each column — the
+      // traits line on the left, the job cards on the right. Those are what fall off the
+      // sheet when the dossier grows.
+      const noScroll = async (where: string): Promise<void> => {
+        const m = await page.evaluate(() => ({
+          sh: document.documentElement.scrollHeight,
+          ih: window.innerHeight,
+          sw: document.documentElement.scrollWidth,
+          cw: document.documentElement.clientWidth,
+        }));
+        expect(m.sh, `${w}x${h}: ${where} scrolls vertically (${m.sh} > ${m.ih})`).toBe(m.ih);
+        expect(m.sw, `${w}x${h}: ${where} scrolls horizontally`).toBeLessThanOrEqual(m.cw + 1);
+      };
+      await noScroll("the dossier");
+      const sheetBox = await page.getByTestId("dossier-sheet").boundingBox();
+      expect(sheetBox, `${w}x${h}: the dossier sheet has no box`).not.toBeNull();
+      for (const [name, sel] of [
+        ["the traits line", "#screen-briefing .traitline"],
+        ["the job cards", "#screen-briefing .jobrow"],
+      ] as const) {
+        const box = await page.locator(sel).boundingBox();
+        expect(box, `${w}x${h}: ${name} has no box`).not.toBeNull();
+        expect(
+          boxInside(box!, sheetBox!),
+          `${w}x${h}: ${name} ${JSON.stringify(box)} has fallen off the sheet ${JSON.stringify(sheetBox)}`,
+        ).toBe(true);
+      }
+      await openLearn(page);
+      await noScroll("the progression face");
+      await closeLearn(page);
+      // MUTATION (run): +10px on `.profile`'s margin does NOT go red — the left column
+      // has ~29px of real slack at 328, because the shipped lore is shorter than the
+      // mockup's sample prose. +48px DOES: the traits line leaves the sheet at 832x328
+      // and stays inside at 832x384, which is what tells the two folds apart. Both
+      // numbers are in the report rather than only the one that fails. Same construction
+      // guards `.backplaque`'s 44px floor and `member-back`.
     });
   }
 });
@@ -1186,14 +1799,14 @@ test.describe("briefing: D1 — the pre-battle story row never clips its own con
   }
 });
 
-test.describe("briefing: D2 — Equipment and Skills content survives the short folds", () => {
+test.describe("briefing: D2 — the dossier's gear, stats and skill rows survive the short folds", () => {
   for (const [w, h] of FOLDS) {
-    test(`${w}x${h}: Equipment's gear row and first four Standing rows, Skills' Primary/Reaction/Support rows, are fully inside the leaf`, async ({
+    test(`${w}x${h}: the gear row, the first four Stats cells and the Primary/Reaction/Support rows are fully inside the leaf`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: w, height: h });
       await toBriefing(page);
-      await openMember(page);
+      await openDossier(page);
       const leafBox = await page.locator("#screen-briefing #leaf-member").boundingBox();
       expect(leafBox, "the member leaf has no box").not.toBeNull();
 
@@ -1217,8 +1830,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
         expect(box!.width, `${w}x${h}: a job plaque caption is too narrow to read`).toBeGreaterThanOrEqual(12);
       }
 
-      // Equipment (the default tab): the gear row + at least the first four Standing
-      // cells.
+      // The dossier's LEFT column: the gear row + at least the first four Stats cells.
       const gearRowBox = await page
         .locator('[data-testid="prep-weapon"]')
         .locator("xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' gearrow ')][1]")
@@ -1229,20 +1841,20 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
         `${w}x${h}: gear row ${JSON.stringify(gearRowBox)} is not fully inside the member leaf ${JSON.stringify(leafBox)}`,
       ).toBe(true);
 
-      const statCells = await page.locator('[data-testid="prep-stats"] .stat-row li').all();
-      expect(statCells.length, "no Standing rows found").toBeGreaterThanOrEqual(4);
+      const statCells = await page.locator('[data-testid="prep-stats"] li').all();
+      expect(statCells.length, "no Stats rows found").toBeGreaterThanOrEqual(4);
       for (let i = 0; i < 4; i += 1) {
         const cellBox = await statCells[i]!.boundingBox();
-        expect(cellBox, `Standing row ${i} has no box`).not.toBeNull();
+        expect(cellBox, `Stats row ${i} has no box`).not.toBeNull();
         expect(
           boxInside(cellBox!, leafBox!),
-          `${w}x${h}: Standing row ${i} ${JSON.stringify(cellBox)} is not fully inside the member leaf ${JSON.stringify(leafBox)}`,
+          `${w}x${h}: Stats row ${i} ${JSON.stringify(cellBox)} is not fully inside the member leaf ${JSON.stringify(leafBox)}`,
         ).toBe(true);
       }
 
       // Skills: Primary, and the first two of Reaction/Support/Movement — the brief
-      // names Reaction and Support explicitly, so both are asserted by name.
-      await openPrepTab(page, "skills");
+      // names Reaction and Support explicitly, so both are asserted by name. No tab
+      // click: the dossier shows all five slots at once, which is the point of it.
       const primaryBox = await page.getByTestId("prep-primary").boundingBox();
       expect(primaryBox, "prep-primary has no box").not.toBeNull();
       expect(
@@ -1264,8 +1876,7 @@ test.describe("briefing: D2 — Equipment and Skills content survives the short 
       // MUTATION (run, see the fix report): disable the whole `@media (max-height:
       // 400px)` block (overhaul.css) — e.g. change its threshold to `0px` — so the
       // strip and the Reaction/Support gearrows revert to their tall, two-row/
-      // 44px-floored shape; both folds go red (851×324 on Standing, 640×300 on
-      // prep-reaction's row).
+      // 44px-floored shape; both folds go red.
     });
   }
 });

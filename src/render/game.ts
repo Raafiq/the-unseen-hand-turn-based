@@ -25,6 +25,7 @@ import {
   registry,
   resolvePortrait,
   story,
+  storyCharacterFor,
   terrainFor,
 } from "./campaign-data.js";
 import { CampaignShell, type Screen } from "./campaign-shell.js";
@@ -276,8 +277,14 @@ let shownScreen: Screen | null = null;
 function renderScreens(): void {
   if (shell.screen !== shownScreen) {
     // Entering the briefing ALWAYS starts on party select — the member view is two
-    // taps deep and reaching a battle through it would be a second commit point.
-    if (shell.screen === "BRIEFING") briefView = "party";
+    // taps deep and reaching a battle through it would be a second commit point. The
+    // learn overlay goes with it: the panel is mounted ONCE for the whole session, so
+    // an overlay left open on battle 2 is still open on battle 3's briefing, over
+    // whichever member is opened next (AC-V60's reset, extended to the overlay).
+    if (shell.screen === "BRIEFING") {
+      briefView = "party";
+      prep?.closeLearn();
+    }
     shownScreen = shell.screen;
   }
   for (const s of SCREENS) {
@@ -470,6 +477,20 @@ function outcomeKey(): string {
 let prep: PrepHandle | null = null;
 
 /**
+ * A party member's Profile prose, from the STORY PACK, or `null` when the pack writes
+ * none for them.
+ *
+ * A BATTLE-ROSTER ID IS NOT A STORY ID (`src/render/CLAUDE.md`): the roster record is
+ * `pc-briar` and the story character is `briar`, so the join goes through
+ * `storyCharacterFor` — the ONE copy of that convention in the render layer. Resolved
+ * here rather than in `prep.ts` because the pack is swappable by contract (`docs/11`
+ * AC-M4) and the panel must not know what a campaign is.
+ */
+function loreFor(recordId: string): string | null {
+  return storyCharacterFor(recordId)?.lore ?? null;
+}
+
+/**
  * The last record the log saw for each member, so an edit can be DIFFED rather than
  * declared. The panel reports "this record changed" and nothing finer, and a recorder
  * that logged the click instead of the delta would credit an edit the sim refused —
@@ -490,7 +511,15 @@ function renderPrep(): void {
       records: party,
       inventory: shell.save?.inventory ?? [],
       progression: true,
+      layout: "dossier",
       portrait: (record) => resolvePortrait(record.id).url,
+      portraitPending: (record) => resolvePortrait(record.id).key === "placeholder",
+      lore: (record) => loreFor(record.id),
+      // THE RAIL CHANGED WHO IS OPEN. The page owns the chrome that names them — the
+      // top rail's "· managing Briar" and the roster card's gold ring — so it repaints
+      // that chrome here. `renderBriefingText` does not touch the panel, so this cannot
+      // re-enter: it reads `prep.record()` and rewrites the roster only.
+      onSelect: () => renderBriefingText(),
       onChange: (record) => {
         const before = prepSeen.get(record.id);
         if (before) telemetry.prep(record.id, diffRecord(before, record));
@@ -540,6 +569,11 @@ let briefView: BriefView = "party";
 function setBriefView(next: BriefView): void {
   if (next === briefView) return;
   briefView = next;
+  // LEAVING THE MEMBER VIEW SHUTS THE LEARN OVERLAY. It is closure state inside a panel
+  // mounted once per session, so the Back plaque is the only place that can see this
+  // transition; without it, Back then opening anyone else showed the previous member's
+  // job tree over the new sheet.
+  if (next === "party") prep?.closeLearn();
   renderBriefingText();
   // FOCUS FOLLOWS THE VIEW, and only on an actual SWITCH.
   //

@@ -1,13 +1,13 @@
-<!-- written-against: 4fe3abb -->
-<!-- 4fe3abb merges the INTENT.md migration (PR #64's two commits, which had landed on the
-     already-merged prep-screen branch, not main) onto main. No code or data changed. -->
+<!-- written-against: 9c48dad -->
+<!-- The character dossier (ADR-0042) is IN THE TREE at this stamp: one sheet, a 1x6 rail,
+     the LEARN overlay, lore in the story pack. 998 tests, 211 browser specs. -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 994 tests, 196 browser specs (`npm run check`).
+Green at the stamp: 998 tests, 211 browser specs (`npm run check`).
 
 ---
 
@@ -96,7 +96,9 @@ Read this before telling the owner "nothing is pending". Three asks are open.
 
 ---
 
-## THE NEXT SLICE — two halves, in this order
+## THE NEXT SLICE — six deploy on every map, plus an enemy retune
+
+The character dossier SHIPPED (ADR-0042); what follows is the queue it was jumped ahead of.
 
 ### (a) Six player placements on every map, plus an enemy retune
 
@@ -121,6 +123,18 @@ walk are all parked. Grep `DEFERRED (ADR-0041)`; ADR-0041 holds the list as a ta
 - **Re-arm by deleting the `test.fixme` line, never by loosening an assertion.**
 - Un-parking `e2e/stage-capture.spec.ts` restores seven `docs/visual/stage/851x324-*.png`
   frames the parking deleted. Let the spec write them; do not restore them from git.
+
+### Landmines the dossier slice leaves behind
+
+- **The "In battle" command list and the equipped-passive descriptions are GONE from the
+  campaign screen**, deferred to the combat revamp by the owner (2026-09-09). Do not re-home
+  them in a spacing pass; the revamp shows commands for real.
+- **`prep-weapon-desc` (the weapon's scaling sentence) has no home** — the Main Hand row is
+  28px at 832×328 and a third line does not fit.
+- **The member view is `layout: "dossier"`; the classic tabbed path still exists in
+  `prep.ts` for the engine viewer.** A change to one is not a change to the other.
+- **At desktop widths both dossier columns pack to the top and leave a large empty band.**
+  Unasserted, undesigned; only 832×328 and 832×384 are covered.
 
 ### Landmines in the files both halves touch
 

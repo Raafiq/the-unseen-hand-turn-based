@@ -117,10 +117,14 @@ export const GROUNDS = {
     "rgb(240, 223, 198)",
   ],
   /**
-   * The right leaf's iron plaque family — `.tab.on`, `.jplaque`, `.backplaque`, the
-   * top rail's company plaque and the roundel icon field ALL measure to this exact
-   * three-stop set (confirmed live, not assumed identical because they share a class
-   * name — they do not). It is numerically the SAME as `GROUNDS.plaque` (the title
+   * The iron plaque family — the DOSSIER'S PORTRAIT RAIL (`.rail`), `.jchange`,
+   * `.backplaque`, the top rail's company plaque and the roundel icon field ALL measure
+   * to this exact three-stop set (confirmed live, not assumed identical because they
+   * share a class name — they do not). `.tab.on` was on this list and is gone with the
+   * tabs (the dossier, 2026-09-09); `.jplaque` was on it too and no longer belongs —
+   * pass 13 lifted the job cards a half-step off the iron, which is `briefJobCard`
+   * below. Leaving either name here would have been a claim about paint that stopped
+   * being true. It is numerically the SAME as `GROUNDS.plaque` (the title
    * screen's plaque), because both are built from the identical `--plaque-hi/
    * --plaque/--plaque-lo` triple — a real coincidence of a shared recipe, not a
    * shortcut taken here. Kept as its own name so a future divergence between the two
@@ -128,13 +132,38 @@ export const GROUNDS = {
    */
   briefPlaque: ["rgb(27, 26, 23)", "rgb(29, 30, 30)", "rgb(43, 39, 37)"],
   /**
-   * The "dark parchment plate" family — `.tab` AT REST (unselected), the tan field
-   * every tab starts on before the gold-plaque `.on` state takes over. Three stops,
-   * its own recipe (`#cba484` / `--plate-parch` / `#b08a66`), distinct from every
-   * other tan field on this screen (see `briefBoxCard`/`briefBoxSelected` below —
-   * three different three-stop tans that all LOOK alike and are NOT the same set).
+   * THE LEARN OVERLAY'S LEAF (`.learnsheet`, owner pass 14) — a parchment sheet laid over
+   * the right column, one step LIGHTER than the leaf under it so it reads as a second
+   * leaf rather than as a dialog from another system. Its own four stops (`#f2e2c9` plus
+   * `--parch-hi/--parch/--parch-lo`); it shares three of them with `briefLeaf` and does
+   * NOT share that leaf's `#b6885d` burn or its `#f0dfc6` highlight, which is exactly why
+   * it is declared separately instead of reusing the name.
    */
-  briefPlate: ["rgb(176, 138, 102)", "rgb(190, 149, 111)", "rgb(203, 164, 132)"],
+  briefLearnLeaf: [
+    "rgb(201, 159, 117)",
+    "rgb(212, 175, 134)",
+    "rgb(221, 185, 146)",
+    "rgb(242, 226, 201)",
+  ],
+  /**
+   * THE JOB CARDS (`.jplaque`), a half-step lighter than the iron above (owner, pass 13:
+   * two full-weight plaques made the module's two slots heavier than its one action, so
+   * CHANGE JOBS keeps the iron and the cards do not). `#4a4239 / #3d372f / #342f28`,
+   * measured live. `--label` on the darkest of the three measures 9.9:1.
+   */
+  briefJobCard: ["rgb(52, 47, 40)", "rgb(61, 55, 47)", "rgb(74, 66, 57)"],
+  /**
+   * The "dark parchment plate" — `--plate-parch` (`#be956f`) as a FLAT fill, which is
+   * what the learn list's `.tag` chips ("no effect yet", "needs Secondary"), `.lock` and
+   * the dossier's `.freemark` paint.
+   *
+   * ONE STOP, NOT THREE, and the change is the point: this used to be `.tab` AT REST,
+   * whose three-stop gradient (`#cba484` / `--plate-parch` / `#b08a66`) went with the
+   * tabs (the dossier, 2026-09-09). Nothing paints that gradient any more, so keeping
+   * the three stops would have left a declared ground no element produces — a constant
+   * that can never come out the other way. Measured off `.tag`, not deduced.
+   */
+  briefPlate: ["rgb(190, 149, 111)"],
   /**
    * A roster card AT REST (`.member:not(.on) .ptab`) and the top rail's tagline
    * ribbon (`.tagline`) — two different elements that happen to measure to the exact

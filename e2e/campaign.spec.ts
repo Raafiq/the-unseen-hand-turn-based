@@ -5,7 +5,9 @@ import {
   dismissScene,
   freezeMotion,
   openMember,
-  openPrepTab,
+  closeLearn,
+  openDossier,
+  openLearn,
   settleMotion,
   startNewGame,
   watchStep,
@@ -80,9 +82,9 @@ test("campaign shell: title → battle → saved progress survives a reload", as
 
   // The between-battle prep panel is mounted on the briefing with the whole party.
   await expect(page.getByTestId("prep-roster")).toContainText("Ottoline");
-  // `prep-progression` (the Learn column) sits on the Skills tab; Equipment is the
-  // entry tab.
-  await openPrepTab(page, "skills");
+  // `prep-progression` (the Learn column) sits on the member view's PROGRESSION face,
+  // behind the AP readout (the dossier, owner 2026-09-09).
+  await openLearn(page);
   await expect(page.getByTestId("prep-progression")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/21-briefing.png`, fullPage: true });
 
@@ -264,24 +266,38 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   expect(apBefore).toBeGreaterThanOrEqual(60);
   expect(apBefore).toBeLessThan(120);
 
-  // Vance knows no black magic: no Fire anywhere in his command list. `prep-commands`
-  // and `prep-learn` sit on the Skills tab (Equipment is the entry tab); `prep-job` and
-  // `prep-secondary` are in the Job Customization strip, visible on every tab.
-  await openPrepTab(page, "skills");
-  const commands = page.getByTestId("prep-commands");
-  await expect(commands).not.toContainText("Fire");
+  // Vance knows no black magic — asserted on the TREE, which is where the dossier says
+  // so: the wizard's `fire` row offers a purchase rather than a "learned" stamp. The
+  // panel's old "In battle" command list went with the dossier (owner pass 14: the learn
+  // overlay holds the tree, the tree picker and the receipt, and nothing else), so what
+  // this walk proves about the PROJECTION now rests on the receipt below and on the
+  // deployed unit at the end, both of which read `commands()` / `buildBattleUnit`.
+  await openLearn(page);
+  await page.getByTestId("prep-tree").selectOption("wizard");
+  const fireRow = page.locator('[data-testid="prep-learn"] li[data-node="fire"]');
+  await expect(fireRow).not.toHaveClass(/known/);
 
   // Change job (free) → buy Fire with banked AP → change back → equip Black Magic as the
   // Secondary. Every step is a real control, and the last one is the customization pillar
   // arriving through play rather than through the demo's pre-loaded record.
+  await closeLearn(page);
   await page.getByTestId("prep-job").selectOption("wizard");
+  await openLearn(page);
   await page.locator('[data-testid="prep-learn"] li[data-node="fire"] button').click();
   const apAfter = Number((await page.getByTestId("prep-ap").innerText()).replace(/[^0-9]/g, ""));
   expect(apAfter).toBe(apBefore - 60); // the node's price, charged exactly once
+  // THE RECEIPT IS THE PROJECTION ON SCREEN. `receiptHtml()` asks `commands()` — the same
+  // one-way compile a battle uses — so "now in this unit's commands" is a claim the sim
+  // backs, not one inferred from the ability's type (the wrong-receipt defect, CLAUDE.md).
+  await expect(page.getByTestId("prep-receipt")).toContainText("Fire");
+  await expect(page.getByTestId("prep-receipt")).toContainText("commands");
 
+  await closeLearn(page);
   await page.getByTestId("prep-job").selectOption("geomancer");
   await page.getByTestId("prep-secondary").selectOption("wizard");
-  await expect(commands).toContainText("Fire");
+  // The borrowed skillset is on the dossier twice, and both rows are one slot.
+  await expect(page.getByTestId("prep-secondary")).toHaveValue("wizard");
+  await expect(page.getByTestId("prep-secondary-skill")).toHaveValue("wizard");
   await page.screenshot({ path: `${SHOTS}/25-briefing-prep.png`, fullPage: true });
 
   // THE RELOAD IS THE POINT, again. Every assertion above holds against a panel editing
@@ -291,9 +307,12 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
   await expect(page.getByTestId("prep-ap")).toContainText(`${apAfter} AP`);
-  // A fresh mount opens on Equipment again — the tab is render-layer state, not saved.
-  await openPrepTab(page, "skills");
-  await expect(page.getByTestId("prep-commands")).toContainText("Fire");
+  // A fresh mount opens with the overlay SHUT — it is render-layer state, not saved — and
+  // the purchase is still there when it is opened again.
+  await openLearn(page);
+  await page.getByTestId("prep-tree").selectOption("wizard");
+  await expect(page.locator('[data-testid="prep-learn"] li[data-node="fire"]')).toHaveClass(/known/);
+  await closeLearn(page);
 
   // And the edit is on the unit that DEPLOYS, not merely in the panel — the assertion
   // that reaches through `updatePartyMember` rather than stopping at it.
@@ -305,6 +324,51 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
     return save?.party.find((r) => r.id === "pc-vance")?.learned ?? [];
   });
   expect(abilities).toContain("black-magic.fire");
+  // AND IT IS CASTABLE, not merely owned — the half `prep-commands` used to carry on the
+  // panel, read here off the unit that actually reached the board (`buildBattleUnit`'s
+  // own projection, through the shipped `window.tuhGame` seam).
+  const onBoard = await page.evaluate(() => {
+    const state = window.tuhGame.state();
+    return (state?.units.find((u) => u.id === "blue-vance")?.abilities ?? []).map((a) => a.id);
+  });
+  expect(onBoard, "Fire was bought and equipped but the deployed unit cannot cast it").toContain(
+    "black-magic.fire",
+  );
+
+  // THE NEGATIVE HALF, and it is the one that can come out the other way: "the deployed
+  // unit can cast Fire" is also true of a projection that ignores the Secondary slot
+  // entirely and hands every unit every ability it has LEARNED. Clearing the slot has to
+  // take the command away again. Same battle, same unit, one control moved.
+  // Play it out — the board was only ever entered to READ the projection, so nothing has
+  // driven it to an end yet and `conclude` is hidden until something does.
+  await page.evaluate(() => window.tuhGame.autoplay());
+  await page.getByTestId("conclude").click();
+  await expect(page.getByTestId("screen-after")).toBeVisible();
+  // Whichever way that battle went. The party carries its loadout across both doors, so
+  // the assertion below does not depend on the outcome — and hard-coding one of them
+  // would make this test fail the day the balance moves, for a reason that is not its
+  // subject.
+  const next = page.getByTestId("next");
+  await ((await next.isVisible()) ? next : page.getByTestId("retry")).click();
+  await dismissScene(page);
+  await expect(page.getByTestId("screen-briefing")).toBeVisible();
+  await openDossier(page, "pc-vance");
+  await page.getByTestId("prep-secondary").selectOption("");
+  await expect(page.getByTestId("prep-secondary")).toHaveValue("");
+  await backToParty(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  const withoutSecondary = await page.evaluate(() => {
+    const state = window.tuhGame.state();
+    return (state?.units.find((u) => u.id === "blue-vance")?.abilities ?? []).map((a) => a.id);
+  });
+  expect(
+    withoutSecondary,
+    "the Secondary slot was cleared and the borrowed command is still castable",
+  ).not.toContain("black-magic.fire");
+  // MUTATION (run): make the projection ignore the Secondary slot (`buildBattleUnit`
+  // unions every learned ability instead of the equipped skillsets) → this goes red while
+  // the positive assertion above stays green, which is why both halves are here.
 });
 
 test("between-battle prep: an unaffordable ability is refused, with the reason", async ({
@@ -317,8 +381,8 @@ test("between-battle prep: an unaffordable ability is refused, with the reason",
   await page.getByTestId("new-game").click();
   await dismissScene(page);
   await expect(page.getByTestId("prep-ap")).toContainText("0 AP");
-  // `prep-learn` sits on the Skills tab (Equipment is the entry tab).
-  await openPrepTab(page, "skills");
+  // `prep-learn` sits on the member view's progression face.
+  await openLearn(page);
 
   // The first row a member ALREADY KNOWS renders no buy button at all, so `.first()`
   // is not necessarily purchasable — Vance starts knowing his tier-one node. Take the
@@ -353,9 +417,12 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
-  // `prep-learn`/`prep-tree`/`prep-spend-hint` sit on the Skills tab; `prep-job` is in
-  // the Job Customization strip, visible on every tab.
-  await openPrepTab(page, "skills");
+  // `prep-learn`/`prep-tree`/`prep-spend-hint` sit on the member view's PROGRESSION face;
+  // `prep-job` is in the dossier's Job Customization module, on the other face — so the
+  // unit's current job is read there first.
+  await openDossier(page);
+  const current = await page.getByTestId("prep-job").inputValue();
+  await openLearn(page);
 
   // The unit's OWN tree is what the panel opens on, and none of it needs a Secondary.
   const own = page.locator('[data-testid="prep-learn"] li');
@@ -365,7 +432,6 @@ test("prep: an action from another job is marked BEFORE it is bought", async ({ 
   // Browse to a tree the unit is NOT in. Discovered, not named: a hard-coded job id here
   // would rot the next time a starting character is re-jobbed, which has already happened
   // four times in this file.
-  const current = await page.getByTestId("prep-job").inputValue();
   const other = await page
     .getByTestId("prep-tree")
     .locator("option")
@@ -458,22 +524,18 @@ test("prep: free things that are going unused SAY so, and stop saying it once us
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
 
-  // Weapon lives on Equipment (the entry tab); traits live on Profile — both two taps in,
-  // on the member view.
-  await openMember(page);
+  // Weapon and traits are both on the DOSSIER now — one sheet, two taps in.
+  await openDossier(page);
   const weaponHint = page.getByTestId("prep-weapon-hint");
   const traitHint = page.getByTestId("prep-traits-hint");
 
   await expect(weaponHint).toBeVisible();
   await expect(weaponHint).toContainText("none equipped");
-  await openPrepTab(page, "profile");
   await expect(traitHint).toBeVisible();
 
-  await openPrepTab(page, "equipment");
   await page.getByTestId("prep-weapon").selectOption("wpn-arming-sword");
   await expect(weaponHint).toHaveCount(0);
 
-  await openPrepTab(page, "profile");
   await page.locator('[data-testid="prep-traits"] input[type="checkbox"]').first().check();
   await expect(traitHint).toHaveCount(0);
 });

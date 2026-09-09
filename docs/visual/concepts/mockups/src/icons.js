@@ -5,6 +5,14 @@
 const PATHS = {
   back: '<path d="M14.5 4.5 7 12l7.5 7.5"/>',
   chev: '<path d="M9 4.5 16.5 12 9 19.5"/>',
+  /* Pass 7: the Primary slot's "LOCKED TO JOB" chip does not fit a 197px sub-column
+     row, so it becomes a padlock in the chevron's own position, with a `title`. */
+  lock: '<rect x="5.4" y="10.6" width="13.2" height="10.4" rx="1.6"/><path d="M8.4 10.6V7.8a3.6 3.6 0 0 1 7.2 0v2.8"/>',
+  /* Pass 13: the Worn Armor slot's own mark — a cuirass, drawn in the same 1.8-weight
+     open-stroke style as every other glyph here, so the empty slot reads as a slot
+     rather than as a note. Shoulder line, breastplate, centre seam. */
+  cuirass:
+    '<path d="M7.6 3.6 12 5.4l4.4-1.8 2.9 2.4-1 3.6 1 1.8-1.3 7.4a2.2 2.2 0 0 1-2.2 1.8H8.2a2.2 2.2 0 0 1-2.2-1.8L4.7 11.4l1-1.8-1-3.6Z"/><path d="M12 5.4v15.2"/>',
   star: '<path d="M12 1.6 13.5 10.4 22.4 12 13.5 13.6 12 22.4 10.5 13.6 1.6 12 10.5 10.4Z"/><path d="M12 5.6 12.9 11.1 18.4 12 12.9 12.9 12 18.4 11.1 12.9 5.6 12 11.1 11.1Z" transform="rotate(45 12 12)"/>',
   scroll: '<rect x="6" y="2.6" width="12" height="18.8" rx="1.6"/><path d="M9 7.4h6M9 11h6M9 14.6h4"/>',
   shield: '<path d="M12 2.4 20 5.4v6c0 5-3.6 8.4-8 10.2-4.4-1.8-8-5.2-8-10.2v-6Z"/>',

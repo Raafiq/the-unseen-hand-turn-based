@@ -25,22 +25,44 @@ import { expect, type Page } from "@playwright/test";
  * player to work out.
  */
 /**
- * Switch the prep panel's right-leaf tab (owner decision 2026-09-07, option A:
- * Equipment / Skills / Profile). A no-op if the tab is already open — Playwright's
- * `.click()` on an already-`aria-selected` tab is harmless, but callers that assert a
- * specific PRIOR tab (the persistence tests) drive `.tab[data-tab=…]` directly instead
- * of through this helper, so it never masks that behaviour.
+ * Open the member DOSSIER — the campaign briefing's member detail (owner: "Approve",
+ * 2026-09-09). One sheet: identity, Stats, Profile + traits on the left; Gear, Armor,
+ * Skills and Job Customization on the right. There are no tabs to switch any more, so
+ * the three-way `openPrepTab` this replaces is gone rather than kept as a shim that
+ * names a control the screen no longer has.
+ *
+ * `/viewer.html`'s showcase panel still mounts the CLASSIC tabbed layout and drives
+ * `.tab[data-tab=…]` directly (`e2e/prep.spec.ts`); nothing here touches it.
  */
-export async function openPrepTab(
-  page: Page,
-  tab: "equipment" | "skills" | "profile",
-): Promise<void> {
-  // The briefing is TWO views since 2026-09-07: the tabs live on the member view, two
-  // taps deep. Opening the member first is what a player does; without it every caller
-  // would click a `display: none` plaque and time out. A no-op on `/viewer.html`, whose
-  // prep screen has no roster at all.
-  await openMember(page);
-  await page.locator(`.tab[data-tab="${tab}"]`).click();
+export async function openDossier(page: Page, memberId?: string): Promise<void> {
+  await openMember(page, memberId);
+  await expect(page.getByTestId("dossier-sheet")).toBeVisible();
+}
+
+/**
+ * Open the member view's LEARN OVERLAY — the AP-priced list, the tree picker and the
+ * receipt — through the control a player uses: the LEARN plate on the Skills heading
+ * (owner pass 14). The overlay exists because the approved dossier has no room for a
+ * permanent learn list, and deleting the list would take AP spending out of the game
+ * (ADR-0027 tunes the finale so an unspent party loses).
+ */
+export async function openLearn(page: Page, memberId?: string): Promise<void> {
+  await openMember(page, memberId);
+  // IDEMPOTENT: opening the overlay closes nothing, so a sweep that calls this on every
+  // member cannot toggle itself shut — but the door is only in the DOM while the overlay
+  // is closed, so the click is conditional on that rather than on a state attribute.
+  if ((await page.getByTestId("dossier-learn").count()) === 0) {
+    await page.getByTestId("prep-learn-open").click();
+  }
+  await expect(page.getByTestId("prep-learn")).toBeVisible();
+}
+
+/** Back to the dossier from the learn overlay. A no-op if it is not open. */
+export async function closeLearn(page: Page): Promise<void> {
+  const close = page.getByTestId("prep-learn-close");
+  if ((await close.count()) === 0 || !(await close.isVisible())) return;
+  await close.click();
+  await expect(page.getByTestId("dossier-learn")).toHaveCount(0);
 }
 
 /**
@@ -63,6 +85,10 @@ export async function openPrepTab(
 export async function openMember(page: Page, memberId?: string): Promise<void> {
   const roster = page.getByTestId("prep-roster");
   if (!(await roster.isVisible())) {
+    // Already in the member view, and this helper does NOT shut the overlay: the page is
+    // supposed to do that on every exit from the member view, and a helper that tidied up
+    // first would hide exactly that bug (it did — the overlay survived Back, the next
+    // briefing and the next member, with every spec green).
     if (memberId === undefined) return;
     // Already in the member view: back out so the named card can actually be clicked.
     const back = page.getByTestId("member-back");
@@ -104,17 +130,18 @@ export async function prepEveryMember(page: Page): Promise<void> {
     // before the click is detached by the time the next one is needed.
     await backToParty(page);
     await page.locator('[data-testid="prep-roster"] button.ptab').nth(i).click();
-    // Owner decision 2026-09-07: buy/equip controls moved onto the right leaf's SKILLS
-    // tab (Equipment is the default). Clicking a roster card does not reset the tab
-    // (that would be the same regression the tab-persistence test guards), but a
-    // FRESH mount — the very first member, on the very first briefing — opens on
-    // Equipment, so the click is unconditional rather than "if not already there".
-    await page.locator('#screen-briefing .tab[data-tab="skills"]').click();
+    // The learn list lives behind the LEARN plate on the Skills heading since the dossier
+    // (2026-09-09). `openLearn` asserts the list actually arrived, so a walkthrough that
+    // silently failed to open it cannot report the same "nothing was affordable" a broke
+    // party does.
+    await openLearn(page);
     for (let guard = 0; guard < 20; guard += 1) {
       const buy = page.locator('[data-testid="prep-learn"] button.buy:not([disabled])').first();
       if ((await buy.count()) === 0) break;
       await buy.click();
     }
+    // The five chassis slots are on the dossier, under the overlay — shut it first.
+    await closeLearn(page);
     // Equip what was just bought. A passive that is learned and never equipped does
     // nothing at all, which is exactly what an untouched slot looks like from outside.
     for (const slot of ["support", "movement", "reaction", "secondary"]) {

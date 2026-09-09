@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { test, expect, type Page } from "@playwright/test";
-import { dismissScene, startNewGame } from "./helpers.js";
+import { dismissScene, openDossier, openLearn, startNewGame } from "./helpers.js";
 
 /**
  * Every screen ported to the concept look (`src/render/overhaul.css`, scoped under
@@ -167,6 +167,32 @@ const SCREENS: { id: ScreenRoot; reveal: (page: Page) => Promise<void> }[] = [
       await startNewGame(page);
       await dismissScene(page);
       await expect(page.getByTestId("screen-briefing")).toBeVisible();
+    },
+  },
+  // THE MEMBER VIEW IS THREE STATES, NOT ONE, AND TWO OF THEM ARE CONDITIONALLY
+  // RENDERED. Before the dossier (owner, 2026-09-09) the member markup sat in the DOM
+  // behind a `display: none` and one walk over party select happened to reach all of it.
+  // The dossier BUILDS its sheet when a member opens and swaps the whole sheet for the
+  // progression face, so a walk that stopped at party select would now scan a third of
+  // the screen and report the same clean bill a leak-free page does — the "checker that
+  // declines to check" shape. Both faces get their own reveal; the triples merge under
+  // the one `screenRoot`.
+  {
+    id: "#screen-briefing",
+    reveal: async (page) => {
+      await page.goto("/");
+      await startNewGame(page);
+      await dismissScene(page);
+      await openDossier(page);
+    },
+  },
+  {
+    id: "#screen-briefing",
+    reveal: async (page) => {
+      await page.goto("/");
+      await startNewGame(page);
+      await dismissScene(page);
+      await openLearn(page);
     },
   },
 ];

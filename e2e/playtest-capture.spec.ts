@@ -5,7 +5,7 @@ import {
   dismissScene,
   freezeMotion,
   openMember,
-  openPrepTab,
+  openLearn,
   settleMotion,
   startNewGame,
   watchStep,
@@ -85,14 +85,14 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await dismissScene(page);
   await shot("02c-briefing-party-select", "screen-briefing");
 
-  // THE MEMBER VIEW IS A SCREEN A PLAYER PASSES THROUGH (the split, owner 2026-09-07),
-  // and a state no capture reaches has no proof frame. Two frames, because the Skills
-  // tab is where the learn list — the whole customization spine — actually lives, and
-  // the Equipment tab cannot show whether it fits the fold.
+  // THE MEMBER VIEW IS A SCREEN A PLAYER PASSES THROUGH (the dossier, owner 2026-09-09),
+  // and a state no capture reaches has no proof frame. Two frames: the dossier itself,
+  // and the progression face behind the AP readout, where the learn list — the whole
+  // customization spine — actually lives.
   await openMember(page, "pc-briar");
-  await shot("02d-briefing-member-equipment", "screen-briefing");
-  await openPrepTab(page, "skills");
-  await shot("02e-briefing-member-skills", "screen-briefing");
+  await shot("02d-briefing-member-dossier", "screen-briefing");
+  await openLearn(page);
+  await shot("02e-briefing-member-learn", "screen-briefing");
   await backToParty(page);
 
   await page.getByTestId("help-open").click();

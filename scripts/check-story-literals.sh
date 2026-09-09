@@ -51,7 +51,8 @@ path = sys.argv[1]
 # a test quoting the middle of a line is caught too.
 #   `lines` — a v1 beat, whose `lines` is a list of bare strings.
 #   `text`  — a v2 line object.
-PROSE_WINDOW = {"lines", "text"}
+#   `lore`  — a character's one-or-two-sentence dossier biography.
+PROSE_WINDOW = {"lines", "text", "lore"}
 
 # Strings under these keys are PROSE matched WHOLE. A title is short enough that a
 # six-word window never forms, so windowing would leave it entirely unguarded — which is
