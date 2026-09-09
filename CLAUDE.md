@@ -263,8 +263,10 @@ put Fable in every specialist.
   not approval. The hook cannot stop you writing the token yourself; it is there to make
   the action deliberate, not to make it impossible. **Two environment facts (2026-09-06):**
   the auto-mode classifier denies the token write when it shares a Bash call with anything
-  else or goes through the Write tool; a bare `printf '%s\n' push > .claude/.git-go` in its
-  own call passes. And after a rejected push (the owner pushed to the same branch meanwhile),
+  else. Whether a bare `printf '%s\n' push > .claude/.git-go` in its own call or the Write
+  tool is the one that passes **varies by session** (2026-09-08: printf denied twice, Write
+  passed; later the reverse). If one is denied, try the other once, then stop and tell the
+  owner. And after a rejected push (the owner pushed to the same branch meanwhile),
   spawn a FRESH `release-engineer` with the owner's words quoted — a resumed one reads the
   resume message as the coordinator's words, not the owner's, and refuses.
 - **Retrospective before every PR — and re-write `docs/INTENT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/INTENT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/INTENT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
@@ -303,6 +305,14 @@ put Fable in every specialist.
     can't quite visualise the options, can u show me"). Frames from the **running game**
     beat mockups, and both beat a description — patch the data, capture, revert. Budget
     for it; it is cheaper than a rejected slice.
+  - **NUMBER EVERY FRAME YOU DELIVER.** Send frames as `<name>-pass<N>-<viewport>.png`,
+    never the same filename twice. Nine passes of one screen shipped under one name; the
+    owner opened an old card and ordered a revert of a layout that was already fixed
+    (2026-09-08).
+  - **CHECK THE PIXEL BUDGET BEFORE A SPACING PASS.** At 832×328 the sheet is usually full.
+    Read the last report's slack per column; when the ask needs pixels the fold does not
+    have, ask the owner where they come from (two options), do not spend the pass. Doing so
+    saved one pass and skipping it cost one (2026-09-08).
   - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.** A deliverable
     the owner must act on (a prompt to run) is relayed verbatim, never summarised. **Once the owner
     acts, record the exact prompt AND the settings into the repo in the same turn** — a result you

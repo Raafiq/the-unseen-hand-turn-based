@@ -1,0 +1,590 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DOSSIER OVERRIDES — the ONLY new CSS in this mockup.
+
+   `dossier.css` is `index.html`'s `:root` token block plus `src/render/overhaul.css`
+   lines 1254-EOF, verbatim. Every visual difference between this page and the shipped
+   member-detail screen is in this file and nowhere else, so the engineer diffs one
+   file rather than a re-typed copy.
+
+   PASS 2 (owner's second brief, 2026-09-08). Proportion, hierarchy, density — not a
+   restyle. Rail 9-10% and subdued, dossier columns 43/57, identity block 25-30% of the
+   dossier height with the NAME as the dominant text, Profile 20-25% and full column
+   width, Job Customization one contained module at 55-60% of the dossier width, every
+   debug-ish label gone.
+
+   NO NEW COLOUR TOKEN, NO NEW GROUND. Every surface is one the screen already has: the
+   leaf's parchment, the `.plaque` blackened steel (the rail mount and the job cards),
+   `--glow` for the selection ring, `--accent` for rules. Only `--ink` is text on
+   parchment; `--label` is the one ink on iron (README §(g)).
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── THE SPACING SCALE (pass 5) ─────────────────────────────────────────────────
+   Three steps, declared once and used everywhere, so the rhythm is a decision rather
+   than an accident of whatever fitted:
+     --gap-s  rows that belong to the same list (Reaction / Support / Movement)
+     --gap-m  between subsections (Wielded Gear -> Worn Armor, Active -> Passive)
+     --gap-l  between major modules (Identity -> Stats -> Profile -> Job Customization,
+              and Worn Armor -> Active Skills, which is a module boundary not a
+              subsection one: Gear ends and Skills begins) */
+#screen-briefing.dossier { --gap-s: 0.18em; --gap-m: 0.42em; --gap-l: 0.76em; --gap-job: 0.46em; --armor-h: 1.515em; }
+
+/* ── the screen: chrome untouched, one leaf, no tabs ────────────────────────── */
+
+/* The leaf is a two-column grid — portrait rail | dossier sheet. `.leaf-solo`'s
+   1.9em banner gutter is dropped because the rail stands in that corner now; the
+   side ribbon is not emitted on this view (the TOP rail keeps its own). */
+#screen-briefing.dossier .leaf-solo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0.6em;
+  padding-left: calc(var(--burn) + var(--burn-spread));
+  align-content: stretch;
+}
+
+/* ── THE 1x6 PORTRAIT RAIL ──────────────────────────────────────────────────────
+   78px = 9.4% of 832, inside the second brief's 9-10% and narrower than pass 1's
+   88px/10.6%.
+
+   THE HEIGHT IS THE CONSTRAINT AT 328, NOT THE WIDTH. Below the top rail (44px, the
+   back plaque's tap floor) the board is ~267px; six cells at the 44px tap floor need
+   264 of it, so the rail cannot live inside the leaf's own burn padding and still
+   clear the floor — inside the padding the cells measure 43.3px, one pixel short.
+
+   So the rail BLEEDS: negative margins carry it through the leaf's burn padding and
+   the board's own 0.3em, and it sits flush in the board's inner corner as a mounted
+   steel strip. That is the same idiom the wax Deploy plate already uses on this
+   screen (it breaks the leaf's corner by design), not a new one — and it is what
+   buys the cells 44.5px at 328 and 53.8px at 384, both above the floor, with no
+   change to the screen's outer padding or the top rail. "Reduce the portrait height
+   slightly if required" is therefore NOT taken: there is no slack to give back. */
+#screen-briefing.dossier .rail {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 5;
+  list-style: none;
+  padding: 0;
+  width: 78px;
+  margin: calc(-1 * (var(--burn) + var(--burn-spread)) - 0.3em) 0;
+  margin-left: calc(-1 * (var(--burn) + var(--burn-spread)) - 0.3em);
+  display: grid;
+  grid-template-rows: repeat(6, minmax(44px, 1fr));
+  align-content: stretch;
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 40%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset -0.1em 0 0.4em rgba(0, 0, 0, 0.55),
+    0.16em 0 0.5em rgba(0, 0, 0, 0.55);
+}
+#screen-briefing.dossier .rmember { position: relative; min-height: 0; display: block; }
+#screen-briefing.dossier .rtab {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  background: #2b2320;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 226, 180, 0.09);
+}
+#screen-briefing.dossier .rtab img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* MEASURED, NOT GUESSED: the six crops were rendered at this cell size through
+     6/12/18/24% and only 24% puts eyes AND mouth inside the cell for all six — at 6%
+     four of the six are foreheads. `archer-m` (Vance) is still the weakest read,
+     which the crop README already flags as the weakest framing in the set. */
+  object-position: 50% 24%;
+  display: block;
+}
+#screen-briefing.dossier .rtab img.pending { object-fit: contain; background: #e2cfa0; padding: 4%; }
+#screen-briefing.dossier .rtab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(74, 40, 14, 0.06), rgba(74, 40, 14, 0.34));
+}
+/* SUBDUED, NOT DIMMED OUT (hierarchy rule 10: the rail must never overpower the
+   selected character). The five unselected faces lose saturation and a little light
+   and gain the leaf's warm scrim; they stay legible enough to pick a face from, and
+   the one at full colour is unmistakably the subject. Nothing is hidden and no
+   opacity is dropped — a greyed tile would read as disabled, and these are all live. */
+#screen-briefing.dossier .rmember:not(.on) .rtab img { filter: saturate(0.5) brightness(0.84) contrast(0.96); }
+#screen-briefing.dossier .rmember:not(.on) .rtab::after { background: linear-gradient(180deg, rgba(74, 40, 14, 0.2), rgba(74, 40, 14, 0.46)); }
+#screen-briefing.dossier .rmember:not(.on) .rtab:hover img { filter: none; }
+
+/* THE EXISTING GOLD SELECTION MARK, moved inside the cell edge. `.member.on .ptab`'s
+   0.14em OUTER ring needs a gap to sit in and the rail has none to spare at 328, so
+   the same `--glow` reads as an inset border plus the same outer bloom.
+
+   THE RING RIDES `::after`, NOT THE BUTTON. An inset box-shadow paints under the
+   element's CONTENT, and the content here is a full-bleed <img> — the first cut put
+   the ring on `.rtab` and the portrait covered it completely, so the selected member
+   was unmarked in the frame while the CSS said otherwise. Caught on a 4x crop; at 1x
+   it read as a slightly warmer cell. */
+#screen-briefing.dossier .rmember.on .rtab { box-shadow: 0 0 0.7em 0.02em rgba(252, 193, 75, 0.5); }
+#screen-briefing.dossier .rmember.on .rtab::after {
+  background: linear-gradient(180deg, rgba(252, 193, 75, 0.1), rgba(74, 40, 14, 0.16));
+  box-shadow:
+    inset 0 0 0 2px var(--glow),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.65),
+    inset 0 0 0.9em rgba(252, 193, 75, 0.4);
+}
+
+/* ── THE SHEET ──────────────────────────────────────────────────────────────────
+   Two columns at 43 / 57, and a bottom band for the Job Customization module.
+
+   THE MODULE CANNOT LIVE INSIDE THE LEFT COLUMN. The brief pins the left column at
+   43% and the module at 55-60% of the DOSSIER width, so it has to overhang — it is a
+   row-2 band running from the dossier's left edge to 57% of it. The cost is real and
+   it is the right column's: the band takes ~47px off the full height, so Gear and
+   Skills lay out in ~191px rather than 238. That is what the "Skills" umbrella
+   heading was spent on (see below). */
+#screen-briefing.dossier .sheet {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 43% minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0.66em;   /* Profile -> Job Customization. It is a SHEET row-gap, shared by both columns, so every px here is taken off BOTH; the left column has 0 slack at 328, so this is as large as the named boundary can be there. */
+}
+#screen-briefing.dossier .scol-main { grid-column: 1; grid-row: 1; }
+#screen-briefing.dossier .scol-side { grid-column: 2; grid-row: 1; }
+#screen-briefing.dossier .scol {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0;
+}
+/* IDENTITY AND STATS MUST NOT MOVE A PIXEL. Pass 8's left column was `space-between`
+   with almost no slack, so its two gaps were whatever was left: 2.2px at 328 and 11.0px
+   at 384. With the job band gone the column has ~49px more, and `space-between` would
+   have spent it on those gaps and pushed Stats down. The two gaps are pinned to the
+   values pass 8 measured instead, and Profile takes the whole surplus. */
+#screen-briefing.dossier .scol-main { gap: 0.184em; }
+@media (min-height: 351px) { #screen-briefing.dossier .scol-main { gap: 0.884em; } }
+#screen-briefing.dossier .blk { min-width: 0; flex: 0 0 auto; }
+
+/* ── 2. THE IDENTITY BLOCK — the subject of the screen ──────────────────────────
+   Pass 1's head was a portrait with a name beside it and no edge of its own, which is
+   what "too visually weak" was about. It is now a bounded plate on the same lighter
+   parchment the Profile uses, the name is the largest type on the sheet at 1.95em
+   (the section headings are 0.8em), and the crest sits on the job line.
+
+   THE PORTRAIT CANNOT GROW MUCH AT 328, and that is arithmetic, not taste: the block
+   is capped at 30% of a 238px dossier = 71px, and pass 1's portrait was already 68px
+   tall. It gains ~4px here; at 384 it reaches 88px. What actually changed the read is
+   the name size and the frame. Said plainly because "noticeably larger portrait" is
+   the one instruction in the second brief this fold cannot honour. */
+#screen-briefing.dossier .ident {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55em;
+  padding: 0.13em 0.4em 0.15em 0.3em;
+  background: rgba(255, 240, 210, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.4), inset 0 0 0 3px rgba(138, 101, 36, 0.16);
+}
+/* THE PORTRAIT SIZES THE BLOCK, not the other way round — a `height: 100%` portrait
+   was tried and made things WORSE: with no free space in the column at 328 the block
+   collapsed onto the text stack and the face fell to 38x51. The em keeps it at 47x62
+   (29% of the dossier, against the brief's 30% ceiling) and 49x65 at 384. "Noticeably
+   larger portrait" is bounded by that 30% cap, not by taste — pass 1's was already
+   68px, so this is ~4px of growth and the read comes from the name and the frame. */
+/* SUBSTANTIALLY LARGER, and the 30% cap is off (owner, pass 3). 5.4em is 64x86 at 328
+   against pass 2's 47x62 — 1.9x the area — and 67x90 at 384. The height it costs comes
+   out of Profile, which the same note asked to shorten; Stats gained rather than lost. */
+#screen-briefing.dossier .ident .hero { width: 5.4em; height: auto; aspect-ratio: 3 / 4; flex: 0 0 auto; }
+/* THE LEAK: overhaul.css's `max-height: 400px` block turns `.idcol` into a wrapping
+   ROW (`#screen-briefing .idcol`, unscoped) so the shipped head fits on one line. Both
+   of the owner's folds are under 400px, so the identity block came out as
+   "Briar ✧ ARCHER 0 AP" on a single baseline — the opposite of a dominant name. It is
+   a column again here, and the name owns its own line. */
+/* PASS 10, item 1. The AP used to sit on its own third row, right-aligned, which left a
+   129px void beside "Archer" and a second one beside the name. The column becomes a small
+   grid: the name owns row 1, a hairline spans row 2, and row 3 carries the job line at the
+   left and the AP at the right — the same three pieces of information, now bracketing a
+   rule instead of floating. The stack's total height is unchanged, so the name does not
+   move: `.ident h2` is one of the pinned boxes. */
+#screen-briefing.dossier .ident .idcol {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  justify-items: start;
+  column-gap: 0.5em;
+}
+#screen-briefing.dossier .ident .nameline { grid-column: 1 / -1; grid-row: 1; }
+#screen-briefing.dossier .ident .idrule {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  height: 1px;
+  /* 0.542em, not a round 0.5: the stack must total exactly what nameline + jobline +
+     apline totalled, or the pinned `.ident h2` box moves. Measured, then set. */
+  margin: 0.617em 0;
+  background: linear-gradient(90deg, var(--accent), rgba(138, 101, 36, 0.12));
+}
+/* PASS 11, item 2. `align-self: center` centred two DIFFERENT type sizes in the same row,
+   so their baselines sat 0.3px apart; and the AP was 11.35px against the job label's 10.99.
+   Both now sit on one baseline at one size — same face (Cinzel), same cap height, related by
+   the rule that spans from the job label's left edge to the AP's right. */
+#screen-briefing.dossier .ident .jobline { grid-column: 1; grid-row: 3; align-self: center; line-height: 1; }
+#screen-briefing.dossier .ident .apline { grid-column: 2; grid-row: 3; align-self: center; justify-self: end; line-height: 1; }
+#screen-briefing.dossier .ident .nameline { position: relative; z-index: 1; }
+#screen-briefing.dossier .ident .nameline h2 { font-size: 2.4em; line-height: 1.0; }
+#screen-briefing.dossier .ident .jobline { margin: 0; font-size: 0.92em; position: relative; z-index: 1; }
+#screen-briefing.dossier .ident .jobline svg { width: 1em; height: 1em; }
+/* PASS 3: the crest watermark is GONE (owner: "remove the decorative crosshair and the
+   large unused area"). What fills the card now is the portrait itself — 5.4em instead
+   of 3.9em — and AP moved to the card's right edge, so both ends of the plate carry
+   content and the space between them is a gutter rather than a void. */
+#screen-briefing.dossier .ident { position: relative; overflow: hidden; }
+#screen-briefing.dossier .apline {
+  margin: 0;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.92em;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* ── 3. Stats: four compact columns, two rows, directly under the identity ──── */
+/* STATS OUTRANKS PROFILE (pass 3). The cell grows from 14px to ~20px, the value from
+   0.74em to 0.9em, and the row gap doubles — so the block reads as the second thing on
+   the screen after the name, and Profile reads as the fourth. */
+#screen-briefing.dossier .stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3em 0.32em; margin-top: 0.24em; }
+#screen-briefing.dossier .stat-row li { font-size: 0.9em; padding: 0.32em 0.42em; }
+/* PASS 10, item 4. Every other roman micro-label on the sheet (`.gcap`, `.jcap`,
+   `.subhead`) is weight 600; the stat key alone was 400. Weight only — the cell's box is
+   one of the pinned ones and does not move. */
+#screen-briefing.dossier .stat-row .k { font-weight: 600; }
+
+/* ── 4/5. Right column: Gear, then Skills, with real separation ────────────────
+   CONSISTENT ROW HEIGHTS are set here rather than left to content: every slot row is
+   the same 1.9em box whether it holds a select or locked text, which is what makes
+   the two Gear rows and the five Skill rows read as one sequence.
+
+   The standalone "Skills" heading is GONE and "Active Skills"/"Passive Skills" are
+   full section headings instead. That is the brief's own heading list, and it is
+   also what pays for the 47px the Job Customization band takes off this column. */
+/* THE TRADE, NAMED. Six control rows at 22px is 132px of a 195px column; four section
+   headings and one Worn Armor line need the other 63. So the headings shrink (0.68em)
+   and the whitespace BETWEEN sections goes to ~2px — the separation is carried by each
+   heading's fleuron and gold rule instead of by air. Taller controls and airy section
+   gaps cannot both fit at 328 while the Job Customization band takes 44px off the top
+   of this column; the owner asked for taller rows, so the air is what was spent. */
+/* PACK FROM THE TOP (owner, pass 8). `space-between` was spreading the right column's
+   surplus into the two section gaps — 25.9px and 35.0px at 384 — which is the "large
+   empty band between Worn Armor and Skills" the owner struck out. The column now packs:
+   Gear, the medium step, Worn Armor, the large step, Skills, and whatever is left is
+   open parchment BELOW Skills, which the same note says is acceptable. */
+#screen-briefing.dossier .scol-side { justify-content: flex-start; gap: 0; }
+#screen-briefing.dossier .scol-side .blk + .blk { margin-top: var(--gap-m); }
+#screen-briefing.dossier .scol-side .blk.sep-large { margin-top: var(--gap-l); }
+/* Skills -> Job Customization: 9.1px -> 5.5px, the owner's floor, never below. */
+#screen-briefing.dossier .scol-side .jobstrip.sep-large { margin-top: var(--gap-job); }
+/* Wielded Gear -> Worn Armor: the medium step drops to the small one. */
+#screen-briefing.dossier .scol-side .blk + .blk-armor { margin-top: var(--gap-s); }
+/* Both Gear headings sit directly on their row; each heading's own gold rule is what
+   separates it, so the 2.1px step is spent rather than the gap above the section. */
+#screen-briefing.dossier .scol-side .blk:first-child .sect + .gearrow { margin-top: 0; }
+#screen-briefing.dossier .scol-side .sect + .gearrow,
+#screen-briefing.dossier .scol-side .subhead + .gearrow,
+#screen-briefing.dossier .scol-side .gearrow + .gearrow { margin-top: var(--gap-s); }
+#screen-briefing.dossier .scol-side .sect { font-size: 0.62em; }
+/* The row height is set by the brass roundel, not by `min-height` — 1.45em of disc
+   plus the row's own padding is ~20px, and five of those plus four headings did not
+   fit the 194px the Job band leaves. 1.3em brings the row to ~18px, still one
+   consistent height for all five slots and all Gear rows. */
+#screen-briefing.dossier .scol-side .roundel { width: 1.42em; height: 1.42em; }
+#screen-briefing.dossier .scol-side .roundel svg { width: 0.84em; height: 0.84em; }
+#screen-briefing.dossier .scol-side .gval { font-size: 0.72em; }
+/* WORN ARMOR IS ONE ROW, NOT TWO (owner: "favor horizontal organization over
+   additional vertical expansion"). Same words, same order — the heading and its single
+   line share a row instead of costing two, and that ~10px is most of what pays for the
+   two new gaps in this column. The heading drops its trailing gold rule here because
+   the line itself now occupies that space. */
+/* PASS 10, item 4. Worn Armor was the one section heading with no gold rule — dropped in
+   pass 6 when it became a one-line row. It gets the same treatment as every other heading;
+   the rule is inside the heading's own line box, so the row's height is unchanged. */
+/* ── PASS 12: WORN ARMOR IS A REAL SLOT ROW ─────────────────────────────────────
+   Heading with its rule on its own line, then a full-width disabled row on the Main
+   Hand row's own left and right edges. Funded exactly as the owner ordered, in order:
+   the 6.1px of column slack, the Skills -> Job Customization gap down to 5.5px (never
+   below), then spacing INSIDE the Gear block. Nothing else moves; `.jobstrip` slides
+   down by what is spent and keeps its size. */
+
+#screen-briefing.dossier .scol-side .blk-armor .sect + .armorrow { margin-top: 0; }
+#screen-briefing.dossier .scol-side .blk-armor .armorrow {
+  /* NOT 28.1px, and the shortfall is arithmetic: a full Main Hand row needs 26.8px more
+     than the old one-line block, and the three permitted sources add up to less. The
+     height below is the tallest the budget reaches. */
+  height: var(--armor-h);
+  min-height: 0;
+  /* ONE LINE, not the Main Hand row's stacked cap-over-value: at 18.1px the two-line
+     stack (7.8 + 10.2) leaves no padding. Glyph then value, left to right, on the Main
+     Hand row's own left and right edges — and with the redundant "ARMOR" cap gone
+     (pass 13) the value lands on 434.3, the SAME x as "Unarmed - 64 damage". */
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  padding: 0.02em 0.34em 0.02em 0.22em;
+  background: rgba(120, 92, 44, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.22);
+  cursor: default;
+}
+#screen-briefing.dossier .scol-side .blk-armor .armorrow .gval { grid-column: 2; grid-row: 1; }
+/* THE EMPTY SLOT'S MARK. It keeps the brass roundel's column width (1.42em) so the
+   value lands on the Main Hand value's x, but it is drawn as an unfilled disc holding
+   the cuirass glyph — the same recipe as a live roundel with the brass taken out, which
+   is what makes it read as an empty slot rather than a missing one. */
+#screen-briefing.dossier .scol-side .blk-armor .armorrow .roundel-empty {
+  width: 1.42em;
+  height: 1.42em;
+  background: rgba(120, 92, 44, 0.1);
+  background-image: none;
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.4);
+  display: grid;
+  place-items: center;
+}
+#screen-briefing.dossier .scol-side .blk-armor .armorrow .roundel-empty svg {
+  width: 0.82em;
+  height: 0.82em;
+  color: var(--ink);
+  /* FULL INK, not faded. Fading the glyph is the obvious way to say "empty" and it is
+     the wrong one here: at 0.55 the composited mark measured 2.14:1 against its own
+     disc and at 0.8 it measured 2.62:1, both under the 3:1 a meaningful non-text mark
+     owes. At full strength it measures 3.40:1. What carries "empty" is the disc having
+     no brass and the value being italic — not a glyph nobody can see. */
+  opacity: 1;
+}
+#screen-briefing.dossier .scol-side .blk-armor .armorrow .gval { font-style: italic; }
+
+#screen-briefing.dossier .empty { margin: 0.06em 0 0; font-size: 0.64em; padding: 0.2em 0.4em; }
+
+/* ── PASS 7: SKILLS IS ONE SECTION WITH TWO SUB-COLUMNS ─────────────────────────
+   Five slots stacked under three headings made the right column read as one long
+   form. They now sit side by side under a single "Skills" heading — Active (2 slots)
+   left, Passive (3) right — which is the same content in half the vertical space and
+   is what pays back the row height and the section gaps passes 5 and 6 had to shave.
+   Each sub-column is ~197px of the 402px column: roundel, label, value and chevron all
+   still fit, measured rather than assumed. */
+#screen-briefing.dossier .blk-skills { flex: 0 0 auto; display: flex; flex-direction: column; }
+#screen-briefing.dossier .skillcols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0.66em;
+}
+/* THREE EQUAL ROW TRACKS IN BOTH SUB-COLUMNS. Passive has three slots and Active two,
+   so a plain stack would give the two sides different row heights the moment the block
+   has spare height — worse at 384, where the reclaimed space is largest. Both columns
+   get the same three tracks; Active fills two and leaves the third empty, so every slot
+   row on the screen is the same height at any fold, and the spare height goes INTO the
+   rows instead of pooling as parchment under them. */
+/* ONE FIXED ROW HEIGHT FOR EVERY SLOT ON THE SCREEN. Two earlier cuts let the rows
+   flex: `1fr` tracks made them 42.8px at 384 (a banner, 13px taller than the Gear row
+   above), and capping the track parked the surplus inside the grid instead. A fixed
+   2.35em is the same height in the Gear row and in both sub-columns at both folds, and
+   the surplus goes where the owner asked — into the section gaps. Active has two slots
+   and Passive three, so the Active sub-column simply ends one row early; that is the
+   content, not a hole to fill. */
+#screen-briefing.dossier .skillcol {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-s);
+}
+#screen-briefing.dossier .scol-side .gearrow { height: 2.35em; min-height: 0; margin-top: 0; padding: 0.2em 0.34em 0.2em 0.22em; }
+#screen-briefing.dossier .scol-side .sect + .gearrow { margin-top: var(--gap-s); }
+/* PASS 10, item 3. ACTIVE SKILLS / PASSIVE SKILLS were 6.69px next to 5.97px slot labels
+   in the same face and the same weight — a 0.7px step, which is not a rank. They now carry
+   the section-heading idiom one level down: wider tracking and a trailing gold rule, the
+   same mark `.sect` uses. The rule lives inside the label's own line box, so the section
+   gains no height. */
+#screen-briefing.dossier .subhead {
+  margin: 0 0 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.56em;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#screen-briefing.dossier .subhead::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), rgba(138, 101, 36, 0.05));
+}
+/* THE PRIMARY SLOT'S LOCK. "LOCKED TO JOB" is ~50px of chip and the value column in a
+   197px row is ~120px — the chip pushed "Aim (Archer)" into an ellipsis. It becomes a
+   padlock in the chevron's own slot with `title="Locked to job"`, so the row keeps its
+   roundel / label / value / affordance shape and the meaning survives as a mark rather
+   than a truncated sentence. Named here because a dropped label is a content change. */
+#screen-briefing.dossier .lockmark { opacity: 0.85; }
+
+/* ── 6. Profile: a parchment prose block, full column width ────────────────────
+   No chip, no label, no trait helper — the second brief strikes every one of those.
+   The prose is sample biography in the game's voice; the HTML says so in a comment
+   where a player can never see it. */
+/* PROFILE +12-15% TALLER, SAME WIDTH. The height comes out of `.scol-main`'s own
+   space-between gutters (4.6px each at 328, 21.6px at 384) — the gap between Profile and
+   Job Customization, exactly where the owner said to take it. Nothing above it moves:
+   the identity block and Stats keep their measured heights to the pixel. */
+#screen-briefing.dossier .profile {
+  margin-top: 0.1em;
+  padding: 0.5em 0.44em 0.52em;
+  background: rgba(255, 240, 210, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(55, 37, 25, 0.35);
+}
+#screen-briefing.dossier .lore { margin: 0; font-size: 0.66em; font-style: italic; line-height: 1.5; color: var(--ink); }
+
+/* ── 7. Job Customization: one contained module, 57% of the dossier ─────────── */
+/* PASS 9: the module is the RIGHT column's last block, at that column's full 402px.
+   The sheet's row-2 band is gone with it, which is what frees ~49px for Profile on the
+   left and fills the lower-right quadrant on the right. `.sep-large` gives it the same
+   large step Skills gets, so it reads as the third module in a sequence, not a footer. */
+#screen-briefing.dossier .jobstrip { width: auto; margin-top: 0; }
+/* CHANGE JOBS IS PART OF THE HEADING ROW. Pass 3 already had the plate inside the
+   heading's box (top +0.9px, bottom -0.9px) — geometry was never the problem. What made
+   it read as "floating above the cards" was that it sat 2.3px off the Main card and 6px
+   off the end of the heading's gold rule, so the eye grouped it downward. Three fixes,
+   all in this row: the plate's TEXT BASELINE is aligned to the heading's (not their box
+   centres), the rule runs up to it (gap 0.5em -> 0.26em), and the cards drop to ~6px
+   below the row so the header owns the plate and the cards are clearly a second band.
+   The cards are still directly beneath the header; nothing else moves. */
+#screen-briefing.dossier .modhead { display: flex; align-items: baseline; gap: 0.3em; }
+/* THE ACTUAL CAUSE, and only the 4x outlined crop showed it. Two passes of geometry said
+   the plate was inside the heading box and on its baseline, and it was — but `.sect::after`
+   is `linear-gradient(90deg, var(--accent), rgba(138,101,36,0.05))`, so the heading's gold
+   rule FADES TO NOTHING over its last ~27px. The plate therefore ended with ~30px of blank
+   parchment to its left and nothing joining it to the title: visually orphaned, hovering
+   over the cards. In this one header the rule holds its colour to the end, so the row reads
+   as title - rule - action. Every other `.sect` on the screen keeps the fading rule. */
+#screen-briefing.dossier .modhead .sect::after {
+  background: linear-gradient(90deg, rgba(138, 101, 36, 0.25), var(--accent) 22%, var(--accent));
+}
+#screen-briefing.dossier .modhead .sect { flex: 1 1 auto; min-width: 0; font-size: 0.8em; }
+#screen-briefing.dossier .jchange {
+  flex: 0 0 auto;
+  align-self: baseline;
+  line-height: 1;
+  position: relative;
+  /* The Main-job card's own 44px select overlay is LATER in the DOM and was painting
+     over this button's overlay, so two thirds of Change Jobs was un-tappable. Caught
+     by `elementFromPoint`, not by the screenshot — a stacking bug is invisible in a
+     frame. The engineer inherits this: overlapping 44px overlays need an order. */
+  z-index: 4;
+  cursor: pointer;
+  border: 0;
+  /* PASS 10, item 2. The flex `align-items: baseline` on `.modhead` already aligns the two
+     text baselines exactly; the residual I first "measured" was line-box bottoms, which the
+     heading's larger leading makes differ by 0.9px whatever the baselines do. Redistributing
+     this padding to chase it moved the whole pinned row instead, and was reverted. Verified
+     on a 4x crop with both boxes outlined. */
+  padding: 2px 0.5em;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.66em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+  background-color: var(--plaque);
+  background-image: linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 42%, var(--plaque-lo) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 226, 180, 0.14), 0 0 0 1px var(--brass);
+}
+/* A REAL 44px TAP TARGET AT NO LAYOUT COST — the identical construction `select.gval`
+   and `select.jval` already use at these two folds (overhaul.css, the max-height:400px
+   block): an overlay taken out of flow, so the visible plate stays ~15px and the thing
+   a thumb hits is 44. The plate is not a smaller target; it is a smaller PICTURE. */
+#screen-briefing.dossier .jchange::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 44px;
+}
+#screen-briefing.dossier .jobrow { grid-template-columns: 1fr 1fr; gap: 0.4em; margin-top: 0.52em; padding-right: 0; }
+/* TWO MEDIUM CARDS, NOT TWO BARS. The compact fold folds the plaque onto ONE row
+   (`.jval` into an implicit third grid column beside the pips) because the shipped
+   strip is full-width — 390px a side. A module at 57% gives each card ~200px, and at
+   that width the five job pips overflowed their column and were drawn straight
+   THROUGH "— none —". Measured, not guessed: `.jhead` was 71px, its cap and pips need
+   84px. The card goes back to the base two-row shape, which both fixes the collision
+   and is what makes it read as a card. The select keeps its 44px overlay — now
+   resolved against the value row's own grid area, so it lands under the caption. */
+/* PASS 13, item 2. The cards wore the same blackened-steel recipe as the Change Jobs
+   plate and the top rail's plaques, which made two 199px slots the heaviest objects in
+   the module. The plate lifts a half-step toward parchment (#1d1e1e -> #3d372f), the
+   1px black ring softens to 55% and the outer drop shadow goes; the geometry is
+   untouched. Change Jobs keeps the full-weight recipe, so it is now the strongest mark
+   in the module rather than competing with two large slabs. */
+#screen-briefing.dossier .jplaque {
+  background-color: #3d372f;
+  background-image: var(--grain), linear-gradient(180deg, #4a4239 0%, #3d372f 44%, #342f28 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 226, 180, 0.09),
+    inset 0 -0.1em 0.3em rgba(0, 0, 0, 0.3);
+  height: auto;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.42em;
+  padding: 0.26em 0.44em 0.28em 0.3em;
+}
+#screen-briefing.dossier .jcrest { grid-column: 1; grid-row: 1 / 3; width: 1.6em; height: 1.6em; }
+#screen-briefing.dossier .jcrest svg { width: 1em; height: 1em; }
+#screen-briefing.dossier .jhead { grid-column: 2; grid-row: 1; }
+#screen-briefing.dossier .jval { grid-column: 2; grid-row: 2; font-size: 0.8em; }
+#screen-briefing.dossier .pips { margin-left: auto; }
+/* The unfilled pips were #3a352e against the old #1d1e1e plate; on the lighter plate
+   they would vanish, so they darken by the same half-step the plate lightened. The
+   lit pip keeps `--glow`. */
+#screen-briefing.dossier .jplaque .pips i:not(.on) { background: #221e19; }
+
+/* ── 832x328 ONLY: the trade the owner named ────────────────────────────────────
+   The right column holds six control rows, four section headings and the Worn Armor
+   line in 194px. With the scale above (2 + 5 + 9 px) that leaves 6 x 19.6px for the
+   rows, so the generous row padding above cannot survive this fold. The owner's
+   instruction was explicit: trade the ROW PADDING, not the section gaps. So the gaps
+   are untouched here and the padding comes back down — rows go 23.2px -> ~19.7px at
+   328 and stay ~26px at 384.
+
+   THE LEFT COLUMN CANNOT TAKE THE SCALE AT ALL AT THIS FOLD, and that is arithmetic,
+   not a choice: the locked identity block (93px), Stats (56.5px) and Profile (44px)
+   sum to 193.5 of the 194px available, so its two "large" gaps measure under a pixel.
+   Stats-cell and Profile padding therefore also stay at their pass-4 values here and
+   grow only at 384. Nothing in the left column is allowed to shrink to make room. */
+@media (max-height: 350px) {
+  #screen-briefing.dossier .stat-row li { padding: 0.15em 0.42em; }
+  #screen-briefing.dossier .stat-row { gap: 0.2em 0.32em; }
+  #screen-briefing.dossier .profile { padding: 0.6em 0.5em 0.62em; }
+  #screen-briefing.dossier .jplaque { padding: 0.09em 0.44em 0.11em 0.124em; }
+}
+
+/* ── things this view does not have ─────────────────────────────────────────────
+   No tabs, no Deploy plate, no in-content back button, no foot rail. */
+#screen-briefing.dossier .tabs,
+#screen-briefing.dossier .seal,
+#screen-briefing.dossier .footrail { display: none; }

@@ -96,7 +96,25 @@ Read this before telling the owner "nothing is pending". Three asks are open.
 
 ---
 
-## THE NEXT SLICE — two halves, in this order
+## THE NEXT SLICE — the character dossier (owner, 2026-09-08)
+
+Owner: "Our next slice will be about the character details." The six-deploy half and the
+combat revamp below are **deferred behind it**, in that order, not cancelled.
+
+The whole ask, every owner note and the owner's decisions are in
+`intent/character-dossier.md` (status: accepted). The approved mockup is
+`docs/visual/concepts/mockups/dossier-832x{328,384}.png`, source `mockups/src/dossier.html`.
+Read the intent file's five sections, not the verbatim briefs below them.
+
+- One dossier, no tabs: a 1×6 portrait rail, left column Identity / Stats / Profile, right
+  column Gear / Skills (Active | Passive side by side) / Job Customization. No Deploy here.
+- Breaks ADR-0041's tabbed member detail: a new ADR, plus `docs/10` AC-V51…AC-V61 rewritten.
+- Six lore lines go in the story pack (`content-author`); no test may pin the prose.
+- "Reaction" stays; "Counter" in the briefs is not a rename. No level, no armor slots.
+- Build order: content-author (lore) → viewer-engineer (one pass, to the frames) →
+  reviewer → fixes → docs-steward → retrospective → PR.
+
+## THE SLICES AFTER — two halves, in this order
 
 ### (a) Six player placements on every map, plus an enemy retune
 

@@ -54,6 +54,8 @@ case "$tool" in
     # Each `cat <args>` segment: any existing text file over the threshold.
     printf '%s\n' "$cmd" | grep -Eo '(^|[;&|(][[:space:]]*)cat[[:space:]]+[^;&|]+' | sed -E 's/^[;&|(]*[[:space:]]*cat[[:space:]]+//' \
     | while read -r args; do
+        # `cat > f` / `cat >> f <<EOF` WRITES the file; the redirection is the tell.
+        case "$args" in *'>'*) continue;; esac
         for a in $args; do
           case "$a" in -*) continue;; esac
           f="$a"; [ -f "$f" ] || f="$root/$a"; [ -f "$f" ] || continue

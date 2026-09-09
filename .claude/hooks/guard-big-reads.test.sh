@@ -32,5 +32,7 @@ r 0 "cat big file | head"              "$(bash_json "cat $B | head -40")"
 r 0 "cat big file | grep"              "$(bash_json "cat $B | grep 7")"
 r 0 "sed a range of the big file"      "$(bash_json "sed -n 100,140p $B")"
 r 0 "cat a file that does not exist"   "$(bash_json "cat $tmp/nope.ts")"
+r 0 "cat >> big file is a write"        "$(bash_json "cat >> $B <<'EOF'")"
+r 0 "cat > big file is a write"         "$(bash_json "cat > $B")"
 r 0 "Read of a missing file"           "$(read_json "$tmp/nope.ts")"
 echo; [ "$fails" = 0 ] && echo "ALL OK" || { echo "$fails FAILED"; exit 1; }
