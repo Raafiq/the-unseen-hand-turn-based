@@ -1,4 +1,4 @@
-<!-- written-against: HEADSHA -->
+<!-- written-against: 9c48dad -->
 <!-- The character dossier (ADR-0042) is IN THE TREE at this stamp: one sheet, a 1x6 rail,
      the LEARN overlay, lore in the story pack. 998 tests, 211 browser specs. -->
 
