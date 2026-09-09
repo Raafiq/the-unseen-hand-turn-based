@@ -193,6 +193,23 @@ export function portraitArtCoverage(): { missing: string[]; extra: string[] } {
 }
 
 /**
+ * THE ONE ROSTER-ID → STORY-CHARACTER JOIN, in the render layer, exported.
+ *
+ * A battle-roster record is `pc-briar`; the story pack's character is `briar`
+ * (`src/render/CLAUDE.md`, "a battle unit's id is a slot id"). That `pc-` prefix was
+ * written out at three sites — the portrait link check below, `game.ts`'s Profile lore,
+ * and the sim's own story test — and three copies of one convention is three places for
+ * it to drift. The two RENDER sites now share this; `src/sim/story.test.ts` keeps its
+ * own on purpose, because the sim may not import the render layer (ADR-0007).
+ *
+ * A LOOKUP, NOT A RULE: it answers "which character is this record", and nothing about
+ * what may be equipped, learned or shown. That is why it belongs here and not in the sim.
+ */
+export function storyCharacterFor(rosterId: string): StoryPack["characters"][number] | undefined {
+  return story.characters.find((c) => `pc-${c.id}` === rosterId);
+}
+
+/**
  * Mismatches between the scene player's story-pack `asset` and the unit card's
  * {@link PORTRAIT_BY_UNIT} entry, for every story character whose id — prefixed
  * `"pc-"` — names a roster unit. The scene player resolves art through `resolveBeat`
@@ -211,9 +228,9 @@ export function portraitLinkMismatches(): Array<{
 }> {
   const rosterIds = new Set([...campaign.party.map((r) => r.id), ...campaign.cast.map((r) => r.id)]);
   const mismatches: Array<{ rosterId: string; storyAsset: string; tableAsset: string }> = [];
-  for (const c of story.characters) {
-    const rosterId = `pc-${c.id}`;
-    if (!rosterIds.has(rosterId)) continue;
+  for (const rosterId of rosterIds) {
+    const c = storyCharacterFor(rosterId);
+    if (c === undefined) continue;
     const storyAsset = c.portrait?.asset ?? "placeholder";
     const tableAsset = PORTRAIT_BY_UNIT[rosterId] ?? "placeholder";
     if (storyAsset !== tableAsset) mismatches.push({ rosterId, storyAsset, tableAsset });

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ZodError } from "zod";
 import {
   MIN_SUPPORTED_STORY_SCHEMA_VERSION,
   STORY_SCHEMA_VERSION,
@@ -103,6 +104,43 @@ describe("the story pack is a versioned codec of its own", () => {
     expect(() =>
       parseStoryPack(pack({ entries: [{ battleId: "b1", after: { lines: [{ text: "x" }] } }] })),
     ).toThrow();
+  });
+});
+
+describe("a character's optional lore (intent/character-dossier.md, Profile lore)", () => {
+  it("DISCRIMINATING: parses and carries the EXACT string, not just presence", () => {
+    const lore = "Grew up on the docks; never lost the accent.";
+    const p = parseStoryPack(
+      pack({
+        characters: [
+          { id: "kest", name: "Kest", lore },
+          { id: "briar", name: "Briar" },
+        ],
+      }),
+    );
+    expect(p.characters[0]!.lore).toBe(lore);
+  });
+
+  it("DISCRIMINATING: rejects lore over the 240-char cap, at the character's path", () => {
+    try {
+      parseStoryPack(
+        pack({
+          characters: [
+            { id: "kest", name: "Kest", lore: "x".repeat(241) },
+            { id: "briar", name: "Briar" },
+          ],
+        }),
+      );
+      expect.unreachable("parseStoryPack should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ZodError);
+      expect((e as ZodError).issues[0]?.path).toEqual(["characters", 0, "lore"]);
+    }
+  });
+
+  it("a character with no lore still parses, and .lore is undefined", () => {
+    const p = parseStoryPack(pack());
+    expect(p.characters[0]!.lore).toBeUndefined();
   });
 });
 
@@ -459,5 +497,38 @@ describe("AC-M9: the pack and the bundle must agree about art, in both direction
   it("a pack with no art at all names nothing", () => {
     expect(portraitAssets(parseStoryPack(pack()))).toEqual([]);
     expect(portraitCoverage(parseStoryPack(pack()), []).missing).toEqual([]);
+  });
+});
+
+describe("shipped campaign: dossier lore covers every party member", () => {
+  // Every party record in `data/campaign/camp-the-first-march.json` names a story
+  // character `pc-${id}` (the same match rule `campaign-data.ts`'s
+  // `portraitLinkMismatches` uses), and that character carries a non-empty `lore`
+  // within the schema's 240-char cap. Six is DERIVED from the campaign def, not
+  // hard-coded, so a seventh party member with no lore fails this the same way Isla
+  // and Corin would have.
+  it("every party member matches a story character with a real lore line", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const campaignPath = fileURLToPath(
+      new URL("../../data/campaign/camp-the-first-march.json", import.meta.url),
+    );
+    const storyPath = fileURLToPath(
+      new URL("../../data/campaign/story/camp-the-first-march.story.json", import.meta.url),
+    );
+    const { parseCampaign } = await import("./campaign.js");
+    const def = parseCampaign(JSON.parse(readFileSync(campaignPath, "utf8")));
+    const storyPack = parseStoryPack(JSON.parse(readFileSync(storyPath, "utf8")));
+
+    expect(def.party.length).toBeGreaterThan(0);
+
+    for (const member of def.party) {
+      const storyId = member.id.replace(/^pc-/, "");
+      const character = storyPack.characters.find((c) => c.id === storyId);
+      expect(character, `no story character for party member ${member.id}`).toBeDefined();
+      expect(typeof character?.lore, `${member.id} has no lore`).toBe("string");
+      expect((character?.lore ?? "").length).toBeGreaterThan(0);
+      expect((character?.lore ?? "").length).toBeLessThanOrEqual(240);
+    }
   });
 });

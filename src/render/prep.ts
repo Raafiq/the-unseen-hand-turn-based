@@ -88,6 +88,21 @@ export const PREP_TABS = ["equipment", "skills", "profile"] as const;
 export type PrepTab = (typeof PREP_TABS)[number];
 
 /**
+ * THE LEARN OVERLAY (owner-approved pass 14, 2026-09-09).
+ *
+ * The approved dossier is one sheet with no room for an AP-priced learn list — and
+ * dropping the list would take AP spending out of the game entirely, which the campaign
+ * is tuned against (ADR-0027: a party that never spends AP loses the finale). So the list
+ * gets a DOOR and a ROOM: a `LEARN` plate on the Skills heading, exactly as CHANGE JOBS
+ * rides the Job Customization heading, opening a parchment leaf laid over the right
+ * column. Render-layer only — never written to a {@link UnitRecord} or the save.
+ *
+ * The AP readout in the identity block is PLAIN TEXT and no longer a door (owner: LEARN
+ * is the only one).
+ */
+export type LearnOverlay = "closed" | "open";
+
+/**
  * Job id → the `icons.ts` glyph id its crest uses. Six of the eight jobs have one (the
  * mockup's own set); `thief` and `summoner` fall back to the neutral `star` glyph
  * already on screen elsewhere (the Skills tab icon) rather than inventing new heraldry
@@ -220,6 +235,15 @@ const STAT_CELLS: ReadonlyArray<{ key: keyof StatLine; label: string; suffix: st
   { key: "brave", label: "Brave", suffix: "" },
   { key: "faith", label: "Faith", suffix: "" },
 ];
+
+/**
+ * The one sentence that explains AP's reach, in ONE place: the classic panel's learn
+ * column and the dossier's learn overlay print the same words, so a player cannot meet
+ * two accounts of the same rule (ADR-0027 is what it is about).
+ */
+const SPEND_HINT =
+  `<p class="hint tight" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. ` +
+  `AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>`;
 
 // ---- The panel --------------------------------------------------------------
 
@@ -754,6 +778,38 @@ export interface PrepOptions extends PrepModelOptions {
    * let a visitor spend the demo's 20,000 AP and walk the screenshots off their baseline.
    */
   progression?: boolean;
+  /**
+   * Which SHAPE the panel draws in.
+   *
+   * `"classic"` is the tabbed panel the engine viewer's showcase still mounts, byte for
+   * byte — every option below is optional and unset there, so its absence leaves that
+   * page's DOM unchanged. `"dossier"` is the campaign briefing's approved Character
+   * Dossier (owner, 2026-09-09): one sheet, no tabs, a 1x6 portrait rail.
+   */
+  layout?: "classic" | "dossier";
+  /**
+   * The dossier's Profile prose for a record, or `null` when the pack authors none.
+   *
+   * A CALLER-SUPPLIED LOOKUP, not a read of the story pack from here: the pack is
+   * swappable by contract (`docs/11` AC-M4) and the roster-id -> character-id mapping
+   * (`pc-briar` -> `briar`) belongs to the page that owns the content, the same reason
+   * `portrait` is a parameter (ADR-0039, `src/render/CLAUDE.md`).
+   */
+  lore?: (record: UnitRecord) => string | null;
+  /**
+   * Whether this record's portrait is the self-labelling PLACEHOLDER rather than real
+   * art. The rail crops with `object-fit: cover`, which is wrong for a placeholder card;
+   * the caller knows the key, this file does not.
+   */
+  portraitPending?: (record: UnitRecord) => boolean;
+  /**
+   * Told when the panel changed WHICH member is open on its own — the dossier's rail.
+   *
+   * The host page owns the chrome that names the open member (the briefing rail's
+   * "managing Briar", the roster card's gold ring), and the rail is a second way to
+   * change it beside the party card. Without this the two would disagree.
+   */
+  onSelect?: (record: UnitRecord) => void;
 }
 
 /** The panel's shipped seam — the same methods the controls drive, for tests and pages. */
@@ -780,6 +836,16 @@ export interface PrepHandle {
   activeTab: () => PrepTab;
   /** Switch the right-leaf tab without touching the record or the selected member. */
   setTab: (tab: PrepTab) => void;
+  /**
+   * Shut the dossier's learn overlay if it is up. A no-op otherwise, and on the classic
+   * layout, which has none.
+   *
+   * THE PANEL IS MOUNTED ONCE PER SESSION and the overlay is closure state, so nothing
+   * inside this file can see a player LEAVE the member view — `member-back` and the
+   * briefing's own entry reset both live in `game.ts`. Without this they had no way to
+   * shut it, and the next member opened under the last member's job tree.
+   */
+  closeLearn: () => void;
 }
 
 interface Opt {
@@ -807,6 +873,17 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
   const progression = opts.progression ?? false;
   const registry = opts.registry;
   const portraitOf = opts.portrait;
+  const layout = opts.layout ?? "classic";
+  const loreOf = opts.lore;
+  const portraitPendingOf = opts.portraitPending;
+  const onSelect = opts.onSelect;
+
+  /**
+   * Whether the learn overlay is up. Same shape and the same reason as `tab` below:
+   * render-layer only, in this closure, read by `render()` and never written by it, so a
+   * purchase's own repaint cannot slam the overlay shut under the player's hand.
+   */
+  let learn: LearnOverlay = "closed";
 
   /**
    * Which right-leaf tab is showing. RENDER-LAYER ONLY (owner decision 2026-09-07):
@@ -906,19 +983,17 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       ${unused}`;
   }
 
-  /** The Job Customization strip — Main Job (progression only) + Secondary, every tab. */
+  /**
+   * The Job Customization strip — Main Job (progression only) + Secondary.
+   *
+   * TWO SHELLS, ONE BODY. The classic panel's strip is a bare `.jobstrip` at the leaf's
+   * foot; the dossier's is the right column's last block, with CHANGE JOBS riding the
+   * heading's own rule (`.modhead`). The two job cards are identical in both, which is
+   * the point of doing it here rather than duplicating `.jobrow` in the dossier branch.
+   */
   function jobStripHtml(): string {
     const r = model.record();
-    const secOptions = optionList(
-      [
-        { value: "", label: "— none —" },
-        ...model.equippableSecondaryJobs().map((j) => ({
-          value: j,
-          label: `${skillsetLabel(model.skillsetOf(j))} (${jobLabel(j)})`,
-        })),
-      ],
-      r.loadout.secondary ?? "",
-    );
+    const secOptions = secondaryOptions();
     const secJob = r.loadout.secondary;
     const mainJplaque = !progression
       ? ""
@@ -928,9 +1003,17 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
           <div class="jhead"><span class="jcap">Main</span><span class="pips">${pipsHtml(model.jobProgress(r.currentJob))}</span></div>
           <select class="jval" data-testid="prep-job" aria-label="Current job">${optionList(model.jobIds().map((j) => ({ value: j, label: jobLabel(j) })), r.currentJob)}</select>
         </div>`;
+    const head =
+      layout === "dossier"
+        ? `<div class="modhead"><h3 class="sect">Job Customization</h3>${
+            progression
+              ? `<button type="button" class="jchange" data-testid="prep-change-jobs">Change Jobs</button>`
+              : ""
+          }</div>`
+        : `<h3 class="sect">Job Customization</h3>`;
     return `
-    <div class="jobstrip">
-      <h3 class="sect">Job Customization</h3>
+    <${layout === "dossier" ? `section class="blk sep-large jobstrip"` : `div class="jobstrip"`}>
+      ${head}
       <div class="jobrow">
         ${mainJplaque}
         <div class="jplaque">
@@ -939,7 +1022,27 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
           <select class="jval" data-testid="prep-secondary" aria-label="Secondary command">${secOptions}</select>
         </div>
       </div>
-    </div>`;
+    </${layout === "dossier" ? "section" : "div"}>`;
+  }
+
+  /**
+   * The secondary-skillset options, shared by the job card and the dossier's Active
+   * Skills row. ONE list, because they are one slot: the dossier draws the same
+   * `loadout.secondary` twice (the approved frames show both), and two option lists
+   * would be two opinions about what is equippable.
+   */
+  function secondaryOptions(): string {
+    const r = model.record();
+    return optionList(
+      [
+        { value: "", label: "— none —" },
+        ...model.equippableSecondaryJobs().map((j) => ({
+          value: j,
+          label: `${skillsetLabel(model.skillsetOf(j))} (${jobLabel(j)})`,
+        })),
+      ],
+      r.loadout.secondary ?? "",
+    );
   }
 
   /** Five diamonds filled from tree completion — never from raw AP (see `jobProgress`). */
@@ -947,6 +1050,251 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     const filled = Math.max(0, Math.min(5, Math.round(fraction * 5)));
     return Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("");
   };
+
+  // ---- THE DOSSIER (owner-approved, 2026-09-09) ------------------------------
+  //
+  // One sheet, no tabs: `[ 1x6 portrait rail ][ left column ][ right column ]`. Ported
+  // from `docs/visual/concepts/mockups/src/dossier.html` + `dossier.overrides.css`,
+  // whose frames (`dossier-pass13-832x{328,384}.png`) are the target. The mockup's
+  // static sample content is replaced by the real projection everywhere: the stats are
+  // `buildBattleUnit`'s, the skill rows are the same selects the classic panel binds,
+  // and the Profile prose comes from the story pack through `opts.lore`.
+
+  /**
+   * The 1x6 rail — one cell per party member, in ROSTER ORDER, the open one ringed.
+   *
+   * Order is `model.records()` exactly: the rail is a second way to reach the same
+   * member the party card opens, so a rail that sorted or filtered would put two
+   * different orders of the same six people on two views of one screen.
+   */
+  function railHtml(): string {
+    const openId = model.record().id;
+    const cells = model
+      .records()
+      .map((r) => {
+        const on = r.id === openId;
+        const url = portraitOf?.(r);
+        const pending = portraitPendingOf?.(r) ?? false;
+        const img =
+          url === undefined
+            ? ""
+            : `<img class="${pending ? "pending" : ""}" src="${esc(url)}" alt="" />`;
+        return (
+          `<li class="rmember${on ? " on" : ""}">` +
+          `<button type="button" class="rtab" data-member="${esc(r.id)}"` +
+          ` aria-label="${esc(r.name)}, ${esc(jobLabel(r.currentJob))}"${on ? ' aria-current="true"' : ""}>` +
+          `${img}</button></li>`
+        );
+      })
+      .join("");
+    return `<ul class="rail" data-testid="dossier-rail">${cells}</ul>`;
+  }
+
+  /**
+   * The identity block. The AP readout is PLAIN TEXT (owner, pass 14): it briefly was
+   * the door to the learn list, and LEARN on the Skills heading is now the only one — a
+   * readout that silently doubled as a control was an affordance nobody could see.
+   */
+  function identityHtml(): string {
+    const record = model.record();
+    const hero =
+      portraitOf === undefined
+        ? ""
+        : `<div class="hero"><img class="${portraitPendingOf?.(record) === true ? "pending" : ""}" src="${esc(portraitOf(record))}" alt=""></div>`;
+    return `
+    <header class="unit-head ident">
+      ${hero}
+      <div class="idcol">
+        <div class="nameline"><h2>${esc(record.name)}</h2></div>
+        <div class="idrule" aria-hidden="true"></div>
+        <p class="jobline">${icon(jobCrest(record.currentJob))}<span>${esc(jobLabel(record.currentJob))}</span></p>
+        <p class="apline" data-testid="prep-ap" title="Banked AP">${record.ap} AP</p>
+      </div>
+    </header>`;
+  }
+
+  /**
+   * The Profile block: the pack's lore, then the traits control on one line.
+   *
+   * ABSENT-NOT-INVENTED. A member the pack writes no lore for says so rather than
+   * showing an empty box; the engine has no biography of its own to fall back on.
+   * The traits line keeps the real `input[data-trait]` checkbox and therefore the real
+   * save behaviour (owner, 2026-09-09: the control stays), and it keeps
+   * `prep-traits-hint` — the "this is free and you are not using it" mark a playtest
+   * asked for — as a chip on the line rather than as a second row there is no room for.
+   */
+  function profileHtml(): string {
+    const record = model.record();
+    const lore = loreOf?.(record) ?? null;
+    const prose =
+      lore === null
+        ? `<p class="lore empty" data-testid="prep-lore">No profile is written for this character yet.</p>`
+        : `<p class="lore" data-testid="prep-lore">${esc(lore)}</p>`;
+    const chips =
+      record.mastered.length === 0
+        ? `<span class="tnone" id="traits-empty">none earned yet — master a job tree</span>`
+        : record.mastered
+            .map((jobId) => {
+              const t = registry.job(jobId).masteryBonus.trait;
+              const on = record.loadout.traits.includes(t);
+              // WHERE IT CAME FROM, ON SCREEN. This was a `title` — unreachable on a
+              // touch screen, and a trait's origin is the whole reason a player mastered
+              // that tree. The job in parentheses is the shortest true form that fits the
+              // line at 832x328.
+              return (
+                `<label class="chk"><input type="checkbox" data-trait="${esc(t)}"${on ? " checked" : ""}/>` +
+                `<span class="tname">${esc(traitLabel(t))} <span class="tfrom">(${esc(jobLabel(jobId))})</span></span></label>`
+              );
+            })
+            .join("");
+    const free =
+      record.mastered.length > 0 && record.loadout.traits.length === 0
+        ? ` <span class="freemark" data-testid="prep-traits-hint">free</span>`
+        : "";
+    // "max 2" IS A RULE THE PANEL ENFORCES (`onTraitToggle` slices to two), so it is
+    // printed rather than left in a tooltip: a player who has earned a third trait and
+    // finds a box refusing to tick has been told nothing.
+    //
+    // SHOWN FROM THE FIRST TRAIT, not from the third. The cap only BINDS at three, but
+    // "you may equip two of these" is a fact about the chassis a player plans around, and
+    // a rule that appears only at the moment it costs you something is a rule you were
+    // never told. It also makes the state reachable in the shipped campaign, where every
+    // member starts with exactly one mastered job — a caption nothing can drive is a
+    // caption nothing can check.
+    const cap = record.mastered.length > 0 ? ` <span class="tmax">max 2</span>` : "";
+    return `
+    <section class="blk">
+      <h3 class="sect">Profile</h3>
+      <div class="profile">
+        ${prose}
+        <p class="traitline" data-testid="prep-traits"><span class="tkey">Traits:</span> ${chips}${free}${cap}</p>
+      </div>
+    </section>`;
+  }
+
+  /**
+   * Wielded Gear + Worn Armor.
+   *
+   * WORN ARMOR IS A HEADING AND ONE DISABLED ROW (owner's call, `intent/
+   * character-dossier.md`): the engine models no armour slot, so there is nothing to
+   * control — no `<select>`, no chevron — and the row says exactly that. It is the
+   * absent-not-zero rule drawn rather than hidden, because the heading is the owner's.
+   *
+   * The Main Hand row keeps `prep-weapon-hint` as a chip on the heading's own line:
+   * a free thing going unused has to say so (the finding behind that hint was nine
+   * owned weapons and none equipped), and the dossier has no spare row for a sentence.
+   */
+  function gearHtml(): string {
+    const owned = model.weaponOptions();
+    const bare = model.currentWeaponDamage();
+    let mainHand: string;
+    if (owned.length === 0) {
+      // No CHOICE exists yet, so no dropdown — an empty one would present "you own
+      // nothing" as "your options are none". The row still states the fact the sim
+      // does produce: what this unit is fighting with right now.
+      mainHand = `
+        <div class="gearrow armorrow" data-testid="prep-weapon-fixed" aria-disabled="true">
+          <span class="roundel roundel-empty">${icon("sword")}</span>
+          <span class="gval">Unarmed${bare === null ? "" : ` — ${bare} damage`}</span>
+        </div>`;
+    } else {
+      const label = (name: string, dmg: number | null, perks?: string | null): string => {
+        const head = dmg === null ? name : `${name} — ${dmg} damage`;
+        return perks === null || perks === undefined ? head : `${head}, ${perks.toLowerCase()}`;
+      };
+      const opts2 = optionList(
+        [
+          { value: "", label: label("Unarmed", model.record().weapon === null ? bare : null) },
+          ...owned.map((w) => ({
+            value: w.id,
+            label: label(w.name, w.damage, equipmentSummary(registry.equipment(w.id), { scaling: false })),
+          })),
+        ],
+        model.record().weapon ?? "",
+      );
+      mainHand = `
+        <div class="gearrow">
+          <span class="roundel">${icon("sword")}</span>
+          <span class="gcap">Main Hand</span>
+          <select class="gval" data-testid="prep-weapon" aria-label="Equipped weapon">${opts2}</select>
+          ${icon("chev", "chev")}
+        </div>`;
+    }
+    const unused =
+      owned.length > 0 && model.record().weapon === null
+        ? ` <span class="freemark" data-testid="prep-weapon-hint">${owned.length} owned, none equipped</span>`
+        : "";
+    return `
+    <section class="blk">
+      <h3 class="sect">Wielded Gear${unused}</h3>
+      ${mainHand}
+    </section>
+    <section class="blk blk-armor">
+      <h3 class="sect">Worn Armor</h3>
+      <div class="gearrow armorrow" data-testid="prep-armor" aria-disabled="true">
+        <span class="roundel roundel-empty">${icon("cuirass")}</span>
+        <span class="gval">No armor equipped</span>
+      </div>
+    </section>`;
+  }
+
+  /**
+   * Skills: one section, two sub-columns — Active (Primary, Secondary) and Passive
+   * (Reaction, Support, Movement).
+   *
+   * The Primary row's padlock replaces the classic panel's "locked to job" words: at
+   * a 197px sub-column the chip ellipsised the ability name. Same claim, as a mark plus
+   * a `title` — and the mark has an identity (`data-icon="lock"`) so a test can tell it
+   * from the chevron every other row carries.
+   */
+  function skillsHtml(abilitySelect: (slot: "reaction" | "support" | "movement") => string): string {
+    const record = model.record();
+    const passive = (
+      slot: "reaction" | "support" | "movement",
+      glyph: string,
+      cap: string,
+      testid: string,
+    ): string => `
+      <div class="gearrow">
+        <span class="roundel">${icon(glyph)}</span>
+        <span class="gcap">${cap}</span>
+        <select class="gval" data-testid="${testid}" aria-label="${cap} ability">${abilitySelect(slot)}</select>
+        ${icon("chev", "chev")}
+      </div>`;
+    // PASS 14: the door to the learn list rides this heading's own rule, right-aligned,
+    // the same `.jchange` plate CHANGE JOBS uses one heading down. Drawn only with
+    // progression on — the engine viewer's showcase has no learn list to open.
+    const learnPlate = progression
+      ? `<button type="button" class="jchange learnplate" data-testid="prep-learn-open">Learn</button>`
+      : "";
+    return `
+    <section class="blk sep-large blk-skills">
+      <h3 class="sect">Skills${learnPlate}</h3>
+      <div class="skillcols">
+        <div class="skillcol">
+          <p class="subhead">Active Skills</p>
+          <div class="gearrow" data-testid="prep-primary">
+            <span class="roundel">${icon("sword")}</span>
+            <span class="gcap">Primary <span class="lockword">· locked to job</span></span>
+            <span class="gval">${esc(skillsetLabel(model.primarySkillset()))} (${esc(jobLabel(record.currentJob))})</span>
+            <span class="lockwrap" aria-hidden="true">${icon("lock", "chev lockmark")}</span>
+          </div>
+          <div class="gearrow">
+            <span class="roundel">${icon("star")}</span>
+            <span class="gcap">Secondary</span>
+            <select class="gval" data-testid="prep-secondary-skill" aria-label="Secondary skillset">${secondaryOptions()}</select>
+            ${icon("chev", "chev")}
+          </div>
+        </div>
+        <div class="skillcol">
+          <p class="subhead">Passive Skills</p>
+          ${passive("reaction", "counter", "Reaction", "prep-reaction")}
+          ${passive("support", "shield", "Support", "prep-support")}
+          ${passive("movement", "wing", "Movement", "prep-movement")}
+        </div>
+      </div>
+    </section>`;
+  }
 
   /** The job selector + the AP-priced learn list, straight off {@link PrepModel.learnRows}. */
   function learnColumnHtml(): string {
@@ -961,7 +1309,13 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       browsing,
     );
 
-    const rows = model
+    const rows = learnRowsHtml();
+    return renderLearnColumn(rows, treeOptions, browsing);
+  }
+
+  /** The AP-priced rows themselves — shared by the classic column and the overlay. */
+  function learnRowsHtml(): string {
+    return model
       .learnRows()
       .map((row) => {
         const tag =
@@ -983,7 +1337,17 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
             ? ` <span class="tag reach" data-testid="reach-secondary" title="This is another job's command. It stays unusable until you equip that job in the Secondary slot — and you only have one.">needs Secondary</span>`
             : "";
         const label = `${esc(abilityLabel(row.ability))}${kindTag}${reachTag}${tag}`;
-        const cls = [row.known ? "known" : "", row.buyable ? "" : "locked", row.deferred === null ? "" : "deferred"]
+        // KNOWN IS NOT LOCKED. `buyable` is false for an already-learned node as well as
+        // for an unaffordable one, so a known row used to carry BOTH classes — and
+        // `li.locked` is later in `overhaul.css` at the same specificity, so the learned
+        // row painted as the unaffordable one (measured against
+        // `dossier-pass14-learn-832x328.png`: rgba(90,66,34,.16) where the approved frame
+        // paints rgba(255,240,210,.5)). Two different states cannot share a look; the row
+        // that is DONE now says so.
+        const cls = [
+          row.known ? "known" : row.buyable ? "" : "locked",
+          row.deferred === null ? "" : "deferred",
+        ]
           .filter(Boolean)
           .join(" ");
         // The description sits UNDER the name rather than in a `title` tooltip: AP is
@@ -1005,7 +1369,10 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         );
       })
       .join("");
+  }
 
+  /** The classic panel's learn column, unchanged — the engine viewer still draws it. */
+  function renderLearnColumn(rows: string, treeOptions: string, browsing: string): string {
     return `
     <div class="learnhead" data-testid="prep-progression">
       <h3 class="sect">Learn · ${esc(skillsetLabel(model.skillsetOf(browsing)))}</h3>
@@ -1015,9 +1382,62 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         ${icon("chev", "chev")}
       </div>
     </div>
-    <p class="hint tight" data-testid="prep-spend-hint">Spend on the job this unit is in — those commands work the moment you buy them. AP is one pool and you can buy from any tree, but another job's actions stay unusable until you equip that job as this unit's one Secondary.</p>
+    ${SPEND_HINT}
     <ul class="learn-list" data-testid="prep-learn" tabindex="0">${rows}</ul>
     ${receiptHtml()}`;
+  }
+
+  /**
+   * THE LEARN OVERLAY — a parchment leaf laid over the right column (owner pass 14).
+   *
+   * Every part of it is a shipped recipe and a shipped MODEL: the rows are
+   * `learnRows()`, the picker is the same `prep-tree` select, the buy plaques are the
+   * same `data-learn` buttons the classic panel binds. Only the arrangement is new, so a
+   * purchase made here and a purchase made on the engine viewer go through one code path.
+   *
+   * THE AP IS PRINTED TWICE, in the overlay's own header and in the identity block, and
+   * both read `model.record().ap` at render time — a purchase repaints the whole panel,
+   * so the two cannot come apart.
+   */
+  function learnOverlayHtml(): string {
+    if (!progression) return "";
+    const record = model.record();
+    const browsing = model.browseJob();
+    const treeOptions = optionList(
+      model.jobIds().map((j) => ({
+        value: j,
+        label: j === record.currentJob ? `${jobLabel(j)} (current)` : jobLabel(j),
+      })),
+      browsing,
+    );
+    // THE JOB, NOT THE SKILLSET, in the accessible name: the label has to say WHOSE tree
+    // is open, and "Aim" does not name a job to a screen reader the way "Archer" does.
+    const title = `Learn · ${jobLabel(browsing)}`;
+    const receipt = receiptHtml();
+    // NO `aria-modal`. The leaf covers the RIGHT COLUMN only: the rail, the identity
+    // block, Stats and the traits checkbox stay visible AND tabbable underneath it, so
+    // claiming modality would tell a screen reader the rest of the page is inert when it
+    // is not. `role="dialog"` plus the label is the honest pair. (This is a JS comment,
+    // not an HTML one, on purpose: an HTML comment holding backticks inside a template
+    // literal ends the string — it did, and the build went red.)
+    return `
+    <div class="learnoverlay" data-testid="dossier-learn" role="dialog" aria-label="${esc(title)}">
+      <div class="learnsheet">
+        <header class="lbar" data-testid="prep-progression">
+          <h3 class="ltitle">${esc(title)}</h3>
+          <span class="lap" data-testid="learn-ap">${record.ap} AP</span>
+          <button type="button" class="jchange lclose" data-testid="prep-learn-close">Close</button>
+        </header>
+        <div class="gearrow ltree">
+          <span class="roundel">${icon("scroll")}</span>
+          <span class="gcap">Job tree</span>
+          <select class="gval" data-testid="prep-tree" aria-label="Skill tree to browse">${treeOptions}</select>
+          ${icon("chev", "chev")}
+        </div>
+        <ul class="learn-list" data-testid="prep-learn" tabindex="0">${learnRowsHtml()}</ul>
+        ${receipt === "" ? SPEND_HINT : receipt}
+      </div>
+    </div>`;
   }
 
   function render(): void {
@@ -1109,6 +1529,30 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       portraitOf === undefined
         ? ""
         : `<div class="hero"><img src="${esc(portraitOf(record))}" alt=""></div>`;
+
+    if (layout === "dossier") {
+      container.innerHTML =
+        railHtml() +
+        `
+    <div class="sheet" data-testid="dossier-sheet">
+      <div class="scol scol-main">
+        ${identityHtml()}
+        <section class="blk">
+          <h3 class="sect">Stats</h3>
+          <ul class="stat-row" data-testid="prep-stats">${statsBody}</ul>
+        </section>
+        ${profileHtml()}
+      </div>
+      <div class="scol scol-side">
+        ${gearHtml()}
+        ${skillsHtml(abilitySelect)}
+        ${jobStripHtml()}
+        ${learn === "open" ? learnOverlayHtml() : ""}
+      </div>
+    </div>`;
+      bind();
+      return;
+    }
 
     container.innerHTML = `
     <header class="unit-head">
@@ -1219,19 +1663,84 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     };
     // Only bound when the row was drawn — an empty inventory renders no selector,
     // and `sel()` throws on a missing element rather than silently doing nothing.
-    if (model.weaponOptions().length > 0) {
+    if (container.querySelector('[data-testid="prep-weapon"]') !== null) {
       sel("prep-weapon").addEventListener("change", (e) => {
         act(() => model.setWeapon(valueOrNull((e.target as HTMLSelectElement).value)));
       });
     }
-    onSlot("secondary", "prep-secondary");
-    onSlot("reaction", "prep-reaction");
-    onSlot("support", "prep-support");
-    onSlot("movement", "prep-movement");
+    // THE FIVE SLOT CONTROLS. On the dossier's progression face none of them are drawn,
+    // and `sel()` throws rather than silently doing nothing — so the binding follows what
+    // was actually rendered, the same way the weapon row above already does.
+    const has = (testid: string): boolean =>
+      container.querySelector(`[data-testid="${testid}"]`) !== null;
+    if (has("prep-secondary")) onSlot("secondary", "prep-secondary");
+    if (has("prep-reaction")) onSlot("reaction", "prep-reaction");
+    if (has("prep-support")) onSlot("support", "prep-support");
+    if (has("prep-movement")) onSlot("movement", "prep-movement");
+    // The dossier draws `loadout.secondary` TWICE — the Active Skills row and the job
+    // card — because the approved frames show both. One slot, one model call, so the two
+    // can never disagree: every edit repaints and both are rebuilt from the record.
+    if (has("prep-secondary-skill")) onSlot("secondary", "prep-secondary-skill");
 
     container.querySelectorAll<HTMLInputElement>("input[data-trait]").forEach((cb) => {
       cb.addEventListener("change", onTraitToggle);
     });
+
+    // THE RAIL — a second way to change WHICH member is open, beside the party card
+    // (owner: it ADDS to the card tap, it does not replace it). It drives `model.select`,
+    // the same call the card makes, and then tells the host page so the chrome that names
+    // the open member cannot disagree with the sheet.
+    for (const cell of container.querySelectorAll<HTMLButtonElement>("button.rtab[data-member]")) {
+      cell.addEventListener("click", () => {
+        const id = cell.dataset["member"] as string;
+        if (id === model.record().id) return;
+        // CLOSE THE OVERLAY FIRST. It is Briar's tree; leaving it up over Kest's sheet
+        // would show one member's dossier under another member's job tree, and the buy
+        // buttons in it would spend the NEW member's AP on rows priced for the old one.
+        learn = "closed";
+        act(() => model.select(id));
+        onSelect?.(model.record());
+      });
+    }
+
+    // THE LEARN OVERLAY — open, close, and the focus that goes with each. Render-layer
+    // only, so neither can fire `onChange` or reach the save.
+    //
+    // FOCUS IS MOVED AFTER THE REPAINT, not before: `render()` replaces the container's
+    // whole `innerHTML`, so an element focused first is a detached node by the time the
+    // paint lands (the same discipline `game.ts`'s `pendingFocus` follows).
+    container
+      .querySelector<HTMLButtonElement>('[data-testid="prep-learn-open"]')
+      ?.addEventListener("click", () => setLearn("open"));
+    container
+      .querySelector<HTMLButtonElement>('[data-testid="prep-learn-close"]')
+      ?.addEventListener("click", () => setLearn("closed"));
+    // ESCAPE CLOSES IT FROM ANYWHERE IN THE MEMBER VIEW. It was bound on the overlay node,
+    // which only works while focus is inside it — and the overlay is deliberately NOT
+    // modal (it covers one column), so a player can be in the traits checkbox or a stat
+    // cell with the dialog plainly open and Escape doing nothing. The listener goes on
+    // the document, and comes OFF the moment the overlay shuts, so no mount ever leaves a
+    // live key handler behind on a page it is not showing anything on.
+    bindEscape(learn === "open");
+
+    // CHANGE JOBS OWNS NO RULE. It focuses the Main job select and asks the browser to
+    // open it where that is supported — the legality of any job it lists is still
+    // `model.jobIds()` / `changeJob`, exactly as the select itself is.
+    container
+      .querySelector<HTMLButtonElement>('[data-testid="prep-change-jobs"]')
+      ?.addEventListener("click", () => {
+        const job = container.querySelector<HTMLSelectElement>('[data-testid="prep-job"]');
+        if (!job) return;
+        job.focus();
+        const withPicker = job as HTMLSelectElement & { showPicker?: () => void };
+        if (typeof withPicker.showPicker === "function") {
+          try {
+            withPicker.showPicker();
+          } catch {
+            // Not user-activated, or unsupported: focus alone is the whole contract.
+          }
+        }
+      });
 
     // TAB SWITCHING — render-layer only (see `tab` above). Never touches the model, so
     // it cannot fire `onChange` and cannot reach the save.
@@ -1245,12 +1754,16 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     });
 
     if (progression) {
-      sel("prep-job").addEventListener("change", (e) => {
-        act(() => model.setJob((e.target as HTMLSelectElement).value));
-      });
-      sel("prep-tree").addEventListener("change", (e) => {
-        act(() => model.setBrowseJob((e.target as HTMLSelectElement).value));
-      });
+      if (has("prep-job")) {
+        sel("prep-job").addEventListener("change", (e) => {
+          act(() => model.setJob((e.target as HTMLSelectElement).value));
+        });
+      }
+      if (has("prep-tree")) {
+        sel("prep-tree").addEventListener("change", (e) => {
+          act(() => model.setBrowseJob((e.target as HTMLSelectElement).value));
+        });
+      }
       container.querySelectorAll<HTMLButtonElement>("button[data-learn]").forEach((btn) => {
         btn.addEventListener("click", () => {
           act(() => model.learn(model.browseJob(), btn.dataset["learn"] as string));
@@ -1267,10 +1780,67 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     act(() => model.setTraits(checked));
   }
 
-  /** Run a model mutation and repaint. Every control and every handle method uses it. */
+  /**
+   * The document-level Escape listener, live exactly while the overlay is up.
+   *
+   * Held in this closure and attached/detached rather than added on every paint: `bind()`
+   * runs on every render, and a listener added there without this guard would stack one
+   * copy per repaint — each one calling `setLearn("closed")`, which is idempotent, so the
+   * leak would never show as a bug and never stop growing.
+   */
+  let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
+  function bindEscape(on: boolean): void {
+    if (on === (escapeHandler !== null)) return;
+    if (on) {
+      escapeHandler = (e: KeyboardEvent): void => {
+        if (e.key !== "Escape") return;
+        e.preventDefault();
+        setLearn("closed");
+      };
+      document.addEventListener("keydown", escapeHandler);
+      return;
+    }
+    if (escapeHandler !== null) document.removeEventListener("keydown", escapeHandler);
+    escapeHandler = null;
+  }
+
+  /**
+   * Open or close the learn overlay and put focus where the player just went: on Close
+   * when it opens, back on Learn when it shuts. Does no DOM work on an unchanged state,
+   * the same shape `setTab` and `game.ts`'s `setBriefView` hold.
+   */
+  function setLearn(next: LearnOverlay): void {
+    if (next === learn) return;
+    learn = next;
+    render();
+    const target = next === "open" ? "prep-learn-close" : "prep-learn-open";
+    container.querySelector<HTMLElement>(`[data-testid="${target}"]`)?.focus();
+  }
+
+  /**
+   * Run a model mutation and repaint — and put focus back on the control that was edited.
+   *
+   * `render()` replaces the container's whole `innerHTML`, so the `<select>` a player just
+   * changed is a DETACHED node the moment its own handler returns and focus falls to
+   * `<body>`. On a keyboard that means every equip throws you back to the top of the
+   * document; on a screen reader it means the panel goes silent mid-edit. The same
+   * discipline `game.ts`'s `pendingFocus` follows: note the target BEFORE the paint,
+   * re-query it AFTER, because the node that comes back is a new one.
+   *
+   * Keyed by `data-testid` rather than by node identity for exactly that reason, and only
+   * when focus was inside this panel to begin with — a handle method called from a test
+   * or from the page must not steal focus from wherever the player actually is.
+   */
   function act(fn: () => void): void {
+    const active = document.activeElement;
+    const refocus =
+      active instanceof HTMLElement && container.contains(active)
+        ? (active.dataset["testid"] ?? null)
+        : null;
     fn();
     render();
+    if (refocus === null) return;
+    container.querySelector<HTMLElement>(`[data-testid="${refocus}"]`)?.focus();
   }
 
   render();
@@ -1301,6 +1871,14 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       if (next === tab) return;
       tab = next;
       render();
+    },
+    // NOT `setLearn("closed")`: that moves focus onto the LEARN plate, and every caller of
+    // this is a player LEAVING the member view — focus belongs to whatever the leaving
+    // transition puts it on (`setBriefView`'s own `pendingFocus`).
+    closeLearn: () => {
+      if (learn === "closed") return;
+      learn = "closed";
+      render(); // `bind()` runs inside, and detaches the Escape listener with it
     },
   };
 }

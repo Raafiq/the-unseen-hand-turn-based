@@ -888,12 +888,22 @@ describe("AC-M9 / ADR-0039: nine real portraits are wired, one waits unbundled",
     // with it, so the docs, the ADR and the "Portrait pending" caption are forced to
     // stay in sync with the art rather than being left behind saying something false.
     //
-    // ALL FOUR story characters now name a real key — Vance (archer-m) and Kest
-    // (wizard-m) were `"placeholder"` until the six-member roster of 2026-09-08 claimed
-    // two more crops — so `"placeholder"` has left this list. It is still BUNDLED below,
-    // because `resolvePortrait` falls back to it for any unit id the table does not name.
-    // The five enemy keys are named only by PORTRAIT_BY_UNIT, not by any story character.
-    expect(portraitAssets(story)).toEqual(["archer-f", "archer-m", "priest-f", "wizard-m"]);
+    // ALL SIX story characters now name a real key. Vance (archer-m) and Kest (wizard-m)
+    // were `"placeholder"` until the six-member roster of 2026-09-08 claimed two more
+    // crops, and the dossier slice (2026-09-09) added Corin and Isla to the pack as
+    // CHARACTERS — they were roster members with portraits but no story entry — which is
+    // what brings `priest-m` and `wizard-f` into this list. `"placeholder"` is not here
+    // and is still BUNDLED below, because `resolvePortrait` falls back to it for any unit
+    // id the table does not name. The five enemy keys are named only by
+    // PORTRAIT_BY_UNIT, not by any story character.
+    expect(portraitAssets(story)).toEqual([
+      "archer-f",
+      "archer-m",
+      "priest-f",
+      "priest-m",
+      "wizard-f",
+      "wizard-m",
+    ]);
     expect(Object.keys(PORTRAITS)).toEqual([
       "placeholder",
       "archer-f",

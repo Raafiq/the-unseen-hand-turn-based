@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer, openMember, openPrepTab, startNewGame } from "./helpers.js";
+import { closeDrawer, dismissScene, openDrawer, openLearn, startNewGame } from "./helpers.js";
 import { prepEveryMember } from "./helpers";
 
 /**
@@ -84,8 +84,7 @@ test("a11y: the briefing's BOTH views, and the prep panel after spending", async
   // below asserts its own — a walk that silently failed to change view reports the same
   // zero violations as a clean member leaf.
   await prepEveryMember(page);
-  await openMember(page);
-  await openPrepTab(page, "skills");
+  await openLearn(page);
   await expect(page.getByTestId("prep-learn")).toBeVisible();
   const memberReach = await reach(page);
   expect(memberReach, "the member view added nothing to axe's reach").toBeGreaterThan(partyReach);

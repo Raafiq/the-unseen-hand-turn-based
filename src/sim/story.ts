@@ -100,13 +100,18 @@ export type Portrait = z.infer<typeof PortraitSchema>;
  * old free-text `speaker` label, and it is kept: the story repo can name someone this
  * build has never heard of, and nothing here will try to find them in a roster.
  *
- * No `bio` or `description`: prose with no screen to show it on is a spec with no test.
+ * `lore`: one or two lines of biography, shown on the dossier screen. ADDITIVE +
+ * OPTIONAL, like `excludes`/`supportEffect` in `ability.ts`: an unspecified optional
+ * field can never invalidate prior data, so STORY_SCHEMA_VERSION does not bump — a
+ * pre-slice pack loads unchanged with no lore, which is the behaviour it already had.
+ * 240 chars is the cap that fits four lines on the approved 832×328 dossier frame.
  */
 export const CharacterSchema = z
   .object({
     id: z.string().min(1),
     name: z.string().min(1),
     portrait: PortraitSchema.optional(),
+    lore: z.string().trim().min(1).max(240).optional(),
   })
   .strict();
 export type Character = z.infer<typeof CharacterSchema>;

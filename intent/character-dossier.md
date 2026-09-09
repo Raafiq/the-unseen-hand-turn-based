@@ -103,6 +103,19 @@ character's complete dossier on the right." Reads as `[ 6-person portrait rail ]
 - Owner (2026-09-09): **"Approve" — pass 13 is the build target.** Frames:
   `docs/visual/concepts/mockups/dossier-pass13-832x{328,384}.png`, source `mockups/src/dossier.html`
   + `dossier.overrides.css` + the `lock` and `cuirass` glyphs in `mockups/src/icons.js`.
+- Owner (2026-09-09): **traits keep a control on the dossier** — one line at the foot of the
+  Profile block, "Traits: [ ] <name>", the existing checkbox; lore drops to three lines.
+- Build finding (2026-09-09): the approved frames had no home for the Learn list (spending
+  AP on abilities, the old Skills tab's right half). Owner: **design a visible Learn control**
+  — a LEARN plate on the Skills heading, like CHANGE JOBS, opening the learn list as an
+  overlay sheet; the dossier at rest stays as approved. Until it lands the list sits behind
+  a tap on the AP readout (engineer's stopgap). Owner (2026-09-09): **pass-14 frames approved**
+  (`dossier-pass14-832x{328,384}.png`, `dossier-pass14-learn-832x{328,384}.png`); **LEARN is the
+  only door** — the AP readout goes back to plain text.
+- Review (2026-09-09): 2 blockers (the learn overlay outlived Back and re-entry; a 240-char
+  lore pushed the traits line off the sheet), 3 shoulds, 2 nits — all fixed in one engineer
+  pass. Owner: the old "In battle" command list and the equipped-passive descriptions are
+  **deferred to the combat revamp**, not re-homed now.
 - Third notes on the pass-2 frames (verbatim below): a substantially larger portrait, no
   crosshair or blank parchment in the identity card, Stats larger and airier than Profile,
   Profile a little shorter, "Change Jobs" in the Job Customization heading aligned right,

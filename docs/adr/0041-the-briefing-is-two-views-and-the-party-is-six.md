@@ -1,6 +1,7 @@
 # ADR-0041 — The briefing is two views, the party is six, and hand-play is suspended until the combat revamp
 
-- **Status:** Accepted
+- **Status:** Accepted (superseded in part by ADR-0042, 2026-09-09 — the member view's
+  three tabs)
 - **Date:** 2026-09-08
 - **Deciders:** the owner, 2026-09-07 and 2026-09-08, in words.
 - **Supersedes in part:** ADR-0040's second amendment (option A) **for the briefing screen
@@ -11,8 +12,16 @@
 
 ## Context
 
+> **Amended 2026-09-09, superseded in part by ADR-0042.** Two lines below no longer hold:
+> "a three-tab detail leaf on the right" (Context, next paragraph) and "a card row and a
+> three-tab detail no longer split 328 px" (Consequences). ADR-0042 replaced the member
+> view's three tabs with one dossier sheet and a 1×6 portrait rail. Everything else here —
+> two views, the six-member party, the deploy toggle's removal, hand-play suspension —
+> stands.
+
 Option A shipped the briefing as one two-pane screen: a portrait-card roster on a left
-leaf, a three-tab detail leaf on the right. On the owner's phone in landscape both panes
+leaf, ~~a three-tab detail leaf on the right~~ (superseded by ADR-0042). On the owner's
+phone in landscape both panes
 compete for 328 px of height, and the per-card deploy pip made a roster card carry two
 different taps. Three separate things then landed together and each falsified something
 written down:
@@ -110,7 +119,8 @@ every assertion**, so AC-V34, AC-V36 and AC-V37 keep a live carrier.
 ## Consequences
 
 - **The briefing fits one fold.** Each view owns the full width, so a card row and a
-  three-tab detail no longer split 328 px between them.
+  ~~three-tab detail~~ **one-sheet dossier (ADR-0042)** no longer split 328 px between
+  them.
 - **"Who deploys" is authored, not chosen.** The player has no deployment control at all
   until the six-placement slice lands. `save.deployment` still exists in the schema; it is
   cleared, not removed, so no migration was needed.

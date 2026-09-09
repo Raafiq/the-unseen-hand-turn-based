@@ -43,4 +43,5 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0038](0038-confirm-is-a-separate-tap.md) | Confirm is a separate tap; selecting a target no longer commits | Accepted | 2026-09-05 |
 | [0039](0039-portrait-identity-is-a-viewer-table-not-an-engine-field.md) | Portrait identity is a viewer table, not an engine field; the engine stays gender-blind | Accepted | 2026-09-06 |
 | [0040](0040-the-overhaul-follows-the-owners-concepts-title-first.md) | The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first (amended: scene player, then the briefing screen) | Accepted | 2026-09-06 |
-| [0041](0041-the-briefing-is-two-views-and-the-party-is-six.md) | The briefing is two views, the party is six, and hand-play is suspended until the combat revamp | Accepted | 2026-09-08 |
+| [0041](0041-the-briefing-is-two-views-and-the-party-is-six.md) | The briefing is two views, the party is six, and hand-play is suspended until the combat revamp | Accepted (superseded in part by ADR-0042) | 2026-09-08 |
+| [0042](0042-the-member-view-is-one-dossier-no-tabs.md) | The member view is one dossier, no tabs — a 1×6 portrait rail replaces Equipment/Skills/Profile | Accepted | 2026-09-09 |

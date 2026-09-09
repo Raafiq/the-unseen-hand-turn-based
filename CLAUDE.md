@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 994 tests, 196 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041): who fights is authored per encounter (2/3/4/4/4 today), and all six deploy in a coming slice.** The briefing is **two views** — party select, then member detail (ADR-0041), asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 998 tests, 211 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041): who fights is authored per encounter (2/3/4/4/4 today), and all six deploy in a coming slice.** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -309,6 +309,12 @@ put Fable in every specialist.
     never the same filename twice. Nine passes of one screen shipped under one name; the
     owner opened an old card and ordered a revert of a layout that was already fixed
     (2026-09-08).
+  - **BEFORE APPROVING A REDESIGN FRAME, INVENTORY WHAT THE SCREEN REPLACES.** List every
+    control and every piece of information the old screen carried, and check each has a home
+    in the new frames. The dossier's frames were approved without that list, so the LEARN
+    list (spending AP — the whole progression loop) had nowhere to go; it cost an extra art
+    pass, an extra engineer pass and a review blocker (2026-09-09). The engineer will not
+    catch it: it will invent a hiding place rather than stop.
   - **CHECK THE PIXEL BUDGET BEFORE A SPACING PASS.** At 832×328 the sheet is usually full.
     Read the last report's slack per column; when the ask needs pixels the fold does not
     have, ask the owner where they come from (two options), do not spend the pass. Doing so

@@ -7,28 +7,48 @@
       "name": "Vance",
       "portrait": {
         "asset": "archer-m"
-      }
+      },
+      "lore": "Six years in a border lord's levy before the pay stopped. He still counts a room before he counts a man's word."
     },
     {
       "id": "kest",
       "name": "Kest",
       "portrait": {
         "asset": "wizard-m"
-      }
+      },
+      "lore": "Trained as a monk in a hill cloister for four years, then found the fire lessons paid better than the fists did."
     },
     {
       "id": "briar",
       "name": "Briar",
       "portrait": {
         "asset": "archer-f"
-      }
+      },
+      "lore": "A fletcher's daughter from Marrowfield who signed the muster under her father's name and never corrected anyone."
     },
     {
       "id": "ottoline",
       "name": "Ottoline",
       "portrait": {
         "asset": "priest-f"
-      }
+      },
+      "lore": "Took her vows at the river chapel and left it when the tithe box came up short two years running."
+    },
+    {
+      "id": "corin",
+      "name": "Corin",
+      "portrait": {
+        "asset": "priest-m"
+      },
+      "lore": "Trained at the same river chapel as Ottoline, a year behind her, and has never once let her forget it."
+    },
+    {
+      "id": "isla",
+      "name": "Isla",
+      "portrait": {
+        "asset": "wizard-f"
+      },
+      "lore": "Copied her first spellbook by hand from a tutor who charged by the page, and still writes in the margins."
     }
   ],
   "entries": [

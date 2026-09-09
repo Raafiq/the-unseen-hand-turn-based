@@ -1,13 +1,13 @@
-<!-- written-against: 4fe3abb -->
-<!-- 4fe3abb merges the INTENT.md migration (PR #64's two commits, which had landed on the
-     already-merged prep-screen branch, not main) onto main. No code or data changed. -->
+<!-- written-against: HEADSHA -->
+<!-- The character dossier (ADR-0042) is IN THE TREE at this stamp: one sheet, a 1x6 rail,
+     the LEARN overlay, lore in the story pack. 998 tests, 211 browser specs. -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 994 tests, 196 browser specs (`npm run check`).
+Green at the stamp: 998 tests, 211 browser specs (`npm run check`).
 
 ---
 
@@ -96,25 +96,9 @@ Read this before telling the owner "nothing is pending". Three asks are open.
 
 ---
 
-## THE NEXT SLICE — the character dossier (owner, 2026-09-08)
+## THE NEXT SLICE — six deploy on every map, plus an enemy retune
 
-Owner: "Our next slice will be about the character details." The six-deploy half and the
-combat revamp below are **deferred behind it**, in that order, not cancelled.
-
-The whole ask, every owner note and the owner's decisions are in
-`intent/character-dossier.md` (status: accepted). The approved mockup is
-`docs/visual/concepts/mockups/dossier-832x{328,384}.png`, source `mockups/src/dossier.html`.
-Read the intent file's five sections, not the verbatim briefs below them.
-
-- One dossier, no tabs: a 1×6 portrait rail, left column Identity / Stats / Profile, right
-  column Gear / Skills (Active | Passive side by side) / Job Customization. No Deploy here.
-- Breaks ADR-0041's tabbed member detail: a new ADR, plus `docs/10` AC-V51…AC-V61 rewritten.
-- Six lore lines go in the story pack (`content-author`); no test may pin the prose.
-- "Reaction" stays; "Counter" in the briefs is not a rename. No level, no armor slots.
-- Build order: content-author (lore) → viewer-engineer (one pass, to the frames) →
-  reviewer → fixes → docs-steward → retrospective → PR.
-
-## THE SLICES AFTER — two halves, in this order
+The character dossier SHIPPED (ADR-0042); what follows is the queue it was jumped ahead of.
 
 ### (a) Six player placements on every map, plus an enemy retune
 
@@ -139,6 +123,18 @@ walk are all parked. Grep `DEFERRED (ADR-0041)`; ADR-0041 holds the list as a ta
 - **Re-arm by deleting the `test.fixme` line, never by loosening an assertion.**
 - Un-parking `e2e/stage-capture.spec.ts` restores seven `docs/visual/stage/851x324-*.png`
   frames the parking deleted. Let the spec write them; do not restore them from git.
+
+### Landmines the dossier slice leaves behind
+
+- **The "In battle" command list and the equipped-passive descriptions are GONE from the
+  campaign screen**, deferred to the combat revamp by the owner (2026-09-09). Do not re-home
+  them in a spacing pass; the revamp shows commands for real.
+- **`prep-weapon-desc` (the weapon's scaling sentence) has no home** — the Main Hand row is
+  28px at 832×328 and a third line does not fit.
+- **The member view is `layout: "dossier"`; the classic tabbed path still exists in
+  `prep.ts` for the engine viewer.** A change to one is not a change to the other.
+- **At desktop widths both dossier columns pack to the top and leave a large empty band.**
+  Unasserted, undesigned; only 832×328 and 832×384 are covered.
 
 ### Landmines in the files both halves touch
 

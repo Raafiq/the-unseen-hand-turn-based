@@ -972,22 +972,36 @@ decision, 2026-09-06). `scene.ts`'s DOM is unchanged — every change is CSS plu
   screen — review measured the pre-fix build at 159 of 275,724 card pixels moving under
   this same probe, effectively nothing, while three places described the band as live.
 
-### 6c. The briefing screen: two views (ADR-0041, superseding ADR-0040's option A here)
+### 6c. The briefing screen: two views (ADR-0041), the member view is one dossier (ADR-0042)
 
 ~~`#screen-briefing` moves to a two-pane look: portrait-card roster on the left leaf, a
 three-tab detail leaf on the right.~~ **Superseded 2026-09-08 by ADR-0041: the briefing is
-two VIEWS, not two panes, and the per-card deploy toggle is gone.**
+two VIEWS, not two panes, and the per-card deploy toggle is gone.** ~~Member detail splits
+Equipment / Skills / Profile behind three tabs.~~ **Superseded 2026-09-09 by ADR-0042: one
+dossier sheet, no tabs, with a 1×6 portrait rail.**
 
 - **Party select** — six portrait cards in one 6×1 row, a read-only "This battle fields N
   of 6. Tap a member to manage them.", an "In camp" caption on every card the encounter
   does not field, the pre-battle beat on the **top rail**, and the wax Deploy plate on the
   foot rail.
-- **Member detail** — reached by tapping a card. Equipment / Skills / Profile full-width
-  (built by `src/render/prep.ts` into `#prep-body`), a `member-back` plaque, and a top rail
-  reading "Battle N of 5 · managing \<name\>".
+- **Member detail is the character dossier** (built by `src/render/prep.ts` into
+  `#prep-body`), reached by tapping a card. A `dossier-rail` of six portraits sits at the
+  far left, in the campaign's roster order; tapping a rail cell swaps the sheet in place.
+  The sheet itself has two columns, no tabs: **left** — Identity (portrait, name, job, AP),
+  Stats (the renamed "Standing" block: HP, Attack, PA, MA, Move, Evade, Brave, Faith),
+  Profile (the member's story-pack `lore` plus a `Traits: [ ] <name>` line). **Right** —
+  Wielded Gear, Worn Armor (a disabled row, "No armor equipped" — the engine has no armor
+  slot), Skills as two sub-columns (Active: Primary/Secondary; Passive: Reaction/Support/
+  Movement), Job Customization (Main and Secondary cards, CHANGE JOBS on the heading rule).
+  A LEARN plate on the Skills heading opens the AP-spending list as a `role="dialog"`
+  overlay over the right column; it is not `aria-modal` because the rail, Identity, Stats
+  and the traits checkbox stay live underneath. A `member-back` plaque and a top rail
+  reading "Battle N of 5 · managing \<name\>" complete the view.
 
 View state is a module `let briefView` in `src/render/game.ts` (`setBriefView` writes,
-`applyBriefView` applies), reset to party on every transition into the briefing.
+`applyBriefView` applies), reset to party on every transition into the briefing. The learn
+overlay is separate panel state, closed by `setBriefView` and by the same `renderScreens`
+reset — see AC-V60.
 
 **The asserted viewports for this screen are 832×328 and 832×384 — the owner's phone in
 landscape, and nothing else** (ADR-0041). 832×328 assumes a ~56 px Android browser bar and
@@ -1009,21 +1023,21 @@ branches are untested by decision.
   `naturalWidth` check passes a knight's face on the archer. **The placeholder half of
   this AC now has no in-play fixture**: every shipped character has real art, so nothing
   reachable exercises the honest-placeholder branch.
-- **AC-V52 (three tabs, Equipment first, and the choice survives navigation):** Member
-  detail SHALL default to Equipment on entry, mark the open tab `aria-selected="true"`, and
-  keep the same tab open across a roster-member switch or an ability purchase. Covered by
-  "Equipment is selected on entry; Skills reveals prep-reaction; Profile reveals
-  prep-traits; aria-selected follows" and "switching roster member keeps Skills selected;
-  buying an ability shows the receipt without a tab click."
-- **AC-V53 (the control manifest is an exact partition, across both views):** Every
-  `prep-*` / `member-*` testid the screen can emit (**23**, enumerated by grep, not prose)
-  SHALL be tagged with its **view** (party select / member detail) and, within member
-  detail, its tab; SHALL be attached and visible there; SHALL be hidden elsewhere; and —
-  for the testids that are absent-not-zero — SHALL be seen present at least once across the
+- **AC-V52 — DELETED 2026-09-09 (ADR-0042).** Named a default tab, `aria-selected`, and a
+  tab surviving navigation. The dossier has no tabs at all — every clause is false, so the
+  AC is struck outright rather than amended. What replaced it: no default to pick (AC-V62
+  covers the rail's open-member marker), and the overlay's own reset is AC-V60.
+- **AC-V53 (the control manifest is an exact partition, across both views and faces):**
+  Every `prep-*` / `member-*` / `dossier-*` / `brief-member-name` testid the screen can
+  emit (**30**, enumerated by grep, not prose) SHALL be tagged with its **view** (party
+  select / member detail) and, within member detail, its **face** (`sheet` — the dossier
+  at rest — or `overlay` — the learn panel, which covers rather than hides the sheet
+  underneath); SHALL be attached and visible there; SHALL be hidden elsewhere; and — for
+  the testids that are absent-not-zero — SHALL be seen present at least once across the
   sweep, so a row that stops being reachable goes red rather than reading as "legitimately
   absent" forever. The partition is exact in **both** directions: a stray id fails, and a
-  stale key fails too. Covered by "every manifest control is attached on its view and tab,
-  or legitimately absent; nothing stray ships."
+  stale key fails too. Covered by "every manifest control is attached on its view and
+  face, or legitimately absent; nothing stray ships."
 - **AC-V54 (drift from the approved mockup, at 832×328):** Six values SHALL sit within 12px
   of `docs/visual/concepts/mockups/party-832x328.png` — the card row's first left edge, its
   last right edge, every card's top, the roster's right edge, and the Deploy plate's right
@@ -1051,12 +1065,16 @@ branches are untested by decision.
   "prep-stats stays an unboxed field, pinned rather than left to coincidence."
 - **AC-V56 (phone fit: no scroll, every control ≥44px, the plate stays in view):** At
   **832×328 and 832×384**, on **both views**, the page SHALL NOT scroll horizontally;
-  Deploy, Quit, `member-back`, the three tabs, every roster card's short side, and every
-  `prep-*` select (job, secondary, weapon, reaction, support, movement) SHALL clear 44 CSS
-  px; and the Deploy plate's box SHALL stay inside the viewport. Covered by the
-  "no horizontal scroll; every control on both views clears 44px; the Deploy plate stays
-  inside the viewport" case, and by "deploy's box intersects no roster card and no other
-  party-view control" (B1), both at 832×328 and 832×384.
+  Deploy, Quit, `member-back`, every roster card's short side, the **six rail cells**, and
+  every `prep-*` select (job, secondary, secondary-skill, weapon, reaction, support,
+  movement) SHALL clear 44 CSS px; `prep-change-jobs`, `prep-learn-open` and
+  `prep-learn-close` — each a small picture with a 44px tap overlay taken out of flow —
+  SHALL clear 44px measured by the *contiguous tappable run* through `elementFromPoint`,
+  not their own rendered box; a pack-legal 240-character `lore` SHALL NOT push the traits
+  line off the sheet; and the Deploy plate's box SHALL stay inside the viewport. Covered by
+  the "no horizontal scroll; every control on both views clears 44px; the Deploy plate
+  stays inside the viewport" case, and by "deploy's box intersects no roster card and no
+  other party-view control" (B1), both at 832×328 and 832×384.
 - **AC-V57 (the pre-battle story row never clips its own control or the roster):** At both
   folds `brief-story`'s reveal control SHALL stay fully inside the **top rail** — the beat
   moved onto the rail with the split, so the rail, not the leaf it used to share with the
@@ -1064,16 +1082,19 @@ branches are untested by decision.
   SHALL either show everything it holds or offer the reveal control. Covered by
   "brief-story's reveal control stays inside the leaf and clear of the roster; the line is
   not clipped" (D1), at 832×328 and 832×384.
-- **AC-V58 (contrast is measured per view and per tab, and pinned exactly):** Every
-  text-bearing element on each view and tab SHALL clear WCAG AA against the worst ground it
-  can be painted on. Text-node counts are pinned exactly, MEASURED not guessed, in this
+- **AC-V58 (contrast is measured per view and per face, and pinned exactly):** Every
+  text-bearing element on each view and face SHALL clear WCAG AA against the worst ground
+  it can be painted on. Text-node counts are pinned exactly, MEASURED not guessed, in this
   walk's order — **party select 34, party select after the beat is revealed 33, member
-  detail Equipment 37, Skills 62, Profile 24** — with a floor set a real margin under each,
-  so a view or tab that stops rendering is caught rather than absorbed by slack. The party
-  counts move with the roster **size** (two extra members are five more text nodes: a name,
-  an AP readout and a job line) and moved again when the "In camp" caption landed on the
-  four unfielded cards. Covered by "contrast: briefing and prep, before and after spending"
-  in `e2e/contrast.spec.ts`.
+  detail dossier 51, member detail with the learn overlay open 87** — with a floor set a
+  real margin under each, so a view or face that stops rendering is caught rather than
+  absorbed by slack. The dossier collapsed three tab readings (Equipment 37 / Skills 62 /
+  Profile 24, ADR-0041) into two face readings (ADR-0042): the overlay COVERS the sheet
+  rather than replacing it, so its count is the larger of the two, not a fourth state. The
+  party counts move with the roster **size** (two extra members are five more text nodes: a
+  name, an AP readout and a job line) and moved again when the "In camp" caption landed on
+  the four unfielded cards. Covered by "contrast: briefing and prep, before and after
+  spending" in `e2e/contrast.spec.ts`.
 - **AC-V59 (the CSS-leak probe's own coverage is an exact allowlist, not a floor):** Every
   page-wide `index.html` rule that CDP reports as directly matching an element inside
   `#screen-title`, `#screen-scene` or `#screen-briefing`, on a property the scoped rule
@@ -1082,17 +1103,21 @@ branches are untested by decision.
   not pruned) fails it too. Covered by "matched-rule leaks equal the recorded allowlist
   exactly, in both directions."
 
-- **AC-V60 (the two views, and entry is always party select):** Entering the briefing
-  SHALL show party select; tapping a card SHALL open that member; `member-back` SHALL
-  return to party select with the same member still selected; and an edit made in member
-  detail SHALL leave the screen in member detail, on the same member. *Discriminator:* the
-  reset must be on the **transition into** the briefing (`renderScreens`), not in
-  `applyBriefView` — an ordinary repaint that reset the view would also pass a
-  "entry shows party select" check while destroying an in-progress edit. Covered by
-  "entering shows party select only; a card opens that member; back keeps the same member
-  selected", "tapping the DEEPEST thing on a card opens that member — nothing inside the
-  tile swallows the tap", "the view survives a repaint…" and "opening a member focuses
-  Back; going back focuses the card that was open."
+- **AC-V60 (the two views, and entry is always party select — and the learn overlay never
+  outlives it):** Entering the briefing SHALL show party select; tapping a card SHALL open
+  that member; `member-back` SHALL return to party select with the same member still
+  selected; and an edit made in member detail SHALL leave the screen in member detail, on
+  the same member. The learn overlay, if open, SHALL close on `member-back` and SHALL NOT
+  reopen on the **next** briefing entry (a whole battle played with it open, then a new
+  encounter) — both call sites (`setBriefView`, `renderScreens`) close it, because fixing
+  one leaves the other. *Discriminator:* the party-select reset must be on the
+  **transition into** the briefing (`renderScreens`), not in `applyBriefView` — an ordinary
+  repaint that reset the view would also pass an "entry shows party select" check while
+  destroying an in-progress edit. Covered by "entering shows party select only; a card
+  opens that member; back keeps the same member selected", "tapping the DEEPEST thing on a
+  card opens that member — nothing inside the tile swallows the tap", "the view survives a
+  repaint…", "opening a member focuses Back; going back focuses the card that was open",
+  and "it does not survive leaving the member view — Back, or the next briefing."
 - **AC-V61 (six shown, N fielded, said out loud):** The party view SHALL mark exactly the
   members the **encounter** does not place, with an "In camp" caption, and state the count
   in a read-only line. The marks SHALL follow the encounter even when a stale
@@ -1100,6 +1125,41 @@ branches are untested by decision.
   everybody. Covered by "battle 1 marks exactly the four members it does NOT field, and
   says so in the hint" and "the fielded set follows the ENCOUNTER even when a stale
   deployment is in the save."
+
+- **AC-V62 (the 1×6 rail: identity, order and the open marker, ADR-0042):** `dossier-rail`
+  SHALL show exactly six cells, one per party member, in the campaign's own roster order —
+  never sorted, filtered or reversed; the currently-open member's cell SHALL carry the
+  `on` marker; and tapping a different cell SHALL swap the sheet in place (no bounce
+  through party select) and move the marker to the tapped cell. *Discriminator:* order and
+  identity are read off `data-member` against the campaign JSON the page loads, not
+  counted — a rail showing one member six times passes a count-only check and fails here.
+  Covered by "six cells in the campaign's own roster order; tapping one swaps the sheet in
+  place."
+- **AC-V63 (Profile: the open member's own lore and traits, ADR-0042):** Profile SHALL show
+  the **open** member's `lore` from the story pack (never a fixed member, never the first
+  roster record) and a `Traits: [ ] <name>` line using the existing traits checkbox and its
+  two-trait cap. No test may pin the lore's prose (`check:story`); the assertion reads the
+  expected string out of the pack at test time. Covered by "the lore on screen is the OPEN
+  member's, read from the story pack at test time" and "the traits control is still on the
+  sheet, still writes the save."
+- **AC-V64 (Worn Armor: a stated absence, ADR-0042):** `prep-armor` SHALL be visible with
+  the text "No armor equipped", a `cuirass` glyph, and no `<select>` and no chevron — the
+  engine models no armor slot, so no control here may promise a choice the sim cannot
+  honor. Covered by "Worn Armor is a stated absence: one disabled row, no control, its own
+  glyph."
+- **AC-V65 (the LEARN overlay: role, tree, a live buy, four ways out, ADR-0042):** A LEARN
+  plate on the Skills heading SHALL open a `role="dialog"` (not `aria-modal`) over the
+  right column, named for the **open member's own job**; it SHALL list that job's tree, in
+  the pack's own node order, with AP prices; buying an affordable node SHALL stamp it
+  LEARNED, charge **both** AP readouts (`learn-ap` and `prep-ap`) by the same price, name
+  the ability in a purchase receipt, and persist to the save; and it SHALL close on CLOSE,
+  Escape, a rail tap, or `member-back` — each a distinct call site, and each returns focus
+  to the LEARN plate (CLOSE and Escape) or completes the member switch it triggered (a rail
+  tap). Covered by "LEARN sits on the Skills heading and opens a dialog named for the OPEN
+  member's job", "the overlay lists the open member's OWN job tree, in the pack's order",
+  "buying Piercing Shot stamps it LEARNED, charges BOTH AP readouts, and names it in the
+  receipt", "Close, Escape and a rail tap all shut it; focus goes back to LEARN", and
+  "Escape closes it from anywhere in the member view, not only from inside it."
 
 **AC-V35's 44px floor now ALSO binds on this screen, via AC-V56** — the briefing screen's
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already
@@ -1423,7 +1483,8 @@ itself stays reserved (§6a); the briefing screen's ACs start at V51 because V44
 already spoken for by the title and scene ports. **AC-V60 and AC-V61 (ADR-0041, 2026-09-08)
 are also the briefing's**, minted at the end rather than as V52a/V52b — the letter set has
 no sub-numbering, and inventing one here would collide with the `AC-V22(g)` clause form
-already in use. **Next free viewer AC: V62.**
+already in use. **AC-V62…AC-V65 (ADR-0042, 2026-09-09) are the dossier's own.** AC-V52 is
+deleted, not reused — a struck letter stays retired. **Next free viewer AC: V66.**
 
 ## 9. Determinism risks specific to this layer
 

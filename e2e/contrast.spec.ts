@@ -1,6 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
-import { closeDrawer, dismissScene, openDrawer, openMember, startNewGame } from "./helpers.js";
-import { prepEveryMember } from "./helpers";
+import {
+  closeDrawer,
+  closeLearn,
+  dismissScene,
+  openDossier,
+  openDrawer,
+  openLearn,
+  prepEveryMember,
+  startNewGame,
+} from "./helpers.js";
 import { GROUNDS, paintedStops } from "./contrast-helpers.js";
 
 /**
@@ -128,22 +136,13 @@ async function briefingGroundsAreReal(page: Page): Promise<void> {
     };
     return {
       leaf: grab("#screen-briefing .leaf"),
-      plaqueOnTab: grab("#screen-briefing .tab.on"),
-      tabRest: grab("#screen-briefing .tab:not(.on)"),
       cardRest: grab("#screen-briefing .member:not(.on) .ptab"),
       cardSelected: grab("#screen-briefing .member.on .ptab"),
-      gearrow: grab("#screen-briefing .gearrow"),
       seal: grab("#screen-briefing .seal"),
     };
   });
   expect(paintedStops(painted.leaf), "brief leaf grounds, as a set").toEqual(
     [...GROUNDS.briefLeaf].sort(),
-  );
-  expect(paintedStops(painted.plaqueOnTab), "brief plaque grounds, as a set").toEqual(
-    [...GROUNDS.briefPlaque].sort(),
-  );
-  expect(paintedStops(painted.tabRest), "brief tab-at-rest grounds, as a set").toEqual(
-    [...GROUNDS.briefPlate].sort(),
   );
   expect(paintedStops(painted.cardRest), "brief roster-card-at-rest grounds, as a set").toEqual(
     [...GROUNDS.briefBoxCard].sort(),
@@ -152,9 +151,6 @@ async function briefingGroundsAreReal(page: Page): Promise<void> {
     paintedStops(painted.cardSelected),
     "brief roster-card-selected grounds, as a set",
   ).toEqual([...GROUNDS.briefBoxSelected].sort());
-  expect(paintedStops(painted.gearrow), "brief gearrow grounds, as a set").toEqual(
-    [...GROUNDS.briefGearrow].sort(),
-  );
   // The seal's three translucent sheen/shadow stops are dropped by `paintedStops`? No —
   // `paintedStops` keeps EVERY rgb(a) match, so this compares against the seal's full
   // painted set (opaque + translucent), not `GROUNDS.briefSeal` (opaque-only, the set
@@ -164,6 +160,39 @@ async function briefingGroundsAreReal(page: Page): Promise<void> {
   // translucent stops from the constant (losing the "opaque-only" documentation) or
   // fail on stops `ownGrounds()` never treats as a ground in the first place.
   for (const c of GROUNDS.briefSeal) expect(painted.seal, `seal stop ${c}`).toContain(c);
+}
+
+/**
+ * The MEMBER view's own grounds, which the party-select probe above cannot reach — and
+ * that is not a nicety: every dossier surface is scoped `#screen-briefing.member`, so
+ * `getComputedStyle` on `.rail` at party select returns `background-image: none` and an
+ * equality against it would compare two empty sets and pass. (It did, on the first cut.)
+ * Call this with a member OPEN.
+ */
+async function memberGroundsAreReal(page: Page): Promise<void> {
+  const painted = await page.evaluate(() => {
+    const grab = (sel: string): string => {
+      const el = document.querySelector(sel);
+      return el ? getComputedStyle(el).backgroundImage : "";
+    };
+    return {
+      rail: grab("#screen-briefing .rail"),
+      jobCard: grab("#screen-briefing .jplaque"),
+      gearrow: grab("#screen-briefing .gearrow"),
+    };
+  });
+  // The dossier's rail replaces `.tab.on` as this screen's iron-plaque probe, and the job
+  // card gets its own — pass 13 lifted `.jplaque` off the iron, so the two are no longer
+  // one ground and one probe can no longer stand for both.
+  expect(paintedStops(painted.rail), "brief plaque grounds, as a set").toEqual(
+    [...GROUNDS.briefPlaque].sort(),
+  );
+  expect(paintedStops(painted.jobCard), "brief job-card grounds, as a set").toEqual(
+    [...GROUNDS.briefJobCard].sort(),
+  );
+  expect(paintedStops(painted.gearrow), "brief gearrow grounds, as a set").toEqual(
+    [...GROUNDS.briefGearrow].sort(),
+  );
 }
 
 /** Every text element on the current screen that falls below its AA bar. */
@@ -363,6 +392,18 @@ test("contrast: title screen — the overwrite step and the unreadable-save note
   expect(await failures(page)).toEqual([]);
 });
 
+/**
+ * The two member-view readings, named rather than inlined: the dossier is one sheet and
+ * the progression face is the other, and a bare number in the middle of a walk cannot say
+ * which reading it belongs to. Measured on the built page, and ASSERTED rather than used
+ * as a floor, for the reason this file's own header gives — a walk that silently failed
+ * to switch faces reports the same clean scan twice.
+ */
+const DOSSIER_NODES = 51;
+const DOSSIER_PAIRS = 44;
+const LEARN_NODES = 87;
+const LEARN_PAIRS = 75;
+
 test("contrast: briefing and prep, before and after spending", async ({ page }) => {
   await page.goto("/");
   await startNewGame(page);
@@ -404,28 +445,55 @@ test("contrast: briefing and prep, before and after spending", async ({ page }) 
   expect(await textNodeCount(page), "party select, beat fully revealed").toBe(33);
   await screenPasses(page, 22);
 
-  // MEMBER DETAIL — a different screen's worth of ink, on the same grounds.
-  await openMember(page);
-  expect(await textNodeCount(page), "member detail, Equipment (the entry tab)").toBe(37);
-  await screenPasses(page, 33);
+  // MEMBER DETAIL — a different screen's worth of ink, on the same grounds. The dossier
+  // (owner, 2026-09-09) is ONE sheet, so what used to be three tab readings is two: the
+  // sheet itself, and the sheet with the learn overlay laid over its right column (the
+  // overlay COVERS rather than replaces, so the second count is the larger of the two).
+  await openDossier(page);
+  await memberGroundsAreReal(page);
+  expect(await textNodeCount(page), "member detail, the dossier").toBe(DOSSIER_NODES);
+  await screenPasses(page, DOSSIER_PAIRS);
 
-  await page.locator('.tab[data-tab="skills"]').click();
-  expect(await textNodeCount(page), "member detail, Skills").toBe(62);
-  await screenPasses(page, 55);
-
-  await page.locator('.tab[data-tab="profile"]').click();
-  expect(await textNodeCount(page), "member detail, Profile").toBe(24);
-  await screenPasses(page, 20);
+  await openLearn(page);
+  // THE OVERLAY'S OWN GROUND, probed with it OPEN — it is built on demand, so a probe at
+  // rest would read an element that is not in the document and compare two empty sets.
+  const overlay = await page.evaluate(() => {
+    const el = document.querySelector("#screen-briefing .learnsheet");
+    const bar = document.querySelector("#screen-briefing .lbar");
+    return {
+      leaf: el ? getComputedStyle(el).backgroundImage : "",
+      bar: bar ? getComputedStyle(bar).backgroundImage : "",
+    };
+  });
+  expect(paintedStops(overlay.leaf), "learn overlay leaf grounds, as a set").toEqual(
+    [...GROUNDS.briefLearnLeaf].sort(),
+  );
+  expect(paintedStops(overlay.bar), "learn overlay header grounds, as a set").toEqual(
+    [...GROUNDS.briefPlaque].sort(),
+  );
+  // `briefPlate` moved with the tabs: `--plate-parch` now reaches text only through the
+  // learn list's `.tag` chips, so the ground is probed HERE rather than dropped. The
+  // count assertion first, so "no tag rendered" fails loudly instead of skipping.
+  const tags = page.locator('[data-testid="prep-learn"] .tag');
+  expect(await tags.count(), "no .tag chip in the learn list — briefPlate is unprobed").toBeGreaterThan(0);
+  expect(
+    paintedStops(
+      await tags.first().evaluate((el) => getComputedStyle(el).background),
+    ),
+    "brief plate grounds, as a set",
+  ).toEqual([...GROUNDS.briefPlate].sort());
+  expect(await textNodeCount(page), "member detail, the learn overlay").toBe(LEARN_NODES);
+  await screenPasses(page, LEARN_PAIRS);
+  await closeLearn(page);
 
   // Spending redraws the learn list with rows the first pass never held — the red
   // "needs Secondary" tag, spent-out seals, the receipt. New colours on new grounds.
   // `prepEveryMember` now ends back on PARTY SELECT (it has to, or the Deploy plate is
   // unreachable), so walk back in to the Skills tab it left behind.
   await prepEveryMember(page);
-  await openMember(page);
-  await page.locator('.tab[data-tab="skills"]').click();
+  await openLearn(page);
   await expect(page.getByTestId("prep-learn")).toBeVisible();
-  await screenPasses(page, 55);
+  await screenPasses(page, LEARN_PAIRS);
 });
 
 test("contrast: the help panel", async ({ page }) => {

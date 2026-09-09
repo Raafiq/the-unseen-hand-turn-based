@@ -588,3 +588,117 @@
 #screen-briefing.dossier .tabs,
 #screen-briefing.dossier .seal,
 #screen-briefing.dossier .footrail { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PASS 14 — THE LEARN LIST GETS A DOOR AND A ROOM
+   The approved dossier had no home for spending AP. A `LEARN` plate rides the Skills
+   heading exactly as `CHANGE JOBS` rides the Job Customization heading, and opens a
+   parchment leaf laid over the right column. Every surface below is a shipped recipe;
+   the only new thing is the arrangement.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── the door ───────────────────────────────────────────────────────────────────
+   The plate must not change the resting frame. The Skills heading's line box is
+   9.6px, so the plate is sized to fit INSIDE it (9.0px) rather than to match
+   CHANGE JOBS' 11.9px — that plate rides a 12.4px heading. Same recipe, scaled to
+   the rank of the heading it sits on, so the row's height is untouched and nothing
+   below Skills moves. */
+#screen-briefing.dossier .learnplate {
+  padding: 1.5px 0.44em;
+  /* 0.81em OF THE HEADING, not of the screen. `.sect` is already 0.62em here, so a
+     `0.5em` plate came out at 3.7px — em compounds. 0.81 x 7.41px = 6.0px, which with
+     1.5px of padding is a 9.0px plate inside a 9.6px heading line. */
+  font-size: 0.81em;
+  align-self: baseline;
+  /* The plate is a DOM child of the heading, so it lands between the TEXT and the
+     `::after` rule — which pushed it hard against "Skills". `order: 1` moves it past
+     the rule, so the row reads title - rule - action, the same order as the Job
+     Customization header. */
+  order: 1;
+}
+/* The rule reaches the plate instead of fading out short of it — the same correction
+   pass 5 made for the Job Customization header, for the same reason. */
+#screen-briefing.dossier .blk-skills > .sect::after {
+  background: linear-gradient(90deg, rgba(138, 101, 36, 0.25), var(--accent) 22%, var(--accent));
+}
+
+/* ── the room ──────────────────────────────────────────────────────────────────── */
+#screen-briefing.dossier .scol-side { position: relative; }
+#screen-briefing.dossier .learnoverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+}
+#screen-briefing.dossier .learnoverlay[hidden] { display: none; }
+
+/* The leaf's own parchment, one step lighter than the sheet it covers and carrying the
+   leaf's burn ring and gold inset — so it reads as a second leaf laid ON the dossier
+   rather than as a dialog from another system. */
+#screen-briefing.dossier .learnsheet {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.34em 0.4em 0.36em;
+  background-color: var(--parch-hi);
+  background-image: var(--stain), var(--tooth),
+    radial-gradient(120% 100% at 40% 20%, #f2e2c9 0%, var(--parch-hi) 30%, var(--parch) 72%, var(--parch-lo) 100%);
+  background-blend-mode: multiply, overlay, normal;
+  background-size: 100% 100%, 180px 180px, 100% 100%;
+  box-shadow:
+    inset 0 0 0 1px rgba(58, 32, 12, 0.7),
+    inset 0 0 0 3px rgba(138, 101, 36, 0.28),
+    inset 0 0 0.9em 0.2em rgba(74, 40, 14, 0.35),
+    0 0.4em 1.1em rgba(0, 0, 0, 0.55);
+}
+
+/* THE IRON HEADER — the `.plaque` recipe, `--label` on it, exactly as the top rail. */
+#screen-briefing.dossier .lbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.44em;
+  padding: 0.22em 0.4em 0.26em;
+  background-color: var(--plaque);
+  background-image: var(--grain), linear-gradient(180deg, var(--plaque-hi) 0%, var(--plaque) 42%, var(--plaque-lo) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 240px 240px, auto;
+  background-blend-mode: soft-light, normal;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 226, 180, 0.14), 0 0.14em 0.3em rgba(0, 0, 0, 0.5);
+}
+#screen-briefing.dossier .ltitle {
+  margin: 0;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.74em;
+  letter-spacing: 0.04em;
+  color: var(--label);
+  white-space: nowrap;
+}
+#screen-briefing.dossier .lap {
+  margin-left: auto;
+  font-family: var(--roman);
+  font-weight: 600;
+  font-size: 0.62em;
+  letter-spacing: 0.12em;
+  color: var(--label);
+  white-space: nowrap;
+}
+/* The close plate is the CHANGE JOBS plate, full weight — it is the way out. */
+#screen-briefing.dossier .lclose { align-self: baseline; }
+
+/* The tree picker is a slot row, the same one the Gear and Skills rows use. */
+#screen-briefing.dossier .ltree { flex: 0 0 auto; height: 2.35em; min-height: 0; margin-top: 0.3em; padding: 0.2em 0.34em 0.2em 0.22em; }
+
+/* The rows are the shipped `.learn-list`. It scrolls if a tree is longer than the leaf,
+   but at 832x328 the first five rows are visible without scrolling — measured. */
+/* `flex: 0 1 auto`, not `1 1`: with flex-grow the list stretched to the leaf's foot and
+   left the spend line floating in a band of empty parchment. The list is content-sized
+   and still scrolls when a tree is longer than the leaf; the slack pools at the bottom
+   of the leaf, where it reads as the leaf's own margin. */
+#screen-briefing.dossier .learn-list { flex: 0 1 auto; min-height: 0; margin-top: 0.3em; gap: 0.2em; }
+#screen-briefing.dossier .learn-list li { padding: 0.16em 0.34em 0.2em; }
+#screen-briefing.dossier .learn-list .buy { min-height: 0; padding: 0.16em 0.42em 0.18em; }
+#screen-briefing.dossier .learnsheet .hint.tight { flex: 0 0 auto; margin-top: 0.26em; }
