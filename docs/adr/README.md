@@ -39,9 +39,10 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0033](0033-the-stat-panel-shows-only-what-the-sim-models.md) | The battle-map stat panel shows only what the sim models: no MP, no Level | Accepted | 2026-09-01 |
 | [0034](0034-mobile-is-landscape-only-a-gate-not-a-lock.md) | Mobile is landscape-only: a rotate gate plus a best-effort orientation lock | Accepted | 2026-09-05 |
 | [0035](0035-portraits-are-generated-in-gpt-image-2-not-midjourney.md) | Portraits are generated in GPT Image 2, not Midjourney; every character is in their twenties | Accepted | 2026-09-05 |
-| [0037](0037-the-viewer-is-built-for-a-landscape-phone-first.md) | The viewer is built for a landscape phone first (supersedes ADR-0033's placement) | Accepted | 2026-09-05 |
+| [0037](0037-the-viewer-is-built-for-a-landscape-phone-first.md) | The viewer is built for a landscape phone first (supersedes ADR-0033's placement) | Superseded by ADR-0043 | 2026-09-05 |
 | [0038](0038-confirm-is-a-separate-tap.md) | Confirm is a separate tap; selecting a target no longer commits | Accepted | 2026-09-05 |
 | [0039](0039-portrait-identity-is-a-viewer-table-not-an-engine-field.md) | Portrait identity is a viewer table, not an engine field; the engine stays gender-blind | Accepted | 2026-09-06 |
 | [0040](0040-the-overhaul-follows-the-owners-concepts-title-first.md) | The design overhaul follows the owner's concept renders, look only, one screen at a time; the title screen ships first (amended: scene player, then the briefing screen) | Accepted | 2026-09-06 |
 | [0041](0041-the-briefing-is-two-views-and-the-party-is-six.md) | The briefing is two views, the party is six, and hand-play is suspended until the combat revamp | Accepted (superseded in part by ADR-0042) | 2026-09-08 |
 | [0042](0042-the-member-view-is-one-dossier-no-tabs.md) | The member view is one dossier, no tabs — a 1×6 portrait rail replaces Equipment/Skills/Profile | Accepted | 2026-09-09 |
+| [0043](0043-the-combat-screen-is-battlefield-first.md) | The combat screen is battlefield-first, measured against a minimum landscape viewport (supersedes ADR-0037) | Accepted | 2026-09-09 |

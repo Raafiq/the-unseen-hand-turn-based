@@ -36,7 +36,7 @@ look and makes those abilities castable by tap. It un-parks the 13 tests marked
 author 2 / 3 / 4 / 4 / 4 player placements. Six placements on every map, plus the enemy
 retune that doubling battle 1 demands.
 
-Detail lives in ADR-0037, ADR-0038, ADR-0040 and ADR-0041 — read them rather than a summary.
+Detail lives in ADR-0043, ADR-0038, ADR-0040 and ADR-0041 — read them rather than a summary.
 
 ---
 
@@ -47,7 +47,7 @@ The calls that shape every slice, not just the next one. Only what is still in f
 | Directive | Source |
 |---|---|
 | `docs/` outranks the code. A mismatch means the code is wrong, or the doc needs a recorded change | root `CLAUDE.md` |
-| Build phone-landscape first, on a fixed-height stage; the board is never covered at rest | ADR-0037, ADR-0038 |
+| Battlefield-first: measured against the 832×328 reference viewport, no persistent UI covers playable tiles at rest (≥75% unobscured) | ADR-0043, ADR-0038 |
 | Assert the owner's phone only: 832×328 and 832×384. Other viewports are fluid, not covered | ADR-0041, owner 2026-09-08 |
 | For a taste change, approve rendered frames first — and collect **every** note before the engineer starts | owner, 2026-09-08 |
 | Never commit or push without the owner's words | owner, 2026-09-01 |
@@ -65,14 +65,14 @@ Nobody should start these. One line each; the detail lives where the pointer say
 
 | Item | State | Where the detail lives |
 |---|---|---|
-| The battle screen in the new look | Owner has not picked it. Do not port it early | ADR-0040; `docs/visual/concepts/Combat scene (*).png` |
+| The battle screen in the new look | Owner has not picked the composition. The concept art IS reference, adapted to battlefield-first | ADR-0043 §7, ADR-0040; `Combat scene (*).png` |
 | The enemy retune before six placements exist | Retuning a map you are about to re-author measures nothing | ADR-0027 (suspended by ADR-0041) |
 | Filling out the thief and knight skillsets | Thief is entirely `effect-deferred` (zero live actions); knight's tree is 2 of 9 live. `thief-f` stays unwired | ADR-0041 |
 | Anything tagged `[DEFERRED]` | Post-1.0 by convention | the docs' tag key |
 | The job cut (8 jobs to 5) | A signal, not a decision (owner, 2026-09-05). Needs an ADR | `docs/visual/portraits/reference/README.md`, "Scope" |
 | The turn plate under the damage numeral | Open appearance call; render alternatives before asking | ADR-0032 amendment |
 | The unit token; team colour on portraits | Still the flat kite; nobody has picked clothing vs chrome | ADR-0030, portraits README |
-| The other three screens onto the stage | Only the battle screen was rebuilt onto it | ADR-0037, ADR-0040 |
+| The other three screens onto the stage | Only the battle screen was rebuilt onto it | ADR-0043, ADR-0040 |
 | Camera pan, pinch, double-tap-to-refit | Tiles are ~30×15 CSS px at 640×300; mis-taps uncovered | ADR-0037 |
 | Skin B (dark-table stage) | In `stage.css`, not wired into `viewer.html` | `src/render/stage.css` |
 | Safe-area insets | Asserted as declared, not working; no notch emulation | `docs/10` AC-V41 |
