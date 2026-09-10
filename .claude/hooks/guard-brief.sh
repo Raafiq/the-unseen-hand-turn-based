@@ -62,7 +62,16 @@ case "$type" in
     fi
     ;;
   release-engineer)
-    if printf '%s\n' "$prompt" | grep -Eiq 'pull request|(^|[^[:alnum:]])PR([^[:alnum:]]|$)|create_pull_request'; then
+    # A brief that FORBIDS a PR is not one that asks for it. Drop the negated
+    # sentences first, or "Do not open a pull request" fires the retro gate
+    # (2026-09-10: a push-only slice paid a full retrospective for exactly that).
+    # Conservative on purpose — negation, a PR verb and the noun must all sit in
+    # ONE sentence, so "Do not run tests. Open a PR." still fires. A false negative
+    # here lets a real PR skip the retro; a false positive only costs a retro.
+    asked=$(printf '%s\n' "$prompt" \
+      | grep -Eiv '(do not|does not|don.t|never)[^.!?]{0,40}(open|creat|draft|prepar|author|file|rais)[^.!?]{0,40}(pull request|PR)' \
+      | grep -Eiv '(^|[^[:alnum:]])no (pull request|PR)[^.!?]{0,40}(wanted|needed|required|expected)')
+    if printf '%s\n' "$asked" | grep -Eiq 'pull request|(^|[^[:alnum:]])PR([^[:alnum:]]|$)|create_pull_request'; then
       retro="${RETRO_MARKER:-$repo_root/.claude/.retro-done}"
       if [ ! -f "$retro" ] || [ -z "$(find "$retro" -mmin -240 2>/dev/null)" ]; then
         missing+=("a retrospective — run the retrospective skill FIRST (it touches .claude/.retro-done); a release engineer spawned before it bounces off require-retro-before-pr.sh (57k on 2026-09-07, 45k on 2026-09-08)")
