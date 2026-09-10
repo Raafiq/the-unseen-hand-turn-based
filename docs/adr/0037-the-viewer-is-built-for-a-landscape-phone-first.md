@@ -1,6 +1,10 @@
 # ADR-0037 — The viewer is built for a landscape phone first
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0043 (2026-09-09)
+- **Superseded by:** [ADR-0043](0043-the-combat-screen-is-battlefield-first.md) — the
+  battlefield-first rule and the failure below are kept; the fixed 360-unit stage and the
+  letterboxed desktop are replaced. The geometry table here is superseded arithmetic, not a
+  spec. **The code still implements this ADR until the combat revamp lands.**
 - **Date:** 2026-09-05
 - **Deciders:** the owner, 2026-09-05, from a real-device screenshot and a research brief.
 - **Supersedes:** **ADR-0033 decision 2** (the stat plate sits bottom-left over the canvas).

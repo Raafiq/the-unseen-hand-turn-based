@@ -16,7 +16,9 @@ portrait still show the self-labelling placeholder. The title screen, the scene
 player **and the briefing** ship in the owner's new concept look (ADR-0040, ADR-0041);
 battle poses do not. **Hand-play of the campaign is suspended until the combat revamp
 (ADR-0041):** `isClickTargetable` rejects `aoe`/`speed`, so wizards and priests have no
-tap-castable action, and 13 tests are parked with `DEFERRED (ADR-0041)`.
+tap-castable action, and **nine** sites are parked with `DEFERRED (ADR-0041)` — two `it.skip`
+(`src/sim/campaign-run.test.ts`, `src/render/playtest.test.ts`) and seven in `e2e/`. Nothing
+derives that count; "13" stood here for two slices and was wrong. Grep the marker, don't trust it.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 

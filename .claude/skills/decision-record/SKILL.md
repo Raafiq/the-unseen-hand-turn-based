@@ -30,6 +30,23 @@ You do **not** need an ADR for routine, easily-reversible edits.
 4. Set **Status** (`Proposed` → `Accepted`; later maybe `Superseded by ADR-XXXX`).
 5. Add a row to `docs/adr/README.md` index.
 
+## Before you spawn: price every adjective in an acceptance rule
+
+Read the owner's words for **judgment adjectives with no number behind them** — "dominant",
+"comfortably tappable", "legible", "readable", "fast", "obvious", "clear". Each is a rule
+that cannot be tested, and this repo's own record says an unasserted number in prose is
+worse than an absent one (root `CLAUDE.md`, "A spec with no test is not a spec").
+
+List them and put them to the owner **in one round, before the ADR is written** — two
+options each, with your pick. Writing first and asking after costs a resume per adjective.
+
+> 2026-09-10, ADR-0043: the owner's brief carried three — "dominant visual region",
+> "comfortably tappable", "core combat text remains legible". Only "dominant" got a number
+> (≥75%), and it took a second round to get it. The other two shipped as prose.
+
+If the owner declines to price one, say so **in the ADR** — mark that clause explicitly
+aspirational rather than letting it read as testable.
+
 ## When reversing a decision
 
 Write a new ADR that (a) states the new choice, (b) links the superseded ADR, and (c) explains what changed. Then mark the old one `Superseded by ADR-NNNN` — leave its body intact.

@@ -43,6 +43,15 @@ rm -f "$RETRO_MARKER"
 t 0 "push-only brief, no marker"        release-engineer "Push the branch only. REPORT in under 10 lines."
 t 0 "'PRs' is not the word PR"          release-engineer "List open PRs. REPORT in under 10 lines."
 t 2 "word PR, no marker, no cap either" release-engineer "Open the PR."
+# A brief that FORBIDS a PR must NOT need a retro (2026-09-10). The three BLOCK
+# cases below are what keeps the negation strip narrow: strip it wider and each
+# goes green, so "no retro needed" would leak to briefs that do ask for a PR.
+t 0 "'do not open a pull request'"      release-engineer "Push only. Do not open a pull request. REPORT in under 10 lines."
+t 0 "'do not open, draft or prepare'"   release-engineer "Do not open, draft, or prepare a pull request of any kind. REPORT in under 10 lines."
+t 0 "'no pull request is wanted'"       release-engineer "Push the branch. No pull request is wanted here. REPORT in under 10 lines."
+t 2 "negation ENDS before the ask"      release-engineer "Do not run the tests. Open the PR. REPORT in under 10 lines."
+t 2 "negation is about something else"  release-engineer "Never force-push. Open a pull request. REPORT in under 10 lines."
+t 2 "'do not' after the ask"            release-engineer "Open a pull request. Do not merge it. REPORT in under 10 lines."
 unset RETRO_MARKER
 echo "-- others need only the cap --"
 t 0 "reviewer with cap"                 reviewer "Review the diff. REPORT in under 25 lines."

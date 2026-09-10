@@ -88,3 +88,11 @@ The AC sections are the testable spec, so an AC is a promise someone must keep:
 The edits, plus a **drift report**: every claim you checked, whether it held, and the
 claims you could **not** check and why. The second list is the valuable one — say what is
 unverified rather than letting silence imply it was verified.
+
+Always end with **what you decided that the brief did not state** — every gap you filled by
+judgment, one line each, even when you are confident. Say it whether or not the brief asks.
+A doc outranks the code here, so an invention of yours reads to the next agent as the
+owner's decision, and nothing goes red. On 2026-09-10 this list was three lines long on an
+ADR; one of the three was wrong (safe-area insets taken off one edge, not four) and the
+owner corrected it in a single round because it was named. Unnamed, it would have shipped
+as the rule.
