@@ -85,6 +85,14 @@ export interface ViewerApi {
   /** The transient illegal-click reason chip, or null. */
   reason: () => string | null;
   /**
+   * Legal move destinations right now — straight from `Session.moveTiles()`
+   * (docs/10 §1, AC-V7: the sim owns legality). Read-only; emits no command.
+   * Exposed for `e2e/stage.spec.ts`'s AC-V67 nearest-tile-centre discovery, which
+   * needs to find two ADJACENT legal destinations without re-deriving reachability
+   * with a radius test the way `src/render/CLAUDE.md` forbids.
+   */
+  moveTiles: () => Position[];
+  /**
    * MOTION IS COSMETIC, AND THESE TWO CONTROL ITS CLOCK — nothing else.
    *
    * They exist because a screenshot taken straight after a state change lands on an

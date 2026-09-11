@@ -867,6 +867,40 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     expect(deltaE00("#8fd0ff", "#8fd0ff")).toBeCloseTo(0, 5);
   });
 
+  /**
+   * MOVEMENT vs ATTACK — two DIFFERENT colour tokens (owner decision 5, combat
+   * revamp: "the player should never confuse attack-preview tiles with movement
+   * range"). `FIELD_THEME.highlight`/`highlightEdge` paint the move-range panel;
+   * `FIELD_THEME.target`/`targetEdge` paint a legal act target — `draw()`'s own
+   * paint order is unchanged by this test, this only asserts the TOKENS it reads
+   * from are distinguishable, both by identity and perceptually.
+   */
+  it("DISCRIMINATING: the move-range token and the attack-target token are neither the same string nor perceptually close", () => {
+    // IDENTITY FIRST — never hand-picked hex: the two theme KEYS `draw()` actually
+    // paints move tiles and target tiles with must be different values.
+    // MUTATION: set `target: FIELD_THEME.highlight` (alias the two tokens) and this
+    // line alone goes red, before any colour maths runs.
+    expect(FIELD_THEME.target).not.toBe(FIELD_THEME.highlight);
+    expect(FIELD_THEME.targetEdge).not.toBe(FIELD_THEME.highlightEdge);
+
+    // PERCEPTUAL DISTANCE — reuses the SAME `deltaE00`/`compositeOver` helpers and
+    // the SAME floor value (15) the range-panel-vs-ground test above established
+    // (that test's `MIN_DE` is scoped to its own `it`, so this is the same number,
+    // not an independently hand-picked one), composited over every shipped ground
+    // tone so this is not a single lucky comparison.
+    const MIN_DE = 15;
+    const bases = TERRAIN_KINDS.map((k) => DAYLIGHT.surfaces[k].base);
+    for (const ground of bases) {
+      const move = compositeOver(FIELD_THEME.highlight, ground);
+      const attack = compositeOver(FIELD_THEME.target, ground);
+      expect(deltaE00(move, attack), `move vs attack over ${ground}`).toBeGreaterThan(MIN_DE);
+    }
+
+    // NON-DEGENERACY: the helper can also report a near-tie, or a floor of 15 could
+    // be satisfied by any two colours whatsoever regardless of what they paint.
+    expect(deltaE00(FIELD_THEME.highlight, FIELD_THEME.highlight)).toBeCloseTo(0, 5);
+  });
+
   it("refuses a terrain map that does not cover the grid", () => {
     const { ctx } = recordingCtx();
     expect(() =>

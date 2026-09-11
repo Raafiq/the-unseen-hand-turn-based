@@ -480,6 +480,8 @@ test("help: the ? panel opens from any screen and explains the mechanics", async
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await expect(page.getByTestId("help-open")).toBeHidden();
+  // hud-help now lives INSIDE the ☰ menu drawer (combat revamp, ADR-0043).
+  await page.getByTestId("hud-menu").click();
   await page.getByTestId("hud-help").click();
   await expect(page.getByTestId("help-drawer")).toBeVisible();
   await expect(page.getByTestId("help-drawer")).toContainText("Confirm");

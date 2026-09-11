@@ -7,7 +7,7 @@
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 998 tests, 211 browser specs (`npm run check`).
+Green at the stamp: 1007 tests, 238 browser specs (`npm run check`).
 
 ---
 
@@ -130,11 +130,16 @@ selection yet." Owner: `content-author` — it has Bash and runs its own tests.
 
 ### Landmines the revamp will hit
 
-- **The board still ships ADR-0037's 360-unit stage** — `stage.ts`, `stage.css`,
-  `stage.test.ts`, `e2e/stage.spec.ts`, `e2e/stage-capture.spec.ts`. ADR-0043 lists every site.
+- **RESOLVED this slice:** the board now ships ADR-0043's rail/band shell, not ADR-0037's
+  360-unit stage — `stage.ts`, `stage.css`, `stage.test.ts`, `e2e/stage.spec.ts`,
+  `e2e/stage-capture.spec.ts` all rewritten. `isClickTargetable` accepts `aoe`/`speed`, so
+  hand-play works again. Verify the frames (832×328/384) still match before trusting this.
 - **The "In battle" command list and equipped-passive descriptions are GONE from the campaign
   screen**, deferred here by the owner (2026-09-09). The revamp shows commands for real.
-- **Root `CLAUDE.md` and older prose say "13 tests parked".** The tree has nine sites.
+- **Seven of nine `DEFERRED (ADR-0041)` sites re-armed this slice** (six in `e2e/stage.spec.ts`,
+  one in `e2e/stage-capture.spec.ts`). **Two stay parked**, both `it.skip` for an unrelated
+  balance-pacing reason (naive/zero-prep party beating the finale), not click-targeting:
+  `src/sim/campaign-run.test.ts`, `src/render/playtest.test.ts`.
 - **`AC-V54`'s mockup draws four cards; the party is six.** Those are the row's invariants, not
   four positions. **Nobody has approved a six-card frame.**
 

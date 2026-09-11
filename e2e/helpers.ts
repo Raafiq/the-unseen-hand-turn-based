@@ -269,6 +269,10 @@ export async function openDrawer(
   // next opener" is not always reachable. Closing through the panel's own ✕ is what a
   // player does and what always works.
   await closeDrawer(page);
+  // settings/help moved INSIDE the ☰ menu drawer (combat revamp, ADR-0043): three
+  // top-bar icons do not fit the new pixel budget, one stud does. Their openers are
+  // `hidden` (their drawer is `[hidden]`) until the menu is open.
+  if (which === "settings" || which === "help") await page.getByTestId("hud-menu").click();
   await page.getByTestId(opener).click();
   await expect(page.getByTestId(panel)).toBeVisible();
 }

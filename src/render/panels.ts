@@ -21,7 +21,6 @@
 import type { ActiveActor, BattleState } from "../sim/index.js";
 import { ASSUMED_FUTURE_TURN_COST, forecast } from "./demo.js";
 import { abilityLabel } from "./prep.js";
-import type { TurnCost } from "./preview.js";
 import type { Session } from "./session.js";
 
 /**
@@ -311,11 +310,16 @@ const row = (k: string, v: string, cls = ""): string =>
   `<div class="prow ${cls}"><span class="pk">${k}</span><span class="pv">${v}</span></div>`;
 
 /**
- * The resolution-transparency panel (docs/10 §4). DEFERRED ROWS ARE ABSENT — no
- * crit, reaction, status-on-hit, elemental, AoE, LoS or charge line is printed,
- * because printing one as zero would assert a modeled zero for something the sim
- * does not model (ADR-0010), which pillar 4 forbids. The closing note NAMES what
- * is unmodeled instead of faking a value for it.
+ * The resolution-transparency panel (docs/10 §4) — now the DEEP-DIVE, reached by an
+ * explicit tap on the TARGET UNIT plate (`targetPlateHtml`), never open by default
+ * during ordinary targeting (combat-revamp refinement, 2026-09-10: ADR-0043 decision
+ * 4/5 forbids a temporary overlay covering the board except after that kind of
+ * explicit ask). DEFERRED ROWS ARE ABSENT — no crit, reaction, status-on-hit,
+ * elemental, AoE, LoS or charge line is printed, because printing one as zero would
+ * assert a modeled zero for something the sim does not model (ADR-0010), which
+ * pillar 4 forbids. There is no closing note naming the omission any more — the
+ * omission itself, not a sentence about it, is what pillar 4 requires; a developer
+ * accounting of "not modeled yet" is not combat UI (owner decision).
  */
 export function previewHtml(session: Session, look: LookUp): string {
   const p = session.preview();
@@ -391,34 +395,108 @@ export function previewHtml(session: Session, look: LookUp): string {
     // asserting an unmodeled effect — it does not require printing an empty one.
     (p.inflicts.length > 0
       ? row("Inflicts", p.inflicts.map((i) => i.id).join(", "), "lethal")
-      : "") +
-    // THIS LIST IS AN ASSERTION, and it has to shrink as capabilities land. It named
-    // `status-on-hit` while the Inflicts row above was already live, and `reactions`
-    // until ADR-0019 wired them — each one a claim the engine had stopped backing.
-    // Only genuinely unmodeled things belong here.
-    `<p class="phint">Not modeled yet, so not shown: crit, elemental weak/half/absorb,
-     AoE spread, line of sight (ADR-0010). ${slotHonesty(p.turn)}</p>`
+      : "")
+    // NO CLOSING DISCLAIMER PARAGRAPH (combat-revamp refinement, 2026-09-10, owner
+    // decision). The previous `.phint` here — "Not modeled yet, so not shown: crit,
+    // elemental weak/half/absorb, AoE spread, line of sight" plus a two-sentence essay
+    // on whether "Next slot" is exact or projected — was developer accounting, not
+    // combat UI. Pillar 4's actual rule ("unmodeled things are ABSENT, never shown as
+    // zero") is enforced by ROW OMISSION above, not by prose: there is no Crit row, no
+    // Elemental row, no LoS row, ever, on this panel — deleting the sentence removes no
+    // guarantee. The "Next slot" honesty requirement (docs/10 §4 item 7 / AC-V11) still
+    // holds: the `slot` value above is prefixed "≈" whenever `timelineSlotExact` is
+    // false, so the row itself carries the fact/projection distinction the AC asks for.
+  );
+}
+
+/** A stat bar, shared by the two combat-shell plates below (docs/10 §8, ADR-0043). */
+function plateBar(hp: number, maxHp: number, color: string): string {
+  const pct = maxHp > 0 ? Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100))) : 0;
+  return `<span class="plate-bar" style="--c:${esc(color)}"><i style="width:${pct}%"></i></span>`;
+}
+
+/**
+ * The ACTIVE UNIT plate (combat revamp, ADR-0043) — the band's compact, always-on
+ * replacement for ADR-0038's floating actor tab. Same underlying fact as the old
+ * tab (name + HP, AC-V37: deeper stats stay behind the tap-to-open drawer) PLUS the
+ * Clock value the mockup's frame shows (`ADR-0033`'s stat set already carries CT on
+ * `UnitState`; nothing new is read off the sim to print it).
+ */
+export function activePlateHtml(session: Session, look: LookUp): string {
+  const actor = session.actor();
+  if (!actor) return `<span class="plate-empty">No unit is acting</span>`;
+  const meta = look(actor.id);
+  const color = meta?.color ?? FALLBACK_COLOR;
+  // THREE ROWS, NOT FIVE (combat-revamp pass 3, PIXEL BUDGET) — the plate is a fixed
+  // 50px-tall box and five stacked rows (name/job/clock/bar/hp) measured to ~67px of
+  // content at this font size, so `overflow: hidden` + the flex column's vertical
+  // centring clipped the TOPMOST row — the name — off both the active and target
+  // plate every time. Job and Clock now share one row; the bar and the HP figure
+  // share another. Name keeps its own row, which is the fix: it can no longer be the
+  // one that gets pushed out.
+  return (
+    `<span class="plate-name">${esc(meta?.label ?? actor.id)}</span>` +
+    `<span class="plate-row">` +
+    (meta?.job ? `<span class="plate-job">${esc(meta.job)}</span>` : "") +
+    `<span class="plate-clock">Clock ${actor.ct}</span>` +
+    `</span>` +
+    `<span class="plate-row">` +
+    plateBar(actor.hp, actor.maxHp, color) +
+    `<span class="plate-hp">HP ${actor.hp} / ${actor.maxHp}</span>` +
+    `</span>`
   );
 }
 
 /**
- * WHY the "Next slot" row is (or is not) exact — docs/10 §4 item 7 forbids
- * presenting a projection as a fact, so the disclaimer has to track the actual
- * value, not sit there as boilerplate. Exact means the slot lands inside
- * `Forecast.assumedFrom`: no guessed CT cost is in its path. The cast caveat is
- * stated in BOTH branches because no forecast can anticipate a charge nobody has
- * declared yet.
+ * The TARGET UNIT plate (combat revamp, ADR-0043, owner decision 2). Driven by
+ * {@link Session.preview} — the SAME staged/hover computation the deep-dive sheet
+ * reads — so the compact plate can never disagree with the sheet it summarises.
+ *
+ * THE COUNTER/BLOCKED LINE IS THE WHOLE REASON THIS PLATE EXISTS SEPARATELY FROM
+ * THE SHEET (owner decision 2): it must be visible with ZERO extra taps once a
+ * target is relevant, so it cannot live behind the sheet's open gesture. `⛔
+ * BLOCKED` (a `preemptive` reaction cancels the act — `p.counterRisk.cancelsAct`)
+ * and `⚠ COUNTER` (an ordinary counter-swing will answer it) are mutually
+ * exclusive readings of the SAME {@link CounterRisk}, mirroring `previewHtml`'s
+ * "⚠ Blocked" / "⚠ Counter" rows one level down — this is the glyph vocabulary the
+ * owner's note specifies, on the plate rather than in the sheet.
+ *
+ * ABSENT-NOT-ZERO: `p.counterRisk` is `undefined` whenever no reaction could fire
+ * (`preview.ts`'s own contract) — the warning `<span>` is then not merely hidden,
+ * it is never built, so a test cannot find it in the DOM at all. A build with the
+ * risk stripped and one with it present differ by a whole element, not a class.
  */
-function slotHonesty(turn: TurnCost): string {
-  if (turn.timelineSlotExact) {
-    return `“Next slot” is <b>exact</b>: nobody ahead of you takes a second turn first, so no
-      guessed CT cost is in its path (it can still shift if an actor ahead begins a charged
-      cast — that adds an actor to the timeline). The CT price above it is exact too.`;
-  }
-  return `“Next slot” is a <b>projection, not a fact</b>: it sits past the point where the
-    forecast starts assuming every turn ahead costs a plain −${ASSUMED_FUTURE_TURN_COST} CT, so a
-    Wait (−60) or a move+act fold (−100) anywhere in between moves it. The CT price above it
-    <i>is</i> exact.`;
+export function targetPlateHtml(session: Session, look: LookUp): string {
+  const p = session.preview();
+  if (!p) return `<span class="plate-empty">No target</span>`;
+  const meta = look(p.targetId);
+  const color = meta?.color ?? FALLBACK_COLOR;
+  const warn = p.counterRisk
+    ? p.counterRisk.cancelsAct
+      ? `<span class="plate-warn blocked" data-testid="target-blocked">⛔ BLOCKED</span>`
+      : `<span class="plate-warn counter" data-testid="target-counter">⚠ COUNTER</span>`
+    : "";
+  // THREE (OR FOUR, warn permitting) ROWS, NOT SIX — same pixel-budget fix as
+  // `activePlateHtml` above, and the sharper case: this plate carries a NAME the
+  // owner's acceptance line names explicitly ("acting unit and target identity
+  // remain clear"), and the old five/six-row stack clipped exactly that row off the
+  // top every time, silently — the HTML always had it; the box never showed it.
+  // HIT and DMG share a row; the bar and the HP figure share another; WARN (rare —
+  // absent-not-zero, only built when a reaction is live) gets its own row rather
+  // than being folded into HP, because it is the one line the owner's decision 2
+  // requires to stay readable with zero extra taps.
+  return (
+    `<span class="plate-name">${esc(meta?.label ?? p.targetId)}</span>` +
+    `<span class="plate-row">` +
+    `<span class="plate-hit">HIT ${p.hitChance}%</span>` +
+    `<span class="plate-dmg">${p.heal ? "HEAL" : "DMG"} ${p.magnitude}</span>` +
+    `</span>` +
+    `<span class="plate-row">` +
+    plateBar(p.targetHpAfter, p.targetMaxHp, color) +
+    `<span class="plate-hp">HP ${p.targetHpBefore} / ${p.targetMaxHp}</span>` +
+    `</span>` +
+    warn
+  );
 }
 
 /**

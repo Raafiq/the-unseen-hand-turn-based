@@ -563,6 +563,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
       entries: campaign.battles.map((b) => ({
         battleId: b.id,
         title: `Chapter ${b.id.toUpperCase()}`,
+        battleTagline: `A different tagline for ${b.id}.`,
         pre: { lines: [{ speaker: "narrator", text: `A different opening for ${b.id}.` }] },
         victory: { lines: [{ text: `A different ending for ${b.id}.` }] },
         defeat: { lines: [{ text: `A different failure for ${b.id}.` }] },
@@ -587,6 +588,12 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     expect(typeof shippedTitle).toBe("string");
     expect(shipped.sceneTitle()).toBe(shippedTitle);
     expect(alternate.sceneTitle()).toBe("Chapter B1");
+    // `sceneTagline()` — the entry plaque's second line (combat revamp). The shipped
+    // pack authors no tagline for b1 today, so this is the ABSENT-vs-PRESENT half of
+    // the A/B: a shell that always returned SOME string (even "") could not be told
+    // apart from one honouring absent-not-zero without this pairing.
+    expect(shipped.sceneTagline()).toBeNull();
+    expect(alternate.sceneTagline()).toBe("A different tagline for b1.");
     // Resolved THROUGH the shell, which is what proves the registry is consulted: a
     // renderer reading the raw id would say "narrator", not "Narrator".
     const alt = alternate.resolve(alternate.preBeat()!);
@@ -601,6 +608,7 @@ describe("AC-M4: the story seam is real — the text is DATA, not code", () => {
     s.newGame();
     passScene(s);
     expect(s.sceneTitle()).toBeNull();
+    expect(s.sceneTagline()).toBeNull();
     expect(s.preBeat()).toBeNull();
     expect(s.outcomeBeat()).toBeNull();
   });

@@ -615,8 +615,20 @@ test("contrast: the stat card sits on an OPAQUE plate of the declared colour", a
  * TABLE gradient behind it and get a perfectly good ratio, while the player reads the
  * same text over whatever the canvas painted underneath.
  *
- * MUTATION TO RUN: give `.tuh-top` an `rgba(29, 23, 16, .6)` background in
+ * MUTATION TO RUN: give `.tuh-rail` an `rgba(21, 23, 26, .6)` background in
  * `stage.css`. This test goes red; the one above stays green, which is the point.
+ *
+ * TWO GROUNDS, NOT ONE (combat-revamp pass 3) — `.tuh-rail`/`.tuh-band` (the iron
+ * frame) are checked against `GROUNDS.ironFrame`; the other eight (the plates,
+ * drawers, sheets and toast that sit ON the frame) stay on `GROUNDS.plate`. Before
+ * this pass every one of the ten shared the literal `rgb(29, 23, 16)`, which is
+ * the exact bug this file exists to catch going forward: a repaint of ONE group
+ * that silently reused the other's fill would show as a translucency false-
+ * positive nowhere, only as two groups matching each other's colour, so the sets
+ * are asserted as DISJOINT below, not merely each internally consistent.
+ * MUTATION 2: change `.tuh-rail`'s `background` to `var(--hud-bg)` (the plate
+ * literal). The two-group assertion goes red even though every individual
+ * surface still resolves to SOME declared ground.
  */
 test("contrast: every stage surface is an OPAQUE fill of the declared colour", async ({
   page,
@@ -632,39 +644,44 @@ test("contrast: every stage surface is an OPAQUE fill of the declared colour", a
   await expect(page.getByTestId("reason")).toBeHidden();
   await page.evaluate(() => window.tuh.clickTile(-9, -9)); // raise a toast to measure
 
-  const surfaces = await page.evaluate(() => {
-    const names = [
-      ".tuh-top",
-      ".tuh-bottom",
-      ".tuh-tab",
-      '[data-testid="menu-drawer"]',
-      '[data-testid="unit-drawer"]',
-      '[data-testid="settings-drawer"]',
-      '[data-testid="help-drawer"]',
-      '[data-testid="actions-sheet"]',
-      '[data-testid="preview-sheet"]',
-      '[data-testid="reason"]',
-    ];
+  const IRON = [".tuh-rail", ".tuh-band"];
+  const PLATE = [
+    ".tuh-active-plate",
+    '[data-testid="menu-drawer"]',
+    '[data-testid="unit-drawer"]',
+    '[data-testid="settings-drawer"]',
+    '[data-testid="help-drawer"]',
+    '[data-testid="actions-sheet"]',
+    '[data-testid="preview-sheet"]',
+    '[data-testid="reason"]',
+  ];
+
+  const surfaces = await page.evaluate((names: string[]) => {
     return names.map((sel) => {
       const el = document.querySelector(sel);
       if (!el) return { sel, color: "MISSING", image: "MISSING" };
       const cs = getComputedStyle(el);
       return { sel, color: cs.backgroundColor, image: cs.backgroundImage };
     });
-  });
+  }, [...IRON, ...PLATE]);
 
   // The set is enumerated and asserted non-empty: a loop that found two surfaces
   // passes vacuously.
   expect(surfaces).toHaveLength(10);
   for (const s of surfaces) {
     expect(s.color, `${s.sel} is missing from the stage`).not.toBe("MISSING");
+    const want = IRON.includes(s.sel) ? GROUNDS.ironFrame[0] : GROUNDS.plate[0];
     // `rgb(...)` with no fourth channel is how a computed style spells alpha 1. An
     // `rgba(...)` string here means the surface is see-through.
-    expect(s.color, `${s.sel} is translucent`).toBe(GROUNDS.plate[0]);
+    expect(s.color, `${s.sel} is translucent, or paints the wrong group's ground`).toBe(want);
     // A gradient would vary the ground across the surface, which the single declared
     // stop above could no longer describe.
     expect(s.image, `${s.sel} paints a gradient`).toBe("none");
   }
+  // DISJOINT, EXPLICITLY: the two literals this test pins must differ, or every
+  // per-surface check above could pass by both groups quietly sharing one colour
+  // again — the exact regression pass 3 fixes.
+  expect(GROUNDS.ironFrame[0]).not.toBe(GROUNDS.plate[0]);
 });
 
 test.describe("contrast: the portrait rotate gate", () => {

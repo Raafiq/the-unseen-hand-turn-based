@@ -26,6 +26,8 @@ const SHOTS = "docs/visual/stage";
 const VIEWPORTS = [
   { name: "640x300", width: 640, height: 300 },
   { name: "800x360", width: 800, height: 360 },
+  { name: "832x328", width: 832, height: 328 }, // ADR-0043's reference viewport
+  { name: "832x384", width: 832, height: 384 }, // ADR-0043's second reference viewport
   { name: "851x324", width: 851, height: 324 },
   { name: "900x390", width: 900, height: 390 },
   { name: "1000x780", width: 1000, height: 780 },
@@ -105,23 +107,6 @@ test("stage frames: the battle screen at rest, at every supported viewport", asy
 });
 
 test("stage frames: the five interaction states, on the owner's phone", async ({ page }) => {
-  // DEFERRED, not weakened (owner decision 2026-09-08; ADR-0041). Frame 2 of five is a
-  // STAGED TARGET, and the campaign page cannot reach one: its first actor is the wizard
-  // Kest, and `isClickTargetable` (`src/render/preview.ts`) rejects every `aoe`/`speed`
-  // ability, so a wizard and a priest have no tap-castable action at all. Combat is being
-  // revamped; re-arm by deleting this line rather than by capturing four frames and
-  // calling them five.
-  //
-  // THE COST, STATED: `beforeAll` clears `docs/visual/stage/`, so parking this test
-  // DELETES the seven interaction frames it used to write (unit-selected, target-staged,
-  // unit-drawer, actions-sheet, ai-turn, menu-drawer, settings) and the proof sheet keeps
-  // only the five `rest-*` frames. That deletion is correct and must not be undone by
-  // restoring the old PNGs from git: this file's own contract is that a missing frame
-  // means the state was not reached, and a stale frame can never read as current.
-  test.fixme(
-    true,
-    "DEFERRED (ADR-0041): frame 2 needs a staged target, and the campaign's first actor is a wizard with no tap-castable action (`isClickTargetable` rejects aoe/speed) until the combat revamp",
-  );
   await page.setViewportSize(OWNERS_PHONE);
   await reachBattle(page);
   await toPlayerTurn(page);
@@ -143,8 +128,11 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
   await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/851x324-unit-selected.png` });
 
-  // 2. A target staged — the preview sheet, with Confirm.
+  // 2. A target staged — the preview sheet, with Confirm. The sheet no longer
+  // opens on staging alone (combat-revamp refinement, 2026-09-10): the TARGET
+  // UNIT plate's own tap is the explicit ask that opens it.
   expect(await stageTarget(page), "no legal target to stage").toBe(true);
+  await page.getByTestId("target-plate").click();
   await expect(page.getByTestId("preview-sheet")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/851x324-target-staged.png` });
   await page.getByTestId("cancel").click();
@@ -172,16 +160,67 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
     }
   });
   expect(await page.evaluate(() => window.tuhGame.phase())).toBe("AI_TURN");
-  await expect(page.getByTestId("end-turn")).toContainText("Enemy turn");
+  await expect(page.getByTestId("end-turn")).toContainText("Enemy");
   await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/851x324-ai-turn.png` });
 
   // 6. The menu drawer and the settings readout — the instrument ADR-0037 asked for.
+  // hud-settings now lives INSIDE this drawer (combat revamp): it must be reopened
+  // after `closeDrawer`, not clicked while hidden.
   await page.getByTestId("hud-menu").click();
   await expect(page.getByTestId("menu-drawer")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/851x324-menu-drawer.png` });
-  await closeDrawer(page);
   await page.getByTestId("hud-settings").click();
   await expect(page.getByTestId("settings-readout")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/851x324-settings.png` });
+});
+
+/**
+ * MATERIAL PASS (owner brief, this session) — three named deliverable frames at
+ * ADR-0043's first reference viewport, for the owner to open directly:
+ * `docs/visual/mockups/combat-pass2-{rest,staged,staged-open}-832x328.png`.
+ *
+ * THE ONE NEW STATE THE SUITE DID NOT HAVE BEFORE THIS PASS: target staged with
+ * the deep forecast sheet CLOSED — the real default a player sees the instant
+ * a target is legal (the sheet opens only on the TARGET UNIT plate's own tap,
+ * combat-revamp refinement 2026-09-10). Every existing "target staged" frame in
+ * this file is captured with the sheet already OPEN, so it could not show this.
+ */
+test("stage frames: the owner's pass-2 material review, at the first reference viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 832, height: 328 });
+  await reachBattle(page);
+  await toPlayerTurn(page);
+  await page.screenshot({ path: "docs/visual/mockups/combat-pass2-rest-832x328.png" });
+
+  expect(await stageTarget(page), "no legal target to stage").toBe(true);
+  await expect(page.getByTestId("preview-sheet")).toBeHidden();
+  await page.screenshot({ path: "docs/visual/mockups/combat-pass2-staged-832x328.png" });
+
+  await page.getByTestId("target-plate").click();
+  await expect(page.getByTestId("preview-sheet")).toBeVisible();
+  await page.screenshot({ path: "docs/visual/mockups/combat-pass2-staged-open-832x328.png" });
+});
+
+/**
+ * PASS 3 (owner's three named gaps this session): the iron-frame repaint, the
+ * Confirm/Cancel narrowing, and the target-plate name fix, at the SAME reference
+ * viewport as pass 2 so the two are directly comparable frame-for-frame.
+ * `combat-pass3-staged-832x328.png` is captured with the deep sheet CLOSED —
+ * the state pass 2's own comment above named as the one a player actually sees
+ * first — which is exactly the frame the target-plate name fix has to prove
+ * itself on.
+ */
+test("stage frames: the owner's pass-3 gap-closing review, at the first reference viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 832, height: 328 });
+  await reachBattle(page);
+  await toPlayerTurn(page);
+  await page.screenshot({ path: "docs/visual/mockups/combat-pass3-rest-832x328.png" });
+
+  expect(await stageTarget(page), "no legal target to stage").toBe(true);
+  await expect(page.getByTestId("preview-sheet")).toBeHidden();
+  await page.screenshot({ path: "docs/visual/mockups/combat-pass3-staged-832x328.png" });
 });
