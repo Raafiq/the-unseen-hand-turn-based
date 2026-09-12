@@ -43,6 +43,17 @@ export const GROUNDS = {
    */
   plate: ["rgb(29, 23, 16)"],
   /**
+   * THE BAND/RAIL IRON FRAME (combat-revamp pass 3, owner MATERIAL brief) —
+   * `.tuh-band` and `.tuh-rail` only. Split out of `plate` above on purpose: those
+   * two surfaces are the FRAME the plates, drawers and sheets sit inside, not one
+   * more instance of the same ground, and the owner's complaint was exactly that
+   * they still resolved to the identical brown literal after a pass that only
+   * renamed the token. A flat opaque fill for the same reason `plate` is one — the
+   * walk's own-ground search needs a real colour to compare against, not a
+   * gradient stop.
+   */
+  ironFrame: ["rgb(21, 23, 26)"],
+  /**
    * The rotate gate's card — like the plate, a FLAT opaque fill rather than a gradient.
    *
    * It has to be flat for the same reason: the card is a sibling of nothing this walk

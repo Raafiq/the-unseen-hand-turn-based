@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 998 tests, 211 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041): who fights is authored per encounter (2/3/4/4/4 today), and all six deploy in a coming slice.** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **phone-landscape first** on a fixed-height stage: the board is never covered at rest, the acting unit is a left tab that opens a drawer holding ADR-0033's stat set, and **Confirm is a separate tap** (ADR-0037, ADR-0038). The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1007 tests, 238 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041): who fights is authored per encounter (2/3/4/4/4 today), and all six deploy in a coming slice.** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **battlefield-first** on a CSS-grid stage (ADR-0043, superseding ADR-0037/ADR-0038): a right-side turn-order rail plus a bottom band (active-unit plate, command ribbon, target plate) leave the board ≥75% unobscured at rest at the 832×328/384 reference viewports, and **Confirm is a separate tap**. The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -14,11 +14,12 @@ battle (ADR-0029, AC-M8/M9, AC-V16/V17). **Nine** of ten approved portraits are 
 every party member has a real face; only `thief-f` is unwired, and jobs with no approved
 portrait still show the self-labelling placeholder. The title screen, the scene
 player **and the briefing** ship in the owner's new concept look (ADR-0040, ADR-0041);
-battle poses do not. **Hand-play of the campaign is suspended until the combat revamp
-(ADR-0041):** `isClickTargetable` rejects `aoe`/`speed`, so wizards and priests have no
-tap-castable action, and **nine** sites are parked with `DEFERRED (ADR-0041)` — two `it.skip`
-(`src/sim/campaign-run.test.ts`, `src/render/playtest.test.ts`) and seven in `e2e/`. Nothing
-derives that count; "13" stood here for two slices and was wrong. Grep the marker, don't trust it.
+battle poses do not. **Hand-play works again (ADR-0043 combat-revamp shell):**
+`isClickTargetable` now accepts `aoe`/`speed` abilities, so wizards and priests are
+tap-castable. Seven of the nine `DEFERRED (ADR-0041)` sites re-armed with the shell; **two**
+`it.skip` remain parked (`src/sim/campaign-run.test.ts`, `src/render/playtest.test.ts`) — an
+unrelated balance-pacing concern (a naive/zero-prep party beating the finale), not a click-
+targeting gap. Nothing derives that count; grep the marker, don't trust it.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 

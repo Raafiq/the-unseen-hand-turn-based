@@ -261,7 +261,40 @@ const hud: HudHandle = mountHud(el("stage-host"), {
     },
   ],
   conclude: () => ({ label: "Continue ▸", run: () => act("btn-conclude", () => concludeAndLog()) }),
+  // The entry plaque's text (combat revamp, owner decision 9): read from the
+  // captured value {@link deployIntoBattle} sets BEFORE calling `shell.deploy()` —
+  // `sceneTitle`/`sceneTagline` both read `shell.briefing()`, which is `null` the
+  // instant deploy moves the shell off it, so this cannot be resolved lazily here.
+  battleName: () => pendingBattleName ?? undefined,
 });
+
+/**
+ * THE ENTRY PLAQUE'S TEXT, captured at the one moment it is available (owner
+ * decision 9, `intent/combat-revamp.md`). `hud.ts`'s `HudPorts.battleName` reads
+ * this rather than calling `shell.sceneTitle()`/`sceneTagline()` itself, because
+ * both of those resolve through `shell.briefing()`, which is already `null` by
+ * the time `hud.announceBattle()` runs post-deploy.
+ */
+let pendingBattleName: { title: string; tagline?: string } | null = null;
+
+/**
+ * DEPLOY, THEN ANNOUNCE — the one extra step every deploy path takes over calling
+ * `shell.deploy()` directly. Title falls back to the derived `battleTitle(id)`
+ * exactly as the briefing's own `brief-title` does (`renderBriefingText`); the
+ * tagline is OPTIONAL authored copy and simply absent when the pack has none for
+ * this battle (absent-not-zero — the plaque renders the title alone).
+ */
+function deployIntoBattle(): void {
+  const brief = shell.briefing();
+  if (brief) {
+    pendingBattleName = {
+      title: shell.sceneTitle() ?? battleTitle(brief.encounterId),
+      ...(shell.sceneTagline() ? { tagline: shell.sceneTagline()! } : {}),
+    };
+  }
+  shell.deploy();
+  hud.announceBattle();
+}
 
 /**
  * The screen the last paint showed, so a TRANSITION can be told from a repaint.
@@ -1173,7 +1206,7 @@ on("btn-new-game-yes", newGameConfirmed);
 on("btn-new-game-back", newGameCancelled);
 on("btn-scene-continue", () => shell.endScene());
 on("btn-continue", () => shell.continueGame());
-on("btn-deploy", () => shell.deploy());
+on("btn-deploy", deployIntoBattle);
 on("btn-brief-quit", toTitle);
 // Same plaque, two destinations: quit-to-title on party select, back-to-party-select on
 // member detail. Only one is ever visible (overhaul.css keys both off the view class).
@@ -1267,7 +1300,7 @@ const api: GameApi = {
   // overwrite step), but the method stays: it is still how a corrupt/stale slot gets
   // cleared from a test, and `GameApi` is the shipped seam, not the DOM.
   eraseSave: () => act("btn-erase", () => shell.eraseSave()),
-  deploy: () => act("btn-deploy", () => shell.deploy()),
+  deploy: () => act("btn-deploy", deployIntoBattle),
   step: () => act("btn-step", () => shell.session?.step()),
   autoplay: () =>
     act("autoplay", () => {

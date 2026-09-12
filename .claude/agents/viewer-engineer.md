@@ -96,3 +96,10 @@ happily revert your whole slice.
   is yours to fix before you report.
 - Report back: what changed, the frames you opened, the diff numbers against any reference,
   the mutations you ran, and what you deliberately did not assert.
+- **DECLINING A LISTED ITEM IS NOT AN OPTION.** Your report MUST list every item the brief
+  named, each marked DONE or NOT DONE with a one-line reason. "Already well-developed",
+  "further taste work belongs to art-director", or silence on an item is a FAILED pass, not
+  a judgement call — the brief already went through the PO and the owner. If you think a
+  listed item is wrong, do it anyway and put your objection in the report. Two consecutive
+  engineers each handed back part of one brief, and the owner paid ~590k tokens (42% of the
+  slice) re-asking for work that was already written down (2026-09-12).
