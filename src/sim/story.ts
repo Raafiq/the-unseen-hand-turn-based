@@ -168,6 +168,17 @@ export const StoryEntrySchema = z
      * back to its own derivation when a pack does not author one.
      */
     title: z.string().min(1).optional(),
+    /**
+     * The battle-entry plaque's second line (`intent/combat-revamp.md`, 2026-09-10).
+     * ADDITIVE + OPTIONAL, the exact precedent `lore` set above: `CONTENT_SCHEMA_VERSION`
+     * does not bump and a pre-slice pack loads unchanged, plaque rendering the title alone
+     * (absent-not-zero — no reserved empty row for a tagline nobody authored).
+     *
+     * NOT the victory/defeat condition, and never derived from one — see the intent file's
+     * "no converter" decision. One short, atmospheric line; narrative copy, so it lives in
+     * the swappable story pack rather than in encounter systems data.
+     */
+    battleTagline: z.string().trim().min(1).max(80).optional(),
     pre: StoryBeatSchema.optional(),
     victory: StoryBeatSchema.optional(),
     defeat: StoryBeatSchema.optional(),

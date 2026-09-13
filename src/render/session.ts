@@ -205,6 +205,18 @@ export class Session {
   private abilityUsage: Record<string, number> = {};
   /** chargeId → the abilityId that declared it, so a matured charge is credited. */
   private chargeLabels = new Map<string, string>();
+  /**
+   * THE COMBAT SHELL'S "Attack" / "Skill" RIBBON BUTTONS (combat revamp, ADR-0043),
+   * and nothing else. `null` — the default — makes {@link targets} return exactly
+   * what it always has: `isClickTargetable`'s full set, unfiltered. Setting a mode
+   * narrows the SAME set by `isBasicAttack`, never re-deriving legality — the sim
+   * still owns which unit/ability pairs exist; this only picks which of THOSE the
+   * two ribbon buttons expose, mirroring "attacker → attack action → defender" vs
+   * "attacker → skill → defender" (`intent/combat-revamp.md`). Reset every time a
+   * new decision point is reached ({@link settle}) so a leftover filter from the
+   * previous actor's turn can never narrow the next actor's board.
+   */
+  private commandFilter: "attack" | "skill" | null = null;
 
   constructor(opts: SessionOptions = {}) {
     this.makeState = opts.makeState ?? makeDemoBattle;
@@ -272,6 +284,7 @@ export class Session {
    */
   private settle(): void {
     this.draft = null;
+    this.commandFilter = null;
 
     // WITHOUT rules only: a battle handed to us already decided must never have its
     // clock advanced. WITH rules the fold is the harness's, verbatim — advance,
@@ -434,11 +447,33 @@ export class Session {
     return moveRange(this.state.grid, this.state.units, a.id);
   }
 
-  /** Legal act targets from the staged position — straight from the sim. */
+  /**
+   * Legal act targets from the staged position — straight from the sim, then
+   * narrowed by whichever ribbon button the player pressed (see
+   * {@link commandFilter}'s docstring). `null` (the default, and the ONLY value
+   * before the combat-revamp ribbon existed) leaves this byte-identical to what it
+   * always returned.
+   */
   targets(): TargetOption[] {
     const from = this.actFrom();
     if (!from || !this.accepting() || this.activeUnitId === null) return [];
-    return targetOptions(this.state, this.activeUnitId, from);
+    return targetOptions(this.state, this.activeUnitId, from, this.commandFilter ?? undefined);
+  }
+
+  /** Which ribbon filter is active — read by the HUD to highlight the pressed button. */
+  commandMode(): "attack" | "skill" | null {
+    return this.commandFilter;
+  }
+
+  /**
+   * THE "Attack" / "Skill" RIBBON BUTTONS' ONLY EFFECT: narrow {@link targets} (see
+   * its docstring). Setting a mode with no matching ability is not an error — the
+   * board simply offers nothing to tap, exactly as it would if the unit had no
+   * abilities of that kind, which is an honest answer for e.g. a unit with no
+   * learned skill pressing "Skill".
+   */
+  setCommandMode(mode: "attack" | "skill" | null): void {
+    this.commandFilter = mode;
   }
 
   targetTiles(): Position[] {

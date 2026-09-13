@@ -21,14 +21,17 @@ import {
 import { registry } from "./campaign-data.js";
 import { forecast } from "./demo.js";
 import {
+  activePlateHtml,
   statCard,
   statCardHtml,
+  targetPlateHtml,
   timelineHtml,
   unitCardHtml,
   type LookUp,
   type UnitLook,
 } from "./panels.js";
 import { JOB_LABEL } from "./prep.js";
+import { Session } from "./session.js";
 
 /** A `LookUp` over a plain table — the shape both shipped pages hand `panels.ts`. */
 const looks =
@@ -400,5 +403,180 @@ describe("the focus seam: which unit the card describes", () => {
     const focused = unitCardHtml(state, look, "bystander");
     expect(focused).toContain("Bystander");
     expect(focused).not.toContain("casting");
+  });
+});
+
+/**
+ * The TARGET UNIT plate's counter/blocked line (owner decision 2, combat revamp).
+ * `Session` is exercised directly rather than through a hand-built `ActPreview`,
+ * because `targetPlateHtml` reads `session.preview()` — the same call the deep-dive
+ * sheet reads — and a fixture that bypassed the session could not prove the two
+ * agree.
+ */
+describe("targetPlateHtml / activePlateHtml — the combat-revamp band (ADR-0043)", () => {
+  const HERO_POS = { x: 1, y: 1 };
+  const FOE_POS = { x: 2, y: 1 };
+
+  function fixture(reaction: "counter" | "preemptive" | null): BattleState {
+    const width = 4;
+    const height = 4;
+    const hero = defaultUnit("hero", 0, {
+      pos: HERO_POS,
+      facing: "E",
+      pa: 10,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      hp: 200,
+      maxHp: 255,
+      // ALREADY AT THE THRESHOLD: `Session.reset()` calls `settle()`, which accrues CT
+      // until an actor reaches >= 100 — a lower starting value would print whatever CT
+      // the accrual left it at, not the number this fixture names, making the
+      // assertion below untrue by construction rather than a real identity check.
+      ct: 100,
+    });
+    const foe = defaultUnit("foe", 1, {
+      pos: FOE_POS,
+      facing: "W",
+      // NON-LETHAL, deliberately: `counterRiskOf` (preview.ts) returns `null` for a
+      // `counter` reaction whenever the act would drop the target to 0 first ("a
+      // corpse cannot swing back") — 400 HP against a ~pa10*wp8 swing survives it,
+      // so the counter/blocked assertions below exercise the LIVE branch.
+      hp: 400,
+      maxHp: 400,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+      ...(reaction
+        ? {
+            reaction: {
+              abilityId: `punch-art.${reaction === "counter" ? "counter" : "hamedo"}`,
+              kind: reaction,
+            },
+            brave: 100,
+          }
+        : {}),
+    });
+    return createBattleState({
+      seed: 1,
+      grid: { width, height, tiles: makeFlatTiles(width, height, 0) },
+      units: [hero, foe],
+    });
+  }
+
+  const look = looks({
+    hero: { label: "Vance", color: "#4f8cff", job: "Archer" },
+    foe: { label: "Brigand", color: "#e05563" },
+  });
+
+  it("activePlateHtml prints the acting unit's name, HP and CLOCK (CT) — by identity", async () => {
+    const s = new Session({ makeState: () => fixture(null), playerTeam: 0 });
+    const html = activePlateHtml(s, look);
+    expect(html).toContain("Vance");
+    expect(html).toContain("Archer");
+    expect(html).toContain("Clock 100"); // hero.ct, not a placeholder
+    expect(html).toContain("200 / 255");
+  });
+
+  it("targetPlateHtml is 'No target' with NOTHING hovered or staged — no warn span exists", async () => {
+    const s = new Session({ makeState: () => fixture(null), playerTeam: 0 });
+    const html = targetPlateHtml(s, look);
+    expect(html).toContain("No target");
+    expect(html).not.toContain('data-testid="target-counter"');
+    expect(html).not.toContain('data-testid="target-blocked"');
+  });
+
+  it(
+    "DISCRIMINATING A/B: a foe with NO reaction hovered prints hit%/dmg but NO counter span; " +
+      "the SAME hover with a counter reaction equipped DOES — absent-not-zero, by element not opacity",
+    async () => {
+        const plain = new Session({ makeState: () => fixture(null), playerTeam: 0 });
+      plain.onTileHover(FOE_POS);
+      const plainHtml = targetPlateHtml(plain, look);
+      expect(plainHtml).toContain("Brigand");
+      expect(plainHtml).toMatch(/HIT \d+%/);
+      expect(plainHtml).not.toContain('data-testid="target-counter"');
+      expect(plainHtml).not.toContain("⚠ COUNTER");
+
+      const countered = new Session({ makeState: () => fixture("counter"), playerTeam: 0 });
+      countered.onTileHover(FOE_POS);
+      const counteredHtml = targetPlateHtml(countered, look);
+      expect(counteredHtml).toContain('data-testid="target-counter"');
+      expect(counteredHtml).toContain("⚠ COUNTER");
+      expect(counteredHtml).not.toContain('data-testid="target-blocked"');
+    },
+  );
+
+  it(
+    "a PREEMPTIVE (Hamedo) reaction prints ⛔ BLOCKED, not ⚠ COUNTER — the two are mutually exclusive " +
+      "readings of the same CounterRisk (mirrors previewHtml's ⚠ Blocked / ⚠ Counter split)",
+    async () => {
+        const s = new Session({ makeState: () => fixture("preemptive"), playerTeam: 0 });
+      s.onTileHover(FOE_POS);
+      const html = targetPlateHtml(s, look);
+      expect(html).toContain('data-testid="target-blocked"');
+      expect(html).toContain("⛔ BLOCKED");
+      expect(html).not.toContain('data-testid="target-counter"');
+    },
+  );
+
+  it(
+    "the counter/blocked line survives Confirm STAGING it — zero extra taps (owner decision 2): " +
+      "staging the SAME target keeps the warn span, proving it is not a hover-only affordance",
+    async () => {
+        const s = new Session({ makeState: () => fixture("counter"), playerTeam: 0 });
+      s.onPick(FOE_POS); // stage the target — no extra tap beyond the one the player made
+      expect(s.stagedTarget()).not.toBeNull();
+      const html = targetPlateHtml(s, look);
+      expect(html).toContain('data-testid="target-counter"');
+    },
+  );
+
+  /**
+   * THE PLATE PRINTS THE TARGET'S REAL NAME, BY IDENTITY (owner's acceptance line:
+   * "acting unit and target identity remain clear") — a two-foe fixture, staged in
+   * turn, so the assertion cannot pass on a template that ignores `p.targetId` and
+   * always prints whatever the FIRST unit's name happens to be. `looks()` gives the
+   * two foes genuinely different labels ("Brigand" / "Wizard"), not two names that
+   * happen to collide, so a build that hard-coded either one fails on the OTHER.
+   *
+   * MUTATION: in `panels.ts`, change `targetPlateHtml`'s name span back to
+   * `esc(meta?.label ?? p.targetId)` → a literal `"Target"` (or any fixed string).
+   * Both assertions below go red — the name never changes with the staged unit.
+   */
+  it("DISCRIMINATING A/B: staging a DIFFERENT target changes the plate's printed name", () => {
+    const width = 5;
+    const height = 3;
+    const hero = defaultUnit("hero", 0, {
+      pos: { x: 2, y: 1 },
+      facing: "E",
+      pa: 10,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      ct: 100,
+    });
+    const foeA = defaultUnit("foeA", 1, { pos: { x: 1, y: 1 }, facing: "E", hp: 100, maxHp: 100 });
+    const foeB = defaultUnit("foeB", 1, { pos: { x: 3, y: 1 }, facing: "W", hp: 100, maxHp: 100 });
+    const state = createBattleState({
+      seed: 1,
+      grid: { width, height, tiles: makeFlatTiles(width, height, 0) },
+      units: [hero, foeA, foeB],
+    });
+    const twoFoeLook = looks({
+      hero: { label: "Vance", color: "#4f8cff" },
+      foeA: { label: "Brigand", color: "#e05563" },
+      foeB: { label: "Wizard", color: "#c86ee0" },
+    });
+
+    const s = new Session({ makeState: () => state, playerTeam: 0 });
+    s.onPick({ x: 1, y: 1 }); // stage foeA
+    expect(s.stagedTarget()?.unitId).toBe("foeA");
+    const htmlA = targetPlateHtml(s, twoFoeLook);
+    expect(htmlA).toContain("Brigand");
+    expect(htmlA).not.toContain("Wizard");
+
+    // RE-STAGE onto the other visible foe — `Session.onPick`'s own contract in
+    // `TARGET_STAGED` ("re-staging onto another visible target" is accepted, no
+    // Cancel needed first) — and read the SAME plate again.
+    s.onPick({ x: 3, y: 1 });
+    expect(s.stagedTarget()?.unitId).toBe("foeB");
+    const htmlB = targetPlateHtml(s, twoFoeLook);
+    expect(htmlB).toContain("Wizard");
+    expect(htmlB).not.toContain("Brigand");
   });
 });

@@ -1,35 +1,41 @@
-/* ══ THE BATTLE STAGE (ADR-0037, docs/10 §8) ═══════════════════════════════════
+/* ══ THE BATTLE STAGE (ADR-0043, ADR-0028, ADR-0038) ═══════════════════════════
    ONE stylesheet, imported by `hud.ts`, so both pages get byte-identical stage
    chrome. The battle screen used to be authored twice — once in `index.html` and
-   once in `viewer.html` — and the two drifted (the engine viewer's landscape rules
-   and the campaign's were separate copies of the same idea). A shared file is what
-   makes AC-V42's "the stage's child set is identical" true by construction rather
-   than by discipline.
+   once in `viewer.html` — and the two drifted. A shared file is what makes
+   AC-V42's "the stage's child set is identical" true by construction.
 
-   EVERY LENGTH BELOW IS IN STAGE UNITS. The stage element is 360 units tall and
-   `stage.ts` scales it uniformly, so `1px` here is one stage unit, not one CSS
-   pixel. At the narrowest supported viewport (640x300) the scale is 0.8333, which
-   is why every control is at least 54 units: 54 x 0.8333 = 45 CSS px, over the
-   44 px floor docs/10 AC-V35 measures AFTER the transform.
+   ADR-0043 REPLACES THE WHOLE LAYOUT MODEL. There is no more 360-unit virtual
+   stage, no uniform scale, no letterbox around the whole HUD: `1px` here is one
+   CSS px, exactly. `.tuh-stage` fills its host with a CSS Grid — a real, fixed-in-
+   real-px rail down the right edge and band along the bottom, the board taking
+   whatever is left — so a bigger viewport gives the BOARD more room instead of
+   scaling the chrome up with it (the "black-bar architecture" ADR-0043 forbids).
+   `--rail-w` / `--band-h` are the two numbers the whole layout is keyed to, and
+   `docs/10` AC-V66's ≥75% battlefield-dominance floor is what keeps them honest —
+   raise either past its budget and the ratio breaks before anything else does.
 
-   THE SKIN IS THE CAMPAIGN'S DARK TABLE (owner's pick, 2026-09-05: "skin B"). Gold
-   hairlines, parchment ink, Cinzel small caps on the controls, EB Garamond on the
-   numbers, square corners, and the campaign's RUBRICATED RED on the primary button
-   instead of a flat amber slab. index.html's battle sheet was already the one dark
-   surface on the campaign (ADR-0028 kept it that way) and the engine viewer is dark
-   throughout, so this is the material both pages already had, finished.
+   THE OLD ADR-0037 SHELL (a persistent top bar, a floating actor tab beside the
+   board, a bottom action bar) IS GONE. Its replacement is the approved frame
+   (`docs/visual/mockups/combat-master-pass1-832x328.png`): the right rail holds
+   the turn order; the bottom band holds three zones — the ACTIVE UNIT plate, the
+   six-command ribbon (+Confirm/Cancel), the TARGET UNIT plate — behind one ☰ stud
+   that is the sole surviving way into the menu drawer (Help and Settings moved
+   inside it; three top-bar icons collapsed to one control, ADR-0043's pixel
+   budget leaves no room for three).
 
-   THE TEN SURFACES KEEP `rgb(29, 23, 16)` EXACTLY, and that is not a coincidence:
-   `e2e/contrast.spec.ts` declares that value as the one HUD ground and asserts every
-   surface paints it opaquely. Re-tone it and that file goes red, which is the point.
-   Everything else — hairlines, ink, type, corners — is what changed.
+   THE SKIN IS UNCHANGED (owner's pick, 2026-09-05: "skin B"). Gold hairlines,
+   parchment ink, Cinzel small caps on controls, EB Garamond on numbers, square
+   corners, rubricated red on the two controls that spend a turn. Every custom
+   property below is the SAME value the ADR-0037 stage declared.
 
-   COST THIS SKIN CARRIES: it names Cinzel and EB Garamond, and `viewer.html` had no
-   `@font-face` for either, so the engine viewer silently fell back to Georgia while
-   the campaign rendered the real faces. Both pages now declare the four blocks; the
-   fonts live in `public/fonts`, and `e2e/stage.spec.ts` asserts `document.fonts` has
-   Cinzel loaded on BOTH pages, because "the file is declared" and "the browser loaded
-   it" are different claims. */
+   EIGHT OF THE TEN OPAQUE STAGE SURFACES KEEP `rgb(29, 23, 16)` EXACTLY, and that is
+   not a coincidence: `e2e/contrast.spec.ts` declares that value as `GROUNDS.plate`
+   and asserts the active/target plates, the drawers, the sheets and the toast paint
+   it opaquely. Re-tone THOSE and that file goes red, which is the point. The
+   remaining two — `.tuh-rail` and `.tuh-band`, the iron frame itself — are pinned
+   to their OWN separate literal (`GROUNDS.ironFrame`, combat-revamp pass 3): the
+   frame and what sits inside it are different materials in the owner's brief, and
+   now they are different values, not one value under two names. */
 
 /* THE BATTLE SECTION IS THE FIXED FRAME, the host is the measured box inside it.
    Two elements rather than one, and the split is load-bearing: a section whose only
@@ -51,24 +57,36 @@
   width: 100svw;
   height: 100svh;
   /* viewport-fit=cover puts content under a notch; pad it back out. Playwright
-     cannot emulate a cutout, so AC-V41 asserts this is DECLARED and nothing more. */
+     cannot emulate a cutout, so AC-V41 asserts this is DECLARED and nothing more.
+     This IS ADR-0043's "usableStage = viewport − safe-area insets", applied on
+     all four edges, before a single persistent-HUD pixel is reserved inside it. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
-  /* Transparent: the letterbox shows the page's own table (ADR-0028) or the
-     viewer's dark ground, so desktop keeps its material. */
   background: transparent;
   overflow: hidden;
   z-index: 5;
 }
 
 .tuh-stage {
+  /* FILLS THE HOST. No transform, no logical-unit scale — `stage.ts` no longer
+     writes anything onto this element at all; only the board's own canvas still
+     needs a fit (`fitBox`/`mountBoardFit`), because ITS backing store is a fixed
+     900×440 while this box is whatever is left after the rail/band. */
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform-origin: 50% 50%;
-  /* width / height / transform are written by `stage.ts`; nothing here may set them. */
-  display: flex;
-  flex-direction: column;
+  inset: 0;
+  display: grid;
+  /* THE TWO NUMBERS THE WHOLE SHELL IS KEYED TO — ADR-0043's pixel budget,
+     confirmed against the mockup at the 832×328 reference viewport (rail 52,
+     band 56 ⇒ battlefieldRatio 0.795, AC-V66 row 1's ≥0.75 floor). Real CSS px,
+     not stage units: unlike the retired model, these do NOT grow with the
+     viewport, so a bigger screen hands its extra room to the board. */
+  --rail-w: 52px;
+  --band-h: 56px;
+  grid-template-columns: 1fr var(--rail-w);
+  grid-template-rows: 1fr var(--band-h);
+  grid-template-areas:
+    "board rail"
+    "band  rail";
   line-height: 1.35;
   user-select: none;
 
@@ -82,20 +100,79 @@
 
   /* `--hud-bg` IS DECLARED IN `e2e/contrast.spec.ts` AS `GROUNDS.plate`. Changing it
      here without changing it there means the contrast walk measures a colour the page
-     stopped painting — so it is pinned, and the skin is everything on top of it. */
+     stopped painting — so it is pinned, and the skin for the ACTIVE/TARGET plates,
+     the drawers and the sheets is everything on top of it. It stays a warm brown-
+     black: those surfaces sit ON the iron frame, not as the frame itself. */
   --hud-bg: rgb(29, 23, 16);
+  /* `--hud-iron` IS ITS OWN LITERAL NOW, DISTINCT FROM `--hud-bg` (combat-revamp pass
+     3, owner MATERIAL brief, 2026-09-10) — the previous pass only RENAMED `--hud-bg`
+     under this token and left the paint untouched, which is exactly the complaint:
+     the band and rail still read as flat dark brown because the value never changed.
+     This is the one surface `e2e/contrast.spec.ts` now pins SEPARATELY
+     (`GROUNDS.ironFrame`, not `GROUNDS.plate`) so the two can differ. Cooler and
+     darker than `--hud-bg` — less red/yellow, more graphite — which is what reads as
+     blackened steel next to a warm brown ground rather than the same brown twice.
+     Re-measured against every ink that sits directly on it (the ☰ stud's
+     `--hud-accent` glyph, the only text painted straight onto this fill with no
+     plate of its own underneath): 5.69:1, still clear of the 4.5:1 floor. */
+  --hud-iron: rgb(21, 23, 26);
   --hud-bg-2: rgb(46, 37, 25);
   --hud-edge: rgb(138, 101, 36); /* gold leaf, not brown */
   --hud-ink: rgb(230, 214, 171); /* the campaign's `--ink-dk`: parchment, not white */
   --hud-ink-soft: rgb(171, 148, 104);
   --hud-accent: rgb(184, 137, 47); /* `--accent-lit`: gold ON the dark table */
   --hud-warn: rgb(194, 83, 73);
-  /* Rubrication — the campaign's command colour, for the one control that commits. */
+  /* Rubrication — the campaign's command colour, for the two controls that commit. */
   --hud-red: rgb(130, 37, 29);
   --hud-red-ink: rgb(242, 229, 196);
-  /* The rule under both bars and around every control. One value, so a hairline
+  /* The rule under both zones and around every control. One value, so a hairline
      cannot drift between the two. */
   --hud-rule: rgb(106, 80, 39);
+
+  /* WEATHERED PARCHMENT COMMAND FACES (owner MATERIAL brief, this pass) — the six
+     canonical ribbon buttons flip from the dark iron ground + light ink every
+     other surface here keeps, to a warm parchment face + DARK ink, matching
+     `overhaul.css`'s `--parch` value exactly (212, 175, 134) rather than a second
+     hand-picked tone. The band's own iron frame (`--hud-iron`, above) is
+     untouched; only the command faces sitting on it change. Every ratio below is
+     RE-MEASURED against this face, not carried over from the dark-skin numbers
+     the rest of this file still quotes. */
+  --hud-face-bg: rgb(212, 175, 134); /* == overhaul.css --parch */
+  --hud-face-ink: rgb(36, 26, 13); /* 8.36:1 on --hud-face-bg */
+  /* SELECTED (owner: "restrained gold/ember edge or emphasis; stronger contrast").
+     Bright gold TEXT on light parchment fails AA outright (~1.5:1) — the emphasis
+     the brief asks for has to be an EMBER ink and an ember edge, not a brighter
+     one, or it reads and it is illegible at once. The ink is a near-black ember,
+     picked to clear MORE than the plain --hud-face-ink's own 8.36:1 (the "stronger
+     contrast" half of the brief, not merely a different hue): 9.29:1. The edge is
+     a lighter, more saturated ember — 5.49:1, comfortably over WCAG 1.4.11's 3:1
+     non-text floor — so the ring reads distinctly warmer than the ink above it. */
+  --hud-face-ink-sel: rgb(32, 10, 4);
+  --hud-face-edge-sel: rgb(107, 35, 12);
+  /* THE DISABLED-COMMAND TONE (Item/Defend — owner's "carved and dormant" spec,
+     `intent/combat-revamp.md`) — RE-TONED this pass from a dark charcoal (built
+     for the old dark ribbon ground) to an ash-beige/grey-tan parchment (built for
+     the new light one): distinct RGB from --hud-face-bg, not an opacity of it —
+     `e2e/stage.spec.ts` asserts the computed `background-color` DIFFERS from the
+     enabled ribbon button's, which an opacity-only treatment cannot produce (same
+     declared colour, different alpha). 5.90:1 ink-on-fill, re-measured. */
+  --hud-disabled-bg: rgb(182, 168, 145);
+  --hud-disabled-ink: rgb(51, 44, 34);
+  /* CONFIRM/CANCEL'S OWN TOKENS (combat-revamp refinement, 2026-09-10, owner spec) —
+     the contextual pair must NOT resolve to the same construction as `--hud-red`
+     (Wait/End Turn, a canonical command) or the plain enabled-ribbon ground (Move/
+     Attack/Skill). Confirm is a MORE saturated rubrication than `--hud-red`, framed
+     in gold rather than blackened iron, reading as "the one control that spends the
+     turn right now"; Cancel is a quieter iron/parchment tone, neither the enabled
+     ground nor the disabled ash, reading as present-and-tappable but secondary.
+     Both measured against their own ink: 5.86:1 and 6.54:1 (`e2e/contrast.spec.ts`,
+     WCAG AA needs 4.5:1). */
+  --hud-confirm-bg: rgb(168, 47, 36);
+  --hud-confirm-ink: rgb(250, 237, 214);
+  --hud-confirm-edge: rgb(224, 186, 122);
+  --hud-cancel-bg: rgb(53, 45, 33);
+  --hud-cancel-ink: rgb(199, 178, 132);
+  --hud-cancel-edge: rgb(138, 101, 36);
 }
 
 .tuh-stage * {
@@ -113,52 +190,59 @@
   display: none;
 }
 
-/* ── zones ─────────────────────────────────────────────────────────────────── */
-
-/* A DOUBLE GOLD RULE at each edge of the well. The hairline stays a BORDER — a
-   gradient there would make `contrast.spec.ts`'s "no background-image" assertion red,
-   and that assertion is what stops a surface acquiring a ground the walk cannot
-   flatten. The second stroke is a box-shadow, which the walk does not read. */
-.tuh-top {
-  flex: none;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 5px;
-  background: var(--hud-bg);
-  border-bottom: 1px solid var(--hud-edge);
-  box-shadow: 0 2px 0 rgba(184, 137, 47, 0.28);
+/* THE PAGE-WIDE `button:hover` RULE ALSO SURVIVES THE CANCELLATION ABOVE — it sets
+   its own `background` (the sanguine gradient), and a bare `:hover` pseudo-class
+   selector (0,1,1) outranks a PLAIN class rule like `.tuh-active-plate` (0,1,0),
+   so hovering the ACTIVE UNIT plate, the TARGET UNIT plate or a drawer's ✕ painted
+   its text over the page's red gradient — measured by `e2e/contrast.spec.ts` at
+   2.08:1 and 2.31:1 against the 4.5:1 floor. This screen has no designed hover
+   state at all (it is touch-first); resetting every stage button's hover to the
+   SAME flat, opaque tone rather than adding `:hover` to every individual
+   component rule is the one-rule fix, at (0,2,1) — enough to beat (0,1,1). */
+.tuh-stage button:hover {
+  background: var(--hud-bg-2);
+  border-color: var(--hud-rule);
 }
 
-/* THE BOARD WELL IS THE PAGE'S OWN TABLE. Without it the space either side of the
-   canvas is flat `--hud-bg` and the board reads as a picture pasted onto a card; with
-   it the board sits IN something. ADR-0028's table gradient, verbatim. */
-.tuh-mid {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  background: radial-gradient(120% 130% at 50% 35%, #241b10 0%, #14100a 60%, #0b0805 100%);
+/* `transition: none` IS LOAD-BEARING, not tidiness. `index.html`'s page-wide
+   `button` rule also declares `transition: background .14s ease, border-color
+   .14s ease`, and nothing above cancels a TRANSITION the way it cancels the
+   gradient/chevron. A ribbon button going `.disabled = true` mid-test (Confirm,
+   the instant a target stages) was measured by `e2e/contrast.spec.ts` MID-
+   ANIMATION — a real blended frame between the enabled red and the disabled
+   ash, at 4.11:1 against the 4.5:1 floor — because the walker samples computed
+   style the instant after the DOM write, with no 140ms wait for a transition
+   this screen never asked for. Every state change on this stage is meant to be
+   INSTANT (no keyframe, no easing) exactly as the scene player's reveal is. */
+.tuh-stage button {
+  transition: none;
 }
+
+/* ── the board ─────────────────────────────────────────────────────────────── */
 
 .tuh-board {
-  flex: 1;
+  grid-area: board;
+  position: relative;
   min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  /* ADR-0028's table gradient, verbatim — the space around the (possibly
+     pillarboxed) canvas reads as a well the board sits IN, not a picture pasted
+     onto a card. */
+  background: radial-gradient(120% 130% at 50% 35%, #241b10 0%, #14100a 60%, #0b0805 100%);
 }
 
-/* The canvas keeps its 900:440 backing-store ratio EXACTLY: 216 x 2.0454545 =
-   441.8182. `pickTile` inverts through the projection `draw` paints with, so a
-   canvas stretched off that ratio does not fail — it silently misses every tap
-   (src/render/CLAUDE.md, AC-V19). No border, for the same reason: a border-box
-   border would shave the content box and move the ratio. */
+/* The canvas's CSS box is set in JS (`stage.ts`'s `mountBoardFit`) to a `fitBox`
+   of its 900:440 backing store inside `.tuh-board` — NEVER a bare `width:100%`,
+   which would stretch it off that ratio. `pickTile` inverts through the exact
+   projection `draw` paints with, so a stretched canvas does not fail, it silently
+   misses every tap (`src/render/CLAUDE.md`, AC-V19). No border, for the same
+   reason: a border-box border would shave the content box and move the ratio. */
 .tuh-stage canvas {
   display: block;
-  width: 441.8182px;
-  height: 216px;
   border: 0;
   background: rgb(13, 9, 6);
   touch-action: none;
@@ -170,54 +254,711 @@
   outline-offset: -2px;
 }
 
-.tuh-bottom {
+/* THE 44×44 TOUCH-TARGET OVERLAY (owner decision 3, `intent/combat-revamp.md`).
+   One invisible button per ground tile, sized to the 44px CSS px floor and
+   CENTRED on the tile's own screen position — the RENDERED diamond stays
+   whatever size `viewFor`'s camera draws it at; only the HIT REGION grows.
+   `pointer-events: none` on the container, `auto` on each button, so the layer
+   adds no visual surface (no fill, no border) and steals no space from the
+   canvas underneath it — every pixel a button occupies is transparent. */
+/* THE CONTAINER, not each button, owns the pointerdown — that is what lets
+   "resolve an ambiguous tap to the NEAREST tile centre" be an actual nearest-
+   neighbour search (`hud.ts`'s `rebuildTileHits`/pointerdown handler) rather than
+   whichever overlapping button the browser's native z-order happens to hit-test
+   first (always the LAST-painted one, never "nearest", on two 44px boxes that
+   overlap because adjacent tiles sit closer than 44px apart at this viewport).
+   Each button is therefore `pointer-events: none` — present and sized purely so
+   its OWN `getBoundingClientRect()` can be measured and asserted ≥44×44. */
+.tuh-tile-hits {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.tuh-tile-hit {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  /* left/top are written in JS, in CSS px relative to `.tuh-tile-hits`' own box —
+     which is `.tuh-board`'s box, exactly what `.tuh-stage canvas` is centred in. */
+  transform: translate(-50%, -50%);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* THE ENTRY PLAQUE (owner decision 9, `intent/combat-revamp.md`) — battle name on
+   entry, no permanent HUD height. It sits OVER the board because it appears only
+   during the intro (ADR-0043 decision 4's temporary-overlay exception); `hidden`
+   removes it from layout entirely, so the resting board never reserves a row for
+   it (absent-not-zero: reserved height for a plaque with no text would be the
+   same dishonesty as a modeled zero). */
+.tuh-plaque {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  transform: translateX(-50%);
+  z-index: 4;
+  max-width: 48%;
+  min-height: 40px;
+  padding: 6px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  background: var(--hud-iron); /* minor material adjustment for consistency only — same value */
+  border: 1px solid var(--hud-edge);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(214, 172, 102, 0.16);
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+
+/* SMALL RIVETS, IRON TRIM (intent file: "blackened-steel / iron trim; small
+   rivets") — ON `::before`, NOT on `.tuh-plaque` ITSELF, and that is load-bearing,
+   not decoration: `e2e/contrast.spec.ts`'s own-ground walk samples an element's
+   OWN `background-image` as a candidate ground for its text, with no spatial
+   awareness of where within the box a gradient actually paints. Inline, these
+   four corner dots got picked up as "the ground under `.plaque-title`" project-
+   wide, at 2.39:1 — the exact contamination `src/render/CLAUDE.md` already
+   documents for a card's corner rivets and a pending-portrait caption. Moving
+   them behind the text on their own layer, `z-index: -1`, is the fix that
+   precedent used. */
+.tuh-plaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px),
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px),
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px),
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+  background-position:
+    4px 4px,
+    calc(100% - 4px) 4px,
+    4px calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px);
+}
+
+.tuh-plaque[hidden] {
+  display: none;
+}
+
+.tuh-plaque.dismissing {
+  opacity: 0;
+}
+
+.tuh-plaque .plaque-title {
+  margin: 0;
+  font-family: var(--tuh-roman);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hud-accent);
+}
+
+.tuh-plaque .plaque-tagline {
+  margin: 0;
+  font-family: var(--tuh-text);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--hud-ink-soft);
+}
+
+/* ── the right-side turn-order rail ───────────────────────────────────────── */
+
+/* BLACKENED IRON/STEEL VERTICAL FRAME (owner MATERIAL brief, pass 3: the fill
+   itself is now a distinct cooler-graphite literal, `--hud-iron`, not a renamed
+   copy of `--hud-bg`) — `e2e/contrast.spec.ts` still pins `.tuh-rail`'s
+   background-color (to `GROUNDS.ironFrame` now) and forbids a gradient there, so
+   the rest of the material read has to come from layers that don't touch that
+   property: the left edge gets a two-tone bevel — a dark
+   recess then a gold hairline — instead of the old single flat gold line, and
+   `::before` (below) adds two restrained rivets. This is the same technique
+   `.tuh-plaque::before` already uses, and for the same reason: an inline
+   `background-image` on the element itself gets picked up by the contrast
+   walk's own-ground search as a candidate ground for whatever text sits inside
+   it (see that rule's comment) — a SEPARATE, z-index:-1 layer is what keeps the
+   rivets decorative rather than a false contrast finding.
+
+   `z-index: 0` IS NOT A NO-OP HERE — `.tuh-plaque` (the working precedent)
+   carries `z-index: 4`, which is what makes ITS `position` establish a real
+   stacking context; `position: relative` ALONE does not. Without an explicit
+   z-index, `.tuh-rail::before`'s `z-index: -1` doesn't mean "behind this
+   element's own background" — it escapes to the nearest ACTUAL stacking-
+   context ancestor and paints behind THAT one instead, which is how the
+   rivets below shipped invisible for a full round of screenshots even though
+   every computed style read back exactly as declared. Measured, not assumed:
+   `docs/visual/mockups/combat-pass2-rest-832x328.png`'s rivet coordinates
+   sampled flat `--hud-face-bg`/`--hud-iron` before this line existed. */
+.tuh-rail {
+  grid-area: rail;
+  position: relative;
+  z-index: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-iron);
+  border-left: 1px solid var(--hud-edge);
+  box-shadow:
+    inset 3px 0 4px -2px rgba(0, 0, 0, 0.55),
+    inset 1px 0 0 rgba(214, 172, 102, 0.16);
+  color: var(--hud-ink-soft);
+}
+
+.tuh-rail::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px),
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+  background-position:
+    7px 8px,
+    7px calc(100% - 8px);
+}
+
+/* PARCHMENT/METAL HEADER TREATMENT (owner MATERIAL brief) — a small parchment
+   plaque mounted at the top of the iron frame, riveted at its own two lower
+   corners, reusing the SAME `--hud-face-*` tokens the ribbon's command faces
+   use below rather than minting a third palette. Re-measured on ITS OWN fill:
+   8.36:1 (label) / 9.29:1 (the live count, ember ink for a touch of "warm
+   ochre/gold" emphasis on the one number that changes every turn). */
+.tuh-rail-head {
   flex: none;
-  height: 84px;
+  position: relative;
+  z-index: 0; /* see `.tuh-rail`'s own comment — establishes its OWN stacking context so `::after`'s z-index:-1 stays scoped to this element, not escapes past it */
+  padding: 4px 2px 6px;
+  text-align: center;
+  font-family: var(--tuh-roman);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hud-face-ink);
+  background: var(--hud-face-bg);
+  box-shadow:
+    inset 0 -2px 0 var(--hud-edge),
+    inset 0 1px 0 rgba(255, 244, 224, 0.5);
+}
+
+.tuh-rail-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, var(--hud-rule) 0 1.3px, transparent 1.4px),
+    radial-gradient(circle, var(--hud-rule) 0 1.3px, transparent 1.4px);
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  background-position:
+    4px calc(100% - 5px),
+    calc(100% - 4px) calc(100% - 5px);
+}
+
+.tuh-rail-head b {
+  display: block;
+  font-size: 13px;
+  color: var(--hud-face-ink-sel);
+}
+
+.tuh-rail-chips {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px;
+}
+
+/* The chips render through the SAME `timelineHtml` the old horizontal strip used
+   (`panels.ts` — one renderer, not two), so `.chip`'s internal structure (swatch +
+   label) is unchanged; only the RAIL'S OWN layout stacks them vertically and
+   shrinks the label to fit 52px.
+
+   CIRCULAR PORTRAIT/SEAL MOUNTS, RESTRAINED GOLD EDGING (owner MATERIAL brief) —
+   `border-radius: 50%` was already circular; what was missing was the mount
+   itself. Every chip now wears a gold ring by default (was the plain iron
+   `--hud-rule`), plus a dark outer bezel + a faint inner sheen via box-shadow —
+   the same "recessed metal socket" read the plaque's rivets use, scaled up —
+   so a seal sits IN the iron rather than floating on it. `.lead` keeps its own
+   stronger accent ring for the acting unit, which already reads as MORE
+   emphasised than this default, not merely different. */
+.tuh-rail-chips .chip {
+  flex: none;
+  width: 100%;
+  min-height: 30px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 6px;
-  background: var(--hud-bg);
-  border-top: 1px solid var(--hud-edge);
-  box-shadow: 0 -2px 0 rgba(184, 137, 47, 0.28);
+  justify-content: center;
+  gap: 0;
+  padding: 2px;
+  border-radius: 50%;
+  border: 1px solid var(--hud-edge);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 244, 224, 0.12);
+  background: var(--hud-bg-2);
+  color: var(--hud-ink);
+  font-size: 0; /* the label is visually hidden at this width; the swatch IS the chip */
+  white-space: nowrap;
 }
 
-/* ── controls ──────────────────────────────────────────────────────────────── */
+.tuh-rail-chips .chip.lead {
+  border-color: var(--hud-accent);
+  box-shadow: 0 0 0 1px var(--hud-accent) inset;
+}
 
-/* CONTROLS ARE LABELS, so they take the Cinzel stack in small caps. The values these
-   controls sit beside are EB Garamond — see the two custom properties above. Every
-   declaration here is stated rather than inherited, because index.html and viewer.html
-   both decorate bare `button` and the stage must look the same on the two. */
-.tuh-stage button {
-  font-family: var(--tuh-roman);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+.tuh-rail-chips .chip.spell {
+  border-style: dashed;
+}
+
+.tuh-rail-chips .chip.proj {
+  opacity: 1;
+  border-style: dotted;
+  border-color: rgba(184, 137, 47, 0.75);
+}
+
+.tuh-rail-chips .swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: none;
+}
+
+.tuh-rail-chips .tl-label,
+.tuh-rail-chips .tl-split {
+  display: none; /* the rail has no room for the horizontal strip's text dividers */
+}
+
+/* ── the bottom band: ACTIVE UNIT | ribbon | TARGET UNIT ──────────────────── */
+
+/* BLACKENED-STEEL / IRON FRAMING, PHYSICAL DEPTH (owner MATERIAL brief) — the
+   band's own fill, `--hud-iron`, is pinned opaque and gradient-free by
+   `e2e/contrast.spec.ts` (see `.tuh-rail`'s comment above; same constraint,
+   same reason, same distinct-from-`--hud-bg` literal since pass 3), so the
+   "subtle physical depth" the brief asks for is an added
+   inset shadow — a real recess the command faces sit IN — plus two restrained
+   corner rivets on a separate `::before` layer, never a change to the pinned
+   fill itself. `z-index: 0` — same reason as `.tuh-rail`'s own comment above:
+   without it `position: relative` alone does not give `::before`'s `z-index:
+   -1` anywhere local to stop at. */
+.tuh-band {
+  grid-area: band;
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 3px 4px;
+  background: var(--hud-iron);
+  border-top: 1px solid var(--hud-edge);
+  box-shadow:
+    0 -2px 0 rgba(184, 137, 47, 0.28),
+    inset 0 5px 8px -6px rgba(0, 0, 0, 0.65);
+}
+
+.tuh-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px),
+    radial-gradient(circle, var(--hud-rule) 0 1.5px, transparent 1.6px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+  background-position:
+    6px 4px,
+    calc(100% - 6px) 4px;
+}
+
+/* THE ☰ STUD — the sole surviving way into the menu drawer (Help and Settings are
+   now entries INSIDE it; ADR-0043's pixel budget has no room for three top-bar
+   icons). Visually small (per the concept frame's corner glyph) but its HIT
+   REGION still clears 44×44 through padding, not through inflating the glyph
+   itself (docs/10's "the 44px rule is about the hit area, not the artwork"). */
+.tuh-stud {
+  flex: none;
+  align-self: center;
+  /* 44×44 HIT REGION (docs/10 AC-V35) even though the mockup's corner glyph reads
+     visually smaller — "the 44px rule is about the hit area, not the artwork"
+     (`intent/combat-revamp.md`); the glyph itself is centred inside the full box. */
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-family: var(--tuh-text);
+  font-size: 17px;
+  color: var(--hud-accent);
+  background: transparent;
+  border: 0;
+}
+
+.tuh-active-plate,
+.tuh-target-plate {
+  /* SHRINKABLE, not fixed — see `.tuh-ribbon`'s own comment: at a narrow viewport
+     (640px, AC-V35) the band has no room for two 128px plates AND eight 44px
+     ribbon buttons side by side, and the RIBBON must win that fight (Cancel/
+     Confirm are commands; the plates are read-outs, ADR-0043's "temporary
+     contextual overlay/progressive disclosure" spirit applies more to a plate
+     than to a control the player is mid-turn to reach). `flex-grow: 0` keeps
+     the 128px figure as a CAP, never growing past it on a roomier viewport —
+     matches the approved 832x328 frame exactly. */
+  flex: 0 1 128px;
+  align-self: center;
+  width: 128px;
+  min-width: 64px;
+  height: 50px;
+  min-height: 0;
+  margin: 0;
+  padding: 3px 7px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  /* TIGHTER THAN `.tuh-stage`'s own 1.35 (combat-revamp pass 3, PIXEL BUDGET) — at
+     1.35 three rows of this font size still summed to more than the 50px box minus
+     padding, which is what was clipping the topmost row (the name) under
+     `overflow: hidden` before the row count was cut from five to three. Re-measured
+     empirically against the built page, not guessed. */
+  line-height: 1.05;
+  font-family: var(--tuh-text);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-edge);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(214, 172, 102, 0.13);
   color: var(--hud-ink);
-  background: var(--hud-bg-2);
+  overflow: hidden;
+}
+
+/* Each of the plate's non-name rows packs two facts onto one line (owner's "name
+   and HP on one row" fallback, applied to hit/dmg and bar/HP instead — the name
+   gets the full-width row because it is the one field a long roster name can
+   actually overflow, `text-overflow: ellipsis` on `.plate-name` below). */
+.tuh-band .plate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tuh-band .plate-empty {
+  font-size: 12px;
+  color: var(--hud-ink-soft);
+}
+
+.tuh-band .plate-name {
+  flex: none;
+  font-family: var(--tuh-roman);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--hud-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tuh-band .plate-job {
+  font-size: 10px;
+  color: var(--hud-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tuh-band .plate-clock,
+.tuh-band .plate-hit,
+.tuh-band .plate-dmg,
+.tuh-band .plate-hp {
+  flex: none;
+  font-size: 10px;
+  color: var(--hud-ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Inside a `.plate-row`, the bar is the one child allowed to shrink — it is the
+   only element here with no text to clip, so it is the one that gives up width
+   first when the row's two fixed-size labels need it. */
+.tuh-band .plate-row .plate-bar {
+  flex: 1 1 auto;
+  min-width: 12px;
+}
+
+.tuh-band .plate-bar {
+  display: block;
+  height: 5px;
+  border: 1px solid var(--hud-rule);
+  overflow: hidden;
+  background: rgb(16, 12, 8);
+}
+
+.tuh-band .plate-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c, var(--hud-accent));
+}
+
+/* THE COUNTER/BLOCKED LINE (owner decision 2) — visible with ZERO extra taps the
+   instant a reaction is relevant, never behind a tooltip. `⛔ BLOCKED` and `⚠
+   COUNTER` are mutually exclusive (`panels.ts`'s `targetPlateHtml`), so ONE rule
+   covers both glyphs; only the colour differs, and blocked is the more severe of
+   the two (it CANCELS the act) so it gets the warn ink. */
+.tuh-band .plate-warn {
+  font-family: var(--tuh-roman);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.tuh-band .plate-warn.counter {
+  color: var(--hud-accent);
+}
+
+.tuh-band .plate-warn.blocked {
+  color: var(--hud-warn);
+}
+
+/* ── the six-command ribbon (+ Confirm/Cancel) ────────────────────────────── */
+
+.tuh-ribbon {
+  /* FIXED AT ITS OWN MINIMUM CONTENT WIDTH — 6 canonical commands x 48px + 2
+     contextual (Confirm/Cancel) x 44px + 7 x 3px gaps = 288 + 88 + 21 = 397px
+     (combat-revamp pass 3: the six grew 4px each so Confirm/Cancel could shrink
+     back to the bare 44px floor and still read as narrower — see the two
+     classes' own comment below) — and NEVER shrinks below it — the two PLATES
+     give way first (`.tuh-active-plate`/`.tuh-target-plate`'s own comment). A
+     control the player is mid-turn to reach (Cancel, Confirm) must not be the
+     one that loses the fight for space to a read-out. `overflow-x: auto` is the
+     fallback for a viewport even narrower than 640px, where the fixed 397px
+     no longer fits at all even with both plates at their 64px floor. */
+  flex: 0 0 397px;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  overflow-x: auto;
+  /* THIN METAL SEPARATORS (owner MATERIAL brief: "separators between regions") —
+     a hairline on each side of the ribbon, so the band reads as three riveted
+     regions (ACTIVE PLATE | ribbon | TARGET PLATE) rather than one undivided
+     strip. Inset, so it never adds to the fixed 397px footprint above
+     (`box-sizing: border-box` is declared on every `.tuh-stage *`). */
+  box-shadow:
+    inset 1px 0 0 rgba(214, 172, 102, 0.16),
+    inset -1px 0 0 rgba(214, 172, 102, 0.16);
+}
+
+/* WEATHERED PARCHMENT COMMAND FACES (owner MATERIAL brief, this pass) — the base
+   rule every one of the eight ribbon buttons inherits from before its own class
+   (`.tuh-commit`/`.tuh-confirm`/`.tuh-cancel`) or `:disabled` overrides it. The
+   six canonical commands (Move/Attack/Skill/Item/Defend/Wait) that DON'T carry
+   one of those classes settle here: `--hud-face-bg`/`--hud-face-ink`, dark ink
+   on a light parchment ground — the flip named in the brief's own "trap"
+   section, re-measured (8.36:1) rather than carried over from the dark-skin
+   number this rule used to quote. The inset shadow reads as a raised, embossed
+   plate (a bright top edge, a soft shadow tucked under it) instead of the old
+   highlight tuned for a dark fill — "subtle physical depth", never a gloss:
+   there is no gradient, gloss gradient gets undone entirely by "no glossy
+   digital rendering". */
+.tuh-ribbon button {
+  /* 48px, not 44 (combat-revamp pass 3) — the six canonical commands' OWN width,
+     4px wider than the bare touch floor so Confirm/Cancel (their own rule, below)
+     can sit at the 44px floor and still measure NARROWER, not merely
+     differently-coloured. See `.tuh-ribbon`'s own comment for the footprint sum. */
+  flex: 1 1 48px;
+  flex-shrink: 0;
+  min-width: 48px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px;
+  font-family: var(--tuh-roman);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hud-face-ink);
+  background: var(--hud-face-bg);
   border: 1px solid var(--hud-rule);
   border-radius: 0;
-  box-shadow: inset 0 1px 0 rgba(214, 172, 102, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 224, 0.55),
+    inset 0 -2px 3px rgba(36, 26, 13, 0.22);
   cursor: pointer;
   touch-action: manipulation;
-  min-height: 54px;
-  min-width: 54px;
-  padding: 4px 10px;
-  font-style: normal;
-  text-shadow: none;
 }
 
-/* A DISABLED CONTROL MUST READ DISABLED, and opacity alone does not do it: the RED
-   primary at 55% is still a red slab in gold caps, and the frame where End Turn is
-   refused with a shot aimed (docs/10 §3's `TARGET_STAGED` row) showed exactly that —
-   a control that looks like the thing to press. The fill goes to the flat ground, the
-   ink to the soft tone, the raised inset off, and the cursor to `default` rather than
-   `not-allowed`: this is a control that is not for you yet, not one that is broken.
-   `e2e/stage.spec.ts` asserts the computed background DIFFERS from the enabled one —
-   an opacity-only treatment reports the same `background-color` in both states. */
+/* THE GENERIC `.tuh-stage button:hover` RESET (above) SETS `--hud-bg-2`, A DARK
+   FILL — chosen back when every ribbon ink was light. Now that the plain six
+   commands paint DARK ink on a light parchment face, that same dark hover fill
+   sits under dark ink: a real, reproduced failure (Playwright's `.click()`
+   leaves the pointer resting over the clicked element, so a SELECTED command
+   measured right after being clicked reads its `:hover` colours — 1.26:1,
+   `attack ink/fill contrast` — where a plain read of the DOM would have missed
+   it entirely). `:not()`'d away from the three classed buttons (`.tuh-commit`/
+   `.tuh-confirm`/`.tuh-cancel`), whose own inks are light and already read fine
+   against the generic dark hover fill — this rule is only for the six whose
+   ink flipped. Specificity (0,5,1) beats the generic rule's (0,2,1)
+   regardless of source order. MUTATION: delete this rule — the sweep test
+   right below this file's selected-state test goes red again at 1.26:1. */
+.tuh-ribbon
+  button:not(.tuh-commit):not(.tuh-confirm):not(.tuh-cancel):hover {
+  background: var(--hud-face-bg);
+  border-color: var(--hud-rule);
+}
+
+/* A SELECTED command hovered is still both: the rule above already restores
+   its BACKGROUND (harmless to repeat), but its BORDER must stay the ember
+   `--hud-face-edge-sel`, not fall back to the plain iron `--hud-rule` above —
+   hovering the active filter must not read as "it turned off" when
+   `aria-pressed` never changed. SAME specificity as the rule above
+   ((0,5,1): three `:not()` + one attribute selector + `:hover`), so source
+   order — this rule is declared AFTER it — is what makes it win, exactly
+   like the plain `[aria-pressed="true"]` rule already relies on order
+   against the base `.tuh-ribbon button` rule. MUTATION: delete this rule —
+   `stage.spec.ts`'s "the selected and enabled-unselected border tokens
+   match" assertion goes red the instant the pointer rests on the button a
+   real click leaves it over. */
+.tuh-ribbon
+  button:not(.tuh-commit):not(.tuh-confirm):not(.tuh-cancel)[aria-pressed="true"]:hover {
+  background: var(--hud-face-bg);
+  border-color: var(--hud-face-edge-sel);
+}
+
+/* `[hidden]` MUST STILL HIDE IT. Setting `display: flex` directly on the button
+   above (needed to stack the glyph over the label) otherwise fights the UA's own
+   `[hidden] { display: none }` rule at EQUAL origin/specificity math the wrong
+   way round for author styles — an element `.hidden = true` was set on stays
+   visibly laid out, which is exactly the bug that shipped: Continue replacing
+   the whole ribbon at battle end left End Turn painted underneath it. Higher
+   specificity than the bare rule above, so this wins regardless of source order. */
+.tuh-ribbon button[hidden] {
+  display: none;
+}
+
+/* `pointer-events: none` ON BOTH CHILD SPANS — a real click still fires the
+   BUTTON's own handler regardless (the event bubbles through the DOM tree from
+   whichever descendant it lands on), so this changes nothing about behaviour.
+   What it fixes: `document.elementFromPoint` at a ribbon button's centre was
+   resolving to `span.rb-glyph`/`span.rb-label` — neither carries `data-testid`
+   — so a hit-test keyed on that attribute (`e2e/overlay.spec.ts`'s "nothing
+   invisible sits over the bars") read "none" for a button that was genuinely,
+   visibly on top. Letting clicks pass straight through to the parent `<button>`
+   is what makes the DOM element a hit-test finds match the element a test (and
+   a screen reader) names. */
+.tuh-ribbon button .rb-glyph,
+.tuh-ribbon button .rb-label {
+  pointer-events: none;
+}
+
+.tuh-ribbon button .rb-glyph {
+  font-family: var(--tuh-text);
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* THE SELECTED-COMMAND STATE (Attack/Skill while their filter is active) —
+   RESTRAINED EMBER EDGE + STRONGER-CONTRAST INK (owner MATERIAL brief), applied
+   to whichever ribbon button set the current filter. `--hud-accent` (gold) is
+   what the ADR-0037 dark skin used here and is UNCHANGED as a token, but it no
+   longer reads at all against the new light face (1.54:1) — the emphasis this
+   pass uses instead is `--hud-face-ink-sel`/`--hud-face-edge-sel`, an ember
+   that is darker AND more saturated than the plain face ink, not merely a
+   different hue: the ink clears 9.29:1, MORE than the plain enabled state's own
+   8.36:1 (the "stronger contrast" half of the brief, not just a different one);
+   the edge clears 5.49:1, over the WCAG 1.4.11 3:1 non-text floor. Fill is
+   deliberately unchanged (still --hud-face-bg) — only ink, border and the inset
+   ring carry the emphasis. */
+.tuh-ribbon button[aria-pressed="true"] {
+  border-color: var(--hud-face-edge-sel);
+  box-shadow: 0 0 0 1px var(--hud-face-edge-sel) inset;
+  color: var(--hud-face-ink-sel);
+}
+
+/* Confirm and Wait/End Turn are the same act from the player's side — commit a
+   turn — so both wear the campaign's rubricated red, exactly as the ADR-0037
+   primary button did. Measured 7.5:1 against `--hud-red-ink`. */
+.tuh-ribbon button.tuh-commit {
+  color: var(--hud-red-ink);
+  background: var(--hud-red);
+  border-color: rgb(87, 23, 18);
+  box-shadow: inset 0 1px 0 rgba(255, 190, 175, 0.22);
+}
+
+/* CONFIRM/CANCEL — a CONTEXTUAL pair (owner spec, combat-revamp refinement,
+   2026-09-10), never a 7th/8th canonical command. Layout position is unchanged
+   (still slots 7/8 of the fixed-width ribbon); the construction AND the width
+   both differ, so the pair reads as "appeared because a target is staged"
+   rather than "always part of the six". `!important`-free: neither class is
+   ever combined with `:disabled` in practice (Confirm/Cancel toggle `disabled`,
+   not class), but the generic `.tuh-ribbon button:disabled` rule already
+   carries `!important` and wins regardless if that ever changes.
+
+   NARROWER, NOT MERELY A DIFFERENT COLOUR (owner: "do not make Confirm/Cancel
+   look like permanent seventh/eighth members of the ribbon") — held at the bare
+   44px touch floor while the base rule above grew the six canonical commands to
+   48px, so these two are genuinely smaller on screen, not same-size-different-
+   paint. `flex: 0 0 44px` (no grow, no shrink) rather than the base rule's `1 1`
+   — these must never claim any of the six's growth room either. */
+.tuh-ribbon button.tuh-confirm,
+.tuh-ribbon button.tuh-cancel {
+  flex: 0 0 44px;
+  min-width: 44px;
+}
+
+.tuh-ribbon button.tuh-confirm {
+  color: var(--hud-confirm-ink);
+  background: var(--hud-confirm-bg);
+  border-color: var(--hud-confirm-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 214, 190, 0.3);
+}
+
+.tuh-ribbon button.tuh-cancel {
+  color: var(--hud-cancel-ink);
+  background: var(--hud-cancel-bg);
+  border-color: var(--hud-cancel-edge);
+  box-shadow: none;
+}
+
+/* ── other disabled controls (drawers, sheet foot) — DECLARED BEFORE the ribbon's
+   own disabled rule below, ON PURPOSE. Both selectors carry the SAME specificity
+   (one class + `button` + one pseudo-class each), so without this ordering the
+   LATER one always wins regardless of which is "more specific to the ribbon" —
+   and this generic rule must lose to `.tuh-ribbon button:disabled`'s dedicated
+   ash/charcoal tokens, not paint over them with the stage's plain ground. ────── */
+
 .tuh-stage button:disabled,
-.tuh-stage .tuh-primary:disabled,
 .tuh-sheet-foot button:disabled {
   opacity: 1;
   cursor: default;
@@ -227,282 +968,69 @@
   box-shadow: none;
 }
 
+/* THE DISABLED TREATMENT (owner's "carved and dormant, not faded" spec) — Item
+   and Defend, and (functionally, though it is not their spec) any other ribbon
+   button disabled by phase. Same button size/silhouette/iron edge as every
+   enabled command; the FILL and INK shift to the dedicated ash/charcoal tokens,
+   gold trim and the inset highlight are dropped, and there is no `:hover`/
+   `:focus-visible`/`[aria-pressed]` rule that can ever apply to it (none is
+   written below this one — a disabled control can reach no state this
+   stylesheet does not already forbid by omission). `opacity` is never touched.
+   LATER than the generic `.tuh-stage button:disabled` rule above, on purpose —
+   see that rule's own comment for why the order is load-bearing. */
+/* `!important`, DELIBERATELY: measured (`e2e/contrast.spec.ts`) still losing to
+   `.tuh-ribbon button.tuh-commit` on Confirm/End-Turn even after a specificity
+   bump to (0,3,1) via a repeated `:disabled:disabled` — a real, reproduced
+   defect (disabled Confirm painting `.tuh-commit`'s red, which also fails WCAG
+   AA at that combination), not a hypothetical one. `disabled` is a terminal
+   state: nothing after this rule may ever re-enable a colour on top of it, which
+   is exactly the contract `!important` states outright instead of leaving to
+   the next reader to re-derive from source order. */
+.tuh-ribbon button:disabled {
+  color: var(--hud-disabled-ink) !important;
+  background: var(--hud-disabled-bg) !important;
+  border-color: rgba(106, 80, 39, 0.4) !important;
+  box-shadow: none !important;
+  cursor: default;
+  opacity: 1;
+}
+
 .tuh-stage button:focus-visible {
   outline: 2px solid var(--hud-accent);
   outline-offset: 2px;
 }
 
-/* GLYPHS, NOT LABELS: ☰ ? ⚙ ✕ ⋯ take the text stack at full size with no tracking.
-   Cinzel small caps on a glyph adds letter-spacing to a single character, which just
-   pushes it off centre. */
+/* A disabled button gets no focus RING either — the owner's list is explicit
+   ("no gold selection/focus border"). Only `.tuh-ribbon button:disabled` needs
+   this override; every other disabled control on the stage keeps the shared
+   ash/soft-ink look further up, which already carries no gold. */
+.tuh-ribbon button:disabled:focus-visible {
+  outline-color: var(--hud-disabled-ink);
+}
+
+/* GLYPHS, NOT LABELS: ☰ ? ⚙ ✕ take the text stack at full size with no tracking. */
+/* EVERY PROPERTY THE PAGE-WIDE `button` RULE SETS, NAMED EXPLICITLY — `.tuh-icon`
+   (0,1,0) DOES outrank bare `button` (0,0,1) on any property BOTH declare, but a
+   property `.tuh-icon` never mentions (background, border, box-shadow, text-
+   shadow) is not contested at all, and the page's sanguine gradient wins by
+   default. Measured: the drawer's ✕ close button at 2.31:1 against the 4.5:1
+   floor, painted in the page's own red — the exact "leaked page-wide rule"
+   pattern `src/render/CLAUDE.md` documents for the title screen, one property
+   short of complete here. */
 .tuh-icon {
   flex: none;
-  width: 54px;
-  height: 54px;
+  width: 44px;
+  height: 44px;
   font-family: var(--tuh-text);
-  font-size: 21px;
+  font-size: 18px;
   letter-spacing: 0;
   text-transform: none;
   color: var(--hud-accent);
   padding: 0;
-}
-
-/* THE TWO CONTROLS THAT SPEND A TURN, in the campaign's rubricated red — End Turn and
-   Confirm are the same act from the player's side, so they wear the same colour.
-   Measured 7.5:1 against `--hud-red-ink`.
-
-   `.tuh-stage .tuh-primary`, not `.tuh-primary`: `.tuh-stage button` is (0,1,1) and was
-   winning, so the primary wore the ghost fill and nothing on the bar read as primary.
-   Caught by opening a frame; every box assertion was green, because this is a colour
-   and the suite cannot see colours. */
-.tuh-stage .tuh-primary,
-.tuh-sheet-foot button {
-  font-family: var(--tuh-roman);
-  font-size: 12px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--hud-red-ink);
-  background: var(--hud-red);
-  border-color: rgb(87, 23, 18);
-  box-shadow: inset 0 1px 0 rgba(255, 190, 175, 0.22);
-}
-
-.tuh-stage .tuh-primary {
-  flex: 1;
-  min-width: 150px;
-  height: 60px;
-}
-
-.tuh-bottom .tuh-ghost {
-  flex: none;
-  height: 60px;
-  min-width: 96px;
-  font-size: 15px;
-}
-
-.tuh-actions-btn {
-  flex: none;
-  height: 60px;
-  min-width: 110px;
-  font-size: 15px;
-}
-
-/* ── the turn-order chip strip ─────────────────────────────────────────────── */
-
-.tuh-chips {
-  flex: 1;
-  min-width: 0;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-  background: var(--hud-bg);
-  color: var(--hud-ink-soft);
-  font-size: 13px;
-}
-
-/* EXPANDED: the row becomes an overlay under the top bar and wraps, so the projected
-   chips a one-row strip clips are reachable. An overlay, not a taller bar — the bar's
-   height is load-bearing arithmetic (60 + 216 + 84 = 360). */
-/* BOUNDED AT 75 UNITS, and the number is arithmetic rather than taste: the board is
-   216 units tall, docs/10 §8b gives an overlay at most 35% of it, and 216 x 0.35 =
-   75.6. At 150 the expanded strip covered 57% of the board — measured, and red in
-   `stage.spec.ts`'s fourth AC-V34 state until this line landed. Two rows of chips fit
-   inside 75; a third scrolls, which is the honest trade for not eating the map. */
-.tuh-chips.expanded {
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  top: 60px;
-  height: auto;
-  max-height: 75px;
-  overflow-y: auto;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 5px;
-  background: var(--hud-bg);
-  border: 1px solid var(--hud-edge);
-  z-index: 7;
-}
-
-.tuh-chips .tl-label {
-  flex: none;
-  font-family: var(--tuh-roman);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hud-ink-soft);
-}
-
-.tuh-chips .chip {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 54px;
-  min-width: 54px;
-  padding: 0 9px;
-  border-radius: 0;
-  border: 1px solid var(--hud-rule);
-  background: var(--hud-bg-2);
-  color: var(--hud-ink);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.tuh-chips .chip .swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--c);
-  flex: none;
-}
-
-.tuh-chips .chip.lead {
-  border-color: var(--hud-accent);
-  box-shadow: 0 0 0 1px var(--hud-accent) inset;
-}
-
-.tuh-chips .chip.spell {
-  border-style: dashed;
-}
-
-/* A PROJECTED slot is not a fact (docs/10 §4 item 7). Dotted and hollow, never a
-   plain opacity fade — a faded chip is still measured as text a player reads, and the
-   contrast walk composites the DECLARED colour, not the faded one.
- 
-   `opacity: 1` IS LOAD-BEARING. index.html carries `.chip.proj { opacity: .5 }` from
-   the pre-stage timeline, and (0,2,0) here beats it on specificity for colour and
-   background but this rule never SET opacity — so every projected chip has been
-   painting at half strength while `contrast.spec.ts` measured it at full. Dotted
-   against solid is the whole signal now, at the ink the walk actually checks. */
-.tuh-chips .chip.proj {
-  opacity: 1;
-  border-style: dotted;
-  border-color: rgba(184, 137, 47, 0.75);
-  color: var(--hud-ink-soft);
-  background: var(--hud-bg);
-}
-
-.tuh-chips .tl-split {
-  flex: none;
-  font-family: var(--tuh-roman);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hud-ink-soft);
-  padding-left: 7px;
-  border-left: 1px dashed rgba(138, 101, 36, 0.6);
-}
-
-/* ── the actor tab (laid out, never over the board) ────────────────────────── */
-
-/* `.tuh-stage .tuh-tab`, not `.tuh-tab`: `.tuh-stage button` is (0,1,1) and would
-   otherwise win, painting the tab in the button fill. Measured — `contrast.spec.ts`
-   read rgb(46,37,25) where the declared HUD ground is rgb(29,23,16). */
-.tuh-stage .tuh-tab {
-  font-family: var(--tuh-text);
-  border: 1px solid var(--hud-rule);
-  border-radius: 0;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(214, 172, 102, 0.13);
-  letter-spacing: 0;
-  text-transform: none;
-  flex: none;
-  align-self: center;
-  width: 118px;
-  height: 84px;
-  margin: 0 4px 0 6px;
-  padding: 7px 8px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  background: var(--hud-bg);
-  border: 1px solid var(--hud-edge);
-  border-radius: 8px;
-  font-weight: 400;
-}
-
-.tuh-tab .tab-name {
-  font-family: var(--tuh-roman);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  color: var(--hud-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tuh-tab .tab-hp {
-  font-size: 14px;
-  color: var(--hud-ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.tuh-tab .tab-bar {
-  display: block;
-  height: 6px;
-  border: 1px solid var(--hud-rule);
-  border-radius: 0;
-  overflow: hidden;
-  background: rgb(16, 12, 8);
-}
-
-.tuh-tab .tab-bar i {
-  display: block;
-  height: 100%;
-  background: var(--c, var(--hud-accent));
-}
-
-/* ── overlays ──────────────────────────────────────────────────────────────── */
-
-/* The preview sheet. 176 units wide is the number that keeps its overlap with the
-   canvas under docs/10 AC-V34's 35%-of-area budget at the NARROWEST stage (640
-   units, which is what a 1000x780 desktop window gets) — measured 30.8% there and
-   less everywhere else, because a wider stage pushes the board left of the sheet. */
-.tuh-sheet {
-  position: absolute;
-  right: 0;
-  top: 60px;
-  width: 176px;
-  height: 216px;
-  display: flex;
-  flex-direction: column;
-  background: var(--hud-bg);
-  border-left: 1px solid var(--hud-edge);
-  color: var(--hud-ink);
-  z-index: 6;
-}
-
-.tuh-sheet[hidden],
-.tuh-drawer[hidden],
-.tuh-bottom-sheet[hidden],
-.tuh-toast[hidden] {
-  display: none;
-}
-
-.tuh-sheet-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 6px 8px;
-  font-size: 12px;
-}
-
-.tuh-sheet-foot {
-  flex: none;
-  padding: 5px 6px 6px;
-  border-top: 1px solid rgba(138, 101, 36, 0.55);
-}
-
-/* Colour comes from the shared rule beside `.tuh-primary` — Confirm and End Turn are
-   the same act from the player's side, so they must not be two reds. */
-.tuh-sheet-foot button {
-  width: 100%;
-  height: 54px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 /* The untimed toast (docs/10 AC-V39). Opaque, because it sits over the painted
@@ -511,7 +1039,7 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 92px;
+  bottom: calc(var(--band-h) + 8px);
   max-width: 420px;
   padding: 8px 14px;
   border-radius: 0;
@@ -534,16 +1062,59 @@
   color: rgb(255, 216, 210);
 }
 
+.tuh-sheet[hidden],
+.tuh-drawer[hidden],
+.tuh-bottom-sheet[hidden],
+.tuh-toast[hidden] {
+  display: none;
+}
+
+/* The resolution-preview sheet — progressive disclosure, one tap off the TARGET
+   UNIT plate (docs/10 §4/§5). It sits LEFT of the rail and ABOVE the band, so a
+   temporary overlay never covers either persistent zone, only the board — the
+   one surface ADR-0043 decision 4 allows it to. */
+.tuh-sheet {
+  position: absolute;
+  right: var(--rail-w);
+  top: 0;
+  bottom: var(--band-h);
+  width: 176px;
+  max-width: 45%;
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-bg);
+  border-left: 1px solid var(--hud-edge);
+  color: var(--hud-ink);
+  z-index: 6;
+}
+
+.tuh-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.tuh-sheet-foot {
+  flex: none;
+  padding: 5px 6px 6px;
+  border-top: 1px solid rgba(138, 101, 36, 0.55);
+}
+
+.tuh-sheet-foot button {
+  width: 100%;
+  height: 44px;
+}
+
 /* Drawers. Opaque and `hidden` when closed — hidden rather than merely covered, so
-   nothing behind them is focusable or announced (the AC-V30 lesson, applied here). */
-/* BETWEEN THE BARS, never over them. A full-height drawer covers the very ⚙ that
-   opened it AND the Cancel button under it, so both bars stop working the moment one
-   is open — found twice, by clicks that could not land. The bars are the way OUT of
-   every overlay, so they are the one thing an overlay may never eat. */
+   nothing behind them is focusable or announced. BETWEEN THE BAND AND THE TOP OF
+   THE STAGE, never over the band: the band is the way OUT of every overlay (the
+   ☰ stud, Cancel), so it is the one thing an overlay may never eat. */
 .tuh-drawer {
   position: absolute;
-  top: 60px;
-  bottom: 84px;
+  top: 0;
+  bottom: var(--band-h);
   width: 288px;
   max-width: 80%;
   display: flex;
@@ -559,7 +1130,7 @@
 }
 
 .tuh-drawer-right {
-  right: 0;
+  right: var(--rail-w);
   border-left: 1px solid var(--hud-edge);
 }
 
@@ -619,7 +1190,7 @@
 .tuh-menu-list button {
   width: 100%;
   text-align: left;
-  height: 54px;
+  height: 44px;
 }
 
 /* A statement, not a control. It must not wear the button treatment — a tappable-
@@ -632,13 +1203,13 @@
   line-height: 1.4;
 }
 
-/* The bottom action sheet: every learned ability, name and range. Above the action
-   bar, for the same reason the drawers are — the bar is how you close it. */
+/* The ability-list sheet: every learned ability, name and range. Above the band,
+   for the same reason the drawers are. */
 .tuh-bottom-sheet {
   position: absolute;
   left: 0;
-  right: 0;
-  bottom: 84px;
+  right: var(--rail-w);
+  bottom: var(--band-h);
   max-height: 216px;
   display: flex;
   flex-direction: column;
@@ -683,7 +1254,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 54px;
+  min-height: 44px;
   padding: 6px 10px;
   border-bottom: 1px solid rgba(138, 101, 36, 0.42);
   font-size: 15px;
@@ -692,8 +1263,7 @@
 
 /* THE RANGE IS METADATA AND STAYS IN THE TEXT FACE (art director's own note on skin
    B). Cinzel small caps here gave the range the same visual weight as the ability's
-   NAME, and in a list you scan by name that is the wrong thing leading. It is soft ink
-   and a smaller size; it does not need caps as well. */
+   NAME, and in a list you scan by name that is the wrong thing leading. */
 .tuh-ability-list .ab-range {
   flex: none;
   font-family: var(--tuh-text);
@@ -704,9 +1274,6 @@
 
 /* The settings readout (docs/10 AC-V40). Monospaced so two viewports' numbers line
    up when the owner photographs the screen. */
-/* MONOSPACE STAYS on the readout's figures: the owner photographs this panel on a
-   real device and compares two screens' numbers, and tabular columns are the whole
-   reason it is legible in a photo. Only its KEYS take the label face. */
 .tuh-readout {
   margin: 0;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -774,13 +1341,8 @@
   color: var(--hud-ink-soft);
 }
 
-/* The full stat card, in the unit drawer (ADR-0033's set, ADR-0037's placement).
-   STILL AN OPAQUE PLATE, and of the same declared colour `e2e/contrast.spec.ts`
-   names. The card no longer sits over the canvas, so the original reason (a
-   translucent plate scores green against its DOM parent while the player reads it
-   over grass) no longer bites — but the drawer behind it is opaque for that same
-   reason, and giving the card a ground of its own keeps the contrast walk measuring
-   what it says it measures. */
+/* The full stat card, in the unit drawer (ADR-0033's set). STILL AN OPAQUE PLATE,
+   of the same declared colour `e2e/contrast.spec.ts` names. */
 .tuh-drawer .unit-card {
   display: flex;
   align-items: flex-start;
@@ -904,9 +1466,6 @@
 }
 
 /* The resolution preview's rows, inside the sheet. */
-/* TIGHT, because this panel scrolls. §4's set is ten-odd rows in 150 stage units, and
-   the ones a player commits on have to be above the fold — `previewHtml` orders them
-   for that, and this keeps a row to one line wherever it can. */
 .tuh-sheet .prow {
   display: flex;
   justify-content: space-between;
@@ -949,10 +1508,6 @@
 }
 
 /* The page's own chrome is out of the way while the stage owns the screen. */
-/* WHILE THE STAGE OWNS THE SCREEN the page beneath must not scroll (AC-V33) and must
-   not contribute layout: the host is `position: fixed`, so everything else is just
-   padding nobody can see. The class goes on BOTH <html> and <body> — `overflow` on
-   the body alone leaves the document element able to scroll. */
 html.tuh-on-stage,
 body.tuh-on-stage {
   overflow: hidden;

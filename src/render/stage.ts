@@ -1,39 +1,39 @@
 /**
- * THE LOGICAL STAGE (ADR-0037, docs/10 §8a) — the battle screen's one coordinate
- * system, and the arithmetic behind it.
+ * THE BATTLE STAGE (ADR-0043) — the battle screen's geometry, and the arithmetic
+ * behind it.
  *
- * A landscape phone is WIDER than 16:9, not taller: the owner's device measures about
- * 851 x 324 CSS px. Height is the scarce axis, so height is what is fixed at 360
- * logical units; width follows the host's aspect, clamped to 640…900; the whole stage
- * is then scaled UNIFORMLY and centred, and whatever is left over is letterbox.
+ * ADR-0037's model is GONE from this file: a 360-logical-unit virtual stage,
+ * uniformly scaled and letterboxed as a WHOLE, scaled every persistent HUD region
+ * up and down with the viewport — which is exactly the "black-bar architecture"
+ * ADR-0043 forbids, and the reason a wider/taller viewport could never give the
+ * battlefield MORE room without also inflating the chrome around it.
  *
- * ```
- * stageH = 360
- * stageW = clamp(640, round(360 * vw / vh), 900)
- * scale  = min(vw / stageW, vh / stageH)
- * ```
+ * THE NEW MODEL. The stage's zones (the turn-order rail, the bottom band, the
+ * board) are laid out by ordinary CSS Grid in REAL CSS PIXELS (`stage.css`), sized
+ * against the ~832×328 reference viewport and held roughly constant in px as the
+ * viewport grows — so extra space on a bigger screen goes to the battlefield, per
+ * ADR-0043 decision 3, not to a scaled-up rail or band. `stageGeometry` in the old
+ * sense — "the one scale factor" — no longer exists; there is nothing left to
+ * derive it FROM.
  *
- * `vw`/`vh` are the STAGE HOST's measured box — an element sized `100svw x 100svh`,
- * small viewport units deliberately, so a browser toolbar sliding away does not
- * re-lay-out the stage mid-turn. Everything downstream measures
- * `getBoundingClientRect()`, never a CSS custom property: a variable computed
- * correctly and applied to nothing reads as working from the variable's side
- * (docs/10 AC-V33).
+ * WHAT SURVIVES: only the board's own canvas still needs a scale, because its
+ * BACKING STORE is a fixed 900×440 (`CANVAS_W`/`CANVAS_H`, `hud.ts`) while the box
+ * CSS gives it is whatever is left after the rail and band are reserved — usually
+ * a DIFFERENT aspect ratio. {@link fitBox} is the same "uniform min(), never a
+ * per-axis stretch" rule `viewFor` uses for the board's own content, applied one
+ * level up: a non-uniform stretch here would distort the painted scene and, worse,
+ * silently break `pickTile`'s inverse the same way a stretched backing store would
+ * (`src/render/CLAUDE.md`). {@link mountBoardFit} is the thin DOM part that keeps
+ * a canvas element's CSS box exactly equal to that fit, so `canvas.getBoundingClientRect()`
+ * — what every click handler measures — is never a lie about what is actually drawn.
  *
- * PURE ARITHMETIC FIRST, DOM SECOND. {@link stageGeometry} is a total function of two
- * numbers and is unit-tested at all five supported viewports (`stage.test.ts`);
- * {@link mountStage} is the thin part that writes it onto an element.
+ * PURE ARITHMETIC FIRST, DOM SECOND, same discipline as before: {@link fitBox} is
+ * a total function of three numbers and is unit-tested directly (`stage.test.ts`);
+ * {@link mountBoardFit} is the part that writes it onto an element.
  *
- * NOTHING HERE TOUCHES THE SIM. No `BattleState`, no command, no clock: the stage is
- * presentation, and a resize must never be able to move a battle.
+ * NOTHING HERE TOUCHES THE SIM. No `BattleState`, no command, no clock: the stage
+ * is presentation, and a resize must never be able to move a battle.
  */
-
-/** Logical height of the stage, always. docs/10 §8a. */
-export const STAGE_HEIGHT = 360;
-/** Narrowest stage — reached at 1.78:1 and below (a 4:3 desktop window). */
-export const STAGE_WIDTH_MIN = 640;
-/** Widest stage — reached past 2.5:1, which on the test set is only 851x324. */
-export const STAGE_WIDTH_MAX = 900;
 
 /** A measured box, in CSS px. */
 export interface StageBox {
@@ -41,102 +41,62 @@ export interface StageBox {
   height: number;
 }
 
-/** Where the stage sits inside its host, and how big it is drawn. */
-export interface StageGeometry {
-  /** Logical width, in stage units. */
-  stageW: number;
-  /** Logical height, in stage units — always {@link STAGE_HEIGHT}. */
-  stageH: number;
-  /** Uniform scale applied on BOTH axes. */
-  scale: number;
-  /** Total horizontal letterbox (pillarbox), in CSS px, both sides together. */
-  letterboxX: number;
-  /** Total vertical letterbox, in CSS px, both sides together. */
-  letterboxY: number;
-}
-
 /**
- * The width clamp, alone, so a test can name it.
+ * `object-fit: contain`, computed by hand rather than left to CSS: `canvas` is a
+ * replaced element whose `getBoundingClientRect()` reports its LAYOUT box, not the
+ * fitted content box, so `object-fit` on a canvas would make every click handler
+ * measure a box bigger than what is actually drawn — silently, the exact class of
+ * bug `src/render/CLAUDE.md` warns about for a stretched backing store. Sizing the
+ * element itself, in JS, keeps the measured box and the drawn box the same box.
  *
- * THE CLAMP IS INVISIBLE AT FOUR OF THE FIVE SUPPORTED VIEWPORTS. Only 851x324 —
- * the owner's own phone — reaches it: `round(360 * 851 / 324)` is 946, clamped to
- * 900, which is what produces that row's 41 px pillarbox. Drop the clamp and the
- * stage fills the width and only that row goes red (docs/10 AC-V33 discriminator c).
+ * Never upscales past 1:1 of the CONTENT's own size is not a rule here — the board
+ * canvas is deliberately scaled UP to fill its allocation (that is the entire
+ * point of `viewFor`'s camera existing one layer down); this fit only decides how
+ * big the 900×440 backing store's CSS box gets, uniformly, before that camera ever
+ * runs.
  */
-export function stageWidthFor(box: StageBox): number {
-  const vw = Math.max(1, box.width);
-  const vh = Math.max(1, box.height);
-  const fluid = Math.round((STAGE_HEIGHT * vw) / vh);
-  return Math.min(STAGE_WIDTH_MAX, Math.max(STAGE_WIDTH_MIN, fluid));
+export function fitBox(container: StageBox, contentW: number, contentH: number): StageBox {
+  const cw = Math.max(1, container.width);
+  const ch = Math.max(1, container.height);
+  const scale = Math.min(cw / contentW, ch / contentH);
+  return { width: contentW * scale, height: contentH * scale };
 }
 
-/**
- * The whole derivation. `scale` is `min(...)` on purpose: a per-axis fit would stretch
- * the board off its 900:440 backing store, and `pickTile` inverts through the same
- * projection `draw` paints with — a stretched canvas does not fail, it silently misses
- * every tap by a constant factor (`src/render/CLAUDE.md`, AC-V19).
- */
-export function stageGeometry(box: StageBox): StageGeometry {
-  const vw = Math.max(1, box.width);
-  const vh = Math.max(1, box.height);
-  const stageW = stageWidthFor(box);
-  const scale = Math.min(vw / stageW, vh / STAGE_HEIGHT);
-  return {
-    stageW,
-    stageH: STAGE_HEIGHT,
-    scale,
-    letterboxX: vw - stageW * scale,
-    letterboxY: vh - STAGE_HEIGHT * scale,
-  };
-}
-
-/**
- * Write a geometry onto the stage element.
- *
- * `translate(-50%, -50%) scale(k)` about a 50%/50% transform origin, with the element
- * pinned at the host's centre point: the scaled box comes out centred, and its
- * `getBoundingClientRect()` is exactly `stageW * scale` by `stageH * scale`. That is
- * what makes the measured scale and the measured letterbox the same two numbers this
- * module computed — the instrument and the thing measured cannot drift apart.
- */
-export function applyStage(stage: HTMLElement, g: StageGeometry): void {
-  stage.style.width = `${g.stageW}px`;
-  stage.style.height = `${g.stageH}px`;
-  stage.style.transform = `translate(-50%, -50%) scale(${g.scale})`;
-}
-
-/** A live stage: recomputed on resize and on every `visualViewport` change. */
-export interface StageController {
-  /** The geometry currently applied. */
-  geometry(): StageGeometry;
-  /** Re-measure the host and re-apply. Safe to call as often as you like. */
+/** A live board-fit: recomputed on resize and on every `visualViewport` change. */
+export interface BoardFitController {
+  /** The box currently applied to the target element, in CSS px. */
+  box(): StageBox;
+  /** Re-measure the container and re-apply. Safe to call as often as you like. */
   refresh(): void;
   /** Detach every listener. */
   dispose(): void;
 }
 
 /**
- * Bind a stage element to its host.
+ * Bind `target`'s CSS width/height to `container`'s measured box, fitted (never
+ * stretched) to the `contentW`×`contentH` aspect, and re-fit on every resize.
  *
- * BOTH `resize` AND `visualViewport` ARE LISTENED TO, and they are not the same event.
- * On a phone the visual viewport shrinks when a keyboard or a URL bar appears without
- * a window `resize` firing at all; on desktop the reverse. The settings readout
- * (docs/10 AC-V40) prints both boxes separately for exactly this reason — they can
- * disagree, and that disagreement is the bug an on-device readout exists to catch.
- *
- * `onChange` fires after every re-apply so the page can repaint anything sized in CSS
- * px rather than stage units (the canvas's tile readout is the only one today).
+ * BOTH `resize` AND `visualViewport` ARE LISTENED TO — see the old stage.ts's
+ * docstring for why they are not the same event; that reasoning is unchanged by
+ * ADR-0043, it just now applies to one element instead of the whole HUD.
  */
-export function mountStage(
-  host: HTMLElement,
-  stage: HTMLElement,
-  onChange?: (g: StageGeometry) => void,
-): StageController {
-  let current = stageGeometry(host.getBoundingClientRect());
+export function mountBoardFit(
+  container: HTMLElement,
+  target: HTMLElement,
+  contentW: number,
+  contentH: number,
+  onChange?: (box: StageBox) => void,
+): BoardFitController {
+  let current = fitBox(container.getBoundingClientRect(), contentW, contentH);
+
+  const apply = (): void => {
+    target.style.width = `${current.width}px`;
+    target.style.height = `${current.height}px`;
+  };
 
   const refresh = (): void => {
-    current = stageGeometry(host.getBoundingClientRect());
-    applyStage(stage, current);
+    current = fitBox(container.getBoundingClientRect(), contentW, contentH);
+    apply();
     onChange?.(current);
   };
 
@@ -150,7 +110,7 @@ export function mountStage(
   vv?.addEventListener("scroll", refresh);
 
   return {
-    geometry: () => current,
+    box: () => current,
     refresh,
     dispose: () => {
       win?.removeEventListener("resize", refresh);

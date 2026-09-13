@@ -286,6 +286,17 @@ export class CampaignShell {
     return storyEntry(this.storyPack, brief.battleId)?.title ?? null;
   }
 
+  /**
+   * The battle-entry plaque's authored second line, or `null` — absent, never an
+   * empty string — when the pack authors none for this battle (the combat-revamp
+   * entry plaque renders its title alone in that case, reserving no row for it).
+   */
+  sceneTagline(): string | null {
+    const brief = this.briefing();
+    if (!brief || !this.storyPack) return null;
+    return storyEntry(this.storyPack, brief.battleId)?.battleTagline ?? null;
+  }
+
   /** The text shown BEFORE the pending battle, or `null` when nothing is authored. */
   preBeat(): StoryBeat | null {
     const brief = this.briefing();

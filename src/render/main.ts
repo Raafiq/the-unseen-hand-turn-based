@@ -245,6 +245,7 @@ const api: ViewerApi = {
   preview: () => session.preview(),
   actCost: () => session.actCost(),
   reason: () => session.reason,
+  moveTiles: () => session.moveTiles(),
   // Camera controls over the animation clock. They touch no state and emit no command.
   settleMotion: () => {
     motion.settle();

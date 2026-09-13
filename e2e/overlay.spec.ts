@@ -83,11 +83,19 @@ test("the board takes a real click at rest — nothing invisible sits over it", 
 
   // The browser's OWN hit-test, which is what routes a click. Anything transparent
   // stretched over the stage answers here and nowhere else.
-  const hit = await page.evaluate(
-    (p) => document.elementFromPoint(p.x, p.y)?.tagName.toLowerCase() ?? "none",
-    at,
-  );
-  expect(hit).toBe("canvas");
+  //
+  // "canvas" NO LONGER — combat revamp, owner decision 3: `.tuh-tile-hits` is a
+  // DELIBERATE invisible overlay ABOVE the canvas that owns pointer input over the
+  // board now (`stage.css`'s `z-index: 1`), so it can resolve an ambiguous tap to
+  // the nearest 44px tile centre instead of whichever DOM element the browser's own
+  // z-order would hit-test first. It is not a stray transparent blocker — it is
+  // OUR OWN input layer, asserted by testid, and the end-to-end half below (a real
+  // click actually reaches the session) is what proves it still routes correctly.
+  const hit = await page.evaluate((p) => {
+    const el = document.elementFromPoint(p.x, p.y) as HTMLElement | null;
+    return el?.dataset["testid"] ?? el?.tagName.toLowerCase() ?? "none";
+  }, at);
+  expect(hit).toBe("tile-hits");
 
   // …and end to end: a real click at that point reaches `pickTile` → the HUD → the
   // session. The before/after is required because `reset` parks the cursor somewhere
@@ -124,10 +132,13 @@ test("an open drawer never covers the bars that close it", async ({ page }) => {
   };
 
   // The topmost element at each control's own centre is that control — not the drawer.
+  // hud-settings/hud-help are NOT checked here any more (combat revamp): they moved
+  // INSIDE the menu drawer's own scrollable body — they are the drawer's content
+  // now, not a separate persistent bar the drawer could cover, so "the drawer
+  // covers ⚙" is no longer a coherent claim to make about them.
   expect(await clear("cancel"), "the drawer covers Cancel").toBe("cancel");
   expect(await clear("end-turn"), "the drawer covers the primary button").toBe("end-turn");
   expect(await clear("hud-menu"), "the drawer covers its own ☰").toBe("hud-menu");
-  expect(await clear("hud-settings"), "the drawer covers ⚙").toBe("hud-settings");
 
   // …and it really was open the whole time, so none of the above is vacuous.
   await expect(page.getByTestId("menu-drawer")).toBeVisible();
@@ -142,9 +153,11 @@ test("the campaign board carries the same stage, and it takes a click", async ({
   await expect(page.getByTestId("screen-battle")).toBeVisible();
 
   const box = (await page.getByTestId("grid").boundingBox())!;
-  const hit = await page.evaluate(
-    (p) => document.elementFromPoint(p.x, p.y)?.tagName.toLowerCase() ?? "none",
-    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
-  );
-  expect(hit).toBe("canvas");
+  // `.tuh-tile-hits` owns pointer input over the board now — see the viewer test
+  // above for why "canvas" is no longer the right expectation.
+  const hit = await page.evaluate((p) => {
+    const el = document.elementFromPoint(p.x, p.y) as HTMLElement | null;
+    return el?.dataset["testid"] ?? el?.tagName.toLowerCase() ?? "none";
+  }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  expect(hit).toBe("tile-hits");
 });

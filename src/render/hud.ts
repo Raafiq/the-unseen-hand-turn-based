@@ -1,49 +1,71 @@
 /**
- * THE BATTLE HUD — one module, both pages (ADR-0037, docs/10 §8).
+ * THE BATTLE HUD — one module, both pages (ADR-0043, docs/10 §8).
  *
  * This file BUILDS the battle screen's DOM rather than reading it out of two hand-
  * authored HTML files. That is the whole point of it existing: `index.html` and
  * `viewer.html` each carried their own copy of the board, the controls, the timeline
- * and a set of phone media queries, and the two drifted — the campaign's landscape
- * rules and the viewer's were separate transcriptions of the same idea. With the
- * markup generated here, "the two pages cannot diverge" is a fact about the code
- * rather than a promise, and docs/10 AC-V42's "the stage's child set is identical" is
- * satisfied by construction.
+ * and a set of phone media queries, and the two drifted. With the markup generated
+ * here, "the two pages cannot diverge" is a fact about the code rather than a
+ * promise, and docs/10 AC-V42's "the stage's child set is identical" is satisfied
+ * by construction.
+ *
+ * THE SHELL (combat revamp, 2026-09-10). ADR-0038's floating actor tab and the
+ * persistent top bar are GONE. The stage is a CSS Grid: a right-side turn-order
+ * RAIL, a bottom BAND (☰ stud, ACTIVE UNIT plate, the six-command ribbon, TARGET
+ * UNIT plate), and the BOARD taking whatever is left. The Help and Settings icons
+ * that used to sit in the top bar moved INSIDE the menu drawer as entries — three
+ * top-bar icons do not fit ADR-0043's pixel budget, one ☰ stud does.
  *
  * WHAT IS AND IS NOT HERE. Everything with a rule in it still lives elsewhere: the
  * turn state machine in `session.ts` (docs/10 §3), the transparency set in
- * `preview.ts` (§4), the honest panels in `panels.ts`, the geometry in `stage.ts`
- * (§8a). This file is layout, wiring and the four surfaces the stage adds — the
- * drawers, the sheets, the toast and the phase-aware primary button.
+ * `preview.ts` (§4), the honest panels in `panels.ts`, the board-fit arithmetic in
+ * `stage.ts`. This file is layout, wiring and the surfaces the stage adds — the
+ * drawers, the sheets, the toast, the ribbon, the two compact plates, the entry
+ * plaque and the 44px touch-target overlay.
  *
  * THE SIM IS NEVER TOUCHED DIRECTLY. Every mutation goes through a {@link Session}
  * method, through the page's `act()` wrapper, so a HUD button and the test seam are
  * the same code path (docs/10 §7). Confirm and End Turn are the only two controls
- * here that can emit a command, and `Session` is what decides whether they do.
+ * here that can emit a command (Move/Attack/Skill narrow what the SAME tile-driven
+ * mutator will accept next — see {@link Session.setCommandMode} — they emit
+ * nothing themselves), and `Session` is what decides whether a command is legal.
  *
- * NO TIMERS. The toast is untimed and the enemy's turn advances on an explicit Step
- * (docs/10 §3, AC-V39): a wall-clock advance would make "how many commands have been
- * applied by now" a function of elapsed time.
+ * NO TIMERS reach `BattleState`. The toast is untimed and the enemy's turn
+ * advances on an explicit Step (docs/10 §3, AC-V39). The entry plaque's auto-
+ * dismiss IS a wall-clock timer, and that is fine: it is pure presentation (like
+ * `motion.ts`'s animation pacing) — nothing it does can reach the sim, and no
+ * command is gated on it.
  */
 
 import "./stage.css";
 import type { Position } from "../sim/index.js";
-import { pickTile, tileSizeFor } from "./iso.js";
+import { pickTile, project, tileSizeFor, viewFor } from "./iso.js";
 import {
+  activePlateHtml,
   logHtml,
   previewHtml,
   statusHtml,
+  targetPlateHtml,
   timelineHtml,
   unitCardHtml,
   type LookUp,
 } from "./panels.js";
 import { abilityLabel } from "./prep.js";
 import type { Phase, Session } from "./session.js";
-import { mountStage, type StageController, type StageGeometry } from "./stage.js";
+import { mountBoardFit, type BoardFitController, type StageBox } from "./stage.js";
 
 /** The canvas's backing store — the fixed surface `viewFor` fits the board to. */
 const CANVAS_W = 900;
 const CANVAS_H = 440;
+
+/** Half the 44px touch floor — a tap within this many CSS px of a tile's centre
+ *  resolves to that tile ({@link rebuildTileHits}'s nearest-centre search). */
+const HIT_HALF = 22;
+
+/** How long the entry plaque holds before it fades (owner spec: "~1-2s"). */
+const PLAQUE_HOLD_MS = 1500;
+/** The fade-out transition's own length — must match `stage.css`'s `.dismissing`. */
+const PLAQUE_FADE_MS = 220;
 
 /**
  * What the page must supply. Everything here is something only the page can answer:
@@ -92,6 +114,16 @@ export interface HudPorts {
    * child set identical (AC-V42).
    */
   conclude?(): { label: string; run: () => void } | null;
+  /**
+   * THE ENTRY PLAQUE'S TEXT (owner decision 9, `intent/combat-revamp.md`), or
+   * `null`/absent for a page with no battle identity to announce (the engine
+   * viewer's perpetual demo battle — the plaque element is still BUILT there,
+   * AC-V42's child-set rule, it is simply never triggered). `tagline` is OPTIONAL
+   * and absent renders the plaque with the title alone, reserving no row for it
+   * (absent-not-zero) — it is authored copy, never derived from the encounter's
+   * victory/defeat rule (`intent/combat-revamp.md`'s "no converter" decision).
+   */
+  battleName?(): { title: string; tagline?: string } | undefined;
 }
 
 export interface HudHandle {
@@ -101,10 +133,10 @@ export interface HudHandle {
   canvas: HTMLCanvasElement;
   /** Re-render every zone from the current session. */
   render(): void;
-  /** Re-measure the host and re-apply the transform. */
+  /** Re-measure the host and re-fit the board canvas. */
   resize(): void;
-  /** The geometry currently applied (the settings readout and the tests read this). */
-  geometry(): StageGeometry;
+  /** The board canvas's current CSS box (the settings readout and the tests read this). */
+  geometry(): StageBox;
   /** Does the board have keyboard focus? The page needs it to draw the tile cursor. */
   canvasFocused(): boolean;
   /**
@@ -129,6 +161,14 @@ export interface HudHandle {
    * and the inspect ACs could not see the feature at all.
    */
   pick(p: Position | null): void;
+  /**
+   * TRIGGER THE ENTRY PLAQUE (owner decision 9). `mountHud` runs once per PAGE load,
+   * not once per battle — the campaign reuses one `HudHandle` across all five — so
+   * "a new battle started" cannot be inferred from a state change; the page that
+   * KNOWS it just deployed into one calls this explicitly. A no-op when
+   * {@link HudPorts.battleName} is absent/returns nothing (the engine viewer).
+   */
+  announceBattle(): void;
 }
 
 /**
@@ -157,12 +197,30 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 const rangeText = (r: { h: number; v: number }): string => `range ${r.h} · height ±${r.v}`;
 
 /**
+ * A ribbon command button — the six top-level commands plus Confirm/Cancel
+ * (`intent/combat-revamp.md`'s "six buttons, three commands" table). `glyph` is
+ * decorative (`aria-hidden`); the accessible name is the button's own text/label.
+ */
+function ribbonButton(glyph: string, label: string, testId: string): HTMLButtonElement {
+  const b = el("button");
+  b.type = "button";
+  b.dataset["testid"] = testId;
+  const g = el("span", "rb-glyph");
+  g.setAttribute("aria-hidden", "true");
+  g.textContent = glyph;
+  const t = el("span", "rb-label");
+  t.textContent = label;
+  b.append(g, t);
+  return b;
+}
+
+/**
  * Build the stage inside `host` and wire every control.
  *
  * The host is expected to be an element sized `100svw x 100svh` (see `stage.css`'s
- * `.tuh-host`); everything is measured off its `getBoundingClientRect()`, never off a
- * CSS variable — a variable computed correctly and applied to nothing reads as
- * working from the variable's side (AC-V33).
+ * `.tuh-host`); every persistent-HUD/board box is measured off its
+ * `getBoundingClientRect()`, never off a CSS custom property — a variable computed
+ * correctly and applied to nothing reads as working from the variable's side.
  */
 export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   host.classList.add("tuh-host");
@@ -172,28 +230,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   stage.dataset["testid"] = "stage";
   host.append(stage);
 
-  // ── top bar ───────────────────────────────────────────────────────────────
-  const top = el("div", "tuh-top");
-  top.dataset["hud"] = "top-bar";
-  const menuBtn = iconButton("☰", "Menu", "hud-menu");
-  const chips = el("div", "tuh-chips");
-  chips.dataset["testid"] = "timeline";
-  chips.dataset["hud"] = "turn-order";
-  // "one row; tap expands it" (docs/10 §8b). The strip is a DIV, not a button — it is
-  // full of chips and a button wrapping them announces one enormous label — so the
-  // expander is its own control, which is also what keeps it inside the 44 px floor.
-  const chipsMore = iconButton("⋯", "Show the whole turn order", "turn-order-more");
-  const helpBtn = iconButton("?", "How to play", "hud-help");
-  const settingsBtn = iconButton("⚙", "Settings", "hud-settings");
-  top.append(menuBtn, chips, chipsMore, helpBtn, settingsBtn);
-
-  // ── middle row: the actor tab, then the board ─────────────────────────────
-  const mid = el("div", "tuh-mid");
-  const tab = el("button", "tuh-tab");
-  tab.type = "button";
-  tab.dataset["testid"] = "actor-tab";
-  tab.dataset["hud"] = "actor-tab";
-  tab.setAttribute("aria-label", "Acting unit — open the full stat card");
+  // ── the board ─────────────────────────────────────────────────────────────
   const boardBox = el("div", "tuh-board");
   boardBox.dataset["hud"] = "board";
   const canvas = el("canvas");
@@ -207,30 +244,70 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     "aria-label",
     "Battle grid. Arrow keys move the tile cursor, Enter selects, Escape cancels.",
   );
-  boardBox.append(canvas);
-  mid.append(tab, boardBox);
+  const tileHits = el("div", "tuh-tile-hits");
+  tileHits.dataset["testid"] = "tile-hits";
+  const plaque = el("div", "tuh-plaque");
+  plaque.dataset["testid"] = "entry-plaque";
+  plaque.hidden = true;
+  const plaqueTitle = el("p", "plaque-title");
+  const plaqueTagline = el("p", "plaque-tagline");
+  plaque.append(plaqueTitle, plaqueTagline);
+  boardBox.append(canvas, tileHits, plaque);
 
-  // ── bottom action bar ─────────────────────────────────────────────────────
-  const bottom = el("div", "tuh-bottom");
-  bottom.dataset["hud"] = "action-bar";
-  const cancelBtn = el("button", "tuh-ghost");
-  cancelBtn.type = "button";
-  cancelBtn.dataset["testid"] = "cancel";
-  cancelBtn.textContent = "Cancel";
-  const actionsBtn = el("button", "tuh-actions-btn");
-  actionsBtn.type = "button";
-  actionsBtn.dataset["testid"] = "actions";
-  actionsBtn.textContent = "Actions ▲";
-  const primaryBtn = el("button", "tuh-primary");
-  primaryBtn.type = "button";
-  primaryBtn.dataset["testid"] = "end-turn";
-  primaryBtn.textContent = "End Turn";
-  const concludeBtn = el("button", "tuh-primary");
-  concludeBtn.type = "button";
-  concludeBtn.dataset["testid"] = "conclude";
-  concludeBtn.textContent = "Continue ▸";
+  // ── the right-side turn-order rail ───────────────────────────────────────
+  const rail = el("div", "tuh-rail");
+  rail.dataset["hud"] = "rail";
+  rail.dataset["testid"] = "timeline";
+  const railHead = el("div", "tuh-rail-head");
+  railHead.innerHTML = `Turn<br><b data-testid="turn-count">0</b>`;
+  const railChips = el("div", "tuh-rail-chips");
+  rail.append(railHead, railChips);
+
+  // ── the bottom band: ☰ | ACTIVE UNIT | ribbon | TARGET UNIT ─────────────
+  const band = el("div", "tuh-band");
+  band.dataset["hud"] = "band";
+  const menuBtn = el("button", "tuh-stud");
+  menuBtn.type = "button";
+  menuBtn.dataset["testid"] = "hud-menu";
+  menuBtn.setAttribute("aria-label", "Menu");
+  menuBtn.textContent = "☰";
+  const activePlate = el("button", "tuh-active-plate");
+  activePlate.type = "button";
+  activePlate.dataset["testid"] = "actor-tab";
+  activePlate.setAttribute("aria-label", "Acting unit — open the full stat card");
+
+  const ribbon = el("div", "tuh-ribbon");
+  const moveBtn = ribbonButton("⛨", "Move", "move");
+  const attackBtn = ribbonButton("⚔", "Attack", "attack");
+  const actionsBtn = ribbonButton("✦", "Skill", "actions");
+  const itemBtn = ribbonButton("⚱", "Item", "item");
+  itemBtn.disabled = true; // Item maps to no engine command (owner decision 4)
+  const defendBtn = ribbonButton("⛊", "Defend", "defend");
+  defendBtn.disabled = true; // Defend maps to no engine command (owner decision 4)
+  const primaryBtn = ribbonButton("⏳", "Wait", "end-turn");
+  primaryBtn.classList.add("tuh-commit");
+  // CONFIRM/CANCEL ARE A CONTEXTUAL PAIR, NOT A 7TH/8TH CANONICAL COMMAND (owner
+  // spec, combat-revamp refinement 2026-09-10) — they only exist once a target is
+  // staged, so they wear their OWN construction tokens (`.tuh-confirm`/`.tuh-cancel`)
+  // rather than sharing `.tuh-commit` with Wait/End Turn (a canonical command) or the
+  // plain ribbon-button ground the six canonical commands use when enabled. Position
+  // in the ribbon is unchanged; only the paint differs (`stage.css`).
+  const confirmBtn = ribbonButton("✓", "Confirm", "confirm");
+  confirmBtn.classList.add("tuh-confirm");
+  const cancelBtn = ribbonButton("✕", "Cancel", "cancel");
+  cancelBtn.classList.add("tuh-cancel");
+  const concludeBtn = ribbonButton("▸", "Continue", "conclude");
+  concludeBtn.classList.add("tuh-commit");
   concludeBtn.hidden = true;
-  bottom.append(cancelBtn, actionsBtn, primaryBtn, concludeBtn);
+  const ribbonButtons = [moveBtn, attackBtn, actionsBtn, itemBtn, defendBtn, primaryBtn, confirmBtn, cancelBtn];
+  ribbon.append(...ribbonButtons, concludeBtn);
+
+  const targetPlate = el("button", "tuh-target-plate");
+  targetPlate.type = "button";
+  targetPlate.dataset["testid"] = "target-plate";
+  targetPlate.setAttribute("aria-label", "Target — open the resolution preview");
+
+  band.append(menuBtn, activePlate, ribbon, targetPlate);
 
   // ── overlays ──────────────────────────────────────────────────────────────
   const sheet = el("aside", "tuh-sheet");
@@ -242,13 +319,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   // it is a real one: the §4 transparency set can overflow this panel, and without a
   // tab stop the numbers a keyboard player is about to commit to are unreachable.
   scrollable(sheetBody, "Resolution preview");
-  const sheetFoot = el("div", "tuh-sheet-foot");
-  const confirmBtn = el("button");
-  confirmBtn.type = "button";
-  confirmBtn.dataset["testid"] = "confirm";
-  confirmBtn.textContent = "Confirm";
-  sheetFoot.append(confirmBtn);
-  sheet.append(sheetBody, sheetFoot);
+  sheet.append(sheetBody);
 
   const toast = el("div", "tuh-toast");
   toast.dataset["testid"] = "reason";
@@ -301,9 +372,9 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   }
 
   stage.append(
-    top,
-    mid,
-    bottom,
+    boardBox,
+    rail,
+    band,
     sheet,
     toast,
     menuDrawer.root,
@@ -317,14 +388,32 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
   /**
    * Which overlay is open. ONE AT A TIME, and it is a single variable rather than
-   * four `hidden` flags read back out of the DOM — reveal state kept in the DOM is
-   * destroyed by the next repaint, which is the trap `scene.ts` documents at length.
+   * flags read back out of the DOM — reveal state kept in the DOM is destroyed by
+   * the next repaint, which is the trap `scene.ts` documents at length. `"preview"`
+   * is the TARGET UNIT plate's tap-to-open (progressive disclosure) — and, since the
+   * combat-revamp refinement (2026-09-10), the ONLY way it opens: staging a target no
+   * longer opens the sheet by itself (that was ADR-0038's rule, superseded here —
+   * ADR-0043 decision 4/5 forbids a temporary overlay covering the board except after
+   * an explicit ask, and the compact forecast a player needs for the immediate
+   * decision now lives in the TARGET UNIT plate itself, `targetPlateHtml`, which is
+   * always on and never covers a tile).
    */
-  type Overlay = "menu" | "unit" | "settings" | "help" | "actions" | null;
+  type Overlay = "menu" | "unit" | "settings" | "help" | "actions" | "preview" | null;
   let overlay: Overlay = null;
   /** Whose card the unit drawer shows: `null` means the acting unit. */
   let inspectId: string | null = null;
   let focused = false;
+  /**
+   * Was the deep-dive sheet actually ON SCREEN as of the LAST render — tracked
+   * separately from `overlay` so `render()` can auto-close it the instant
+   * staging ends, from WHATEVER path ended it (the Cancel button, right-click,
+   * Escape's fallback cancel, or a test/seam calling `session.cancel()`/
+   * `confirm()` directly, none of which route through a HUD click handler).
+   * Checked against the PREVIOUS render's open state, not the current one, so a
+   * render that just opened the sheet (staged still null — a hover-only tap on
+   * desktop) is never slammed shut in the same pass that opened it.
+   */
+  let sheetWasOpen = false;
 
   const setOverlay = (next: Overlay): void => {
     overlay = overlay === next ? null : next;
@@ -338,40 +427,44 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     const session = ports.session();
     const look = ports.look();
     if (!session) {
-      chips.innerHTML = "";
+      railChips.innerHTML = "";
       return;
     }
 
-    chips.innerHTML = timelineHtml(session.state, look);
+    railChips.innerHTML = timelineHtml(session.state, look);
+    const turnCountEl = railHead.querySelector('[data-testid="turn-count"]');
+    if (turnCountEl) turnCountEl.textContent = String(session.turnCount);
 
-    // The tab shows NAME AND HP ONLY (AC-V37). Clock, Brave, Faith and the job are
-    // the drawer's job — and asserting they are absent from the tab is what separates
-    // this from a full card clipped by `overflow: hidden`.
-    const actor = session.actor();
-    const name = actor ? (look(actor.id)?.label ?? actor.id) : "—";
-    const pct =
-      actor && actor.maxHp > 0
-        ? Math.max(0, Math.min(100, Math.round((actor.hp / actor.maxHp) * 100)))
-        : 0;
-    const color = actor ? (look(actor.id)?.color ?? "#e8b45c") : "#e8b45c";
-    tab.innerHTML =
-      `<span class="tab-name">${escapeHtml(name)}</span>` +
-      (actor
-        ? `<span class="tab-bar" style="--c:${escapeHtml(color)}"><i style="width:${pct}%"></i></span>` +
-          `<span class="tab-hp">HP ${actor.hp} / ${actor.maxHp}</span>`
-        : `<span class="tab-hp">No unit is acting</span>`);
+    // THE ACTIVE UNIT PLATE (AC-V37: name/HP/Clock only — Brave, Faith and the job
+    // detail live behind the tap-to-open drawer, same progressive-disclosure line
+    // ADR-0037's tab drew).
+    activePlate.innerHTML = activePlateHtml(session, look);
+
+    // THE TARGET UNIT PLATE — driven by `session.preview()`, the SAME read the
+    // deep-dive sheet uses, so the two can never disagree (owner decision 2).
+    targetPlate.innerHTML = targetPlateHtml(session, look);
 
     // THE UNIT DRAWER CLOSES WHEN A TARGET IS SELECTED (AC-V37) — and only then. It
     // deliberately survives an ILLEGAL tap: a drawer that closed on any board tap
     // would pass "it closed after a target tap" while telling the player nothing.
     const staged = session.stagedTarget();
     if (staged !== null && (overlay === "unit" || overlay === "actions")) overlay = null;
-    sheet.hidden = staged === null;
-    if (staged !== null) sheetBody.innerHTML = previewHtml(session, look);
+    // AUTO-CLOSE THE SHEET WHEN STAGING GENUINELY ENDS (combat-revamp refinement,
+    // 2026-09-10) — ADR-0043 decision 4's "collapses when the interaction ends",
+    // made robust to EVERY path that can end it (Cancel, Confirm, right-click,
+    // Escape's fallback, or a direct `session.cancel()`/`confirm()` call that
+    // never touches a HUD button at all) by keying off the PREVIOUS render's open
+    // state rather than one handler's own aftermath. `sheetWasOpen` is what stops
+    // this from firing on the SAME render that just opened the sheet for a
+    // merely-hovered (not yet staged) target.
+    if (overlay === "preview" && sheetWasOpen && staged === null) overlay = null;
+    sheet.hidden = overlay !== "preview";
+    if (!sheet.hidden) sheetBody.innerHTML = previewHtml(session, look);
+    sheetWasOpen = !sheet.hidden;
 
     // The toast is EMPTY AT REST: it carries a refusal, a fatal fork or the terminal
-    // banner and nothing else. The phase hint rides on the sheet and the buttons, so
-    // the board is never covered by an idle status line.
+    // banner and nothing else. The phase hint rides on the ribbon, so the board is
+    // never covered by an idle status line.
     const message = session.fatal ?? session.reason ?? session.outcome ?? null;
     toast.hidden = message === null;
     toast.className = `tuh-toast ${session.fatal ? "fatal" : session.reason ? "warn" : "info"}`;
@@ -379,6 +472,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
     renderControls(session);
     renderDrawers(session, look);
+    rebuildTileHits();
 
     ports.paintBoard();
   }
@@ -388,37 +482,52 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       session.phase === "PLAYER_IDLE" ||
       session.phase === "MOVE_STAGED" ||
       session.phase === "TARGET_STAGED";
+    const hasActor = session.actor() !== undefined;
 
-    cancelBtn.disabled = session.phase !== "MOVE_STAGED" && session.phase !== "TARGET_STAGED";
+    // Item and Defend map to NO engine command this slice (owner decision 4) — they
+    // stay disabled in EVERY phase, never just "while not your turn". No branch here
+    // can ever re-enable them; that omission is the whole point.
+    itemBtn.disabled = true;
+    defendBtn.disabled = true;
+
+    moveBtn.disabled = !hasActor || session.phase === "AI_TURN" || session.phase === "ENDED";
+    attackBtn.disabled = !playable || session.actor() === undefined;
     actionsBtn.disabled = session.actor() === undefined;
 
-    // THE PHASE-AWARE PRIMARY BUTTON (docs/10 §3, AC-V38b). In `AI_TURN` it is the
-    // only control the enemy's turn has — an explicit Step, never a timer. Both the
-    // LABEL and the BEHAVIOUR change, because a button that relabels but does nothing
-    // strands the player and a button that steps while still reading "End Turn"
-    // passes a behaviour-only check.
+    // THE PRESSED STATE (Attack/Skill) — which ribbon filter is live, mirrored onto
+    // `aria-pressed` so the gold/ember emphasis (`stage.css`) and the accessible
+    // state agree. Move sets no filter, so it is never shown pressed.
+    const mode = session.commandMode();
+    attackBtn.setAttribute("aria-pressed", String(mode === "attack"));
+    actionsBtn.setAttribute("aria-pressed", String(mode === "skill" && overlay === "actions"));
+
+    cancelBtn.disabled = session.phase !== "MOVE_STAGED" && session.phase !== "TARGET_STAGED";
+
+    // THE PHASE-AWARE Wait/End-Turn BUTTON (docs/10 §3, AC-V38b). In `AI_TURN` it is
+    // the only control the enemy's turn has — an explicit Step, never a timer.
+    const label = primaryBtn.querySelector(".rb-label")!;
     if (session.phase === "AI_TURN") {
-      primaryBtn.textContent = "Enemy turn ▸";
+      label.textContent = "Enemy ▸";
       primaryBtn.disabled = false;
       primaryBtn.title = PHASE_HINT.AI_TURN;
     } else {
-      primaryBtn.textContent = session.endTurnLabel();
+      label.textContent = session.stagedTile() !== null ? "End" : "Wait";
+      primaryBtn.title = session.endTurnLabel();
       // DISABLED WITH A TARGET HELD. `Session.endTurn` refuses there too (that is the
       // guard); this stops the player reaching for a control whose only answer is a
       // refusal. Confirm is the one way to spend a turn once a shot is aimed.
       primaryBtn.disabled = !playable || session.phase === "TARGET_STAGED";
-      primaryBtn.title = PHASE_HINT[session.phase];
     }
 
     confirmBtn.disabled = session.phase !== "TARGET_STAGED";
 
-    // The campaign's way off a finished battle. It REPLACES the primary button rather
-    // than crowding beside it: at the narrowest stage four controls do not fit, and a
-    // decided battle has no turn left to end.
+    // The campaign's way off a finished battle. It REPLACES the whole ribbon rather
+    // than crowding beside it: a decided battle has no turn left to end, and there is
+    // no room in a 780×56 band for eight controls plus a ninth.
     const done = session.phase === "ENDED" ? (ports.conclude?.() ?? null) : null;
     concludeBtn.hidden = done === null;
-    primaryBtn.hidden = done !== null;
-    if (done) concludeBtn.textContent = done.label;
+    for (const b of ribbonButtons) b.hidden = done !== null;
+    if (done) concludeBtn.querySelector(".rb-label")!.textContent = done.label;
   }
 
   /**
@@ -456,7 +565,11 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     renderActions(session);
   }
 
-  /** The menu's buttons are built once; everything else in it is rebuilt each paint. */
+  /**
+   * The menu's buttons are built once; Help/Settings are appended as two EXTRA
+   * entries after the page's own list — collapsed here from the retired top bar's
+   * three separate icons (ADR-0043's pixel budget has room for one stud, not three).
+   */
   let menuButtons: HTMLButtonElement[] | null = null;
   function renderMenu(session: Session, look: LookUp): void {
     const entries = ports.menu();
@@ -482,6 +595,17 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
         list.append(b);
         return b;
       });
+      const help = el("button");
+      help.type = "button";
+      help.dataset["testid"] = "hud-help";
+      help.textContent = "How to play";
+      help.addEventListener("click", () => setOverlay("help"));
+      const settings = el("button");
+      settings.type = "button";
+      settings.dataset["testid"] = "hud-settings";
+      settings.textContent = "Settings";
+      settings.addEventListener("click", () => setOverlay("settings"));
+      list.append(help, settings);
       const logTitle = el("h3");
       logTitle.textContent = "Turn log";
       const legendTitle = el("h3");
@@ -548,15 +672,15 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   /**
    * The settings readout (AC-V40). FOUR things, and `visualViewport` is printed
    * SEPARATELY from the host's measured box because the two can disagree — that
-   * disagreement is the bug an on-device readout exists to catch.
+   * disagreement is the bug an on-device readout exists to catch. `board` replaces
+   * ADR-0037's single `stage` scale figure — there is no whole-stage scale any more
+   * (ADR-0043), only the board canvas's own fitted CSS box.
    */
   function readout(session: Session): HTMLElement {
-    const g = stageCtl.geometry();
+    const box = boardFit.box();
     const hostBox = host.getBoundingClientRect();
     const vv = typeof window === "undefined" ? null : window.visualViewport;
     const tile = tileSizeFor(session.state, CANVAS_W, CANVAS_H);
-    // Backing-store px → CSS px: the canvas's own box already carries the stage
-    // transform, so one measurement covers both the stage scale and the CSS size.
     const canvasBox = canvas.getBoundingClientRect();
     const k = canvasBox.width / CANVAS_W;
     const p = el("p", "tuh-readout");
@@ -567,7 +691,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
         vv ? `${round(vv.width)} x ${round(vv.height)}` : "unavailable",
       ],
       ["host box", `${round(hostBox.width)} x ${round(hostBox.height)}`],
-      ["stage", `${g.stageW} x ${g.stageH} @ ${g.scale.toFixed(4)}`],
+      ["board", `${round(box.width)} x ${round(box.height)} css px`],
       ["tile", `${round(tile.x * k)} x ${round(tile.y * k)} css px`],
     ];
     p.innerHTML = rows
@@ -586,32 +710,123 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     return box;
   }
 
+  // ── the 44px touch-target overlay (owner decision 3) ─────────────────────
+
+  /** `{ pos, cx, cy }` for every ground tile, `cx`/`cy` in CSS px within `tileHits`' own box — the nearest-centre search's index. */
+  let tileHitEntries: { pos: Position; cx: number; cy: number }[] = [];
+
+  /**
+   * Rebuild the invisible 44×44 hit-target layer from the CURRENT session/grid and
+   * the canvas's CURRENT fitted box. Cheap — every shipped map is under 60 tiles —
+   * so it runs on every render rather than trying to detect exactly when the grid
+   * or the fit actually changed.
+   *
+   * SHARES `viewFor`/`project` WITH `draw` AND `pickTile` (`src/render/CLAUDE.md`:
+   * "`viewFor` IS ON THE CLICK PATH") — a hit target computed from a second opinion
+   * about the camera would silently drift from the rendered diamond the moment
+   * either one changed alone.
+   */
+  function rebuildTileHits(): void {
+    const session = ports.session();
+    tileHits.replaceChildren();
+    tileHitEntries = [];
+    if (!session) return;
+    const canvasBox = canvas.getBoundingClientRect();
+    const boardRect = boardBox.getBoundingClientRect();
+    if (canvasBox.width <= 0 || canvasBox.height <= 0) return;
+    const k = canvasBox.width / CANVAS_W;
+    const offX = canvasBox.left - boardRect.left;
+    const offY = canvasBox.top - boardRect.top;
+    const { origin, scale } = viewFor(session.state, CANVAS_W, CANVAS_H);
+    const { width, height, tiles } = session.state.grid;
+    const frag = document.createDocumentFragment();
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tile = tiles[y * width + x];
+        if (!tile) continue;
+        const top = project(x, y, tile.height, origin);
+        const cx = offX + top.x * scale * k;
+        const cy = offY + top.y * scale * k;
+        const btn = el("button", "tuh-tile-hit");
+        btn.type = "button";
+        btn.tabIndex = -1;
+        btn.setAttribute("aria-hidden", "true");
+        btn.dataset["testid"] = "tile-hit";
+        btn.dataset["x"] = String(x);
+        btn.dataset["y"] = String(y);
+        btn.style.left = `${cx}px`;
+        btn.style.top = `${cy}px`;
+        frag.append(btn);
+        tileHitEntries.push({ pos: { x, y }, cx, cy });
+      }
+    }
+    tileHits.append(frag);
+  }
+
+  /**
+   * The NEAREST-CENTRE search (owner decision 3's "adjacent hit regions may overlap;
+   * resolve ambiguous taps to the nearest tile centre"). Only candidates whose own
+   * 44×44 box CONTAINS the point are considered — a point outside every box falls
+   * through to the precise per-pixel diamond hit-test below, so a tap near a sparse
+   * map's edge still resolves exactly as it always has.
+   */
+  function nearestTileAt(clientX: number, clientY: number): Position | null {
+    const rect = tileHits.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    let best: Position | null = null;
+    let bestDist = Infinity;
+    for (const entry of tileHitEntries) {
+      const dx = px - entry.cx;
+      const dy = py - entry.cy;
+      if (Math.abs(dx) > HIT_HALF || Math.abs(dy) > HIT_HALF) continue;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        best = entry.pos;
+      }
+    }
+    return best;
+  }
+
   // ── input ─────────────────────────────────────────────────────────────────
 
-  let chipsExpanded = false;
-  chipsMore.addEventListener("click", () => {
-    chipsExpanded = !chipsExpanded;
-    chips.classList.toggle("expanded", chipsExpanded);
-    chipsMore.setAttribute("aria-expanded", String(chipsExpanded));
-  });
-  chipsMore.setAttribute("aria-expanded", "false");
-
   menuBtn.addEventListener("click", () => setOverlay("menu"));
-  helpBtn.addEventListener("click", () => setOverlay("help"));
-  settingsBtn.addEventListener("click", () => setOverlay("settings"));
-  actionsBtn.addEventListener("click", () => setOverlay("actions"));
+  actionsBtn.addEventListener("click", () => {
+    ports.session()?.setCommandMode("skill");
+    setOverlay("actions");
+  });
   actionsClose.addEventListener("click", () => setOverlay(null));
   menuDrawer.close.addEventListener("click", () => setOverlay(null));
   unitDrawer.close.addEventListener("click", () => setOverlay(null));
   settingsDrawer.close.addEventListener("click", () => setOverlay(null));
   helpDrawer.close.addEventListener("click", () => setOverlay(null));
 
-  tab.addEventListener("click", () => {
+  activePlate.addEventListener("click", () => {
     inspectId = null;
     setOverlay("unit");
   });
 
+  targetPlate.addEventListener("click", () => setOverlay("preview"));
+
+  moveBtn.addEventListener("click", () => {
+    ports.act("move-mode", () => {
+      const session = ports.session();
+      if (!session) return;
+      session.setCommandMode(null);
+      if (session.phase === "TARGET_STAGED" || session.phase === "MOVE_STAGED") session.cancel();
+    });
+    canvas.focus();
+  });
+
+  attackBtn.addEventListener("click", () => {
+    ports.act("attack-mode", () => ports.session()?.setCommandMode("attack"));
+    canvas.focus();
+  });
+
   cancelBtn.addEventListener("click", () => {
+    // The sheet's own auto-close (render()'s `sheetWasOpen` check) handles
+    // "Cancel ends the interaction" — no extra call needed here.
     ports.act("cancel", () => ports.session()?.cancel());
   });
 
@@ -626,6 +841,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   });
 
   confirmBtn.addEventListener("click", () => {
+    // Same auto-close as Cancel — the turn just committed, nothing left to preview.
     ports.act("confirm", () => ports.session()?.confirm());
   });
 
@@ -633,7 +849,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     ports.conclude?.()?.run();
   });
 
-  /** Client pixels → CANVAS backing pixels. The rect already carries the stage scale. */
+  /** Client pixels → CANVAS backing pixels. The rect already carries the board fit. */
   function toCanvasPoint(ev: { clientX: number; clientY: number }): Position {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -673,32 +889,48 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     ports.act("pick", () => session.onPick(p));
   }
 
-  canvas.addEventListener("pointerdown", (ev) => {
+  // THE TILE-HIT OVERLAY OWNS POINTER INPUT OVER THE BOARD, not the canvas — it
+  // paints on top (`stage.css`'s `z-index: 1`) precisely so it can intercept a tap
+  // before the browser's own hit-test would otherwise land on whichever 44px box was
+  // painted last. `canvas.focus()` still runs from here, so keyboard nav is unaffected.
+  tileHits.addEventListener("pointerdown", (ev) => {
     if (ev.button === 2) return;
     canvas.focus();
-    const p = toCanvasPoint(ev);
     const session = ports.session();
-    pickAt(session ? pickTile(session.state, p.x, p.y, CANVAS_W, CANVAS_H) : null);
+    if (!session) {
+      pickAt(null);
+      return;
+    }
+    const nearest = nearestTileAt(ev.clientX, ev.clientY);
+    if (nearest) {
+      pickAt(nearest);
+      return;
+    }
+    const p = toCanvasPoint(ev);
+    pickAt(pickTile(session.state, p.x, p.y, CANVAS_W, CANVAS_H));
   });
 
-  canvas.addEventListener("pointermove", (ev) => {
+  tileHits.addEventListener("pointermove", (ev) => {
     const session = ports.session();
     if (!session) return;
-    const p = toCanvasPoint(ev);
-    const tile = pickTile(session.state, p.x, p.y, CANVAS_W, CANVAS_H);
+    const nearest = nearestTileAt(ev.clientX, ev.clientY);
+    const tile = nearest ?? (() => {
+      const p = toCanvasPoint(ev);
+      return pickTile(session.state, p.x, p.y, CANVAS_W, CANVAS_H);
+    })();
     if (sameTile(tile, session.hover)) return;
     session.onTileHover(tile);
     ports.refresh();
   });
 
-  canvas.addEventListener("pointerleave", () => {
+  tileHits.addEventListener("pointerleave", () => {
     const session = ports.session();
     if (!session) return;
     session.onTileHover(null);
     ports.refresh();
   });
 
-  canvas.addEventListener("contextmenu", (ev) => {
+  tileHits.addEventListener("contextmenu", (ev) => {
     ev.preventDefault();
     ports.act("cancel", () => ports.session()?.cancel());
   });
@@ -730,8 +962,8 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       return;
     }
     // ENTER ON THE BOARD STAGES; it does not commit (ADR-0038). Confirm is reached by
-    // ordinary focus — staging moves focus to the sheet's button below — so no key
-    // path commits without passing through Confirm, and there is no new binding.
+    // ordinary focus — staging moves focus to Confirm below — so no key path commits
+    // without passing through it, and there is no new binding.
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
       pickAt(session.cursor);
@@ -770,16 +1002,46 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     else if (was === "TARGET_STAGED" && document.activeElement === confirmBtn) canvas.focus();
   }
 
-  // ── the stage transform ───────────────────────────────────────────────────
+  // ── the board's own fit (ADR-0043 — see stage.ts's header) ────────────────
 
-  const stageCtl: StageController = mountStage(host, stage, () => {
-    // Nothing in the HUD is sized in CSS px, so a resize needs no re-layout — but the
-    // settings readout quotes the geometry, so it has to be redrawn while open.
+  const boardFit: BoardFitController = mountBoardFit(boardBox, canvas, CANVAS_W, CANVAS_H, () => {
+    rebuildTileHits();
+    // Nothing in the HUD is sized in CSS px besides the board, but the settings
+    // readout quotes its fitted box, so it has to be redrawn while open.
     if (overlay === "settings") {
       const session = ports.session();
       if (session) settingsDrawer.body.replaceChildren(readout(session), statusBlock(session, ports.look()));
     }
   });
+
+  // ── the entry plaque (owner decision 9) ────────────────────────────────────
+
+  let plaqueTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function announceBattle(): void {
+    const name = ports.battleName?.();
+    if (plaqueTimer !== null) {
+      clearTimeout(plaqueTimer);
+      plaqueTimer = null;
+    }
+    if (!name) {
+      plaque.hidden = true;
+      return;
+    }
+    plaqueTitle.textContent = name.title;
+    plaqueTagline.textContent = name.tagline ?? "";
+    plaqueTagline.hidden = !name.tagline;
+    plaque.hidden = false;
+    plaque.classList.remove("dismissing");
+    plaqueTimer = setTimeout(() => {
+      plaque.classList.add("dismissing");
+      plaqueTimer = setTimeout(() => {
+        plaque.hidden = true;
+        plaque.classList.remove("dismissing");
+        plaqueTimer = null;
+      }, PLAQUE_FADE_MS);
+    }, PLAQUE_HOLD_MS);
+  }
 
   return {
     stage,
@@ -789,8 +1051,8 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       syncFocus();
     },
     pick: (p) => pickAt(p),
-    resize: () => stageCtl.refresh(),
-    geometry: () => stageCtl.geometry(),
+    resize: () => boardFit.refresh(),
+    geometry: () => boardFit.box(),
     canvasFocused: () => focused,
     closeOverlay: () => {
       if (overlay === null) return false;
@@ -799,6 +1061,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       ports.refresh();
       return true;
     },
+    announceBattle,
   };
 }
 

@@ -230,14 +230,38 @@ export interface TargetOption {
  * argues that keeping `basic.attack` at index 0 is deliberate — the demo Archer's
  * swing out-damages its own shot up close — and that argument is about that
  * two-ability demo roster, not a defence of what the campaign priest gets.
+ *
+ * THE `speed`/`aoe` CLAUSE IS LIFTED (combat revamp, 2026-09-10; owner AC: "all
+ * selectable battlefield units must have functioning mobile hit targets… without
+ * persistent HUD intercepting their input"). It rejected every Wizard/Priest
+ * ability outright, leaving those units with NOTHING a human could tap-cast — not
+ * a preview limitation, a dead unit. The two reasons that clause existed both turn
+ * out not to require the AoE/charge UI it invoked:
+ *
+ *   - `aoe !== null` — {@link computeActPreview} never reads `ability.aoe`. It
+ *     prices the CLICKED unit exactly as a single-target act would, through the
+ *     same `abilityDamage`/`hitChance` calls, and that number is not an
+ *     approximation: `resolveAbilityAoe` (`driver.ts`) applies the identical
+ *     per-unit formula to every unit inside the box, so what the panel shows for
+ *     the tapped unit is exactly what that unit will take. What stays deferred is
+ *     the SPLASH — the other tiles/units also inside the box — which this file
+ *     never claimed and still does not: no row here promises "and N more". Pillar
+ *     4 is about not asserting a number the sim cannot back; a correct number for
+ *     the one unit you targeted is not that.
+ *   - `speed !== null` (charged) — `Session.confirm` already builds
+ *     `{kind:"act", abilityId, target:{unitId}}` for every staged act with no
+ *     branch on `speed`, and `applyCommand` (`driver.ts`) already dispatches a
+ *     charged ability through `declareCharge` on that exact command shape — the
+ *     AI has cast charged spells through this path since charges shipped. There
+ *     is no new command and no new engine behaviour; the viewer was refusing to
+ *     OFFER a path the sim already walks.
+ *
+ * `targetOptions` below still returns ONE `TargetOption` per unit (the first
+ * matching ability), so a unit with two abilities that both clear this filter
+ * still offers only its first — unchanged, and not this clause's concern.
  */
 function isClickTargetable(ability: BattleAbility): boolean {
-  return (
-    ability.actionKind === "action" &&
-    ability.formula !== "none" &&
-    ability.speed === null &&
-    ability.aoe === null
-  );
+  return ability.actionKind === "action" && ability.formula !== "none";
 }
 
 /**
@@ -248,8 +272,22 @@ function isClickTargetable(ability: BattleAbility): boolean {
  *
  * Deterministic: iterates `units` in array order and, per unit, takes the FIRST
  * matching ability in `abilities` order.
+ *
+ * `kind`, OPTIONAL, is the combat-revamp ribbon's Attack/Skill split. Omitted (the
+ * only value before that ribbon existed) it is byte-identical to what this always
+ * returned. Given, it narrows which of the actor's OWN abilities may be the "first
+ * match" for a unit — NOT a post-filter on the single option this function already
+ * returns, which could not tell "no basic swing in range" from "a swing IS in
+ * range but a different ability of the actor's happened to win the race": a unit
+ * whose FIRST ability is a skill and second is `basic.attack` needs the search
+ * itself restricted to see the swing at all.
  */
-export function targetOptions(state: BattleState, actorId: string, from: Position): TargetOption[] {
+export function targetOptions(
+  state: BattleState,
+  actorId: string,
+  from: Position,
+  kind?: "attack" | "skill",
+): TargetOption[] {
   const actor = state.units.find((u) => u.id === actorId);
   if (!actor) return [];
   const out: TargetOption[] = [];
@@ -258,6 +296,8 @@ export function targetOptions(state: BattleState, actorId: string, from: Positio
     const ally = other.teamId === actor.teamId;
     const ability = actor.abilities.find((a) => {
       if (!isClickTargetable(a)) return false;
+      if (kind === "attack" && !isBasicAttack(a)) return false;
+      if (kind === "skill" && isBasicAttack(a)) return false;
       if ((a.formula === "heal") !== ally) return false; // heal allies, damage foes
       return inAbilityRange(state.grid, from, other.pos, a.range);
     });

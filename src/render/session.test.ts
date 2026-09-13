@@ -623,6 +623,49 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
     expect(skillMagnitude).not.toBe(weaponSwing);
     expect(hero.abilities[0]!.id).toBe(SKILL_ID); // …and it really is the skill being previewed
   });
+
+  /**
+   * `setCommandMode` — the combat-revamp ribbon's Attack/Skill buttons. `skillFixture`
+   * is the DISCRIMINATING case: the hero has BOTH a skill and a basic swing on the SAME
+   * foe, and unfiltered `targets()` picks the skill (first in array order) — so "Attack
+   * mode changed nothing" cannot pass by accident here the way it could on a hero with
+   * only one ability.
+   */
+  it(
+    "commandMode('attack') narrows targets() to the basic swing; commandMode('skill') " +
+      "narrows it to the skill — MUTATION: delete either `if` branch in Session.targets() " +
+      "and its own case goes red (falls back to the unfiltered/skill-first pick).",
+    () => {
+      const s = new Session({ makeState: skillFixture, playerTeam: 0 });
+      expect(s.commandMode()).toBeNull(); // unfiltered is the default, byte-identical to before
+
+      const unfiltered = s.targets().find((t) => t.unit.id === "foe");
+      expect(unfiltered?.ability.id).toBe(SKILL_ID); // the pre-existing "first match wins" rule
+
+      s.setCommandMode("attack");
+      expect(s.commandMode()).toBe("attack");
+      const attackOnly = s.targets();
+      expect(attackOnly).toHaveLength(1);
+      expect(attackOnly[0]!.ability.id).toBe("basic.attack");
+
+      s.setCommandMode("skill");
+      const skillOnly = s.targets();
+      expect(skillOnly).toHaveLength(1);
+      expect(skillOnly[0]!.ability.id).toBe(SKILL_ID);
+
+      s.setCommandMode(null);
+      expect(s.targets().find((t) => t.unit.id === "foe")?.ability.id).toBe(SKILL_ID);
+    },
+  );
+
+  it("the filter resets at the next decision point, so it cannot leak onto the next actor's turn", () => {
+    const s = new Session({ makeState: skillFixture, playerTeam: 0 });
+    s.setCommandMode("attack");
+    expect(s.commandMode()).toBe("attack");
+    s.onPick(FOE_TILE);
+    s.confirm(); // commits, then settle() advances to the next decision point
+    expect(s.commandMode()).toBeNull();
+  });
 });
 
 /**

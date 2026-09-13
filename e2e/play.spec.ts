@@ -483,7 +483,9 @@ test("accessibility: End Turn is keyboard-reachable and Escape cancels a staged 
     move: { to: { x: 4, y: 5 } },
     act: null,
   });
-  await expect(page.getByTestId("end-turn")).toContainText("moved only");
+  // The full sentence moved to `title` (the ribbon button's visible text is short —
+  // "End"/"Wait" — combat revamp, `intent/combat-revamp.md`'s pixel budget).
+  await expect(page.getByTestId("end-turn")).toHaveAttribute("title", /moved only/);
 
   await page.keyboard.press("Escape");
 
@@ -493,26 +495,25 @@ test("accessibility: End Turn is keyboard-reachable and Escape cancels a staged 
   expect(await commandCount(page)).toBe(cmdsBefore);
   // Escape put the draft back, so the button must be quoting the CHEAPER price again —
   // which is the assertion that Escape actually undid something, not just the wording.
-  await expect(page.getByTestId("end-turn")).toContainText("waited");
+  await expect(page.getByTestId("end-turn")).toHaveAttribute("title", /waited/);
 
   // ── TAB REACHES THE CONTROL, WITH A VISIBLE RING (docs/04 §7, docs/10 §3).
   // Tab order is asserted explicitly rather than looped-until-found, so a control
-  // that becomes reachable only after ten tabs still fails. The FIRST stop is the
-  // THE ORDER IS ASSERTED, STOP BY STOP, rather than looped-until-found: a control
-  // that becomes reachable only after ten tabs still fails. It is the stage's DOM
-  // order since ADR-0037 — top bar, actor tab, board, action bar — and `cancel` is
-  // absent because a disabled button is skipped by Tab, which is itself the check that
-  // the bar is honestly disabled at idle.
-  const order = [
-    "hud-menu",
-    "turn-order-more",
-    "hud-help",
-    "hud-settings",
-    "actor-tab",
-    "grid",
-    "actions",
-    "end-turn",
-  ];
+  // that becomes reachable only after ten tabs still fails. THE ORDER IS THE
+  // STAGE'S DOM ORDER (combat revamp): the board comes FIRST in source order (the
+  // CSS Grid places it visually, not in the DOM), then the rail (nothing focusable
+  // in it — the chips are spans), then the band's own order — ☰, the ACTIVE UNIT
+  // plate, the ribbon, the TARGET UNIT plate. `turn-order-more`, the old top-bar
+  // `hud-help`/`hud-settings` icons and the floating actor tab are all gone; Help
+  // and Settings are reachable through ☰ now, not as separate stops. Item, Defend,
+  // Confirm and Cancel are absent because a disabled button is skipped by Tab,
+  // which is itself the check that the ribbon is honestly disabled at idle.
+  // STOPS AT "end-turn" DELIBERATELY: the focus-visible ring checked right below
+  // is read off `document.activeElement`, so the LAST stop in this list must be
+  // the element under test — one more Tab (to `target-plate`) would move focus
+  // past it and `el.matches(':focus-visible')` would report `false` for an
+  // element that simply is not focused any more, not for a missing ring.
+  const order = ["grid", "hud-menu", "actor-tab", "move", "attack", "actions", "end-turn"];
   for (const id of order) {
     await page.keyboard.press("Tab");
     await expect(page.getByTestId(id), `tab stop ${id}`).toBeFocused();
@@ -634,7 +635,8 @@ test.describe("playable — the static proof sheet", () => {
     // rather than to "the Archer" — if it moves again, this fails loudly instead of
     // leaving a caption that quietly lies.
     await expect(page.getByTestId("status")).toContainText("Active Archer (you)");
-    await expect(page.getByTestId("end-turn")).toContainText("End Turn · waited");
+    await expect(page.getByTestId("end-turn")).toContainText("Wait");
+    await expect(page.getByTestId("end-turn")).toHaveAttribute("title", /End Turn · waited/);
     expect(await page.evaluate(() => window.tuh.getState().units.length)).toBe(4);
     const reach = await page.evaluate(() => {
       const s = window.tuh.getState();
@@ -721,9 +723,12 @@ test.describe("playable — the static proof sheet", () => {
     // scrolling. The value is the same value; only its neighbour changed.
     const arcText = (f: string): string => f.toUpperCase();
 
-    // THE SHEET NOW OPENS ON A STAGED TARGET, not on a hover (ADR-0038): the two taps
-    // are stage-then-Confirm, and the sheet is where Confirm lives. So each half of the
-    // pair stages the tile AND the target, and the frame shows the panel a player
+    // STAGING A TARGET NO LONGER OPENS THE SHEET BY ITSELF (combat-revamp
+    // refinement, 2026-09-10): the compact TARGET UNIT plate is always on and
+    // carries the immediate hit/damage read; the deep-dive sheet these frames
+    // show is reached by an explicit tap on that plate — still one gesture before
+    // Confirm, never a mouse-only shortcut. Each half of the pair stages the tile
+    // AND the target, opens the sheet, and the frame shows the panel a player
     // actually decides in.
     await page.evaluate(
       ({ t, f }) => {
@@ -733,6 +738,8 @@ test.describe("playable — the static proof sheet", () => {
       { t: pair.a.tile, f: pair.foeTile },
     );
     expect(await phase(page)).toBe("TARGET_STAGED");
+    await page.getByTestId("target-plate").click();
+    await expect(page.getByTestId("preview-sheet")).toBeVisible();
     await expect(page.getByTestId("preview")).toContainText(arcText(pair.a.facing));
     await clipShot(page, "11-preview-a.png", [STAGE, PREVIEW_PANEL]);
 
@@ -746,6 +753,9 @@ test.describe("playable — the static proof sheet", () => {
       { a: pair.a.tile, b: pair.b.tile, f: pair.foeTile },
     );
     expect(await phase(page)).toBe("TARGET_STAGED");
+    // Cancel (above) closed the sheet along with the draft — open it again.
+    await page.getByTestId("target-plate").click();
+    await expect(page.getByTestId("preview-sheet")).toBeVisible();
     await expect(page.getByTestId("preview")).toContainText(arcText(pair.b.facing));
     await clipShot(page, "12-preview-b.png", [STAGE, PREVIEW_PANEL]);
 
@@ -823,7 +833,7 @@ test.describe("playable — the static proof sheet", () => {
     // NOT DISABLED any more, and that is the point of the phase-aware button
     // (ADR-0037): during the enemy's turn it is the only control the player has, and
     // it performs an explicit Step. Input on the BOARD is still inert, asserted below.
-    await expect(page.getByTestId("end-turn")).toContainText("Enemy turn");
+    await expect(page.getByTestId("end-turn")).toContainText("Enemy");
 
     // Input really is inert: a click that would be legal on a player turn does not
     // move the state or the log.
