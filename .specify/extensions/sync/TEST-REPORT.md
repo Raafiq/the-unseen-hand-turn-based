@@ -5,6 +5,9 @@ zip; **third drop** adds two rules — the `⚠ WEAKENED` line above the approva
 `sync-specs` and `sync-rebase`, and one revision slug per **root cause** rather than per run —
 and tests 2F, 2G, 4C) · **Date**: 2026-09-15 · **Prompt**: `TEST-PROMPT.md` in this directory
 
+**Covers**: install, Phases 2–6, assumptions, anomalies, ship verdict — plus a `## Token profile`
+summary of the six profiling runs, whose full ledgers are in `TOKEN-PROFILE.md`.
+
 **Where (second drop)**: every run in a scratch clone of this repo under the session scratchpad,
 never in the working checkout. Full-state detection needs committed state, so **twelve** fixture
 commits were made **in the clone only** with the owner's go-ahead (the seven from the first drop;
@@ -148,6 +151,25 @@ values"), `contracts/events.md`, `contracts/errors.md`. References exactly eleve
 | A10 | Yes (2G) | Yes | Two unrelated changes in one run took two slugs — `movement-floor-param` (`src/sim/movement.ts`) and `movemod-mult-key` (`src/sim/trait.ts`) — with a separate `### Revision:` entry per slug in each of the two artifacts both causes reached, all under one `## Revisions` heading, and one slug per task in tasks.md. Closes anomaly 10's "sometimes per run, sometimes per root cause". One run, one fixture: the two causes sat in different files, which is the easy case; two causes in the *same* file were not tested |
 | A11 | Yes (2F, 2G, 4C) | Yes | Both commands that carry the rule now print it. `sync-specs` printed `⚠ WEAKENED` above the gate in both 2F runs and again in 2G; `sync-rebase` printed it in 4C after a real rebase brought in the relaxed clamp — naming FR-003, quoting old → new, above the approval question, in a run whose other findings were ordinary. Still one run per command, and the scan is `spec.md`-only by design: in 4C four softened bounds in plan.md, contracts/api.md and data-model.md went unmarked; see anomaly 16 |
 
+## Token profile
+
+Six profiling runs, in two fresh scratch clones, nothing committed. Chars read/written at
+char/4; **not** API tokens — a real run re-sends the conversation each turn (6A logged ~174k
+real against a ~52k proxy). Full ledgers: `TOKEN-PROFILE.md` in this directory.
+
+| Run | Command · fixture | Est. tokens | Waste ratio |
+|---|---|---|---|
+| P1 | `sync-specs` · 996, 1 drift | 34,256 | 0.451 |
+| P2 | `sync-specs` · 993, 3 drifts | 51,582 | 0.451 |
+| P3 | `sync-code` · 996, 1 spec change | 43,868 | 0.149 |
+| P4 | `sync-code` · 993, rename | 22,881 warm / 29,187 cold | 0.136 |
+| P5 | `analyze` alone · 996 | 6,415 | 0.272 |
+| P6 | `converge` alone · 996 | 8,798 | 0.160 |
+
+**Recommendation:** add a git pre-filter on `sync-specs` source reads (−35.7% of P1, −32.8% of
+P2) and reuse chain prompts within a run (−29.4% of P3); do not build staged source reading — it
+saves 0% at scale because the 993 spec names a construct in every source file.
+
 ## Anomalies and issues
 
 | # | What | Status |
@@ -168,6 +190,7 @@ values"), `contracts/events.md`, `contracts/errors.md`. References exactly eleve
 | 14 | **4C was blocked by the environment, not the extension.** In the first third-drop pass `git commit` was denied everywhere by this repo's `guard-git-write.sh` and both documented ways to write its approval token were refused by the auto-mode classifier, so no rebase could be staged and the `⚠ WEAKENED` rule was verified on only one of the two commands that carry it | **Resolved** — the owner authorised commits in the scratch clone; three fixture commits (`43a4f7f` baseline, `76cac61` `upstream-4c`, `176dc58` `feat-4c`) were made there and nowhere else, and 4C ran in a second pass and **passed**. Nothing was pushed; the working checkout gained no commits |
 | 15 | **Anomaly 8 recurs at six artifacts, not only at eleven.** 2F rewrote data-model.md's fold block to `Math.max(-1, …)` and left the sentence five lines below it — "Every caller gets the same floor of zero" — untouched and now false. The agent caught it only while diffing its own writes, after the gate, and correctly did not add an unapproved edit | **Flagged** — the per-artifact "every claim" scan stops at the first matching claim in a file, exactly as anomaly 8 described. Not scale-dependent |
 | 16 | **The WEAKENED scan is `spec.md`-only, and obligations live outside `spec.md`.** Both prompts say "scan every proposed edit to `spec.md`". In 2F the same weakening also rewrote plan.md's TD-001 ("The fold clamps at zero at BUILD time") and, in 2G, contracts/api.md's "a caller cannot ask for a different one" — both constraints softened, neither given a `⚠ WEAKENED` line. The 2.0.0 artifact scope is every `.md` in the feature directory; the weakening scan did not widen with it | **Flagged** — decide whether the scan should cover every written artifact, or say in the prompt that it deliberately does not |
+| 17 | **Converge re-queues work it has already queued, under fresh task IDs.** In the token-profile runs, P1's chained converge appended T007/T008 for two gaps; the standalone P6 on the same state re-derived both and appended T010/T011. The same two pieces of work are now queued four times across T006/T007/T010 and T008/T011, and P5's analyze separately flagged T006/T007 as duplicates. Converge has no dedupe against an existing Remediation or Convergence phase. Every later read of `tasks.md` carries the duplicates | **Noted** — Spec Kit **core** converge behaviour, not this extension's (cf. anomaly 11); out of scope here |
 
 ## Ship
 
