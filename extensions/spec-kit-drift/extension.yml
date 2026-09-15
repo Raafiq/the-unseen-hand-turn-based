@@ -1,0 +1,33 @@
+schema_version: "1.0"
+extension:
+  # The namespace segment of every command must equal this id (install-time
+  # check in spec-kit 1.0.6), so the id is `drift`, not `spec-kit-drift`.
+  # `spec-kit-drift` is the repository / directory name, as `spec-kit-reconcile`
+  # is for the `reconcile` extension.
+  id: "drift"
+  name: "Spec Kit Drift"
+  version: "0.3.0"
+  description: "Detect artifact drift from git - incoming upstream changes after a rebase, and uncommitted code changes - and amend the feature's spec, plan, and tasks after one approval."
+  category: "docs"
+  effect: "read-write"
+  author: "the-unseen-hand"
+  repository: "https://github.com/raafiq/the-unseen-hand-turn-based"
+  license: "MIT"
+requires:
+  # Both commands hand converge-shaped work back to /speckit-converge, which
+  # first shipped in 1.0.6.
+  speckit_version: ">=1.0.6"
+provides:
+  commands:
+    - name: "speckit.drift.rebase"
+      file: "commands/rebase.md"
+      description: "After a rebase, find incoming upstream changes that touch files the spec or plan reference, and propose artifact edits"
+    - name: "speckit.drift.sync"
+      file: "commands/sync.md"
+      description: "Detect uncommitted code changes that drift from the spec or plan, update spec, plan and tasks after one approval, then run analyze and converge inline"
+tags:
+  - "drift"
+  - "rebase"
+  - "sync"
+  - "git"
+  - "reconcile"

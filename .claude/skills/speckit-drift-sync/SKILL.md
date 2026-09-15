@@ -1,0 +1,1 @@
+../../../.specify/extensions/drift/.specify-dev/agent-commands/claude/speckit-drift-sync/SKILL.md

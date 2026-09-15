@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "reconcile": {
+      "version": "1.2.1",
+      "source": "local",
+      "manifest_hash": "sha256:f397c96004fbb4cef0bea80bae53a0cd396d59720e9c5f81baafe4a2be385cdb",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.reconcile.run"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-09-13T14:29:19.202741+00:00"
+    },
+    "drift": {
+      "version": "0.3.0",
+      "source": "local",
+      "manifest_hash": "sha256:140f2025bc34cbe0d9eb54324bf59410bc6bebc4ac3a6e7d59e8bddd435cfc84",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.drift.rebase",
+          "speckit.drift.sync"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-09-14T06:01:48.258208+00:00"
+    },
+    "sync": {
+      "version": "2.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:5949f6f318d022ab3803daedf41686716a5a2b9c017fa757598b4178e0330183",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.sync.specs",
+          "speckit.sync.code",
+          "speckit.sync.rebase"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-09-14T16:21:44.459196+00:00"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+schema_version: "1.0"
+extension:
+  # The namespace segment of every command must equal this id (install-time
+  # check in spec-kit 1.0.6), and the generated skill is `speckit-<id>-<cmd>`,
+  # so `speckit.sync.code` is what renders as `/speckit-sync-code`. A command
+  # named `speckit.sync.sync-code` would render as `/speckit-sync-sync-code`.
+  id: "sync"
+  name: "Spec Kit Sync"
+  version: "2.0.0"
+  description: "Keep every artifact and code in step: code is truth (sync-specs), spec is truth (sync-code), or main came in on a rebase (sync-rebase) - full-state comparison, any .md in the feature directory, one approval, then analyze, converge and implement run inline."
+  category: "docs"
+  effect: "read-write"
+  author: "the-unseen-hand"
+  repository: "https://github.com/raafiq/the-unseen-hand-turn-based"
+  license: "MIT"
+requires:
+  # Every command hands work to /speckit-converge, which first shipped in 1.0.6.
+  speckit_version: ">=1.0.6"
+provides:
+  commands:
+    - name: "speckit.sync.specs"
+      file: "commands/sync-specs.md"
+      description: "Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline"
+    - name: "speckit.sync.code"
+      file: "commands/sync-code.md"
+      description: "Spec is the source of truth: compare spec.md against every other artifact in the feature directory, update any stale .md file after one approval, then run analyze, converge, implement and converge inline"
+    - name: "speckit.sync.rebase"
+      file: "commands/sync-rebase.md"
+      description: "Incoming main is the source of truth: after a rebase, find upstream changes that touch what any artifact references, update any stale .md file after one approval, then run analyze and converge inline"
+tags:
+  - "sync"
+  - "drift"
+  - "rebase"
+  - "git"
+  - "reconcile"
