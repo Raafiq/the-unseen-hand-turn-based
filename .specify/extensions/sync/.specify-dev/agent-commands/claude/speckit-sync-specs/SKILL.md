@@ -1,6 +1,6 @@
 ---
 name: speckit-sync-specs
-description: 'Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline'
+description: 'Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline. Uses a git pre-filter to skip unchanged source files; --full reads everything.'
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: the-unseen-hand
@@ -21,9 +21,17 @@ explicit approval.**
 $ARGUMENTS
 ```
 
-This command takes **no arguments**. If `$ARGUMENTS` is non-empty, print
-`ERROR: /speckit-sync-specs takes no arguments. Set the active feature with SPECIFY_FEATURE_DIRECTORY or .specify/feature.json.`
+This command accepts one optional flag:
+
+- `--full` — skip the git pre-filter and read every referenced source file regardless of
+  when it last changed. Use on the first run for a feature, or when you suspect drift older
+  than the artifacts' last commit.
+
+If `$ARGUMENTS` is non-empty and is not `--full`, print
+`ERROR: /speckit-sync-specs accepts only [--full]. Set the active feature with SPECIFY_FEATURE_DIRECTORY or .specify/feature.json.`
 and stop. **A rejected invocation writes nothing.**
+
+Set `FULL_SCAN = true` if `--full` was passed, else `false`.
 
 ## Operating Constraints (hard boundary)
 
@@ -84,11 +92,31 @@ for a code block), never a bare section name:
 
 ## Step 4: Read referenced source files
 
-For each unique path in the reference table, read the file's current on-disk content. If a
-referenced file does not exist, record it as **missing** — this may produce a finding in
-Step 5.
+**Git pre-filter** (skipped when `FULL_SCAN = true`):
 
-Do not read files the artifacts do not reference. The reference table is the scope boundary.
+1. Find the artifacts' last commit:
+   `git log -1 --format=%H -- <FEATURE_DIR>`. Call this `ARTIFACT_COMMIT`.
+2. If `ARTIFACT_COMMIT` is empty (no artifact has ever been committed), set
+   `FULL_SCAN = true` and proceed to the full-read path below.
+3. Find which referenced source files changed since that commit:
+   `git diff --name-only <ARTIFACT_COMMIT> HEAD -- <each referenced path>`.
+   Also include any referenced file that `git status --porcelain` shows as untracked or
+   modified (uncommitted work).
+4. **Read only those files.** Skip referenced files unchanged since `ARTIFACT_COMMIT` — the
+   artifacts already describe them. Record skipped files and their count.
+5. Print: `Pre-filter: <ARTIFACT_COMMIT[0:7]> · <N> referenced files · <R> changed since ·
+   <S> skipped`. If `R = 0`, report **✅ Nothing to sync — no referenced source file has
+   changed since the artifacts were last committed (<ARTIFACT_COMMIT[0:7]>). Use --full to
+   check everything.** and stop.
+
+**Full read** (when `FULL_SCAN = true` or the pre-filter is skipped):
+
+For each unique path in the reference table, read the file's current on-disk content.
+Print: `Full scan: <N> referenced files · all read`.
+
+**Both paths**: if a referenced file does not exist, record it as **missing** — this may
+produce a finding in Step 5. Do not read files the artifacts do not reference. The reference
+table is the scope boundary.
 
 ## Step 5: Compare and classify
 
@@ -97,6 +125,11 @@ the source file it describes. Produce one finding per mismatch, with a stable id
 `D2`, …), a **kind**, a **severity**, the **source item** (citation ladder), the
 **evidence** ("artifact says X, code says Y"), and the **artifact it reaches** (the file
 that needs editing).
+
+**Scan every claim in every artifact exhaustively.** Do not stop after the first mismatch
+in a file — a single artifact can hold multiple stale claims about the same construct (e.g.
+a signature in a code block, a count in a bullet, and a behavioural statement in prose, all
+in the same file, all now wrong). Each gets its own finding.
 
 A single code change can produce findings in multiple artifacts — e.g. a signature change
 may reach `spec.md`, `contracts/api.md`, and `plan.md`. Record one finding per artifact.
@@ -135,7 +168,7 @@ requirement — only the stale count or enumeration is edited.
 ```markdown
 ## Sync Specs — findings
 
-Source files read: <N> · Artifacts scanned: <A> · Mismatches: <M>
+Source files read: <N> (skipped: <S>) · Artifacts scanned: <A> · Mismatches: <M>
 
 | ID | Severity | Kind | Source | Evidence | Reaches |
 |----|----------|------|--------|----------|---------| 
@@ -203,13 +236,15 @@ gate, and Steps 10–12 do not run.
 
 ## Step 8: Approval gate (once, all-or-nothing)
 
-**Before presenting the gate**, scan every proposed edit to `spec.md` for **weakened
+**Before presenting the gate**, scan every proposed edit to **every artifact** for **weakened
 obligations**: an edit that removes, narrows, or softens a MUST, MUST NOT, SHALL, SHALL NOT
-or SHOULD (e.g. a throw that stops throwing, a guard that accepts a wider range, a
-constraint that is dropped or downgraded). For each, print a `⚠ WEAKENED` line:
+or SHOULD — in `spec.md` (an FR, a scenario, a contract block) or in any other artifact (a
+plan decision like "the fold clamps at zero", a contract bullet like "clamped to a minimum
+of 0", a data-model sentence that states a bound). For each, print a `⚠ WEAKENED` line:
 
 ```
-⚠ WEAKENED: FR-008 — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+⚠ WEAKENED: FR-008 in spec.md — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+⚠ WEAKENED: TD-001 in plan.md — "clamps at zero at BUILD time" → "clamps at -1" (the bound is no longer zero)
 ```
 
 These lines appear **above** the approval question so the approver reads them first. A

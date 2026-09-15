@@ -20,7 +20,7 @@ provides:
   commands:
     - name: "speckit.sync.specs"
       file: "commands/sync-specs.md"
-      description: "Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline"
+      description: "Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline. Git pre-filter skips unchanged source files; --full reads everything."
     - name: "speckit.sync.code"
       file: "commands/sync-code.md"
       description: "Spec is the source of truth: compare spec.md against every other artifact in the feature directory, update any stale .md file after one approval, then run analyze, converge, implement and converge inline"

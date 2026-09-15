@@ -28,15 +28,21 @@ no git-branch fallback.
 ## `/speckit-sync-specs` — code is truth
 
 ```text
-/speckit-sync-specs        # after changing code, committed or not
+/speckit-sync-specs        # after changing code; skips unchanged source files
+/speckit-sync-specs --full # reads every referenced source file regardless
 ```
 
-Reads every source file that any artifact in the feature directory references, compares the
-current code against what each artifact claims (signatures, types, behaviour, code blocks,
-prose claims), and proposes edits for every mismatch — "artifact says X, code says Y,
-artifact now says Y". Changes that map to nothing are reported as `untracked` LOW and left
-alone; no requirement is invented. After the approved write it runs `/speckit-analyze` and
-`/speckit-converge`.
+By default, uses a git pre-filter: finds the artifacts' last commit, then reads only source
+files that changed since. This cuts ~33% of token consumption on large features. Use
+`--full` on the first run for a feature, or when you suspect drift that predates the
+artifacts' last commit — a source file that changed before the artifacts were last edited
+won't be read unless `--full` is passed.
+
+Compares the code against what each artifact claims (signatures, types, behaviour, code
+blocks, prose claims), and proposes edits for every mismatch — "artifact says X, code says
+Y, artifact now says Y". Changes that map to nothing are reported as `untracked` LOW and
+left alone; no requirement is invented. After the approved write it runs `/speckit-analyze`
+and `/speckit-converge`.
 
 ## `/speckit-sync-code` — spec is truth
 

@@ -22,6 +22,15 @@
   artifact now produce a separate `behaviour` HIGH finding for the stale claim.
 - Fix: slug granularity is now one slug per root cause, not per run. Findings about
   different constructs or unrelated changes get separate slugs and separate revision notes.
+- Fix: `⚠ WEAKENED` scan now covers every written artifact, not just `spec.md`. A softened
+  obligation in `plan.md`, `contracts/api.md`, or any other artifact is flagged at the gate.
+- Fix: the per-artifact claim scan is now explicitly exhaustive — the agent must check every
+  claim in each file, not stop after the first mismatch. Prevents residual misses where a
+  second stale claim sits near an already-found one.
+- `sync-specs` now uses a git pre-filter by default: only source files changed since the
+  artifacts' last commit are read. Reduces token consumption by ~33% on large features.
+  `--full` bypasses the filter and reads everything. Trade-off: drift committed before the
+  artifacts' last commit is invisible without `--full`.
 - Fix: `sync-specs` and `sync-rebase` now flag `⚠ WEAKENED` at the approval gate when
   a proposed edit removes, narrows, or softens a MUST/MUST NOT/SHALL/SHALL NOT/SHOULD
   in `spec.md`, so the approver sees where a code bug could be laundered into the spec.

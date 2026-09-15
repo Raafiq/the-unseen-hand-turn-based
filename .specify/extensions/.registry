@@ -33,7 +33,7 @@
     "sync": {
       "version": "2.0.0",
       "source": "local",
-      "manifest_hash": "sha256:5949f6f318d022ab3803daedf41686716a5a2b9c017fa757598b4178e0330183",
+      "manifest_hash": "sha256:557f26cca5447343f54c60fa46f90910bc00f0c9a8a9489980317292bf523dec",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -44,7 +44,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-09-15T12:44:06.404546+00:00"
+      "installed_at": "2026-09-15T14:27:09.135948+00:00"
     }
   }
 }

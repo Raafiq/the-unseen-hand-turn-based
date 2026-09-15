@@ -151,6 +151,11 @@ the **source item** (citation ladder), the **evidence** (file, status, the `+`/`
 that matter, the commit if one commit owns the change), and the **artifact it reaches**
 (the `.md` file that needs editing).
 
+**Scan every claim in every artifact exhaustively.** Do not stop after the first mismatch
+in a file — a single artifact can hold multiple stale claims about the same construct (e.g.
+a signature in a code block, a count in a bullet, and a behavioural statement in prose, all
+in the same file, all now wrong). Each gets its own finding.
+
 A single upstream change can produce findings in multiple artifacts — e.g. a deleted export
 may reach `spec.md`, `contracts/api.md`, and `plan.md`. Record one finding per artifact.
 
@@ -248,13 +253,15 @@ gate, and Steps 10–12 do not run.
 
 ## Step 8: Approval gate (once, all-or-nothing)
 
-**Before presenting the gate**, scan every proposed edit to `spec.md` for **weakened
+**Before presenting the gate**, scan every proposed edit to **every artifact** for **weakened
 obligations**: an edit that removes, narrows, or softens a MUST, MUST NOT, SHALL, SHALL NOT
-or SHOULD (e.g. a throw that stops throwing, a guard that accepts a wider range, a
-constraint that is dropped or downgraded). For each, print a `⚠ WEAKENED` line:
+or SHOULD — in `spec.md` (an FR, a scenario, a contract block) or in any other artifact (a
+plan decision like "the fold clamps at zero", a contract bullet like "clamped to a minimum
+of 0", a data-model sentence that states a bound). For each, print a `⚠ WEAKENED` line:
 
 ```
-⚠ WEAKENED: FR-008 — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+⚠ WEAKENED: FR-008 in spec.md — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+⚠ WEAKENED: TD-001 in plan.md — "clamps at zero at BUILD time" → "clamps at -1" (the bound is no longer zero)
 ```
 
 These lines appear **above** the approval question so the approver reads them first. A

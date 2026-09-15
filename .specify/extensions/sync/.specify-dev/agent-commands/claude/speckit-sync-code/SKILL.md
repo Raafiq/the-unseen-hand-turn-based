@@ -79,6 +79,11 @@ same item agrees. For each mismatch, produce one finding with a stable id (`D1`,
 a **kind**, a **severity**, the **source item** (citation ladder), the **evidence** ("spec
 says X, artifact says Y"), and the **artifact it reaches**.
 
+**Scan every claim in every artifact exhaustively.** Do not stop after the first mismatch
+in a file — a single artifact can hold multiple stale claims about the same spec item (e.g.
+a code block, a count, and a prose statement, all in the same file). Each gets its own
+finding.
+
 Also check: does the spec state an obligation that no open task covers and no artifact
 mentions? That is an `added` finding — work exists that nothing tracks.
 

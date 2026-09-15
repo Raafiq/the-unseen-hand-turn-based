@@ -26,6 +26,11 @@ If the repo lacks secondary artifacts, create a minimal `contracts/api.md` or `d
 
 ### Test 2A — Committed drift (the v1.0.0 blind spot)
 
+**Regression note:** this test also validates the git pre-filter. The code commit is newer
+than the artifacts' last commit, so the pre-filter should include the changed file. If the
+pre-filter incorrectly skips it, 2A fails. Re-run this test on every drop that changes
+Step 4.
+
 **Setup:** Introduce a code change that drifts from the spec, then **commit it**.
 - Change a function signature, add a parameter, rename an export, or alter a return type in a source file that `spec.md` references.
 - `git add . && git commit -m "test: introduce committed drift"`
@@ -118,6 +123,57 @@ make artifact claims false. Commit both.
 - [ ] Each artifact gets separate `### Revision:` entries for each slug it was affected by.
 - [ ] Both entries sit under a single `## Revisions` heading (not duplicated).
 - [ ] Tasks in `tasks.md` carry the slug of their respective root cause, not a shared slug.
+
+### Test 2H — Git pre-filter skips unchanged source files
+
+**Setup:** From aligned state, change one source file and commit. Leave all other referenced
+source files unchanged. Commit the change so it appears after the artifacts' last commit.
+
+**Run:** `/speckit-sync-specs` (no `--full`)
+
+**Verify:**
+- [ ] Output shows `Pre-filter: <sha> · N referenced files · 1 changed since · (N-1) skipped`.
+- [ ] Only the changed file was read — findings reference only that file.
+- [ ] Skipped files are listed by count, not read.
+- [ ] The findings table shows `Source files read: 1 (skipped: N-1)`.
+
+### Test 2I — Pre-filter: no changes since artifacts → clean exit
+
+**Setup:** Ensure all source files are unchanged since the artifacts' last commit (fully
+synced state, committed).
+
+**Run:** `/speckit-sync-specs` (no `--full`)
+
+**Verify:**
+- [ ] Output: `✅ Nothing to sync — no referenced source file has changed since the artifacts were last committed (<sha>). Use --full to check everything.`
+- [ ] No source files read. No findings. No approval gate. Chain does not run.
+
+### Test 2J — `--full` bypasses the pre-filter
+
+**Setup:** Same state as 2I (no changes since artifacts).
+
+**Run:** `/speckit-sync-specs --full`
+
+**Verify:**
+- [ ] Output shows `Full scan: N referenced files · all read`.
+- [ ] Every referenced source file is read (no skipping).
+- [ ] If a mismatch exists from before the artifacts' last commit, it's found.
+
+### Test 2K — Pre-filter: drift before artifacts' last commit is missed
+
+**Setup:**
+1. Change a source file signature. Commit.
+2. Make an unrelated edit to an artifact (e.g. fix a typo in `plan.md`). Commit.
+   Now the artifacts' last commit is **after** the drift.
+3. No further source changes.
+
+**Run:** `/speckit-sync-specs` (no `--full`)
+
+**Verify:**
+- [ ] The pre-filter skips the drifted file (it hasn't changed since the artifacts' commit).
+- [ ] Reports clean or "Nothing to sync" — the drift is invisible.
+- [ ] Run again with `--full` — the drift is now found.
+- [ ] This is the documented trade-off, not a bug.
 
 ---
 
@@ -317,6 +373,7 @@ These are claims baked into the prompts that could fail in practice. Flag any th
 | A9 | An `untracked` construct that invalidates a count/exhaustive claim produces a separate `behaviour` finding. | **2E**. The fix for Anomaly 1. | Medium — new prompt logic, not yet validated. |
 | A10 | The agent assigns separate slugs to unrelated root causes in the same run, and writes separate revision entries for each. | **2G**. Two unrelated changes, one run. | Medium — the agent must judge "same root cause" vs "different root cause" per finding. |
 | A11 | The agent reliably detects when a proposed edit weakens a MUST/MUST NOT and surfaces it as `⚠ WEAKENED` before the gate. | **2F, 4C**. One sync-specs, one sync-rebase. | Medium — the agent must compare old obligation text against the proposed replacement and judge whether it's weaker. |
+| A12 | The git pre-filter correctly identifies the artifacts' last commit and the set of changed source files, without false skips (skipping a file that did change) or false includes (reading a file that didn't). | **2H, 2I, 2J, 2K**. Four scenarios covering: one change, zero changes, full bypass, and the documented miss. | Low — relies on `git log` and `git diff --name-only`, both well-understood. |
 
 ---
 
