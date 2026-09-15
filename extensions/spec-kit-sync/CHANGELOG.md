@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.0
+
+- **Breaking: post-write chain replaced with inlined validation.** All three commands no
+  longer invoke `/speckit-analyze`, `/speckit-converge`, or `/speckit-implement`. Instead,
+  a validation pass runs from artifacts already in context — checking consistency, residue
+  (`[X]` tasks that contradict edited artifacts), markers, and gaps. No file is re-read
+  from disk. Saves ~55% of `sync-code` token consumption and ~20% of `sync-specs`.
+- **Breaking: `sync-code` no longer runs implement.** After syncing artifacts to match the
+  spec, the command lists open tasks and tells the user to run `/speckit-implement` when
+  ready. This gives the user a review point between artifact updates and code changes, and
+  eliminates the largest single token cost (43% of `sync-code` input in profiling).
+- `sync-specs` pre-filter now prints the list of skipped files so the reader sees what
+  wasn't checked — addresses the blind-window ambiguity where `✅ Nothing to sync` looked
+  the same whether the feature was aligned or hiding old drift.
+- `⚠ WEAKENED` lines are now grouped by root cause with `spec.md` obligations first and a
+  count header (`⚠ WEAKENED (1 root cause, 4 obligations softened):`). Reduces approver
+  fatigue when one code change softens the same bound across many artifacts.
+- Version bump from 2.0.0 — the manifest now reflects prompt changes that shipped during
+  the 2.0.0 development cycle.
+
 ## 2.0.0
 
 - **Breaking: detection model** — `sync-specs` and `sync-code` now compare the current

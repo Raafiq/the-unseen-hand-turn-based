@@ -31,9 +31,9 @@
       "installed_at": "2026-09-14T06:01:48.258208+00:00"
     },
     "sync": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "source": "local",
-      "manifest_hash": "sha256:557f26cca5447343f54c60fa46f90910bc00f0c9a8a9489980317292bf523dec",
+      "manifest_hash": "sha256:ae9fbc4808a43c8404d04a956d24e71dc71887b51ca6f91e6cd4137aa785163c",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -44,7 +44,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-09-15T14:27:09.135948+00:00"
+      "installed_at": "2026-09-15T15:41:09.732815+00:00"
     }
   }
 }

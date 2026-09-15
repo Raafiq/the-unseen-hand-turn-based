@@ -27,9 +27,10 @@ and stop. **A rejected invocation writes nothing.**
 ## Operating Constraints (hard boundary)
 
 - **Writes**: only `.md` files inside the feature directory **other than `spec.md`**, only
-  in Step 8, only after the Step 7 approval. **Never `spec.md`** — it is the source of
-  truth. Never source code — Step 11 invokes `__SPECKIT_COMMAND_IMPLEMENT__` as its own
-  command for that. Never any file outside the feature directory.
+  in Step 8 (and gap tasks in Step 9), only after the Step 7 approval. **Never `spec.md`**
+  — it is the source of truth. Never source code — the user runs
+  `/speckit-implement` separately after reviewing the sync output. Never any file outside
+  the feature directory.
 - **Git**: `rev-parse`, `ls-files` are allowed for repository confirmation and file listing.
   `add`, `commit`, `stash`, `checkout`, `reset`, `rebase`, `push` are never run, whatever
   the user asks.
@@ -178,7 +179,7 @@ After every proposed diff, ask exactly one question:
 
 Wait for the answer. Only a plain, explicit `yes` (or `y`) applies. Any other answer,
 silence, or a request to apply a subset writes **nothing**: print `No changes written.` and
-stop. There is no partial apply. Steps 9–13 do not run.
+stop. There is no partial apply. Steps 9–10 do not run.
 
 ## Step 8: Apply and report
 
@@ -200,65 +201,71 @@ Outstanding: <orphaned [X] tasks, NEEDS REVISION / NEEDS CLARIFICATION markers, 
 
 Then continue to Step 9. Do not stop here.
 
-## Step 9: Run analyze inline
+## Step 9: Validate
 
-Invoke `__SPECKIT_COMMAND_ANALYZE__` now, in this session, the same way you would run it
-yourself, and wait for it to finish — printing its name is not running it. Then print,
-under `## Post-write check — analyze`, its findings table verbatim (or `clean`), and:
+**Do not invoke analyze, converge, implement, or any other core command.** The artifacts are
+already in context from Steps 2–3. Validate the just-written state by scanning them in
+place:
 
-- If any finding is **CRITICAL**, print `⚠ WARNING: analyze reports CRITICAL — <one line
-  per finding>` **before** Step 10, and say whether this run's edits created it (compare
-  with the artifacts as they stood before Step 8) or it predates the run.
-- Findings that predate this run — stale text in a `[X]` task this command may not edit,
-  for example — are listed as **residue**, not as this run's fault, with one line each.
+**Consistency check.** Re-read each artifact you edited (from context, not disk). For each,
+check whether any line this run wrote now contradicts a line in another artifact this run
+also wrote, or a line in an artifact this run did not touch. Report each as:
 
-## Step 10: Run converge inline
+```
+V1 CONTRADICTION: <what this run wrote in file A> vs <what file B says> — <which is wrong>
+```
 
-Invoke `__SPECKIT_COMMAND_CONVERGE__` the same way and wait. Print, under
-`## Post-write check — converge`, its outcome and its findings table verbatim. The code is
-expected to lag the spec here; that is the point.
+If none: `Consistency: clean`.
 
-- If converge classifies anything this run wrote as `contradicts` or `unrequested`, print
-  `⚠ WARNING: converge disputes this run's edits — <which item, which finding>`.
-- If it appended tasks, list them and say for each whether it is real remaining work or a
-  restatement of a task this run already appended. Converge's own
-  `## Phase N: Convergence` write is expected and is not one of this command's writes.
+**Residue check.** List every `[X]` task whose description now contradicts the spec or an
+artifact this run edited (e.g. T001 says "ElementSchema" but spec now says
+"DamageElementSchema"). These are **residue** — this command may not edit them:
 
-## Step 11: Run implement inline — only when there is open work
+```
+Residue: T001 "Implement ElementSchema" — spec.md now says DamageElementSchema
+```
 
-Let `OPEN` be every `- [ ]` task now in `tasks.md`. If `OPEN` is empty, print
-`No open tasks — skipping implement.` and go to Step 12.
+If none: `Residue: none`.
 
-Otherwise print the list under `## Implement — open tasks it will execute` — **all** of
-them, including tasks older than this run, because `__SPECKIT_COMMAND_IMPLEMENT__` executes
-every open task in the file, not only the ones this run or converge appended — then invoke
-`__SPECKIT_COMMAND_IMPLEMENT__` the same way and wait. When it finishes, print
-`git status --short` and `git diff --stat` (read-only) under `## Implement — what changed`,
-and list which tasks it marked `[X]`.
+**Marker check.** List every `[NEEDS REVISION]` and `[NEEDS CLARIFICATION]` marker this run
+wrote, with the file and line.
 
-## Step 12: Run converge again
+**Gap check.** Scan `spec.md` for obligations that have no open or completed task after this
+run's edits to `tasks.md`. If this run already appended a task for it, skip. Otherwise
+report and append one task per gap under `## Remediation: Gaps` using the same format and
+rules as Step 6. This is the only write Step 9 may make.
 
-Invoke `__SPECKIT_COMMAND_CONVERGE__` once more and wait. Print its outcome under
-`## Post-implement check — converge`.
+**Open work check.** List every `- [ ]` task now in `tasks.md` — these are what
+`/speckit-implement` will execute when the user runs it. Note that the code still lags the
+spec; implement is the next step, run by the user.
 
-- `converged` → the code now satisfies the spec, plan and tasks.
-- `tasks_appended` → list the new tasks and print
-  `⚠ Not converged after one implement pass — run __SPECKIT_COMMAND_IMPLEMENT__ again, then __SPECKIT_COMMAND_CONVERGE__.`
-  Do not loop; one implement pass per run.
+Print:
 
-## Step 13: Final status
+```markdown
+## Sync Code — validation
+
+Consistency: <clean | N contradictions>
+Residue: <none | list>
+Markers: <none | list>
+Gaps: <none | N tasks appended>
+Open tasks for implement: <T### list, or "none">
+Warnings: <each contradiction or gap, or "none">
+```
+
+## Step 10: Final status
 
 ```markdown
 ## Sync Code — final status
 
-Written: <files> · analyze: <clean | N findings, M CRITICAL> · converge: <converged | K tasks appended> · implement: <skipped | executed T### …> · final converge: <converged | K' tasks appended>
-Warnings: <each ⚠ line from Steps 9–12, or "none">
-Next: <nothing — the code matches the spec | __SPECKIT_COMMAND_IMPLEMENT__ for the K' remaining tasks | review the NEEDS REVISION markers>
+Written: <files> · Validation: <clean | N warnings>
+Residue: <list, or "none">
+Open tasks: <T### list, or "none">
+Next: <__SPECKIT_COMMAND_IMPLEMENT__ to bring the code in line with the spec | nothing — no open tasks>
 ```
 
 ## Done Criteria
 
-- A rejected invocation or an unresolved feature wrote nothing and ran no core command.
+- A rejected invocation or an unresolved feature wrote nothing.
 - `spec.md` was not written; every finding names its source item by the citation ladder
   and quotes evidence from both the spec and the stale artifact.
 - Every claim in every artifact that the spec contradicts has a finding and a proposed edit
@@ -269,9 +276,7 @@ Next: <nothing — the code matches the spec | __SPECKIT_COMMAND_IMPLEMENT__ for
   task was edited; no task landed under a Convergence phase; no ID was reused.
 - Nothing was written before an explicit `yes`; on `yes`, exactly the shown diffs were
   written and nothing else.
-- After a write, analyze, converge, implement (when open work existed) and converge were
-  actually invoked, in that order, and their output printed verbatim; every CRITICAL
-  analyze finding and every converge dispute carries a `⚠ WARNING` line; the open tasks
-  implement would execute were listed before it ran; the final status names the next
-  command or says nothing is left.
+- After a write, the validation pass ran from context (no core command invoked, no file
+  re-read from disk); every contradiction and gap carries a warning line; residue from
+  `[X]` tasks is listed; open tasks are listed for the user to review before implementing.
 - Re-running on the same spec and artifacts changes nothing further.

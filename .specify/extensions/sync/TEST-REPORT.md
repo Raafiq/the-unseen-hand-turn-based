@@ -1,12 +1,51 @@
-# spec-kit-sync 2.0.0 — test report
+# spec-kit-sync 2.1.0 — test report
 
-**Spec Kit**: 1.0.6 · **Extension**: `sync` 2.0.0 (directory `spec-kit-sync`, from the supplied
+**Spec Kit**: 1.0.6 · **Extension**: `sync` **2.1.0** (directory `spec-kit-sync`) · **Date**:
+2026-09-15 · **Prompt**: `TEST-PROMPT.md` in this directory
+
+## What 2.1.0 changed, and what was tested
+
+**Breaking: the post-write chain is gone.** No command invokes `/speckit-analyze`,
+`/speckit-converge` or `/speckit-implement`. A validation pass runs instead, from artifacts
+already in context — consistency (`V1 CONTRADICTION:`), residue (`Residue:` for `[X]` tasks that
+now contradict an edited artifact), markers, gaps. No file is re-read from disk. **Breaking:
+`sync-code` no longer runs implement**; it lists `Open tasks:` and prints
+`Next: /speckit-implement`. Plus: the `sync-specs` pre-filter now prints the *list* of skipped
+files, `⚠ WEAKENED` lines are grouped by root cause with a count header and `spec.md` first, and
+the manifest is bumped to `2.1.0` (closing anomaly 18).
+
+**New this drop**: tests **5C, 5D, 5E** (validation pass) and **5F** (token comparison vs
+profiling run P1), and assumption **A13**. Each is one agent following the prompt once, in one
+context, in the order 5C, 5D, 5E, 5F.
+
+**The 2.0.0 rows below are kept as history and were NOT rerun.** Read them with one caveat:
+wherever a 2.0.0 row records chain evidence — "Chain: analyze … converge …", "implement wrote the
+function + 3 tests, 36/36", "converge appended T008" — **that behaviour no longer exists in
+2.1.0**. Those cells are the record of what 2.0.0 did, not a claim about this version. The
+findings, gate, write and `[Drift:]` behaviour they record is unchanged and still applies.
+
+**Where**: the same scratch clone at `<scratchpad>/sync-drop3`. **Clone commits: 2 new, neither
+made by this drop's runs** — `b11ed92` (2.1.0 prompts + the plan.md Scope sentence) and `6d78343`
+(the `movementRange` third export) were already on branch `v21-5c` when testing began; the four
+runs made **zero** commits and nothing was pushed. Every branch tip is byte-identical before and
+after (`6d78343` `v21-5c`, `9b9f311` `pf-2f`, `dadd1bf` `pf-2h`, `0845611` `pf-base`). Prompt
+parity checked once: the main checkout's `.claude/skills/speckit-sync-specs/SKILL.md` md5s
+`83d651c3…`, equal to `v21-5c`'s committed
+`.specify/extensions/sync/.specify-dev/agent-commands/claude/speckit-sync-specs/SKILL.md`;
+`sync-code` `1f059394…` on both sides. The older branches carry 2.0.0 fourth-drop copies, which is
+irrelevant — the Skill tool loads from the main checkout.
+
+<details>
+<summary>2.0.0 header (kept)</summary>
+
+**Extension**: `sync` 2.0.0 (from the supplied
 zip — **fourth drop**, still versioned `2.0.0`: it adds the git pre-filter and `--full` to
 `sync-specs`, widens the `⚠ WEAKENED` scan from `spec.md` to every artifact, makes the per-artifact
 claim scan exhaustive, and adds tests 2H–2K and assumption A12. The **third drop** added the
 `⚠ WEAKENED` line above the approval gate in `sync-specs` and `sync-rebase`, one revision slug per
-**root cause** rather than per run, and tests 2F, 2G, 4C) · **Date**: 2026-09-15 · **Prompt**:
-`TEST-PROMPT.md` in this directory
+**root cause** rather than per run, and tests 2F, 2G, 4C) · **Date**: 2026-09-15
+
+</details>
 
 **Covers**: install, Phases 2–6, assumptions, anomalies, ship verdict — plus a `## Token profile`
 summary of the six profiling runs, whose full ledgers are in `TOKEN-PROFILE.md`.
@@ -172,6 +211,84 @@ values"), `contracts/events.md`, `contracts/errors.md`. References exactly eleve
 | 6A | `sync-specs` at scale | **PASS** | `Artifacts scanned: 11 · Source files read: 11`. 9 findings: 8 HIGH + 1 LOW `untracked` (`"void"`). All three planted root causes found, with the right artifacts: element → spec.md FR-001, contracts/api.md (code block + count claim + "10-value" bullet), data-model.md (two schema rows); loadout → spec.md FR-011, contracts/api.md bullet; rng → spec.md FR-008, migration-plan.md. **Zero** findings on research.md, glossary.md, events.md, errors.md (all read in full); every evidence line checked against the file — no hallucination. Gate: "Apply all 8 edits to spec.md, contracts/api.md, data-model.md, migration-plan.md?" → 4 files, +40/−14, surgical, one `## Revisions` block each. Chain: analyze 1 MEDIUM (pre-existing), converge converged, tasks.md unchanged. No truncation, ranged reads or repeated steps; ~174k tokens for the run. **One residual miss** (anomaly 8): spec.md's Acceptance Scenario 1 still says "exactly the nine documented element strings" one line above the corrected FR-001 |
 | 6B | `sync-code` cascade to 4+ artifacts | **PASS** | Spec change: `ElementSchema`/`Element` renamed to `DamageElementSchema`/`DamageElement` in FR-001 (uncommitted). `Spec items: 14 · Artifacts scanned: 10` (all but spec.md). D1 CRITICAL `changed` → plan.md (TD-001, TD-003), contracts/api.md (code block, count claim, bullet), data-model.md (three type cells), tasks.md (new T012); D2 HIGH `contract` → contracts/errors.md ("at most 2" vs FR-011's cap of 3) + tasks.md (new T013) — a **real code bug** the 6A fixture left behind (`setLoadoutTraits` still guarded at 2). `[X]` T001 untouched; research.md / glossary.md not flagged. All diffs used the same new names. Gate listed 5 files, spec.md absent → approved, 5 written. Chain: analyze 1 LOW (0 CRITICAL) → converge converged, 0 appended (T012/T013 already covered the gaps) → implement did T012 (rename across `element.ts`, `state.ts` re-export, `ability.ts`, `equipment.ts`, `index.ts`, tests) and T013 (guard 2 → 3); `vitest run src/sim` **614 passed, 1 skipped**, `tsc` clean, no timeout → final converge **converged**. Leftover `ElementSchema` in `src/sim`: 0. ~192k tokens, 12 min, no context-pressure symptoms. Slugs: `damage-element-rename` (new) and `sim-surface-drift` (reused from 6A for T013) |
 
+## Phase 5C — validation pass (2.1.0)
+
+Three runs of `/speckit-sync-specs` and `/speckit-sync-code` on the 996 fixture, one agent each,
+one time each, through the Skill tool with the Bash cwd inside the scratch clone. The prompt loads
+from the main checkout (parity md5s in the header). A second run can judge differently.
+
+| # | Test | Verdict | Evidence |
+|---|---|---|---|
+| 5C | Validation detects a contradiction this run created | **PASS on the V1 box, but the fixture could not stage the intended contradiction** | Branch `v21-5c` (`6d78343`, `movementRange` added as a third export after the artifacts' commit `b11ed92`). **Skipped-file list printed (change 3), verbatim**: `Pre-filter: b11ed92 · 4 referenced files · 1 changed since · 3 skipped` then `Skipped (unchanged since b11ed92): src/sim/trait.ts, src/sim/build.test.ts, src/sim/trait.test.ts` — the list, not just the count. `Source files read: 1 (skipped: 3) · Artifacts scanned: 6 · Mismatches: 5`: `D1 LOW untracked` `movementRange` (no edit), `D2 HIGH behaviour` contracts/api.md "exports **exactly two runtime values**" → three, `D3 HIGH behaviour` its Exports fenced block omits `movementRange`, `D4 HIGH behaviour` plan.md Scale/Scope "**two runtime exports**" → three, **`D5 HIGH behaviour` plan.md `## Scope` — "The module is feature-complete at two exports" → three.** **The crux: the exhaustive scan DID catch the Scope sentence** (D5) and the run edited it, so after the write plan.md says "feature-complete at **three** exports" and no plan.md self-contradiction was left to detect — **outcome (b): the fixture could not stage that contradiction, and the designed V1 was not exercised.** Validation was not silent, though: it printed one contradiction, on a pair the run *did* create. **Validation block verbatim** — `Consistency: 1 contradiction` / `V1 CONTRADICTION: contracts/api.md now says src/sim/movement.ts "exports **exactly three runtime values**" and its Exports block lists MovementEffectSchema, applyMovementEffect and movementRange vs spec.md's ## Contract block, which enumerates only MovementEffectSchema and applyMovementEffect — spec.md is the stale one, but it states no count and this command may not invent a requirement for an untracked export, so it was deliberately left; the approver must decide whether movementRange belongs in the spec's contract surface.` / `Residue: none` / `Markers: none` / `Gaps: none` / `Warnings: V1 above.` That pair was consistent before the run (both sides listed two) and diverged only because this run wrote `three`, so it is a contradiction the run created. Gate: `⚠ WEAKENED (1 root cause, 1 obligation softened):` / `Export count capped at two (2 → 3):` / the plan.md `## Scope` line — the count header and grouping of change 4, on a one-line case. Approved `yes`; `git diff --stat` `2 files changed, 17 insertions(+), 4 deletions(-)`; spec.md, data-model.md, research.md, tasks.md md5-identical after (`c8a2e9d1…`, `33a27830…`, `6f6621ee…`, `84a2d899…`). Final status: `Written: contracts/api.md, plan.md · Validation: 1 warning` / `Residue: none` / `Next: nothing — review the edits`. **Tool-call audit** — Skill loads in the run: `speckit-sync-specs` only; **`speckit-analyze/SKILL.md`, `speckit-converge/SKILL.md` and `speckit-implement/SKILL.md`: 0 loads**. After the write's `git diff --stat`: **2 Bash calls that read files** — `md5sum tasks.md spec.md data-model.md research.md` plus `sed -n '7p' tasks.md` (T003's line), and `cat -n plan.md` + `sed -n '1,12p' contracts/api.md`. **Both were the tester collecting the evidence this report demands (md5s, quoted lines), not the validation deriving its content** — every artifact was already in context from Step 3 and `movement.ts` from Step 4, and no finding or validation line came from a post-write read. Scored strictly against 5C's third box ("no file-read tool calls after Step 9's `git diff --stat`") that box is **FAIL as measured**, and it is recorded as such rather than hidden; see anomaly 21 |
+| 5D | Validation lists residue from an `[X]` task | **PASS** | Branch `pf-2f` (`9b9f311`, clamp `Math.max(-1, …)`, docstring `≥ -1`), artifacts at `43a4f7f`. `Pre-filter: 43a4f7f · 4 referenced files · 1 changed since · 3 skipped` + `Skipped (unchanged since 43a4f7f): src/sim/trait.ts, src/sim/build.test.ts, src/sim/trait.test.ts`; `Source files read: 1 (skipped: 3) · Artifacts scanned: 6 · Mismatches: 9` — the same 9 the fourth-drop 2F row records, including data-model.md's "Every caller gets the same floor of zero". **The grouped WEAKENED header (change 4), verbatim**: `⚠ WEAKENED (1 root cause, 8 obligations softened):` then `  Clamp floor (0 → -1):` then the eight lines **with both spec.md lines first** — `FR-003 in spec.md`, `US1/AC3 in spec.md`, then `Summary in plan.md`, `TD-001 in plan.md`, the two `contracts/api.md` bullets, `data-model.md`'s floor sentence, `research.md`'s FFT sentence — one header and one indented group, where the fourth drop printed eight unranked top-level lines (anomaly 20). Approved `yes`: 6 files written, `git diff --stat` **+44/−9**, slug `[Drift: movement-clamp-floor-relaxed]` × 6, `grep -c '^## Revisions'` = 1 in each of the five written artifacts and **0** in tasks.md. **Residue line verbatim**: `Residue: T003 "Clamp the fold result at zero in src/sim/movement.ts per FR-003" — spec.md FR-003 now says clamp to >= -1, and the code clamps at -1; the task is marked [X] and describes a zero clamp that no longer exists. Not edited (this command may never edit a [X] task).` **T003 not edited** — `git diff -- tasks.md` shows the only change is four appended lines (`## Remediation: Gaps` + T006); the T003 line appears as unchanged context: `- [X] T003 Clamp the fold result at zero in `src/sim/movement.ts` per FR-003`. Rest of the block: `Consistency: clean`, `Markers: none`, `Gaps: none appended`. **Tool-call audit** — Skill loads: `speckit-sync-specs` only; **analyze / converge / implement SKILL.md: 0 loads**. After the write's `git diff --stat`: **1 Bash call that read files** — `git diff -- tasks.md`, `grep -c '^## Revisions'` across the six artifacts, `grep -rho '\[Drift: …\]'`. Tester evidence again, after the validation block was printed; the residue line itself came from tasks.md as read at Step 3. Same strict-scoring caveat as 5C (anomaly 21) |
+| 5E | `sync-code` lists open tasks, does not implement | **PASS** | Branch `pf-base` (`0845611`), tree clean, then one **uncommitted** spec.md edit adding the 3C obligation. **Deviation, recorded**: the fixture already has an FR-004 (the purity requirement), so the new obligation is numbered **FR-005**, otherwise verbatim — `- **FR-005**: \`describeMovementEffect(effect)\` MUST return a one-line human-readable summary of the effect.` `Spec items: 12 · Artifacts scanned: 5 · Mismatches: 2` — `D1 HIGH added FR-005` → plan.md, tasks.md; `D2 MEDIUM contract` contracts/api.md "exactly two runtime values" + Exports block. Approved `yes`; 5 edits, `git diff --stat` contracts/api.md +9/−1, plan.md +10/−2, tasks.md +5, **spec.md `1 +` is the test's own planted line, not a write** (`sync-code` never writes `spec.md`). **Final status verbatim**: `Written: plan.md, contracts/api.md, tasks.md · Validation: 2 warnings` / `Residue: none` / `Open tasks: T005, T006, T007` / `Next: /speckit-implement to bring the code in line with the spec` — an `Open tasks:` list and the `Next: /speckit-implement` line, both required by the checklist. The validation block's own line: `Open tasks for implement: T005, T006, T007. The code still lags the spec: describeMovementEffect does not exist in src/sim/movement.ts. Implement is the next step, run by the user.` **No code edited**: `git status --short src` printed **nothing** (quoted: the command returned an empty result), `md5sum src/sim/movement.ts` = `0d73cbb9…` = `git show HEAD:src/sim/movement.ts | md5sum`, and `grep -rn describeMovementEffect src/ | wc -l` = **0**. **No test suite ran**: no vitest/npm invocation in the run, and the clone has **no `node_modules`** (`ls: cannot access 'node_modules': No such file or directory`), so one could not have run silently. **Tool-call audit** — Skill loads: `speckit-sync-code` only; **`speckit-implement/SKILL.md`, `speckit-analyze/SKILL.md`, `speckit-converge/SKILL.md`: 0 loads**. After the write's `git diff --stat`: **2 Bash calls that read files** — the `git status --short src` / md5 / grep set above, and `cat specs/996-movement-slot/tasks.md`; all of it tester evidence for the "no code edited" and "open tasks" boxes, printed after the validation block. Same strict-scoring caveat (anomaly 21) |
+
+## Phase 5F — token comparison (2.1.0)
+
+One run of `/speckit-sync-specs` on branch `pf-2h` (`dadd1bf`) — **P1's exact drift**, the
+`floor = 0` third parameter — with an input ledger kept row by row as
+`TOKEN-PROFILE-PROMPT.md` and `TOKEN-PROFILE.md` Appendix A did. Full ledger:
+`<scratchpad>/profile/5f-ledger.md`. The run itself behaved as 2H: `Pre-filter: 43a4f7f · 4
+referenced files · 1 changed since · 3 skipped` + the skipped list, `Source files read: 1
+(skipped: 3) · Artifacts scanned: 6 · Mismatches: 13`, `⚠ WEAKENED (1 root cause, 8 obligations
+softened):` under one `Clamp floor made caller-supplied` header with both spec.md lines first,
+approved `yes`, 14 edits, `git diff --stat` **+45/−16**, then `Consistency: clean` /
+`Residue: T003 … also T002 …` / `Markers: none` / `Gaps: none appended`.
+
+| 5F box | P1 chars | 5F chars | Verdict |
+|---|---|---|---|
+| Chain prompt chars absent (analyze 12,139 + converge 13,085) | 25,224 | **0** | **PASS** — neither SKILL.md was loaded; tool-call audit below |
+| `constitution.md` (5,176 × 2 loads) absent | 10,352 | **0** | **PASS** — never opened |
+| `extensions.yml` re-reads absent (967 × 2) | 1,934 | **0** | **PASS** — never opened |
+| Source re-reads by converge absent (`grep -rn applyMovementEffect src/` 693, `grep -n floor src/sim/build.test.ts` 470) | 1,163 | **0** | **PASS** |
+| *(not on the checklist, same cause)* post-write artifact re-reads by analyze + converge (spec 2,237×2, plan 1,155×2, tasks 634×2) | 8,052 | **0** | **PASS** — validation ran from context |
+| *(not on the checklist)* `check-prerequisites.sh` re-resolution by analyze + converge | 502 | **0** | **PASS** |
+| Estimated savings ~30–40% of P1's input | — | **76.1%** | **exceeds**, but not all of it is 2.1.0 — see below |
+
+**Actual figures.** Total input **29,243 chars** against P1's **122,381** — a saving of 93,138,
+**76.1%**.
+
+**76.1% is not the 2.1.0 number.** P1 charged the *third-drop* prompt (16,771 chars, 295 lines:
+its ledger has no `Pre-filter:` row, reads all four source files, and its output row records **2**
+`⚠ WEAKENED` lines, i.e. the `spec.md`-only scan), so two independent changes sit between P1 and
+this run:
+
+| Component | Chars | Attributable to |
+|---|---|---|
+| Chain removal (the six rows above) | **−47,227** | **2.1.0** |
+| Pre-filter skips: trait.ts 5,308 + trait.test.ts 3,523 + build.test.ts 22,387 + docs/02 17,659 | −48,877 | 2.0.0 fourth drop (already shipped) |
+| Prompt growth 16,771 → 19,672 | +2,901 | 2.1.0 (+729 of it over the fourth drop's 18,943) |
+
+Reconciliation: 122,381 − 47,227 − 48,877 + 2,901 = 29,178 predicted vs **29,243** measured; the
++65 is the three git pre-filter outputs (40 + 19 + 0) plus script-output size drift (`225` vs P1's
+`251`, and so on).
+
+**Like-for-like.** Holding the pre-filter constant on both sides — comparing against a P1 that had
+the fourth-drop pre-filter, 122,381 − 48,877 = **73,504** — 2.1.0 alone saves
+(73,504 − 29,243) / 73,504 = **60.2%**. Net of the prompt's own growth the 2.1.0 delta is
+−47,227 + 2,901 = **−44,326 chars**.
+
+**Reads P1 made that this run did not, for reasons unrelated to 2.1.0**:
+`src/sim/trait.ts` (5,308), `src/sim/trait.test.ts` (3,523) and `src/sim/build.test.ts` (22,387),
+all skipped by the fourth-drop pre-filter; and `docs/02-job-and-customization-system.md` (17,659),
+which P1 opened because tasks.md T005 names it and this run did not need — a judgment difference
+between two agents, not a version change. **Reads this run made that P1 did not**: the three git
+pre-filter outputs, 59 chars. **No range read was forced by the big-read hook** — the only
+>400-line referenced file, `build.test.ts` at 468, was skipped by the pre-filter, so the
+like-for-like figure needs no hook adjustment.
+
+**Prompt sizes** (`wc -c`): sync-specs 2.1.0 **371 lines / 19,672 chars**; the 2.0.0 fourth drop
+committed on `pf-2h` **330 / 18,943**; the prompt P1 charged **295 / 16,771**. The 2.1.0 prompt is
+the largest of the three — the chain removal pays for itself many times over, but the prompt line
+of any future ledger goes up, not down.
+
+**Tool-call audit for 5F** — Skill loads in the run: `speckit-sync-specs` only; **analyze /
+converge / implement SKILL.md: 0 loads**; `.specify/memory/constitution.md` and
+`.specify/extensions.yml`: **0 reads**. After the write's `git diff --stat`: **0 file reads** —
+the only post-write Bash calls appended rows to the ledger file outside the clone and ran a
+`python3 -c` sum. 5F is the one run of the four whose "no re-read after the write" box passes as
+measured, because its evidence was the ledger rather than md5s of the clone.
+
 ## Assumptions
 
 | # | Exercised? | Held? | Notes |
@@ -188,6 +305,7 @@ values"), `contracts/events.md`, `contracts/errors.md`. References exactly eleve
 | A10 | Yes (2G) | Yes | Two unrelated changes in one run took two slugs — `movement-floor-param` (`src/sim/movement.ts`) and `movemod-mult-key` (`src/sim/trait.ts`) — with a separate `### Revision:` entry per slug in each of the two artifacts both causes reached, all under one `## Revisions` heading, and one slug per task in tasks.md. Closes anomaly 10's "sometimes per run, sometimes per root cause". One run, one fixture: the two causes sat in different files, which is the easy case; two causes in the *same* file were not tested |
 | A11 | Yes (2F, 2G, 4C) | Yes | Both commands that carry the rule now print it. `sync-specs` printed `⚠ WEAKENED` above the gate in both 2F runs and again in 2G; `sync-rebase` printed it in 4C after a real rebase brought in the relaxed clamp — naming FR-003, quoting old → new, above the approval question, in a run whose other findings were ordinary. Still one run per command, and the scan is `spec.md`-only by design: in 4C four softened bounds in plan.md, contracts/api.md and data-model.md went unmarked; see anomaly 16 — **superseded by the fourth drop**: the scan now covers every artifact, and in the 2F and 4C re-runs all four of those bounds were flagged, six of the eight WEAKENED lines naming a file other than `spec.md`. Anomaly 16 closed |
 | A12 | Yes (2H, 2I, 2J, 2K) | Yes | The pre-filter found the right `ARTIFACT_COMMIT` in all four (`43a4f7f` on `pf-base` and `pf-2h`, `f8c89c7` on `pf-2k`) and the right changed set every time. **No false skip**: 2H's newer code commit was included (1 changed, 3 skipped) and only that file was read. **No false include**: 2I and 2J read 0 and 4 respectively on an identical tree, the difference being the flag alone. 2K's miss is the documented trade-off, not a filter error — and Step 4.3's uncommitted branch still catches the same drift when it is left unstaged. One run each |
+| A13 | Yes (5C, 5D, 5E, 5F) | **Yes, with one gap** | The inlined validation ran in all four with **zero** core-command loads — no `speckit-analyze/SKILL.md`, `speckit-converge/SKILL.md` or `speckit-implement/SKILL.md` in any run's tool calls — and it did the three jobs the chain used to: it printed a `V1 CONTRADICTION` on a pair 5C's own write created; it listed `Residue: T003 …` in 5D and left the `[X]` task byte-identical; it listed `Open tasks: T005, T006, T007` and `Next: /speckit-implement` in 5E with `git status --short src` empty and no `node_modules` to run a suite with. It also cost what it promised: 5F measured **−47,227 chars** of chain input, 60.2% like-for-like. **The gap is "no file re-read from disk"**: in 5C, 5D and 5E the agent made 1–2 Bash calls after the write that read artifact files. None fed a finding or a validation line — every artifact was in context from Step 3 — but they were reads, and 5F (whose evidence was a ledger, not md5s of the clone) is the only run where the box passes as measured. The honest reading is that the validation *can* run from context and did, while a test harness that demands md5 proof makes the box unobservable; see anomaly 21. One run each, one agent, one context, the agent having read this report first |
 
 ## Token profile
 
@@ -229,41 +347,60 @@ saves 0% at scale because the 993 spec names a construct in every source file.
 | 15 | **Anomaly 8 recurs at six artifacts, not only at eleven.** 2F rewrote data-model.md's fold block to `Math.max(-1, …)` and left the sentence five lines below it — "Every caller gets the same floor of zero" — untouched and now false. The agent caught it only while diffing its own writes, after the gate, and correctly did not add an unapproved edit | **Resolved (with a caveat)** in the fourth drop's exhaustive-scan rule. The 2F re-run on the same fixture raised **9** findings where the third drop raised 8, the extra being `D8 HIGH behaviour "Every caller gets the same floor of zero" — data-model.md says the floor is zero, code's floor is -1`, alongside `D7` for the fold block above it — two findings, one file, one construct. 4C caught the same sentence on the rebase path, and 2H raised three findings in data-model.md and four in contracts/api.md with nothing missed. **Caveat**: all four runs were made by one agent that had read this row first, so this is evidence the widened prompt can produce the right answer, not that a cold agent does. Anomaly 8's own fixture (993, eleven artifacts) was not re-run |
 | 16 | **The WEAKENED scan is `spec.md`-only, and obligations live outside `spec.md`.** Both prompts say "scan every proposed edit to `spec.md`". In 2F the same weakening also rewrote plan.md's TD-001 ("The fold clamps at zero at BUILD time") and, in 2G, contracts/api.md's "a caller cannot ask for a different one" — both constraints softened, neither given a `⚠ WEAKENED` line. The 2.0.0 artifact scope is every `.md` in the feature directory; the weakening scan did not widen with it | **Resolved** in the fourth drop. Both prompts now read "scan every proposed edit to **every artifact**" and the line format carries the file: the 2F re-run printed eight WEAKENED lines, **six outside `spec.md`** — `⚠ WEAKENED: TD-001 in plan.md — "The fold clamps at zero at BUILD time" → "The fold clamps at -1 at BUILD time" (the bound is no longer zero)` and `⚠ WEAKENED: "Every caller gets the same floor of zero" in data-model.md — …` among them — and the 4C re-run flagged all four bounds the third-drop 4C row lists as unflagged. **Residual**: a fenced code block whose bound changes (data-model.md's `Math.max(0, …)` → `Math.max(-1, …)`) gets no line of its own in either run; in this fixture the sentence beside it is flagged, so nothing reaches the approver unmarked. See anomaly 20 for the cost of the wider scan |
 | 17 | **Converge re-queues work it has already queued, under fresh task IDs.** In the token-profile runs, P1's chained converge appended T007/T008 for two gaps; the standalone P6 on the same state re-derived both and appended T010/T011. The same two pieces of work are now queued four times across T006/T007/T010 and T008/T011, and P5's analyze separately flagged T006/T007 as duplicates. Converge has no dedupe against an existing Remediation or Convergence phase. Every later read of `tasks.md` carries the duplicates | **Noted** — Spec Kit **core** converge behaviour, not this extension's (cf. anomaly 11); out of scope here |
-| 18 | **Four different prompt sets have shipped as `2.0.0`.** `extension.yml` reads `version: "2.0.0"` in the first, second, third and fourth drops, while the prompts changed substantially each time (this drop alone added the git pre-filter, widened the WEAKENED scan and made the claim scan exhaustive). An installed copy cannot be told apart from the previous three by version: the only discriminator is the registry's `manifest_hash` (`.specify/extensions/.registry` → `sync` → `sha256:557f26cc…` for this drop), which nothing in the commands prints and no user is likely to read. A `--dev --force` install over an older copy is silent | **Flagged** — bump the version on any drop that changes a prompt, or the report, the changelog and the installed tree cannot be reconciled after the fact |
-| 19 | **The pre-filter's baseline is advanced by the very act of syncing.** `ARTIFACT_COMMIT` is the feature directory's last commit, so committing an approved sync moves it past any source drift that run did not cover — and any later artifact edit does the same without touching code. 2K is the deliberate fixture (`f8c89c7`, a one-sentence plan.md tweak, hid `cd195a3` entirely); the same shape occurs unprompted whenever artifacts are committed after code. The prompt documents the trade-off and `--full` is the stated escape, but nothing in the default run hints that a blind window exists — the exit line reads `✅ Nothing to sync`, the same as a genuinely aligned feature | **Design consequence** — consider keying the filter on the last commit that touched an artifact *this command wrote*, or printing the skipped file list so a reader can see what was not checked |
-| 20 | **The widened WEAKENED scan prints a wall.** 2F emitted **8** lines above one question and 2H another 8, unranked and interleaved across five files, where the third drop's `spec.md`-only scan printed 2. In 2H the underlying change (`floor = 0`, a new parameter defaulting to the old value) is behaviour-preserving at every existing call site, and 8 warnings for it is the shape that trains an approver to skim. Fixing anomaly 16 traded a silent miss for volume | **Flagged** — the fix is right; consider ordering `spec.md` obligations first, or collapsing several lines about one root cause into one |
+| 18 | **Four different prompt sets have shipped as `2.0.0`.** `extension.yml` reads `version: "2.0.0"` in the first, second, third and fourth drops, while the prompts changed substantially each time (this drop alone added the git pre-filter, widened the WEAKENED scan and made the claim scan exhaustive). An installed copy cannot be told apart from the previous three by version: the only discriminator is the registry's `manifest_hash` (`.specify/extensions/.registry` → `sync` → `sha256:557f26cc…` for this drop), which nothing in the commands prints and no user is likely to read. A `--dev --force` install over an older copy is silent | **Resolved** in 2.1.0 — `extension.yml` reads `version: "2.1.0"`, the CHANGELOG records the bump explicitly ("the manifest now reflects prompt changes that shipped during the 2.0.0 development cycle"), and this drop's prompts are therefore distinguishable from all four 2.0.0 prompt sets by version alone. The four historical 2.0.0 sets remain indistinguishable from each other — that is unfixable after the fact |
+| 19 | **The pre-filter's baseline is advanced by the very act of syncing.** `ARTIFACT_COMMIT` is the feature directory's last commit, so committing an approved sync moves it past any source drift that run did not cover — and any later artifact edit does the same without touching code. 2K is the deliberate fixture (`f8c89c7`, a one-sentence plan.md tweak, hid `cd195a3` entirely); the same shape occurs unprompted whenever artifacts are committed after code. The prompt documents the trade-off and `--full` is the stated escape, but nothing in the default run hints that a blind window exists — the exit line reads `✅ Nothing to sync`, the same as a genuinely aligned feature | **Partly addressed** in 2.1.0 — the second of the two suggestions shipped. Every 2.1.0 `sync-specs` run printed the skipped list under the count, verbatim in 5C: `Pre-filter: b11ed92 · 4 referenced files · 1 changed since · 3 skipped` / `Skipped (unchanged since b11ed92): src/sim/trait.ts, src/sim/build.test.ts, src/sim/trait.test.ts` (5D and 5F the same three paths under `43a4f7f`). A reader can now see *what* was not checked. **The blind window itself is unchanged**: the filter is still keyed on the feature directory's last commit, so 2K's case still exits `✅ Nothing to sync` — and none of the four runs exercised the zero-changed path where the list matters most, because all four had a changed file. The mitigation is legibility, not detection |
+| 20 | **The widened WEAKENED scan prints a wall.** 2F emitted **8** lines above one question and 2H another 8, unranked and interleaved across five files, where the third drop's `spec.md`-only scan printed 2. In 2H the underlying change (`floor = 0`, a new parameter defaulting to the old value) is behaviour-preserving at every existing call site, and 8 warnings for it is the shape that trains an approver to skim. Fixing anomaly 16 traded a silent miss for volume | **Addressed** in 2.1.0 — both suggestions shipped. 5D printed the same eight lines as the fourth-drop 2F, but under one header, `⚠ WEAKENED (1 root cause, 8 obligations softened):` / `  Clamp floor (0 → -1):`, indented as one group with **both `spec.md` lines first**. 5F likewise (`Clamp floor made caller-supplied`). The approver now reads one cause and a count instead of eight peers. **Not fixed**: the line *count* is unchanged, and no run in this drop produced two root causes at once, so the grouping was never tested where it matters most — 2G's two-cause shape was not rerun |
+| 21 | **The "no file re-read after the write" box is not observable under this report's own evidence rules.** 5C, 5D and 5E each made 1–2 post-write Bash calls that read artifact files — `md5sum` of the untouched artifacts, `sed -n '7p' tasks.md` for T003's line, `git diff -- tasks.md`, `cat tasks.md`, `git status --short src` — every one of them collecting the md5s and quoted lines this report demands as proof of "not edited" and "no code touched". None fed a finding or a validation line; all six artifacts were in context from Step 3. But the checklist box counts tool calls, not provenance, so a run that satisfies the evidence rules fails the box, and only 5F — whose evidence was an external ledger — passes it as measured | **Flagged (methodology, not the extension)** — the box needs restating as "no artifact content read after the write *fed the validation*", with the reads itemized; or the evidence must be gathered before the write and diffed after |
+| 22 | **5C's designed contradiction could not be staged, because the exhaustive claim scan is now good enough to consume it.** The fixture put `The module is feature-complete at two exports; anything further needs a new ADR before it is added.` in a plan.md `## Scope` section that names no source path, expecting it to slip past the scan and leave plan.md self-contradictory after the write. The run raised it as `D5 HIGH behaviour` and edited it to "three exports". So the 2.1.0 consistency check was never exercised against the shape the test was built for — a same-file contradiction. It was exercised against a different, real one (contracts/api.md "exactly three" vs spec.md's `## Contract` block listing two) that the run genuinely created | **Flagged** — a fixture that *can* stage it needs the second claim in an artifact `sync-specs` may not write, or phrased so no claim-scan rule reaches it; the current one is self-defeating |
+| 23 | **`sync-specs` can leave `spec.md`'s own `## Contract` block enumerating fewer exports than the contract artifact it just rewrote.** In 5C the run wrote contracts/api.md "exactly **three** runtime values" while spec.md's `## Contract` block still listed two, and correctly declined to edit spec.md — adding `movementRange` there would invent a requirement for an `untracked` construct, which the prompt forbids. The validation pass caught it (`V1 CONTRADICTION`), which is the 2.1.0 improvement; nothing in the command can fix it. It is anomaly 3's shape reaching a *secondary* artifact | **Design consequence** — the V1 line is the right outcome; note that a spec whose Contract block is an enumeration will drift every time an untracked export appears |
+| 24 | **`sync-code`'s gap rule and `sync-specs`' differ on where a test task comes from.** Under 2.0.0, `sync-code` left the test task to the chained converge (3C: "converge appended T008 (tests)"). With the chain gone, 5E's run appended both T006 (implement) and T007 (test) itself, reading the prompt's "a test to add where the plan names a test file" clause. That is defensible, but it is a judgment the prompt does not force, and a run that read the clause differently would hand `/speckit-implement` one task where this one handed it two | **Flagged** — state explicitly whether `sync-code` owns the test task now that converge no longer runs |
 
 ## Ship
 
-**Ship.** All four fourth-drop rules hold on the commands that carry them.
+**Ship 2.1.0.** The chain is gone and nothing that mattered went with it.
 
-The **git pre-filter** behaved in all four scenarios: it read only the changed file and nothing else
-(2H, `Pre-filter: 43a4f7f · 4 referenced files · 1 changed since · 3 skipped`, `Source files read: 1
-(skipped: 3)`); it exited clean without opening a source file when nothing had changed (2I, the exact
-documented line with the right sha); `--full` bypassed it and read all four on the identical tree
-(2J, `Full scan: 4 referenced files · all read`, `Source files read: 4 (skipped: 0)`); and the two
-clean exits use different wording, so a log distinguishes "nothing changed" from "everything checked
-and aligned". 2H doubles as the 2A regression note — a code commit newer than the artifacts is
-included, no false skip.
+**The validation pass does the chain's three useful jobs, from context.** 5C printed a
+`V1 CONTRADICTION` naming both sides of a divergence its own write created; 5D printed
+`Residue: T003 "Clamp the fold result at zero …" — spec.md FR-003 now says clamp to >= -1` and
+left the `[X]` task as unchanged context in `git diff`; 5E printed `Open tasks: T005, T006, T007`
+and `Next: /speckit-implement` with `git status --short src` empty, `md5sum src/sim/movement.ts`
+equal to `git show HEAD:…`, `grep -rn describeMovementEffect src/` = 0, and no `node_modules` in
+the clone for a suite to run in. **No core command was loaded in any of the four runs** — zero
+`speckit-analyze/SKILL.md`, `speckit-converge/SKILL.md` or `speckit-implement/SKILL.md` in the
+tool calls.
 
-The **widened WEAKENED scan** closes anomaly 16 on both paths. 2F and 4C each printed eight lines
-above the approval question, six of them naming an artifact other than `spec.md`, and the four bounds
-the third-drop 4C row lists as reaching the approver unmarked — plan.md TD-001, both
-`contracts/api.md` bullets, data-model.md's floor sentence — are all flagged now. The **exhaustive
-claim scan** answers anomaly 15 on this fixture: the 2F re-run found 9 where the third drop found 8,
-the extra being the very sentence that row records as missed, and 2H raised three findings in
-data-model.md and four in contracts/api.md with nothing left stale. A `no` still writes nothing (2K's
-`--full` half, six md5s byte-identical).
+**It costs what the CHANGELOG claims and more.** 5F measured **29,243** input chars against P1's
+**122,381**. Attributed honestly: **−47,227 chars is 2.1.0's chain removal** (**60.2%**
+like-for-like against a P1 with the same pre-filter), −48,877 is the fourth drop's pre-filter that
+already shipped, and **+2,901 is 2.1.0's own larger prompt**. The headline 76.1% is the two
+changes together, not this one.
 
-Four things to read before leaning on it. **The fourth drop's rows are not blind**: one agent ran all
-six tests in one context, having read anomaly 15 first, so "resolved" means the widened prompt *can*
-produce the right answer — a cold agent, and the eleven-artifact 993 fixture, were not tested.
-**Anomaly 19**: the pre-filter's baseline advances every time artifacts are committed, so a default
-run's `✅ Nothing to sync` and a genuinely aligned feature look identical; 2K is that case on purpose,
-and `--full` is the only way to tell them apart. **Anomaly 20**: fixing 16 traded a silent miss for
-eight unranked warnings above one question, which is its own way to lose an approver's attention.
-**Anomaly 18**: this is the fourth distinct prompt set shipped as `2.0.0`, and only the registry's
-`manifest_hash` tells them apart. Anomaly 13 still stands: the gate makes laundering visible, not
-impossible.
+**The two smaller changes landed.** The pre-filter prints its skipped list
+(`Skipped (unchanged since b11ed92): src/sim/trait.ts, src/sim/build.test.ts, src/sim/trait.test.ts`),
+partly addressing anomaly 19 — legibility, not detection; the blind window is unchanged and the
+zero-changed path where the list matters most was not exercised. The `⚠ WEAKENED` wall is grouped:
+5D's eight lines came under `⚠ WEAKENED (1 root cause, 8 obligations softened):` with both
+`spec.md` lines first, addressing anomaly 20. Anomaly 18 is **resolved** — the manifest reads
+`2.1.0` and this prompt set is finally distinguishable by version.
+
+**Four things to read before leaning on it.** **Anomaly 22**: 5C's designed contradiction could
+not be staged — the exhaustive scan caught the bait sentence and edited it — so the consistency
+check was exercised on a real contradiction the run created, but never on the same-file shape the
+test was built for. **Anomaly 21**: three of the four runs made post-write file reads to collect
+the md5 and quoted-line evidence this report demands, so the "no re-read from disk" box passes as
+measured only in 5F; the validation's own content came from context in all four, but the box as
+written is not observable under these evidence rules, and it is scored FAIL rather than waved
+through. **Anomaly 24**: with converge gone, `sync-code` appended the test task itself — a
+judgment the prompt permits rather than compels. **And `sync-rebase` was not run at all in this
+drop**, though it carries the same rewritten validation section; every claim above is about
+`sync-specs` and `sync-code`.
+
+All four runs were **one agent, in one context, in the order 5C, 5D, 5E, 5F**, and that agent had
+read this report — including anomaly 20's description of the wall it then scored as fixed — before
+running anything. Read "addressed" as *the 2.1.0 prompt can produce the right answer*, not as
+*a cold agent will*. Anomaly 13 still stands: the gate makes laundering visible, not impossible —
+and 5C is a live instance, where the run rewrote a plan.md sentence capping the module at two
+exports because a third had been added with no ADR, flagging it as `⚠ WEAKENED` and leaving the
+call to the approver.
 
 Every row is one run of an agent following a prompt. A second run can judge differently.

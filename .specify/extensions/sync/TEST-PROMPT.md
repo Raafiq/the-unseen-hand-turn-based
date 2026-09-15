@@ -43,7 +43,7 @@ Step 4.
 - [ ] Evidence is in "artifact says X, code says Y" format (not `+`/`-` diff lines).
 - [ ] Findings reach `spec.md` and any secondary artifact that also references the changed construct.
 - [ ] Proposed edits are shown for every artifact the finding reaches.
-- [ ] After approval, edits are applied and the post-write chain (analyze → converge) runs.
+- [ ] After approval, edits are applied and the validation pass runs (consistency, residue, markers, gaps — no core commands invoked).
 
 ### Test 2B — Secondary artifact detection
 
@@ -66,7 +66,7 @@ Step 4.
 **Verify:**
 - [ ] Output is `✅ Nothing to sync — the code matches every artifact`.
 - [ ] No approval gate is presented.
-- [ ] Analyze and converge do NOT run (Steps 10–12 are skipped).
+- [ ] Validation does NOT run (Steps 10–11 are skipped).
 
 ### Test 2D — `untracked` finding behaviour
 
@@ -190,7 +190,9 @@ synced state, committed).
 - [ ] `spec.md` is NOT in the list of files to be written — confirm it's excluded.
 - [ ] Proposed edits for secondary artifacts follow the surgical rule (only the stale line/block).
 - [ ] New tasks (if any) are appended under `## Remediation: Gaps` with `[Drift: <slug>]`.
-- [ ] After approval: analyze → converge → implement (if open work) → converge runs in sequence.
+- [ ] After approval: validation pass runs (consistency, residue, markers, gaps). No core command invoked.
+- [ ] Open tasks are listed in the final status with a `Next: /speckit-implement` line.
+- [ ] Implement does NOT run — the user runs it separately.
 
 ### Test 3B — No diff baseline needed
 
@@ -300,6 +302,67 @@ different function, type, or file) that no existing `[Drift: …]` tag covers. C
 
 ---
 
+## Phase 5C: Validation pass (no core commands)
+
+### Test 5C — Validation detects a contradiction this run created
+
+**Setup:** Arrange two artifacts so that a single code change will make this run edit both,
+but in a way that creates a contradiction between them — e.g. sync-specs updates plan.md to
+say "three exports" and contracts/api.md to say "three runtime values", but plan.md also
+has a sentence saying "the module is feature-complete at two exports" that isn't caught as a
+finding (it doesn't reference the source file directly). After sync edits, plan.md
+contradicts itself.
+
+**Run:** `/speckit-sync-specs` (approve the edits)
+
+**Verify:**
+- [ ] The validation pass prints a `V1 CONTRADICTION` line naming the conflicting lines.
+- [ ] No core command (analyze, converge, implement) was invoked — verify by checking that
+      no `SKILL.md` for those commands appears in the tool calls.
+- [ ] The validation reads from context only — no file-read tool calls after Step 9's
+      `git diff --stat`.
+
+### Test 5D — Validation lists residue from `[X]` tasks
+
+**Setup:** Ensure a `[X]` task (e.g. T003 "Clamp the fold result at zero") will become
+stale after a sync run that changes the clamp value.
+
+**Run:** `/speckit-sync-specs` (approve the edits)
+
+**Verify:**
+- [ ] The validation prints a `Residue:` line naming the `[X]` task and what it contradicts.
+- [ ] The `[X]` task is NOT edited.
+
+### Test 5E — `sync-code` validation lists open tasks for implement
+
+**Setup:** Edit `spec.md` to add a new obligation. Run `/speckit-sync-code`.
+
+**Verify:**
+- [ ] After approval and validation, the final status lists open tasks under `Open tasks:`.
+- [ ] The `Next:` line says `/speckit-implement`.
+- [ ] Implement does NOT run — no code files are edited, no test suite runs.
+- [ ] No core command prompt (`speckit-implement/SKILL.md`, `speckit-analyze/SKILL.md`,
+      `speckit-converge/SKILL.md`) is loaded.
+
+## Phase 5F: Token comparison
+
+### Test 5F — Measure token savings vs the old chain
+
+**Run:** `/speckit-sync-specs` on the small fixture (996, one drift) — the same setup as
+profiling run P1.
+
+**Measure:** total input chars (same method as `TOKEN-PROFILE-PROMPT.md`).
+
+**Compare against P1 (122,381 input chars):**
+- [ ] Chain prompt chars (analyze 12,139 + converge 13,085 = 25,224) are **absent**.
+- [ ] Constitution.md (5,176 × 2 loads) is **absent**.
+- [ ] Extensions.yml re-reads are absent.
+- [ ] Source re-reads by converge are absent.
+- [ ] Estimated savings: ~30–40% of P1's input.
+- [ ] Record the actual figure for the test report.
+
+---
+
 ## Phase 6: Scale test (A1 / A4 validation)
 
 The fixture in Phases 2–4 used 6 artifacts and 2–4 source files. This phase tests at a
@@ -335,7 +398,7 @@ Commit everything so the working tree is clean.
 - [ ] No truncation: every artifact that holds a stale claim gets a finding. Cross-check by
       searching each artifact for the changed construct — if it mentions it, there must be a
       finding.
-- [ ] The findings table, proposed diffs, and post-write chain all complete without the agent
+- [ ] The findings table, proposed diffs, and validation pass all complete without the agent
       losing track of context or producing hallucinated evidence.
 - [ ] Total LOW/cosmetic findings are reasonable (not dozens of spurious matches).
 
@@ -348,11 +411,11 @@ Commit everything so the working tree is clean.
 **Verify:**
 - [ ] Findings cascade to all 4+ artifacts that reference the changed construct.
 - [ ] Proposed diffs across all artifacts are mutually consistent.
-- [ ] The implement step (if it runs) doesn't time out or lose context.
-- [ ] Final converge produces a coherent result.
+- [ ] Validation pass completes (consistency, residue, gaps).
+- [ ] Open tasks are listed for the user to implement separately.
 
 Record context-window pressure symptoms if any: truncated findings tables, missed artifacts,
-hallucinated file paths, garbled diffs, or the agent stopping mid-chain.
+hallucinated file paths, garbled diffs, or the agent stopping mid-validation.
 
 ---
 
@@ -374,6 +437,7 @@ These are claims baked into the prompts that could fail in practice. Flag any th
 | A10 | The agent assigns separate slugs to unrelated root causes in the same run, and writes separate revision entries for each. | **2G**. Two unrelated changes, one run. | Medium — the agent must judge "same root cause" vs "different root cause" per finding. |
 | A11 | The agent reliably detects when a proposed edit weakens a MUST/MUST NOT and surfaces it as `⚠ WEAKENED` before the gate. | **2F, 4C**. One sync-specs, one sync-rebase. | Medium — the agent must compare old obligation text against the proposed replacement and judge whether it's weaker. |
 | A12 | The git pre-filter correctly identifies the artifacts' last commit and the set of changed source files, without false skips (skipping a file that did change) or false includes (reading a file that didn't). | **2H, 2I, 2J, 2K**. Four scenarios covering: one change, zero changes, full bypass, and the documented miss. | Low — relies on `git log` and `git diff --name-only`, both well-understood. |
+| A13 | The inlined validation pass catches contradictions, lists residue, and fills gaps without invoking any core command or re-reading files from disk. | **5C** (contradiction), **5D** (residue), **5E** (open tasks listed, implement not run), **5F** (token savings measured). | Medium — the validation must replicate the useful parts of analyze+converge from context alone. |
 
 ---
 

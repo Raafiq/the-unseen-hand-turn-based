@@ -6,8 +6,8 @@ extension:
   # named `speckit.sync.sync-code` would render as `/speckit-sync-sync-code`.
   id: "sync"
   name: "Spec Kit Sync"
-  version: "2.0.0"
-  description: "Keep every artifact and code in step: code is truth (sync-specs), spec is truth (sync-code), or main came in on a rebase (sync-rebase) - full-state comparison, any .md in the feature directory, one approval, then analyze, converge and implement run inline."
+  version: "2.1.0"
+  description: "Keep every artifact and code in step: code is truth (sync-specs), spec is truth (sync-code), or main came in on a rebase (sync-rebase) - full-state comparison, any .md in the feature directory, one approval, inlined validation. No core commands invoked."
   category: "docs"
   effect: "read-write"
   author: "the-unseen-hand"
@@ -20,13 +20,13 @@ provides:
   commands:
     - name: "speckit.sync.specs"
       file: "commands/sync-specs.md"
-      description: "Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then run analyze and converge inline. Git pre-filter skips unchanged source files; --full reads everything."
+      description: "Code is the source of truth: compare referenced source files against every artifact in the feature directory, update any stale .md file after one approval, then validate inline. Git pre-filter skips unchanged source files; --full reads everything."
     - name: "speckit.sync.code"
       file: "commands/sync-code.md"
-      description: "Spec is the source of truth: compare spec.md against every other artifact in the feature directory, update any stale .md file after one approval, then run analyze, converge, implement and converge inline"
+      description: "Spec is the source of truth: compare spec.md against every other artifact in the feature directory, update any stale .md file after one approval, then validate inline. Lists open tasks for the user to implement."
     - name: "speckit.sync.rebase"
       file: "commands/sync-rebase.md"
-      description: "Incoming main is the source of truth: after a rebase, find upstream changes that touch what any artifact references, update any stale .md file after one approval, then run analyze and converge inline"
+      description: "Incoming main is the source of truth: after a rebase, find upstream changes that touch what any artifact references, update any stale .md file after one approval, then validate inline"
 tags:
   - "sync"
   - "drift"

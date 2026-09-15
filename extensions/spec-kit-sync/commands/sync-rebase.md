@@ -257,11 +257,20 @@ gate, and Steps 10–12 do not run.
 obligations**: an edit that removes, narrows, or softens a MUST, MUST NOT, SHALL, SHALL NOT
 or SHOULD — in `spec.md` (an FR, a scenario, a contract block) or in any other artifact (a
 plan decision like "the fold clamps at zero", a contract bullet like "clamped to a minimum
-of 0", a data-model sentence that states a bound). For each, print a `⚠ WEAKENED` line:
+of 0", a data-model sentence that states a bound).
+
+**Group by root cause, `spec.md` first.** Multiple weakened lines about the same construct
+are one root cause. Print a root-cause header, then the lines — `spec.md` first, then other
+artifacts:
 
 ```
-⚠ WEAKENED: FR-008 in spec.md — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
-⚠ WEAKENED: TD-001 in plan.md — "clamps at zero at BUILD time" → "clamps at -1" (the bound is no longer zero)
+⚠ WEAKENED (1 root cause, 4 obligations softened):
+
+  Floor bound (0 → -1):
+    FR-003 in spec.md — "MUST clamp >= 0" → "MUST clamp >= -1"
+    TD-001 in plan.md — "clamps at zero" → "clamps at -1"
+    "clamped to a minimum of `0`" in contracts/api.md — → "minimum of `-1`"
+    "Every caller gets the same floor of zero" in data-model.md — → "floor of -1"
 ```
 
 These lines appear **above** the approval question so the approver reads them first. A
@@ -296,38 +305,58 @@ Outstanding: <NEEDS REVISION / NEEDS CLARIFICATION markers written, plan drift t
 
 Then continue to Step 10. Do not stop here.
 
-## Step 10: Run analyze inline
+## Step 10: Validate
 
-Invoke `__SPECKIT_COMMAND_ANALYZE__` now, in this session, the same way you would run it
-yourself, and wait for it to finish — printing its name is not running it. Then print,
-under `## Post-write check — analyze`, its findings table verbatim (or `clean`), and:
+**Do not invoke analyze, converge, or any other core command.** The artifacts are already in
+context from Step 3. Validate the just-written state by scanning them in place:
 
-- If any finding is **CRITICAL**, print `⚠ WARNING: analyze reports CRITICAL — <one line
-  per finding>` **before** Step 11, and say whether this run's edits created it (compare
-  with the artifacts as they stood before Step 9) or it predates the run.
-- Findings that predate this run — stale text in a `[X]` task this command may not edit,
-  for example — are listed as **residue**, not as this run's fault, with one line each.
+**Consistency check.** Re-read each artifact you edited (from context, not disk). For each,
+check whether any line this run wrote now contradicts a line in another artifact this run
+also wrote, or a line in an artifact this run did not touch. Report each as:
 
-## Step 11: Run converge inline
+```
+V1 CONTRADICTION: <what this run wrote in file A> vs <what file B says> — <which is wrong>
+```
 
-Invoke `__SPECKIT_COMMAND_CONVERGE__` the same way and wait. Print, under
-`## Post-write check — converge`, its outcome and its findings table verbatim.
+If none: `Consistency: clean`.
 
-- If converge classifies anything this run wrote as `contradicts` or `unrequested`, print
-  `⚠ WARNING: converge disputes this run's edits — <which item, which finding>`.
-- If it appended tasks, list them and say for each whether it is real remaining work or a
-  restatement of something this run already recorded (a `[NEEDS REVISION]` marker, a
-  decision task). Converge's own `## Phase N: Convergence` write is expected and is not one
-  of this command's writes.
+**Residue check.** List every `[X]` task whose description now contradicts an artifact this
+run edited. These are **residue** — this command may not edit them:
 
-## Step 12: Final status
+```
+Residue: T003 "Clamp the fold result at zero" — spec.md now says >= -1
+```
+
+If none: `Residue: none`.
+
+**Marker check.** List every `[NEEDS REVISION]` and `[NEEDS CLARIFICATION]` marker this run
+wrote, with the file and line.
+
+**Gap check.** Scan `spec.md` for obligations that have no open or completed task after this
+run's edits. If this run already appended a task for it, skip. Otherwise report and append
+one task per gap under `## Remediation: Gaps` using the same format and rules as Step 7.
+This is the only write Step 10 may make.
+
+Print:
+
+```markdown
+## Sync Rebase — validation
+
+Consistency: <clean | N contradictions>
+Residue: <none | list>
+Markers: <none | list>
+Gaps: <none | N tasks appended>
+Warnings: <each contradiction or gap, or "none">
+```
+
+## Step 11: Final status
 
 ```markdown
 ## Sync Rebase — final status
 
-Written: <files> · analyze: <clean | N findings, M CRITICAL> · converge: <converged | K tasks appended>
-Warnings: <each ⚠ line from Steps 10–11, or "none">
-Next: <__SPECKIT_COMMAND_IMPLEMENT__ to complete the K appended tasks | nothing — proceed to review>
+Written: <files> · Validation: <clean | N warnings>
+Residue: <list, or "none">
+Next: <nothing — review the edits | address the N markers>
 ```
 
 ## Done Criteria
@@ -345,7 +374,7 @@ Next: <__SPECKIT_COMMAND_IMPLEMENT__ to complete the K appended tasks | nothing 
   phase, no ID was reused.
 - An `ORIG_HEAD`-derived old base was sanity-checked and its origin printed; a stale one
   stopped the run with the `--since` hint.
-- After a write, analyze and converge were both actually invoked and their findings printed
-  verbatim; every CRITICAL analyze finding and every converge dispute of this run's edits
-  carries a `⚠ WARNING` line; the final status names the next command.
+- After a write, the validation pass ran from context (no core command invoked, no file
+  re-read from disk); every contradiction and gap carries a warning line; residue from
+  `[X]` tasks is listed.
 - Re-running with the same range and an unchanged tree changes nothing further.

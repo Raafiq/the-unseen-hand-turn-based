@@ -54,10 +54,9 @@ Reads `spec.md` as the source of truth and compares it against every other `.md`
 feature directory. Finds where plan decisions, contract files, data models, or tasks
 disagree with what the spec now states, and proposes surgical edits. It never writes
 `spec.md` — that is the developer's edit and the source of truth — and never edits source
-directly. After the approved write it runs `/speckit-analyze`, `/speckit-converge`, then
-`/speckit-implement` if there is open work, then `/speckit-converge` again to confirm.
-Note that `/speckit-implement` executes every open task in `tasks.md`, not only the ones
-this run appended; the command lists them before invoking it.
+directly. After the approved write it runs an inlined validation pass (consistency, residue,
+gaps) and lists open tasks. The user runs `/speckit-implement` when ready to bring the code
+in line with the spec.
 
 ## `/speckit-sync-rebase [<upstream>] [--since <old-base>]` — main came in
 
@@ -73,16 +72,20 @@ Two modes. **Before the rebase**, the incoming range is `merge-base(HEAD, upstre
 the commits now on `HEAD`. A stale `ORIG_HEAD` stops the run with a `--since` hint. Changed
 files enter scope only when any artifact references them by path; a referenced file that
 upstream deleted is never silently dropped — the item is marked `[NEEDS REVISION: …]` and a
-decision task is appended. After the approved write it runs `/speckit-analyze` and
-`/speckit-converge`.
+decision task is appended. After the approved write it runs an inlined validation pass.
 
 ## What every command does after the write
 
-`/speckit-analyze`, then `/speckit-converge`, run **inside** the command and print their
-findings inline. A CRITICAL analyze finding, or a converge finding that disputes what the
-command just wrote, is surfaced as a `⚠ WARNING` line. Tasks converge appends are listed
-with a verdict (real remaining work, or a restatement of what the command already
-recorded). `sync-code` additionally runs `/speckit-implement` and a confirming converge.
+An inlined **validation pass** runs from the artifacts already in context — no core command
+is invoked, no file is re-read from disk. It checks four things:
+
+- **Consistency**: does anything this run wrote contradict another artifact?
+- **Residue**: do any `[X]` tasks now describe outdated behavior?
+- **Markers**: are there `[NEEDS REVISION]` or `[NEEDS CLARIFICATION]` markers to address?
+- **Gaps**: does the spec state an obligation that no task covers? If so, a task is appended.
+
+The final status names what was written, any warnings, and the next step. For `sync-code`,
+that next step is `/speckit-implement` — run by the user, not automatically.
 The final status block names what was written, what each core command found, and the next
 command to run — or that nothing is left.
 
