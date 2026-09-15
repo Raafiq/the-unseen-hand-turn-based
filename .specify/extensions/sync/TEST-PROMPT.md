@@ -90,6 +90,35 @@ artifact mentions. Commit it. The artifacts are otherwise aligned with the code.
 - [ ] The `untracked` finding still gets no edit — no requirement is invented for the new export itself.
 - [ ] If no other finding reaches an artifact, the command still presents the approval gate (the `behaviour` finding has an edit).
 
+### Test 2F — Weakened obligation flagged at approval gate
+
+**Setup:** Change code so that a MUST or MUST NOT in `spec.md` is no longer true — e.g. a
+function that MUST throw on invalid input no longer throws, or a guard that MUST reject
+negative values now accepts zero. Commit it. The artifacts are otherwise aligned.
+
+**Run:** `/speckit-sync-specs`
+
+**Verify:**
+- [ ] A `behaviour` HIGH finding exists for the weakened obligation.
+- [ ] A `⚠ WEAKENED` line appears **above** the approval question, naming the FR, quoting the old and new obligation, and describing what changed.
+- [ ] The `⚠ WEAKENED` line is present even if other non-weakened findings also exist.
+- [ ] If the approver answers `yes`, the edit is applied normally.
+- [ ] If the approver answers anything else, nothing is written (same as any rejection).
+
+### Test 2G — Multiple root causes get separate slugs
+
+**Setup:** Introduce two **unrelated** code changes in the same run — e.g. change a
+function signature in one file AND change a type definition in a different file. Both should
+make artifact claims false. Commit both.
+
+**Run:** `/speckit-sync-specs`
+
+**Verify:**
+- [ ] Findings for the two changes get **different** slugs (e.g. `[Drift: parse-tag-options]` and `[Drift: element-type-change]`).
+- [ ] Each artifact gets separate `### Revision:` entries for each slug it was affected by.
+- [ ] Both entries sit under a single `## Revisions` heading (not duplicated).
+- [ ] Tasks in `tasks.md` carry the slug of their respective root cause, not a shared slug.
+
 ---
 
 ## Phase 3: Test `/speckit-sync-code` (spec is truth)
@@ -153,6 +182,18 @@ artifact mentions. Commit it. The artifacts are otherwise aligned with the code.
 **Verify:**
 - [ ] Output is `✅ Clean — N incoming commits, M changed files, none referenced by any artifact`.
 - [ ] Not "none referenced by spec.md or plan.md" (old wording).
+
+### Test 4C — Upstream weakens an obligation
+
+**Setup:**
+1. On `main`, change code so that a MUST in `spec.md` is weakened (e.g. a guard relaxed). Commit.
+2. On the feature branch, `git rebase origin/main`.
+
+**Run:** `/speckit-sync-rebase`
+
+**Verify:**
+- [ ] A `⚠ WEAKENED` line appears above the approval question.
+- [ ] The line names the FR and describes the old vs new obligation.
 
 ---
 
@@ -274,6 +315,8 @@ These are claims baked into the prompts that could fail in practice. Flag any th
 | A7 | `sync-rebase` with expanded artifact scope doesn't regress on the range detection or ORIG_HEAD sanity check. | **4A, 4B**. Confirm identical range detection behaviour to 1.0.0. | Low — those sections are unchanged. |
 | A8 | The `[Drift: <slug>]` revision note in secondary artifacts works with the same idempotency as in primary artifacts. | **5A** (amend-in-place), **5B** (new slug alongside existing). Check secondary artifact revision notes. | Low — same prompt logic, but secondary artifacts are a new write target. |
 | A9 | An `untracked` construct that invalidates a count/exhaustive claim produces a separate `behaviour` finding. | **2E**. The fix for Anomaly 1. | Medium — new prompt logic, not yet validated. |
+| A10 | The agent assigns separate slugs to unrelated root causes in the same run, and writes separate revision entries for each. | **2G**. Two unrelated changes, one run. | Medium — the agent must judge "same root cause" vs "different root cause" per finding. |
+| A11 | The agent reliably detects when a proposed edit weakens a MUST/MUST NOT and surfaces it as `⚠ WEAKENED` before the gate. | **2F, 4C**. One sync-specs, one sync-rebase. | Medium — the agent must compare old obligation text against the proposed replacement and judge whether it's weaker. |
 
 ---
 

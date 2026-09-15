@@ -248,6 +248,19 @@ gate, and Steps 10–12 do not run.
 
 ## Step 8: Approval gate (once, all-or-nothing)
 
+**Before presenting the gate**, scan every proposed edit to `spec.md` for **weakened
+obligations**: an edit that removes, narrows, or softens a MUST, MUST NOT, SHALL, SHALL NOT
+or SHOULD (e.g. a throw that stops throwing, a guard that accepts a wider range, a
+constraint that is dropped or downgraded). For each, print a `⚠ WEAKENED` line:
+
+```
+⚠ WEAKENED: FR-008 — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+```
+
+These lines appear **above** the approval question so the approver reads them first. A
+weakened obligation is not an error — upstream may have deliberately relaxed the constraint
+— but it is where an upstream regression can be silently adopted into the spec.
+
 Print every proposed diff, then ask exactly one question:
 
 > Apply all <N> edits to <list of artifacts>? Answer `yes` to write them, anything else to

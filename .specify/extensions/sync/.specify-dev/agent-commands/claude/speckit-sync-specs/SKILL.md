@@ -178,11 +178,15 @@ diff** against the current file. Rules:
   Continue the file's ID width and sequence from its highest ID. No `[P]`. Place under
   `## Remediation: Gaps`, creating it at the end of the file only if absent. Never under a
   `## Phase N: Convergence` heading; never touch a `[X]` task.
-- **Revision note.** `SLUG` is a short hyphenated name for the dominant drift, derived from
-  the finding of highest severity (`parse-tag-options`). First read the `[Drift: …]` tags
-  already in every artifact: if one names the same drift, reuse that slug and amend that
-  entry's `Reason:` and `Items:` lines in place. Otherwise append, under a single
-  `## Revisions` heading at the bottom of each artifact you edit (create it on first use):
+- **Revision note.** Each distinct **root cause** gets its own `SLUG` — a short hyphenated
+  name describing the logical change (`parse-tag-options`, `movement-jump-key`). Two
+  findings are the same root cause when they trace to the same code change in the same
+  construct; findings about different constructs, different files, or unrelated behavioural
+  changes get separate slugs even when they appear in the same run. First read the
+  `[Drift: …]` tags already in every artifact: if one names the same root cause, reuse that
+  slug and amend that entry's `Reason:` and `Items:` lines in place. Otherwise append, under
+  a single `## Revisions` heading at the bottom of each artifact you edit (create it on
+  first use):
 
   ```markdown
   ### Revision: Drift Sync <YYYY-MM-DD> [Drift: <SLUG>]
@@ -199,7 +203,20 @@ gate, and Steps 10–12 do not run.
 
 ## Step 8: Approval gate (once, all-or-nothing)
 
-After every proposed diff, ask exactly one question:
+**Before presenting the gate**, scan every proposed edit to `spec.md` for **weakened
+obligations**: an edit that removes, narrows, or softens a MUST, MUST NOT, SHALL, SHALL NOT
+or SHOULD (e.g. a throw that stops throwing, a guard that accepts a wider range, a
+constraint that is dropped or downgraded). For each, print a `⚠ WEAKENED` line:
+
+```
+⚠ WEAKENED: FR-008 — "MUST throw on bound <= 0" → "MUST throw on bound < 0" (bound === 0 no longer throws)
+```
+
+These lines appear **above** the approval question so the approver reads them first. A
+weakened obligation is not an error — the code may be right and the old spec wrong — but it
+is the place where a code bug can be laundered into the spec. The approver decides.
+
+After the `⚠ WEAKENED` lines (if any) and every proposed diff, ask exactly one question:
 
 > Apply all <N> edits to <list of artifacts>? Answer `yes` to write them, anything else to
 > write nothing.

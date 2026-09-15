@@ -18,6 +18,13 @@
 - `sync-code` no longer requires `spec.md` to be committed (no diff baseline needed).
 - `removed` kind renamed to `missing` in `sync-specs` (reflects full-state semantics:
   the construct is absent, not necessarily recently removed).
+- Fix: `untracked` exports that invalidate a count or exhaustive claim in a referenced
+  artifact now produce a separate `behaviour` HIGH finding for the stale claim.
+- Fix: slug granularity is now one slug per root cause, not per run. Findings about
+  different constructs or unrelated changes get separate slugs and separate revision notes.
+- Fix: `sync-specs` and `sync-rebase` now flag `⚠ WEAKENED` at the approval gate when
+  a proposed edit removes, narrows, or softens a MUST/MUST NOT/SHALL/SHALL NOT/SHOULD
+  in `spec.md`, so the approver sees where a code bug could be laundered into the spec.
 
 ## 1.0.0
 

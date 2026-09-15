@@ -148,9 +148,12 @@ diff** against the current file. Rules:
   under Outstanding. Continue the file's ID width and sequence from its highest ID. No
   `[P]`. Place under `## Remediation: Gaps`, creating it at the end of the file only if
   absent. Never under a `## Phase N: Convergence` heading; never touch a `[X]` task.
-- **Revision note.** `SLUG` is a short hyphenated name for the dominant change, from the
-  finding of highest severity (`parse-tags-fr`). First read the `[Drift: …]` tags already
-  in every artifact: if one names the same change, reuse that slug and amend that entry's
+- **Revision note.** Each distinct **root cause** gets its own `SLUG` — a short hyphenated
+  name describing the spec change (`parse-tags-fr`, `damage-element-rename`). Two findings
+  are the same root cause when they trace to the same spec edit in the same FR or section;
+  findings about different FRs, different constructs, or unrelated spec changes get separate
+  slugs even when they appear in the same run. First read the `[Drift: …]` tags already in
+  every artifact: if one names the same root cause, reuse that slug and amend that entry's
   `Reason:` and `Items:` lines in place. Otherwise append, under a single `## Revisions`
   heading at the bottom of each artifact you edit (create it on first use):
 
