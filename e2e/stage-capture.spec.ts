@@ -163,8 +163,8 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
     }
   });
   expect(await page.evaluate(() => window.tuhGame.phase())).toBe("AI_TURN");
-  await expect(page.getByTestId("end-turn")).toContainText("Enemy");
-  await expect(page.getByTestId("end-turn")).toBeDisabled();
+  await expect(page.getByTestId("end-turn")).toBeHidden();
+  await expect(page.getByTestId("ribbon-notice")).toBeVisible();
   await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/851x324-ai-turn.png` });
 

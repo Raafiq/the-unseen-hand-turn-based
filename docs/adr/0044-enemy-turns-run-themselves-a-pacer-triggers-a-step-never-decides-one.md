@@ -104,9 +104,10 @@ injection `MotionDirector` uses for `now`. `session.ts` stays as it is.
 - Every commit or advance that changes the log invalidates the pending step. Nothing has to
   remember to cancel; the epoch does the remembering.
 - **The button goes (owner, 2026-09-19: "there is no button that needs pressing").** In
-  `AI_TURN` the primary button is inert — disabled like Item and Defend, keeping its place
-  in the band so the layout does not shift, reading "Enemy…"; the enemy's turn starting is
-  the only thing that advances an enemy action, and `docs/10` §3's worry that the stage "has no control at all during the
+  `AI_TURN` the whole command ribbon is hidden (owner, 2026-09-19: "hide the list of
+  action buttons that's only used for players") and one line, "The enemy is acting…",
+  takes its slot so the plates keep their place; the enemy's turn starting is the only
+  thing that advances an enemy action, and `docs/10` §3's worry that the stage "has no control at all during the
   enemy's turn" is answered by the enemy's turn running itself. `Session.step()` and the
   `GameApi.step` seam stay, for tests and watch mode only. Whether a tap on the board
   *shortens* the pause is a **presentation choice, rendered before it is asked**
@@ -167,7 +168,7 @@ campaign save or `BattleState` (asserted against the schemas, not by inspection)
 
 ## Consequences
 
-- **Six taps a round become none, and the button is inert.** The player's turn ends and the
+- **Six taps a round become none, and the player's commands leave the band.** The player's turn ends and the
   enemy round plays at the speed they chose. The ☰ menu's watch-mode entry stays as a
   shortcut past the pause — a shipped feature (`docs/10` §7), not a control the turn needs.
 - **Four sentences in the record are rewritten in the same slice:** `docs/10` §3 (both

@@ -43,10 +43,22 @@ test("the enemy acts on its own: no button, no call, the log grows by itself", a
   await page.evaluate(() => window.tuhGame.setEnemySpeed(3));
   await reachEnemyTurn(page);
 
-  // The pause is armed, and the primary button is a plate, not a control.
+  // The pause is armed, and the player's command ribbon is GONE — every one of its
+  // buttons hidden, one notice in their slot, drawn inside the band (owner, 2026-09-19).
   expect(await page.evaluate(() => window.tuhGame.enemyTurnPending())).toBe(true);
-  await expect(page.getByTestId("end-turn")).toBeDisabled();
-  await expect(page.getByTestId("end-turn")).toContainText("Enemy");
+  for (const id of ["move", "attack", "actions", "item", "defend", "end-turn", "confirm", "cancel"]) {
+    await expect(page.getByTestId(id)).toBeHidden();
+  }
+  const notice = page.getByTestId("ribbon-notice");
+  await expect(notice).toBeVisible();
+  const boxes = await page.evaluate(() => {
+    const r = (sel: string): DOMRect | undefined =>
+      document.querySelector(sel)?.getBoundingClientRect();
+    return { notice: r('[data-testid="ribbon-notice"]'), band: r(".tuh-band") };
+  });
+  expect(boxes.notice!.top).toBeGreaterThanOrEqual(boxes.band!.top);
+  expect(boxes.notice!.bottom).toBeLessThanOrEqual(boxes.band!.bottom);
+  expect(boxes.notice!.width).toBeGreaterThan(0);
 
   // NOTHING is called from here on. The count moves because the pause came due.
   const before = await page.evaluate(() => window.tuhGame.commandCount());
@@ -67,6 +79,12 @@ test("the enemy acts on its own: no button, no call, the log grows by itself", a
   expect(settled.pending).toBe(false);
   expect(settled.count).toBeGreaterThan(before);
   expect(["PLAYER_IDLE", "ENDED"]).toContain(settled.phase);
+  // …and the ribbon is back for the player.
+  if (settled.phase === "PLAYER_IDLE") {
+    await expect(page.getByTestId("move")).toBeVisible();
+    await expect(page.getByTestId("end-turn")).toBeVisible();
+    await expect(page.getByTestId("ribbon-notice")).toBeHidden();
+  }
   // Held, the count sits still: the hold is what every other spec relies on.
   if (settled.phase === "PLAYER_IDLE") {
     await page.evaluate(() => window.tuhGame.holdEnemyTurns(true));

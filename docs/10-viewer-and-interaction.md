@@ -132,10 +132,12 @@ previews honest, and speculation impossible.
   target click.** Hover previews are an addition, never a replacement.
 - **The action bar's right-hand primary button is PHASE-AWARE.** In a player phase it is
   **End Turn**, labelled with the price it will pay (`End Turn · Move only · −80 Clock`).
-  In `AI_TURN` it is **inert** (ADR-0044) — disabled like the other ribbon buttons, keeping
-  its place in the band and reading "Enemy…" — because the enemy's turn runs itself from
-  the moment it starts, so the stage needs no control during it and the player is not
-  stranded. The ☰ menu's watch-mode entry ("Play the enemy now ▸") remains as a shortcut
+  In `AI_TURN` the whole command ribbon is **hidden** (ADR-0044; owner 2026-09-19, "hide
+  the list of action buttons that's only used for players") and one line, "The enemy is
+  acting…" (`ribbon-notice`), takes its slot so the two plates keep their place — because
+  the enemy's turn runs itself from the moment it starts, so the stage needs no control
+  during it and the player is not stranded. (The engine viewer keeps its ribbon: there
+  the button is watch mode's explicit Step.) The ☰ menu's watch-mode entry ("Play the enemy now ▸") remains as a shortcut
   past the pause, never a control the turn needs. The
   determinism rule is the one in §3's note above — a pause may set WHEN a Step is shown,
   never WHETHER or HOW MANY.
@@ -1179,7 +1181,9 @@ branches are untested by decision.
   `staleFires()` SHALL be ≥1 in (c) and (d), so a pacer with no epoch guard cannot pass on
   a fixture where the guard was never needed. In the browser, the command count SHALL grow
   inside `AI_TURN` with no call from the spec, the primary button SHALL be disabled, and a
-  held pacer SHALL arm nothing. *Measured:* three mutations (no epoch guard; a fire that
+  held pacer SHALL arm nothing; every ribbon button SHALL be hidden and `ribbon-notice`
+  SHALL be visible inside the band's box, and the ribbon SHALL return with the player's
+  turn. *Measured:* three mutations (no epoch guard; a fire that
   steps twice; a dropped pause left uncancelled) each go red in `pacer.test.ts` where its
   header names. Covered by `pacer.test.ts` "AC-V68" and `e2e/pacer.spec.ts` "the enemy acts
   on its own".
