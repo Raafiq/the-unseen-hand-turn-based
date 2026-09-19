@@ -8,6 +8,7 @@
  */
 
 import type { Screen } from "./campaign-shell.js";
+import type { Speed } from "./pacer.js";
 import type { Phase } from "./session.js";
 import type { PlaytestLog } from "./telemetry.js";
 import type { BattleState, CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
@@ -85,6 +86,18 @@ export interface GameApi {
    */
   settleMotion: () => void;
   freezeMotion: (elapsedMs: number | null) => void;
+  /**
+   * THE ENEMY'S TURN RUNS ITSELF (ADR-0044), and a capture needs it to sit still.
+   * `holdEnemyTurns(true)` stops the pacer arming a pause, so `AI_TURN` waits for watch
+   * mode exactly as it did before ADR-0044; `false` releases it and the pause is armed at
+   * once. Not reachable from any control a player has, and it touches no command.
+   */
+  holdEnemyTurns: (on: boolean) => void;
+  /** A pause is armed for the current enemy turn. A READ. */
+  enemyTurnPending: () => boolean;
+  /** The ×1/×2/×3 speed toggle (AC-V69). `set` is the same path the ☰ menu's entry takes. */
+  enemySpeed: () => Speed;
+  setEnemySpeed: (speed: Speed) => void;
 }
 
 /** The prep methods the page exposes; a subset of `PrepHandle`, by value where it can be. */

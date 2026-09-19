@@ -35,6 +35,15 @@ import { icon } from "./icons.js";
 import { draw, FIELD_THEME, RING_FILL_ALPHA } from "./iso.js";
 import { mountHud, type HudHandle } from "./hud.js";
 import { MotionDirector, prefersReducedMotion, type MotionBeat } from "./motion.js";
+import {
+  PREFS_KEY,
+  Pacer,
+  nextSpeed,
+  readSpeed,
+  writeSpeed,
+  type Scheduler,
+  type Speed,
+} from "./pacer.js";
 import type { LookUp } from "./panels.js";
 import { jobCrest, jobLabel, mountPrep, type PrepHandle } from "./prep.js";
 import { wireLandscapeButton } from "./orientation.js";
@@ -117,6 +126,35 @@ const shell = new CampaignShell({
 const telemetry = new Recorder({
   slot: storageAvailable ? browserSlot(localStorage, PLAYTEST_LOG_KEY) : memorySlot(),
 });
+
+/**
+ * THE ENEMY'S TURN RUNS ITSELF (ADR-0044). The pacer owns no clock: `setTimeout` is
+ * handed in HERE, the one place in this file a timer touches a game action — and the
+ * action it triggers is the same `Session.step()` the ☰ menu's watch mode calls, under
+ * the same `act()` wrapper, so the step is logged, repainted and re-observed like a tap.
+ * The speed is a device preference on its own key (AC-V69), never the save's.
+ */
+const prefsSlot = storageAvailable ? browserSlot(localStorage, PREFS_KEY) : memorySlot();
+let enemySpeed: Speed = readSpeed(prefsSlot);
+const timeouts: Scheduler = {
+  schedule(fn, ms) {
+    const id = setTimeout(fn, ms);
+    return () => clearTimeout(id);
+  },
+};
+const pacer = new Pacer(
+  {
+    session: () => shell.session ?? null,
+    speed: () => enemySpeed,
+    step: (s) => act("enemy-turn", () => s.step()),
+  },
+  timeouts,
+);
+function setEnemySpeed(speed: Speed): void {
+  enemySpeed = speed;
+  writeSpeed(prefsSlot, speed);
+  pacer.rearm();
+}
 
 const SCREENS: Screen[] = ["TITLE", "SCENE", "BRIEFING", "BATTLE", "AFTER_BATTLE", "COMPLETED"];
 const SCREEN_EL: Record<Screen, string> = {
@@ -243,6 +281,7 @@ const hud: HudHandle = mountHud(el("stage-host"), {
   paintBoard: () => paintBoard(),
   // Named, so a HUD button files the same playtest row a `window.tuhGame` call does.
   act: (name, run) => act(name, run),
+  enemyRunsItself: () => true, // ADR-0044: the pacer, so the primary button is inert in AI_TURN
   legend: () => LEGEND_ROWS(),
   help: () => HELP_TOPICS,
   menu: () => [
@@ -254,10 +293,18 @@ const hud: HudHandle = mountHud(el("stage-host"), {
     // deliberate rather than an omission.
     { id: "menu-save", label: "Progress is saved automatically — quitting loses nothing" },
     { id: "quit", label: "Quit to title", run: () => act("quit", toTitle) },
+    // Watch mode (docs/10 §7). In `AI_TURN` it SKIPS the pause the pacer is sitting
+    // out — the enemy acts without it (ADR-0044); it is a shortcut, not a control the
+    // turn needs.
     {
       id: "btn-step",
-      label: shell.session?.phase === "AI_TURN" ? "Play the enemy turn ▸" : "Auto-play my turn ▸",
+      label: shell.session?.phase === "AI_TURN" ? "Play the enemy now ▸" : "Auto-play my turn ▸",
       run: () => act("btn-step", () => shell.session?.step()),
+    },
+    {
+      id: "menu-speed",
+      label: `Enemy speed ×${enemySpeed} ▸`,
+      run: () => act("menu-speed", () => setEnemySpeed(nextSpeed(enemySpeed))),
     },
   ],
   conclude: () => ({ label: "Continue ▸", run: () => act("btn-conclude", () => concludeAndLog()) }),
@@ -1041,6 +1088,11 @@ function guard(mutate: () => void): void {
     mutate();
   } finally {
     refresh();
+    // After the repaint, never before: if the session just entered `AI_TURN`, this arms
+    // the one pause that will show the enemy's action; if the log moved, it drops a
+    // pause armed for a turn that is over. Idempotent, so a repaint that changed nothing
+    // arms nothing new.
+    pacer.observe();
     // FOCUS IS APPLIED AFTER THE LAST PAINT, and this is why the hook exists.
     //
     // `refresh()` rebuilds whole panels — `renderBriefingText()` rewrites the roster's
@@ -1342,6 +1394,10 @@ const api: GameApi = {
     paintBoard();
     pumpMotion();
   },
+  holdEnemyTurns: (on) => pacer.hold(on),
+  enemyTurnPending: () => pacer.isPending(),
+  enemySpeed: () => enemySpeed,
+  setEnemySpeed: (speed) => act("menu-speed", () => setEnemySpeed(speed)),
   prep: (): PrepSeam | null => {
     const h = prep;
     if (!h) return null;

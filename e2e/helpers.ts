@@ -306,6 +306,20 @@ export async function openViewerPrep(page: Page): Promise<void> {
 }
 
 /**
+ * HOLD THE ENEMY'S TURN STILL (ADR-0044). The enemy acts on its own after a pause, so a
+ * spec that reads or captures the board INSIDE `AI_TURN` races a real timer unless it
+ * holds the pacer first. Watch mode ({@link watchStep}) still advances a held turn, which
+ * is what keeps every capture frame-for-frame deterministic. A no-op on the engine viewer,
+ * which has no pacer. `e2e/pacer.spec.ts` is the one spec that deliberately does NOT hold.
+ */
+export async function holdEnemyTurns(page: Page, on = true): Promise<void> {
+  await page.evaluate((hold) => {
+    const w = window as unknown as { tuhGame?: { holdEnemyTurns?: (on: boolean) => void } };
+    w.tuhGame?.holdEnemyTurns?.(hold);
+  }, on);
+}
+
+/**
  * Step the live battle one watch-mode turn, from the ☰ menu.
  *
  * IT CLOSES THE DRAWER AGAIN, and that matters for the capture specs: a drawer left

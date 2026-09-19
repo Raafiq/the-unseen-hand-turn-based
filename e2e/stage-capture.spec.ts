@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir, rm } from "node:fs/promises";
-import { closeDrawer, dismissScene, settleMotion, startNewGame } from "./helpers.js";
+import { closeDrawer, dismissScene, holdEnemyTurns, settleMotion, startNewGame } from "./helpers.js";
 
 /**
  * FRAMES OF THE STAGE, for a human to open (ADR-0037, docs/10 §8).
@@ -152,7 +152,10 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
   await page.screenshot({ path: `${SHOTS}/851x324-actions-sheet.png` });
   await closeDrawer(page);
 
-  // 5. The enemy's turn, with the phase-aware button carrying it.
+  // 5. The enemy's turn. It runs itself after a pause (ADR-0044), so it is HELD here or
+  // the frame would land on whichever state the timer had reached; the primary button is
+  // inert, not a control.
+  await holdEnemyTurns(page);
   await page.evaluate(() => {
     for (let i = 0; i < 40 && window.tuhGame.phase() !== "AI_TURN"; i += 1) {
       window.tuhGame.endTurn();
@@ -161,6 +164,7 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
   });
   expect(await page.evaluate(() => window.tuhGame.phase())).toBe("AI_TURN");
   await expect(page.getByTestId("end-turn")).toContainText("Enemy");
+  await expect(page.getByTestId("end-turn")).toBeDisabled();
   await settleMotion(page);
   await page.screenshot({ path: `${SHOTS}/851x324-ai-turn.png` });
 

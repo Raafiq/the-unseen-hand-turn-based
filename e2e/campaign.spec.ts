@@ -4,6 +4,7 @@ import {
   prepEveryMember,
   dismissScene,
   freezeMotion,
+  holdEnemyTurns,
   openMember,
   closeLearn,
   openDossier,
@@ -1303,6 +1304,7 @@ test("reduced motion: the board animates by default and does not when it is aske
     await dismissScene(page);
     await page.getByTestId("deploy").click();
     await expect(page.getByTestId("screen-battle")).toBeVisible();
+    await holdEnemyTurns(page); // the frames below are of a chosen commit (ADR-0044)
     // `textContent`, not `innerText`: the turn log lives in the ☰ drawer, which is
     // closed between steps, and `innerText` of a hidden subtree is "" — indistinguishable
     // from "no blow has landed".

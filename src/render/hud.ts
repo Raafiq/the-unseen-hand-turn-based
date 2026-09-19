@@ -76,6 +76,12 @@ const PLAQUE_FADE_MS = 220;
 export interface HudPorts {
   /** The live session, or `null` when no battle is mounted. */
   session(): Session | null;
+  /**
+   * The page runs the enemy's turn itself (ADR-0044, the campaign page's pacer), so the
+   * primary button is INERT in `AI_TURN`. Absent or false — the engine viewer, which has
+   * no pacer — the button stays the explicit Step of docs/10 §7's watch mode.
+   */
+  enemyRunsItself?: () => boolean;
   /** Presentation metadata for this page's units. */
   look(): LookUp;
   /** Repaint everything the page owns; must end up calling {@link HudHandle.render}. */
@@ -504,11 +510,15 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     cancelBtn.disabled = session.phase !== "MOVE_STAGED" && session.phase !== "TARGET_STAGED";
 
     // THE PHASE-AWARE Wait/End-Turn BUTTON (docs/10 §3, AC-V38b). In `AI_TURN` it is
-    // the only control the enemy's turn has — an explicit Step, never a timer.
+    // INERT (ADR-0044): the enemy's turn runs itself from the moment it starts, so there
+    // is no button to press — the plate keeps its place in the band and says whose turn
+    // it is. Disabled like the other ribbon buttons, not hidden, so the band's layout
+    // does not shift as the phase flips.
     const label = primaryBtn.querySelector(".rb-label")!;
     if (session.phase === "AI_TURN") {
-      label.textContent = "Enemy ▸";
-      primaryBtn.disabled = false;
+      const paced = ports.enemyRunsItself?.() ?? false;
+      label.textContent = paced ? "Enemy…" : "Enemy ▸";
+      primaryBtn.disabled = paced;
       primaryBtn.title = PHASE_HINT.AI_TURN;
     } else {
       label.textContent = session.stagedTile() !== null ? "End" : "Wait";
@@ -833,11 +843,14 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   primaryBtn.addEventListener("click", () => {
     const session = ports.session();
     if (!session) return;
-    // ONE control, TWO behaviours, chosen by phase — not two controls one of which is
-    // hidden. `step()` resolves the active unit through the balance probe, which is
-    // the same explicit beat the seam uses, so the enemy's turn never races a clock.
-    if (session.phase === "AI_TURN") ports.act("step", () => session.step());
-    else ports.act("end-turn", () => session.endTurn());
+    // In `AI_TURN` on the campaign page the button is disabled and the enemy acts on its
+    // own (ADR-0044); a click that somehow lands here is nothing, never a second Step
+    // racing the pacer. On the engine viewer it is still watch mode's explicit Step.
+    if (session.phase === "AI_TURN") {
+      if (!(ports.enemyRunsItself?.() ?? false)) ports.act("step", () => session.step());
+      return;
+    }
+    ports.act("end-turn", () => session.endTurn());
   });
 
   confirmBtn.addEventListener("click", () => {

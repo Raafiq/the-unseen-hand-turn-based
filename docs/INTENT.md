@@ -5,7 +5,7 @@
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1007 tests, 238 browser specs (`npm run check`).
+Green at the stamp: 1021 tests, 240 browser specs (`npm run check`).
 
 ---
 

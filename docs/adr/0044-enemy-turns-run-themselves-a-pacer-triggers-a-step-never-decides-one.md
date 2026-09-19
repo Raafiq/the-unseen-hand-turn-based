@@ -11,8 +11,8 @@
   `src/render/CLAUDE.md`'s "AI turns advance on an explicit Step" sentences. Each is
   rewritten in the same slice, not left to rot (`docs/INTENT.md`, THE NEXT SLICE).
 - **Promotes:** the speed toggle from P3 (`docs/08` §1) into this slice.
-- **Acceptance Criteria:** two are **reserved as AC-V68 and AC-V69** and must be authored
-  into `docs/10` in the slice that lands this. (AC-V66 is ADR-0043's; AC-V67 is already
+- **Acceptance Criteria:** **AC-V68 and AC-V69**, authored into `docs/10` in the same
+  slice as the code (`src/render/pacer.ts`, `pacer.test.ts`, `e2e/pacer.spec.ts`). (AC-V66 is ADR-0043's; AC-V67 is already
   cited by `src/render/viewer-api.ts`.) `docs/10` outranks this file where they disagree.
 
 ## Context
@@ -104,8 +104,9 @@ injection `MotionDirector` uses for `now`. `session.ts` stays as it is.
 - Every commit or advance that changes the log invalidates the pending step. Nothing has to
   remember to cancel; the epoch does the remembering.
 - **The button goes (owner, 2026-09-19: "there is no button that needs pressing").** In
-  `AI_TURN` the primary button is hidden; the enemy's turn starting is the only thing that
-  advances an enemy action, and `docs/10` §3's worry that the stage "has no control at all during the
+  `AI_TURN` the primary button is inert — disabled like Item and Defend, keeping its place
+  in the band so the layout does not shift, reading "Enemy…"; the enemy's turn starting is
+  the only thing that advances an enemy action, and `docs/10` §3's worry that the stage "has no control at all during the
   enemy's turn" is answered by the enemy's turn running itself. `Session.step()` and the
   `GameApi.step` seam stay, for tests and watch mode only. Whether a tap on the board
   *shortens* the pause is a **presentation choice, rendered before it is asked**
@@ -166,8 +167,9 @@ campaign save or `BattleState` (asserted against the schemas, not by inspection)
 
 ## Consequences
 
-- **Six taps a round become none, and the button is gone.** The player's turn ends and the
-  enemy round plays at the speed they chose.
+- **Six taps a round become none, and the button is inert.** The player's turn ends and the
+  enemy round plays at the speed they chose. The ☰ menu's watch-mode entry stays as a
+  shortcut past the pause — a shipped feature (`docs/10` §7), not a control the turn needs.
 - **Four sentences in the record are rewritten in the same slice:** `docs/10` §3 (both
   sites), ADR-0032 decision 1 (an amendment note pointing here, body intact), root
   `CLAUDE.md` line "AI turns advance on an explicit Step", `src/render/CLAUDE.md` line 14.
