@@ -1,11 +1,11 @@
-<!-- written-against: b4933f1 -->
+<!-- written-against: 9d0569b -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1007 tests, 238 browser specs (`npm run check`).
+Green at the stamp: 1021 tests, 240 browser specs (`npm run check`).
 
 ---
 
@@ -79,22 +79,23 @@ Nobody should start these. One line each; the detail lives where the pointer say
 
 ## OPEN — WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Three asks are open.
+Read this before telling the owner "nothing is pending". Four asks are open.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
+| H | **Pick the ×1 enemy pause** from two or three values shown running in the real game (ADR-0046). `BASE_PAUSE_MS = 800` is a placeholder | open, new 2026-09-19. Not asked yet: the values are rendered first, then put to the owner | `docs/10` AC-V69's number; whether the enemy round reads as too fast or too slow |
 
 ---
 
-## THE NEXT SLICE — six on every map, an enemy retune, and enemy turns that run themselves
+## THE NEXT SLICE — the enemy retune (six on every map and self-running enemy turns have shipped)
 
 Owner: "work off the assumption that all battles will have 6 deployed; don't worry about
 selection yet." Owner: use `content-author` — it has Bash and runs its own tests.
 
-- **Six placements landed on this branch (ADR-0044).** All five encounters now author six
+- **Six placements landed on main (ADR-0044, PR #69).** All five encounters now author six
   `teamId: 0` refs. The retune slice must un-park the two `DEFERRED (six-deploy)` tests
   (`campaign-run.test.ts`, `playtest.test.ts`) or say why not.
 - **Retune the enemies in the SAME slice.** Tripling battle 1's party without touching the
@@ -104,50 +105,25 @@ selection yet." Owner: use `content-author` — it has Bash and runs its own tes
 - `campaign-run.test.ts` and `playtest.test.ts` also each still hold one parked
   `DEFERRED (ADR-0041)` test, unrelated to the retune — leave those parked.
 
-### And: the enemy acts on its own (owner, 2026-09-12)
+### Shipped in this slice: the enemy acts on its own (ADR-0046, owner 2026-09-19)
 
-Owner: "make it such that enemy auto acts without player having to click a button." Today an
-AI turn waits for an explicit Step tap. That is a real interruption six times a round once
-both sides field six, so it lands with the placements, not after.
+Entering `AI_TURN` arms one `Session.step()` after `BASE_PAUSE_MS / speed`; the command
+ribbon is hidden for the enemy's turn; the ×1/×2/×3 toggle lives in the ☰ menu on its own
+storage key. `pacer.test.ts` (AC-V68/AC-V69) and `e2e/pacer.spec.ts` cover it.
 
-- **This contradicts a written determinism claim and therefore needs an ADR FIRST.** Root
-  `CLAUDE.md` cites "AI turns advance on an explicit Step" as the reason `session.ts`'s
-  command log can never be a function of elapsed time. That sentence is load-bearing and
-  must be rewritten in the same slice, not left to rot.
-- **The invariant that must survive:** the command LOG is identical whether a human tapped
-  Step or a timer did, at any frame rate, on any machine, including a machine that stalls
-  mid-turn. A timer may only *trigger* one step. It may never batch by elapsed time, never
-  decide how many steps to take, and never reach the seeded PRNG.
-- **The test that can come out the other way:** run the same battle twice — once driven
-  synchronously through the existing Step seam, once through the timer path — and assert the
-  two command logs are byte-identical. A test that only checks "the AI eventually moved"
-  passes whether or not the timer corrupted the order.
-- `npm run check:rng` does NOT scan `session.ts`; it covers `src/sim` and
-  `src/render/playtest.ts` only. A wall-clock read added here is invisible to the guard and
-  must be caught by the A/B above. Consider extending the guard's file list in this slice.
-- Presentation questions the owner has not answered: whether the pause is skippable by
-  tapping, and what happens when several AI units act back to back. Render the options
-  before asking — a delay is a feel decision, not a prose one.
-
-**The pause is governed by a ×1 / ×2 / ×3 speed toggle (owner, 2026-09-12).** This promotes
-the speed toggle from P3 (`docs/08` §1), where it has sat unshipped, into this slice.
-
-- ×1 carries "an appropriate pause" — the owner's words; the actual number is unset and is
-  a feel decision, so put two or three speeds in front of them running in the real game.
-- **Be honest about what it scales today: only the AI pause.** Every action resolves
-  instantly, so there is nothing else for a multiplier to act on yet. It is still worth
-  building now because it becomes the single dial future animation reads.
-- The owner's stated intent for that future: walking, weapon swings, spell casts
-  (2026-09-12). Nothing about animation is green-lit or designed — do not start it.
-- **The multiplier must never reach the sim.** It changes how long a step is WATCHED, never
-  what the step does, how many steps run, or any seeded roll. The byte-identical command-log
-  A/B above must pass at every speed, not only at ×1 — assert all three, because a bug that
-  only appears at ×3 passes a ×1-only test.
-- ADR-0032's board motion already honours reduced motion through a `matchMedia` branch. A
-  speed toggle and a reduced-motion preference can disagree; decide which wins in the ADR,
-  do not leave it to whichever code path runs last.
+- **OPEN — the ×1 pause has no owner number.** `BASE_PAUSE_MS = 800` in `pacer.ts` is a
+  placeholder. Put two or three values in front of the owner running in the real game
+  (`art-director`, frames from the running page), then write the chosen one into `docs/10`
+  AC-V69. Whether a board tap shortens the pause, and whether back-to-back enemies get a
+  shorter beat, are the same feel decision — render before asking.
+- Nothing about animation (walking, swings, casts) is green-lit. The toggle scales only
+  the pause today.
 
 ### Landmines this slice will hit
+
+- **`AI_TURN` no longer holds still (ADR-0046).** A Playwright spec that pauses inside an
+  enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`;
+  `e2e/stage-capture.spec.ts` is the first place to look.
 
 - **The rail and band bodies are PINNED to exact colours** in `e2e/contrast.spec.ts` and
   `e2e/contrast-helpers.ts` (`GROUNDS.ironFrame`, `GROUNDS.plate`, asserted disjoint). A

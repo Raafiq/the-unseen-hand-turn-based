@@ -92,15 +92,20 @@ previews honest, and speculation impossible.
 > a refusal. **Confirm is the one way to spend a turn once a shot is aimed.** To end the
 > turn instead, Cancel first. The two controls are then never both live, so "which one did
 > I press" has one answer.
-| `AI_TURN` | — (input inert) | **Step** → `decide` → `applyCommand` → `AWAIT_ACTOR` |
+| `AI_TURN` | — (input inert) | **entering `AI_TURN` triggers one Step** (ADR-0046) → `decide` → `applyCommand` → `AWAIT_ACTOR` |
 | `ENDED` | — | terminal banner |
 
-> **An AI turn advances only on Step — there is no auto-resolve, deliberately.** A
-> wall-clock timer racing with an explicit step would make "how many commands have been
-> applied by now" a function of elapsed time, which is nondeterministic and would break
-> both the visual baseline and any e2e. So `AI_TURN` is a real observable phase the player
-> steps through, and the button relabels to `Enemy turn ▸ Resolve`. A paced auto-advance
-> would need an epoch guard and is not in this slice.
+> **An AI turn advances only through `Session.step()`, and the enemy's turn STARTING is
+> the trigger (ADR-0046, owner 2026-09-19).** There is no button and no tap. Entering
+> `AI_TURN` schedules exactly one Step after a pause the ×1/×2/×3 speed toggle sets; the
+> pause may be zero. What stays forbidden is a clock that DECIDES: nothing may run steps
+> by elapsed time, count how many remain, or batch a late fire into several — one enemy
+> turn starting, one Step, guarded by an epoch (log length + active unit) so a stale fire
+> is a no-op. The command log is byte-identical at any speed, on any machine, including
+> one that stalls mid-turn (AC-V68, reserved). Watch mode and `autoplay` still loop Step
+> synchronously with no pause and are the deterministic e2e baseline; a browser spec that
+> pauses inside `AI_TURN` now races the real pause and must stub the scheduler or drive
+> `autoplay`.
 >
 > **The `ENDED` transition is wider than the sim's verdict.** The table's `terminal:
 > "stalemate"` is the only terminal state the *sim* models. The viewer additionally ends
@@ -125,13 +130,17 @@ previews honest, and speculation impossible.
   binding, and **Esc** cancels. Returning focus to the board re-arms picking.
 - **Desktop follows the same model.** There is **no mouse-only shortcut that commits on a
   target click.** Hover previews are an addition, never a replacement.
-- **The action bar's right-hand primary button is PHASE-AWARE, and it is the only control
-  the enemy's turn needs.** In a player phase it is **End Turn**, labelled with the price it
-  will pay (`End Turn · Move only · −80 Clock`). In `AI_TURN` it reads **"Enemy turn ▸"**
-  and performs **Step**. This is the same explicit step the table already requires — a
-  wall-clock timer must never advance it, or command count becomes a function of elapsed
-  time. Without this the stage has **no control at all during the enemy's turn**, which
-  strands the player.
+- **The action bar's right-hand primary button is PHASE-AWARE.** In a player phase it is
+  **End Turn**, labelled with the price it will pay (`End Turn · Move only · −80 Clock`).
+  In `AI_TURN` the whole command ribbon is **hidden** (ADR-0046; owner 2026-09-19, "hide
+  the list of action buttons that's only used for players") and one line, "The enemy is
+  acting…" (`ribbon-notice`), takes its slot so the two plates keep their place — because
+  the enemy's turn runs itself from the moment it starts, so the stage needs no control
+  during it and the player is not stranded. (The engine viewer keeps its ribbon: there
+  the button is watch mode's explicit Step.) The ☰ menu's watch-mode entry ("Play the enemy now ▸") remains as a shortcut
+  past the pause, never a control the turn needs. The
+  determinism rule is the one in §3's note above — a pause may set WHEN a Step is shown,
+  never WHETHER or HOW MANY.
 - **Re-staging, and what the sheet hides.** With a target staged, tapping any **visible**
   legal target re-stages onto it — no Cancel first, still no command. The preview sheet
   covers at most **35% of the canvas width** (§8b), and a target **underneath** it needs
@@ -1165,6 +1174,35 @@ branches are untested by decision.
   "buying Piercing Shot stamps it LEARNED, charges BOTH AP readouts, and names it in the
   receipt", "Close, Escape and a rail tap all shut it; focus goes back to LEARN", and
   "Escape closes it from anywhere in the member view, not only from inside it."
+- **AC-V68 (the enemy's turn runs itself, and the pacer cannot change the log, ADR-0046):**
+  Entering `AI_TURN` SHALL arm exactly ONE `Session.step()` after a pause of
+  `BASE / speed` ms, through a pacer that owns no clock (its scheduler is injected) and
+  reads no `BattleState`. For one seeded battle, the command log and the serialized state
+  produced by (a) the synchronous Step seam SHALL be byte-identical to those produced by
+  the pacer (b) at **each** of ×1, ×2 and ×3, (c) under a scheduler that delivers every
+  callback twice, and (d) when a watch-mode Step lands inside the pause. *Discriminator:*
+  the fixture SHALL hold two policies — the player waits, the enemy acts through the probe
+  — asserted present, so a stray probe step on the player's turn changes the log; and
+  `staleFires()` SHALL be ≥1 in (c) and (d), so a pacer with no epoch guard cannot pass on
+  a fixture where the guard was never needed. In the browser, the command count SHALL grow
+  inside `AI_TURN` with no call from the spec, the primary button SHALL be disabled, and a
+  held pacer SHALL arm nothing; every ribbon button SHALL be hidden and `ribbon-notice`
+  SHALL be visible inside the band's box, and the ribbon SHALL return with the player's
+  turn. *Measured:* three mutations (no epoch guard; a fire that
+  steps twice; a dropped pause left uncancelled) each go red in `pacer.test.ts` where its
+  header names. Covered by `pacer.test.ts` "AC-V68" and `e2e/pacer.spec.ts` "the enemy acts
+  on its own".
+- **AC-V69 (the speed toggle is a viewer preference, ADR-0046):** `pause(×2)` and
+  `pause(×3)` SHALL be exactly half and one third of `pause(×1)`; the setting SHALL live on
+  its own storage key (`tuh.prefs.v1`, never `tuh.campaign.v1`), survive a real reload, and
+  leave the campaign save's stored string **byte-identical** across a toggle (a substring
+  check cannot be the assertion: `speed` is also a unit stat in the save). An empty, garbage
+  or out-of-range slot reads ×1; a slot that refuses to store does not throw. The ☰ menu's
+  `menu-speed` entry SHALL cycle ×1 → ×2 → ×3 → ×1 through the same `setEnemySpeed` the
+  seam exposes. **The value of `pause(×1)` is the owner's, from rendered options, and is
+  NOT yet chosen: `BASE_PAUSE_MS = 800` is a provisional placeholder, not a rule.** Covered
+  by `pacer.test.ts` "AC-V69" and `e2e/pacer.spec.ts` "the speed toggle is a device
+  preference".
 
 **AC-V35's 44px floor now ALSO binds on this screen, via AC-V56** — the briefing screen's
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already
