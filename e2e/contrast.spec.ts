@@ -426,23 +426,25 @@ test("contrast: briefing and prep, before and after spending", async ({ page }) 
   // changed job from geomancer to archer, and the two trees do not print the same
   // number of nodes.
   //
-  // The party counts moved again (30 -> 34, 29 -> 33) when the "In camp" caption landed
-  // (ADR-0041): battle 1 places two of the six, so FOUR cards each grow one text node.
-  // The delta is the mark's own arithmetic, which is why it is stated rather than just
-  // re-recorded — a different number here would mean the mark went on the wrong count
-  // of cards, and this test would be the thing that said so.
+  // The party counts moved to 34 and 33 when the "In camp" caption landed (ADR-0041) and
+  // came back to 30 and 29 when it was retired (2026-09-19): every encounter now authors
+  // six `teamId: 0` placements, so no card is in camp, no card carries the caption, and
+  // the four extra text nodes the caption added are gone. The delta is the caption's own
+  // arithmetic run backwards — a different number here would mean the caption is still
+  // rendering somewhere, or that a card lost a node it should still have, and this test
+  // would be the thing that said so.
   //
   // Each count is also PINNED exactly, not merely floored: a checker that only ever
   // reports "at least N" can decline to look and still pass, and every one of these
   // states is reproducible (no RNG, the same `startNewGame`/`dismissScene` walk).
-  expect(await textNodeCount(page), "party select, as entered").toBe(34);
+  expect(await textNodeCount(page), "party select, as entered").toBe(30);
   await screenPasses(page, 22);
 
   // The story beat rides the TOP RAIL on party select now, so its reveal is measured
   // here rather than beside the roster. Revealing the last line retires the More
   // control and empties the progress line, which is why this count is one LOWER.
   await page.getByTestId("brief-story-more").click();
-  expect(await textNodeCount(page), "party select, beat fully revealed").toBe(33);
+  expect(await textNodeCount(page), "party select, beat fully revealed").toBe(29);
   await screenPasses(page, 22);
 
   // MEMBER DETAIL — a different screen's worth of ink, on the same grounds. The dossier

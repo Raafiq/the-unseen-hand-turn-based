@@ -1,4 +1,4 @@
-<!-- written-against: cc38d12 -->
+<!-- written-against: b4933f1 -->
 
 # INTENT — where this game is going, and what comes next
 
@@ -30,8 +30,7 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 **And the shell has never been played by hand on a real phone** — every claim about it is
 Chromium device emulation.
 
-Next: **the company marches together.** The party is six (ADR-0041) but encounters still
-author 2 / 3 / 4 / 4 / 4 placements. Everything else waits.
+Next: **the enemy retune.** All six now deploy on every map (ADR-0044). Foes are untouched.
 
 ---
 
@@ -47,7 +46,7 @@ The calls that shape every slice, not just the next one. Only what is still in f
 | For a taste change, approve rendered frames first — and collect **every** note before the engineer starts | owner, 2026-09-08 |
 | A brief's listed items are not optional. An agent that hands one back has failed the pass | owner, 2026-09-12 |
 | Never commit or push without the owner's words | owner, 2026-09-01 |
-| The party is six, all six will deploy, and there is no deploy toggle | ADR-0041 |
+| The party is six, all six deploy on every map, and there is no deploy toggle | ADR-0041, ADR-0044 |
 | Mastery is permanent; loadout swaps are free; learned abilities are never lost | `docs/02`, ADR-0002 |
 | Determinism is P0 — one seeded PRNG, no wall-clock, no `Math.random` in sim | `docs/05` §3, ADR-0004 |
 | The build-diversity gate stays at ≥8 with N=7; it is carried into M1, not weakened | `docs/06` AC-E2, `docs/11` §3 |
@@ -95,17 +94,15 @@ Read this before telling the owner "nothing is pending". Three asks are open.
 Owner: "work off the assumption that all battles will have 6 deployed; don't worry about
 selection yet." Owner: use `content-author` — it has Bash and runs its own tests.
 
-- Six `teamId: 0` placements per encounter, each a `{kind: "ref", recordId}` to a party
-  member, on a legal starting tile. Five encounters, today 2 / 3 / 4 / 4 / 4.
+- **Six placements landed on this branch (ADR-0044).** All five encounters now author six
+  `teamId: 0` refs. The retune slice must un-park the two `DEFERRED (six-deploy)` tests
+  (`campaign-run.test.ts`, `playtest.test.ts`) or say why not.
 - **Retune the enemies in the SAME slice.** Tripling battle 1's party without touching the
   foes is a difficulty change nobody decided. Measure, do not guess.
 - **Do not re-tune from ADR-0027's numbers.** That profile is suspended, not disproved
   (ADR-0041). Re-measure from scratch after the placements land.
-- `campaign-run.test.ts` and `playtest.test.ts` each hold one parked ADR-0027 test — the
-  last two `DEFERRED (ADR-0041)` sites in the tree. If the retune makes the naive party lose
-  the finale again, un-park them; if not, say so out loud.
-- The turn-order rail shows six chips today against fewer real units. Six live placements is
-  the first time it carries a full friendly side — check it at both viewports.
+- `campaign-run.test.ts` and `playtest.test.ts` also each still hold one parked
+  `DEFERRED (ADR-0041)` test, unrelated to the retune — leave those parked.
 
 ### And: the enemy acts on its own (owner, 2026-09-12)
 

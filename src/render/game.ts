@@ -688,24 +688,12 @@ function renderBriefingText(): void {
   el("prep-roster-wrap").hidden = !showRoster;
   const note = el("brief-deploy-note");
   note.hidden = !showRoster;
-  // SIX SHOWN, TWO FIGHT — SAID OUT LOUD (ADR-0041). The per-card deploy TOGGLE is gone
-  // (owner, 2026-09-08: "we don't worry about selection of party members yet"), and all
-  // six will deploy in a later slice — but the shipped encounters still author 2/3/4/4/4
-  // placements, so at battle 1 four of the six cards on this screen never reach the
-  // board. A screen that lists six and fields two without saying so is the pillar-4
-  // violation ("never render a state the sim did not produce" has a mirror: never let a
-  // list imply a state the sim will not honour). This line and the per-card mark are
-  // READ-ONLY: they report `shell.deploy()`'s authored set, they offer no control, and
-  // no click changes them.
-  //
-  // The count comes from the ENCOUNTER's placements, never from `save.deployment` —
-  // which is empty on every save this build writes (see `continueGame`), so a mark
-  // derived from it would say the whole party is in camp.
-  const authored = new Set(shell.deployment()?.authored ?? []);
-  note.textContent =
-    authored.size > 0 && authored.size < party.length
-      ? `This battle fields ${authored.size} of ${party.length}. Tap a member to manage them.`
-      : "Tap a member to manage them.";
+  // THE WHOLE PARTY FIELDS. Every shipped encounter now authors six `teamId: 0`
+  // placements, so the "six shown, N fight" state ADR-0041 described no longer exists in
+  // content: the per-card "In camp" mark and the "This battle fields N of 6" line were
+  // retired with it. There is nothing left to say about who sits out, so the line is the
+  // plain instruction for the one thing a tap does here.
+  note.textContent = "Tap a member to manage them.";
 
   // HOW MANY COLUMNS, written as a custom property rather than solved by `auto-fit`:
   // the owner's ask is that a SIX-member party stands in ONE ROW at 832 CSS px, and
@@ -720,21 +708,14 @@ function renderBriefingText(): void {
     .map((r) => {
       const on = r.id === selectedId;
       const portrait = resolvePortrait(r.id);
-      // IN CAMP = this battle's placements do not name them. An ATTRIBUTE plus a
-      // caption, and deliberately nothing else: no border change (which would read as
-      // a selection state next to `.on`) and no control (there is nothing to toggle).
-      // Suppressed entirely when the encounter fields everybody, so the mark means
-      // something wherever it appears.
-      const camp = authored.size > 0 && authored.size < party.length && !authored.has(r.id);
       return (
-        `<li class="member${on ? " on" : ""}"${camp ? ' data-camp="true"' : ""}>` +
+        `<li class="member${on ? " on" : ""}">` +
         `${icon("fleur", "finial")}` +
         `<button type="button" class="ptab${on ? " on" : ""}" data-member="${r.id}"${on ? ' aria-current="true"' : ""}>` +
         `<span class="face"><img class="${portrait.key === "placeholder" ? "pending" : ""}" src="${portrait.url}" alt="" /></span>` +
         `<span class="plate">` +
         `<span class="nline"><b class="pname">${r.name}</b><span class="pap">${r.ap} AP</span></span>` +
         `<span class="pjob">${icon(jobCrest(r.currentJob))}${jobLabel(r.currentJob)}</span>` +
-        (camp ? `<span class="camp">In camp</span>` : "") +
         `</span></button>` +
         `<span class="pennant" aria-hidden="true">${icon("fleur")}</span>` +
         `</li>`
