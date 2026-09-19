@@ -92,15 +92,20 @@ previews honest, and speculation impossible.
 > a refusal. **Confirm is the one way to spend a turn once a shot is aimed.** To end the
 > turn instead, Cancel first. The two controls are then never both live, so "which one did
 > I press" has one answer.
-| `AI_TURN` | — (input inert) | **Step** → `decide` → `applyCommand` → `AWAIT_ACTOR` |
+| `AI_TURN` | — (input inert) | **entering `AI_TURN` triggers one Step** (ADR-0044) → `decide` → `applyCommand` → `AWAIT_ACTOR` |
 | `ENDED` | — | terminal banner |
 
-> **An AI turn advances only on Step — there is no auto-resolve, deliberately.** A
-> wall-clock timer racing with an explicit step would make "how many commands have been
-> applied by now" a function of elapsed time, which is nondeterministic and would break
-> both the visual baseline and any e2e. So `AI_TURN` is a real observable phase the player
-> steps through, and the button relabels to `Enemy turn ▸ Resolve`. A paced auto-advance
-> would need an epoch guard and is not in this slice.
+> **An AI turn advances only through `Session.step()`, and the enemy's turn STARTING is
+> the trigger (ADR-0044, owner 2026-09-19).** There is no button and no tap. Entering
+> `AI_TURN` schedules exactly one Step after a pause the ×1/×2/×3 speed toggle sets; the
+> pause may be zero. What stays forbidden is a clock that DECIDES: nothing may run steps
+> by elapsed time, count how many remain, or batch a late fire into several — one enemy
+> turn starting, one Step, guarded by an epoch (log length + active unit) so a stale fire
+> is a no-op. The command log is byte-identical at any speed, on any machine, including
+> one that stalls mid-turn (AC-V68, reserved). Watch mode and `autoplay` still loop Step
+> synchronously with no pause and are the deterministic e2e baseline; a browser spec that
+> pauses inside `AI_TURN` now races the real pause and must stub the scheduler or drive
+> `autoplay`.
 >
 > **The `ENDED` transition is wider than the sim's verdict.** The table's `terminal:
 > "stalemate"` is the only terminal state the *sim* models. The viewer additionally ends
@@ -125,13 +130,12 @@ previews honest, and speculation impossible.
   binding, and **Esc** cancels. Returning focus to the board re-arms picking.
 - **Desktop follows the same model.** There is **no mouse-only shortcut that commits on a
   target click.** Hover previews are an addition, never a replacement.
-- **The action bar's right-hand primary button is PHASE-AWARE, and it is the only control
-  the enemy's turn needs.** In a player phase it is **End Turn**, labelled with the price it
-  will pay (`End Turn · Move only · −80 Clock`). In `AI_TURN` it reads **"Enemy turn ▸"**
-  and performs **Step**. This is the same explicit step the table already requires — a
-  wall-clock timer must never advance it, or command count becomes a function of elapsed
-  time. Without this the stage has **no control at all during the enemy's turn**, which
-  strands the player.
+- **The action bar's right-hand primary button is PHASE-AWARE.** In a player phase it is
+  **End Turn**, labelled with the price it will pay (`End Turn · Move only · −80 Clock`).
+  In `AI_TURN` it is **hidden** (ADR-0044): the enemy's turn runs itself from the moment
+  it starts, so the stage needs no control during it and the player is not stranded. The
+  determinism rule is the one in §3's note above — a pause may set WHEN a Step is shown,
+  never WHETHER or HOW MANY.
 - **Re-staging, and what the sheet hides.** With a target staged, tapping any **visible**
   legal target re-stages onto it — no Cancel first, still no command. The preview sheet
   covers at most **35% of the canvas width** (§8b), and a target **underneath** it needs

@@ -113,10 +113,9 @@ Owner: "make it such that enemy auto acts without player having to click a butto
 AI turn waits for an explicit Step tap. That is a real interruption six times a round once
 both sides field six, so it lands with the placements, not after.
 
-- **This contradicts a written determinism claim and therefore needs an ADR FIRST.** Root
-  `CLAUDE.md` cites "AI turns advance on an explicit Step" as the reason `session.ts`'s
-  command log can never be a function of elapsed time. That sentence is load-bearing and
-  must be rewritten in the same slice, not left to rot.
+- **ADR-0044 is accepted (owner, 2026-09-19) and the four stale sentences are rewritten.**
+  Two owner corrections it carries: there is **no button at all** in `AI_TURN`, and the
+  trigger is **the enemy's turn starting**, not a clock. The pause may be zero.
 - **The invariant that must survive:** the command LOG is identical whether a human tapped
   Step or a timer did, at any frame rate, on any machine, including a machine that stalls
   mid-turn. A timer may only *trigger* one step. It may never batch by elapsed time, never
@@ -146,11 +145,14 @@ the speed toggle from P3 (`docs/08` §1), where it has sat unshipped, into this 
   what the step does, how many steps run, or any seeded roll. The byte-identical command-log
   A/B above must pass at every speed, not only at ×1 — assert all three, because a bug that
   only appears at ×3 passes a ×1-only test.
-- ADR-0032's board motion already honours reduced motion through a `matchMedia` branch. A
-  speed toggle and a reduced-motion preference can disagree; decide which wins in the ADR,
-  do not leave it to whichever code path runs last.
+- ADR-0044 decides reduced motion and the speed toggle are independent: the pause is
+  reading time, not motion, so the pacer ignores `matchMedia`.
 
 ### Landmines this slice will hit
+
+- **`AI_TURN` no longer holds still (ADR-0044).** A Playwright spec that pauses inside an
+  enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`;
+  `e2e/stage-capture.spec.ts` is the first place to look.
 
 - **The rail and band bodies are PINNED to exact colours** in `e2e/contrast.spec.ts` and
   `e2e/contrast-helpers.ts` (`GROUNDS.ironFrame`, `GROUNDS.plate`, asserted disjoint). A
