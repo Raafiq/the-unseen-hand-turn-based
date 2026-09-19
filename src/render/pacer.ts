@@ -34,10 +34,11 @@ export type Speed = 1 | 2 | 3;
 export const SPEEDS: readonly Speed[] = [1, 2, 3];
 
 /**
- * PROVISIONAL. The owner's "appropriate pause" (2026-09-12) has no number yet — it is a
- * feel decision taken from rendered options, and the chosen value lands in `docs/10` with
- * AC-V69. Until then this is a placeholder that keeps the mechanism observable, not a
- * rule. Nothing in the sim reads it.
+ * THE OWNER'S NUMBER (2026-09-19). Chosen from three clips of the same battle-1 enemy
+ * round recorded in the running game at 400 / 800 / 1200 ms (`docs/10` AC-V69 carries the
+ * rule; `pacer.test.ts` pins the literal). Two foes take ~1.7 s at this value; a damage
+ * numeral (`MOTION_MS.popup`, 1500 ms) still outlives the pause, so the next foe acts
+ * before the last number fades — seen and accepted. Nothing in the sim reads it.
  */
 export const BASE_PAUSE_MS = 800;
 

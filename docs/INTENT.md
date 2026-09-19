@@ -1,4 +1,4 @@
-<!-- written-against: 0433719 -->
+<!-- written-against: ab2e2f0 -->
 
 # INTENT — where this game is going, and what comes next
 
@@ -80,15 +80,14 @@ Nobody should start these. One line each; the detail lives where the pointer say
 
 ## OPEN — WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Five asks are open.
+Read this before telling the owner "nothing is pending". Three asks are open; one is parked.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
-| I | Is `default` (cheapest-anywhere spending) at 1/16 — statistically the same as naive's 0/16 — the intended difficulty, or should the retune re-open headroom for a distinguishable middle band | open, new this slice | Whether ADR-0027's three-tier "learnable trap" story needs restoring or the two-tier read stands |
+| I | Is `default` (cheapest-anywhere spending) at 1/16 — statistically the same as naive's 0/16 — the intended difficulty, or should the retune re-open headroom for a distinguishable middle band | **PARKED by the owner (2026-09-19): no balance or depth work at this stage — do not ask again until the owner raises it.** Was: open, new this slice | Whether ADR-0027's three-tier "learnable trap" story needs restoring or the two-tier read stands |
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
-| H | **Pick the ×1 enemy pause** from two or three values shown running in the real game (ADR-0046). `BASE_PAUSE_MS = 800` is a placeholder | open, new 2026-09-19. Not asked yet: the values are rendered first, then put to the owner | `docs/10` AC-V69's number; whether the enemy round reads as too fast or too slow |
 
 ---
 
@@ -104,11 +103,10 @@ Entering `AI_TURN` arms one `Session.step()` after `BASE_PAUSE_MS / speed`; the 
 ribbon is hidden for the enemy's turn; the ×1/×2/×3 toggle lives in the ☰ menu on its own
 storage key. `pacer.test.ts` (AC-V68/AC-V69) and `e2e/pacer.spec.ts` cover it.
 
-- **OPEN — the ×1 pause has no owner number.** `BASE_PAUSE_MS = 800` in `pacer.ts` is a
-  placeholder. Put two or three values in front of the owner running in the real game
-  (`art-director`, frames from the running page), then write the chosen one into `docs/10`
-  AC-V69. Whether a board tap shortens the pause, and whether back-to-back enemies get a
-  shorter beat, are the same feel decision — render before asking.
+- **The ×1 pause is 800 ms, the owner's number (2026-09-19)** — picked from three clips of
+  the same battle-1 enemy round at 400 / 800 / 1200 ms; `docs/10` AC-V69 carries it and
+  `pacer.test.ts` pins the literal. Whether a board tap shortens the pause, and whether
+  back-to-back enemies get a shorter beat, were not asked and are not green-lit.
 - Nothing about animation (walking, swings, casts) is green-lit. The toggle scales only
   the pause today.
 

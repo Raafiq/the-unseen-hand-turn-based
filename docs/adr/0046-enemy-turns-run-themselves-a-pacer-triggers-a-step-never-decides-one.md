@@ -124,6 +124,8 @@ injection `MotionDirector` uses for `now`. `session.ts` stays as it is.
   It is a feel decision: `art-director` puts two or three values in front of the owner
   running in the real game, and the chosen number lands in `docs/10` with AC-V69. A number
   written here without a frame behind it would be a guess dressed as a rule.
+  **Chosen 2026-09-19: 800 ms**, from three clips of the same battle-1 enemy round at
+  400 / 800 / 1200 ms. `docs/10` AC-V69 carries the rule.
 - The setting lives with the **viewer's device preferences** (`storage.ts`, `localStorage`),
   not in the campaign save and never in `BattleState`. It is "how fast this phone shows me
   the enemy", not a fact about the run. Changing it mid-pause re-schedules the pending step with
