@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1021 tests, 240 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041) and all six now deploy on every map (ADR-0044); foes are not yet retuned for it.** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **battlefield-first** on a CSS-grid stage (ADR-0043, superseding ADR-0037/ADR-0038): a right-side turn-order rail plus a bottom band (active-unit plate, command ribbon, target plate) leave the board ≥75% unobscured at rest at the 832×328/384 reference viewports, and **Confirm is a separate tap**. The
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1022 tests, 240 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041) and all six now deploy on every map (ADR-0044); foes retuned for it (ADR-0045).** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **battlefield-first** on a CSS-grid stage (ADR-0043, superseding ADR-0037/ADR-0038): a right-side turn-order rail plus a bottom band (active-unit plate, command ribbon, target plate) leave the board ≥75% unobscured at rest at the 832×328/384 reference viewports, and **Confirm is a separate tap**. The
 campaign page is set on **parchment** and its text contrast is measured, not eyeballed
 (ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
 and one line at a time, with a prologue, an interlude and an epilogue that belong to no
@@ -16,11 +16,9 @@ portrait still show the self-labelling placeholder. The title screen, the scene
 player **and the briefing** ship in the owner's new concept look (ADR-0040, ADR-0041);
 battle poses do not. **Hand-play works again (ADR-0043 combat-revamp shell):**
 `isClickTargetable` now accepts `aoe`/`speed` abilities, so wizards and priests are
-tap-castable. Seven of the nine `DEFERRED (ADR-0041)` sites re-armed with the shell; **four**
-`it.skip` remain parked (`src/sim/campaign-run.test.ts`, `src/render/playtest.test.ts`,
-two per file) — two `DEFERRED (ADR-0041)`, an unrelated balance-pacing concern (a naive/
-zero-prep party beating the finale), not a click-targeting gap; and two `DEFERRED
-(six-deploy)`, parked by ADR-0044 pending the enemy retune. Nothing derives that count;
+tap-castable. Seven of the nine `DEFERRED (ADR-0041)` sites re-armed with the shell; the remaining two,
+plus two `DEFERRED (six-deploy)` sites parked by ADR-0044, are re-armed by the enemy
+retune (ADR-0045). **Zero `it.skip` remain in `src/`.** Nothing derives that count;
 grep the marker, don't trust it.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
@@ -48,7 +46,7 @@ Engine roadmap sits at **P2**. Open exit criterion: the build-diversity gate at 
 
 - **Customization spine = three axes:** the 5-slot ability chassis + AP-driven job/skill trees with permanent mastery bonuses + hybrid/fusion jobs. Everything else is `[OPTIONAL]`/`[DEFERRED]` — don't promote it to core.
 - **Respec:** permanent progress, free experiments. Learned abilities and masteries are never lost; loadout swaps are free.
-- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim` and `src/render/playtest.ts`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers. Enemy turns run themselves (ADR-0046): entering `AI_TURN` schedules **one** Step through `src/render/pacer.ts`, which owns no clock — its scheduler is injected — and is epoch-guarded, so "how many commands so far" is still never a function of elapsed time. `check:rng` scans both files.)
+- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim` and `src/render/playtest.ts`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
 - **Sim core is pure and headless** — no rendering/UI deps in the simulation layer.
 
 ## Conventions

@@ -302,7 +302,7 @@ describe("A3 — do the personas separate?", () => {
     expect(opt).not.toEqual(dflt);
   });
 
-  it.skip("DEFERRED (ADR-0041): ADR-0027 pacing claim suspended — Vance as an archer lets the naive persona clear the campaign too, so the two personas no longer separate on winning; re-arm after the combat revamp. separates on WINNING: engaging clears the campaign, ignoring the prep screen does not", () => {
+  it("separates on WINNING: engaging clears the campaign, ignoring the prep screen does not", () => {
     // AC-M1's "an ending is reachable" lives HERE since ADR-0027, because this is the only
     // harness that can drive a real player policy. Both halves are asserted together on
     // purpose: "the optimizer wins" alone would still pass on a campaign anyone can win,
@@ -312,9 +312,14 @@ describe("A3 — do the personas separate?", () => {
 
     expect(cleared(OPTIMIZER)).toBe(OFFSETS.length);
     expect(cleared(NAIVE)).toBeLessThanOrEqual(1);
+    // Out-of-sample check (not asserted here — a seed-window fact, not a claim this test
+    // makes): at 32 seeds the optimizer clears 30/32, losing offsets 23 (stops at b5) and
+    // 27 (stops at b3). The exact 4/4 above holds only on offsets 0-3; it is a seed-window
+    // assertion, not a 100%-clear claim, and a change that shifts RNG consumption can move
+    // it. The wider measurement lives in `docs/plans/slice-six-retune.md`.
   });
 
-  it.skip("DEFERRED (six-deploy): with all six fielded against the unretuned foes both personas clear every battle (4 = 4), so the gap this asserts is closed until the enemy retune lands; re-arm with it. spending at HOME wins where spending cheapest-anywhere does not (ADR-0027)", () => {
+  it("spending at HOME wins where spending cheapest-anywhere does not (ADR-0027)", () => {
     // The design claim ADR-0027 rests on. `optimizer` buys into the member's own job
     // tree; `default` buys the cheapest live node anywhere in the pack. Nothing else
     // about the two policies is doing the work — both fill every slot and both equip a

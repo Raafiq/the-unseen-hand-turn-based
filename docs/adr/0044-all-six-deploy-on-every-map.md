@@ -56,6 +56,8 @@ difficulty claim — the enemies were not touched.
   cheapest-anywhere does not" — both personas now clear 4 of 4). Re-arm both once the
   retune makes at least one battle lethal to a naive/zero-prep run again. The two older
   `DEFERRED (ADR-0041)` sites (one per file) stay parked, unrelated to this change.
+  **Re-armed by ADR-0045 (2026-09-19)** — all four sites now run; zero `it.skip` remain in
+  `src/`.
 - The finale is winnable by a naive party until the retune ships. No claim is made here
   about difficulty, pacing or fun for a real player — see root `CLAUDE.md`'s standing
   caveat that nobody outside the build has played it.

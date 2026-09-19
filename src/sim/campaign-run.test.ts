@@ -80,7 +80,7 @@ describe("AC-M1: the M0 campaign runs end to end, headlessly", () => {
     );
   });
 
-  it.skip("DEFERRED (ADR-0041): ADR-0027 pacing claim suspended — Vance as an archer lets the naive party clear battle 4, so the profile is victory×4 not victory×3+defeat; re-arm after the combat revamp. the unprepped party wins every battle but the finale — ADR-0027, deliberately", () => {
+  it("the unprepped party wins every battle but the finale — ADR-0027, deliberately", () => {
     // THE ASSERTION THAT KEEPS THE PRODUCT HONEST. A party that never opens the prep
     // screen must not be able to finish, or the customization spine `docs/00` is built on
     // is optional decoration. Written as an exact profile rather than "does not complete"
@@ -231,11 +231,28 @@ describe("AC-M3: losing is a state, and retrying restores the pre-battle party",
 describe("the party between battles — HP restored, nobody lost", () => {
   const run = runCampaign(def, encounters, resolver);
 
-  it.skip("DEFERRED (six-deploy): with all six fielded against the unretuned foes nobody dies in the naive run (survivors 6/6/6/5/5), so this is vacuous until the enemy retune lands; re-arm with it. the campaign actually KILLS party members, so the no-permadeath rule is exercised", () => {
+  it("the campaign actually KILLS party members, so the no-permadeath rule is exercised", () => {
     // Without this the two assertions below are vacuous: a campaign nobody ever died in
     // proves nothing about how the dead are handled.
-    const lost = run.battles.some((b) => (b.report.teams.find((t) => t.teamId === def.playerTeam)?.survivors ?? 0) < 4);
-    expect(lost).toBe(true);
+    //
+    // SIX MEMBERS DEPLOY ON EVERY MAP (ADR-0044), so the threshold is "fewer than the six
+    // that took the field", not the `< 4` this was written with when four did.
+    //
+    // AND IT EXCLUDES THE FINALE ON PURPOSE. The unprepped run loses b5 with zero
+    // survivors, so a flat `some` over every battle would pass on a campaign whose only
+    // casualties were the wipe that ended it — which says nothing about a member being
+    // lost and then redeployed. The discriminating fixture is a battle the party WON
+    // that still cost it bodies.
+    const survivors = (b: (typeof run.battles)[number]): number =>
+      b.report.teams.find((t) => t.teamId === def.playerTeam)?.survivors ?? 0;
+    const costly = run.battles.filter((b) => b.report.outcome === "victory" && survivors(b) < 6);
+    // Named, so a retune that moved the attrition somewhere else is a visible change
+    // rather than a silently still-green test. Naming b2 hard-codes that battle 2 is
+    // where attrition shows (headless survivors 3/6, the widest margin of the four won
+    // battles) — a content fact this test now pins. All four won battles currently cost
+    // a member, so a move of the attrition elsewhere reads as a visible red here, not a
+    // silent pass.
+    expect(costly.map((b) => b.battleId)).toContain("b2");
   });
 
   it("every member survives to the ending and redeploys at full HP", () => {

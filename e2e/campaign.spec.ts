@@ -250,11 +250,14 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   await page.getByTestId("new-game").click();
   await dismissScene(page);
 
-  // Two battles of banked AP — enough for one 60-AP tier-one node and not much else,
-  // which is the whole decision. The FIGURE is read off the panel rather than written
-  // down: it moved 96 → 88 the moment Vance changed job, because what a member earns
-  // depends on what they land, and a hard-coded total made a content change look like a
-  // regression. What matters is that it affords exactly one purchase.
+  // Two battles of banked AP — enough for a 60-AP tier-one node. The FIGURE is read off
+  // the panel rather than written down: it moved 96 → 88 the moment Vance changed job,
+  // and to 128 when the six-deploy retune put more foes on battles 1–2 (ADR-0045),
+  // because what a member earns depends on what they land, and a hard-coded total made
+  // a content change look like a regression. This used to also assert "and not much
+  // else" (< 120, one purchase exactly); that stopped being true at 128 and was never
+  // the property the walk needs. What matters is that a node is affordable, and that
+  // buying one charges its price exactly once (asserted below).
   for (let i = 0; i < 2; i++) {
     await playCurrentBattle(page);
     await page.getByTestId("next").click();
@@ -265,7 +268,6 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
     (await page.getByTestId("prep-ap").innerText()).replace(/[^0-9]/g, ""),
   );
   expect(apBefore).toBeGreaterThanOrEqual(60);
-  expect(apBefore).toBeLessThan(120);
 
   // Vance knows no black magic — asserted on the TREE, which is where the dossier says
   // so: the wizard's `fire` row offers a purchase rather than a "learned" stamp. The

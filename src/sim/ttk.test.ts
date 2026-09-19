@@ -118,7 +118,16 @@ const CAMPAIGN_CLASS: Readonly<Record<string, keyof typeof BANDS>> = {
   // Corin is a Priest (Ottoline's class) and Isla a Wizard (the Hexer's class).
   "pc-corin": "squishy",
   "pc-isla": "squishy",
-  "foe-brigand": "squishy",
+  // The Brigand is a KNIGHT. The six-deploy retune (ADR-0044) raised him to 210 raw /
+  // 252 built HP — the reference action is 90, so that is Math.ceil(252/90) = 3 committed
+  // actions. Squishy's ceiling is 2, so at 252 built THIS ROW IS RED under "squishy" — the
+  // reclass to "mid" (2-3) is load-bearing, not cosmetic; a test below proves it. `mid` is
+  // the honest class for what he now IS: fielded two-to-five per map against a six-member
+  // party, he is the campaign's rank-and-file line infantry. `CAMPAIGN_CLASS` is an HP-tier
+  // declaration, not a job-role list — brigand, marauder and warchief are all `knight` and
+  // sit in three different tiers. 252 built stays below the mid ceiling of 270, so the row
+  // keeps headroom to fail on.
+  "foe-brigand": "mid",
   "foe-cutthroat": "mid",
   "foe-hexer": "squishy",
   "foe-marauder": "tank",
@@ -151,6 +160,15 @@ describe("AC-P6: the shipped CAMPAIGN roster sits inside the docs/07 TTK band", 
       expect(actions, `${unitId} (${cls})`).toBeLessThanOrEqual(BANDS[cls].max);
     });
   }
+
+  it("foe-brigand's reclass to mid is load-bearing: he FAILS the squishy band he left", () => {
+    // MUTATION: goes red if a future edit lowers the brigand back under 180 built HP
+    // while leaving him classed "mid" for no reason — then he would no longer exceed
+    // squishy's ceiling and this assertion would fail, flagging the stale reclass.
+    const actions = actionsToKill(campaignUnits["foe-brigand"]!, reference);
+    expect(actions).toBe(3);
+    expect(actions).toBeGreaterThan(BANDS.squishy.max);
+  });
 });
 
 describe("AC-P6: the shipped build data sits inside the docs/07 TTK band", () => {

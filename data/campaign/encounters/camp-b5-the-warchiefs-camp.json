@@ -110,7 +110,7 @@
       }
     },
     {
-      "slotId": "red-brigand-1",
+      "slotId": "red-marauder-1",
       "teamId": 1,
       "pos": {
         "x": 10,
@@ -119,11 +119,11 @@
       "facing": "W",
       "unit": {
         "kind": "ref",
-        "recordId": "foe-brigand"
+        "recordId": "foe-marauder"
       }
     },
     {
-      "slotId": "red-hexer-1",
+      "slotId": "red-cutthroat-1",
       "teamId": 1,
       "pos": {
         "x": 10,
@@ -132,7 +132,20 @@
       "facing": "W",
       "unit": {
         "kind": "ref",
-        "recordId": "foe-hexer"
+        "recordId": "foe-cutthroat"
+      }
+    },
+    {
+      "slotId": "red-marauder-2",
+      "teamId": 1,
+      "pos": {
+        "x": 9,
+        "y": 2
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-marauder"
       }
     }
   ],

@@ -108,6 +108,19 @@
         "kind": "ref",
         "recordId": "foe-brigand"
       }
+    },
+    {
+      "slotId": "red-brigand-2",
+      "teamId": 1,
+      "pos": {
+        "x": 6,
+        "y": 1
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
     }
   ],
   "victory": {

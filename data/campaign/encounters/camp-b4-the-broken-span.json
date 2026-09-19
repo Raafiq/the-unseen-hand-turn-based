@@ -444,6 +444,32 @@
         "kind": "ref",
         "recordId": "foe-cutthroat"
       }
+    },
+    {
+      "slotId": "red-brigand-2",
+      "teamId": 1,
+      "pos": {
+        "x": 9,
+        "y": 2
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-brigand"
+      }
+    },
+    {
+      "slotId": "red-cutthroat-2",
+      "teamId": 1,
+      "pos": {
+        "x": 9,
+        "y": 4
+      },
+      "facing": "W",
+      "unit": {
+        "kind": "ref",
+        "recordId": "foe-cutthroat"
+      }
     }
   ],
   "victory": {
