@@ -87,9 +87,9 @@ export interface GameApi {
   settleMotion: () => void;
   freezeMotion: (elapsedMs: number | null) => void;
   /**
-   * THE ENEMY'S TURN RUNS ITSELF (ADR-0044), and a capture needs it to sit still.
+   * THE ENEMY'S TURN RUNS ITSELF (ADR-0046), and a capture needs it to sit still.
    * `holdEnemyTurns(true)` stops the pacer arming a pause, so `AI_TURN` waits for watch
-   * mode exactly as it did before ADR-0044; `false` releases it and the pause is armed at
+   * mode exactly as it did before ADR-0046; `false` releases it and the pause is armed at
    * once. Not reachable from any control a player has, and it touches no command.
    */
   holdEnemyTurns: (on: boolean) => void;

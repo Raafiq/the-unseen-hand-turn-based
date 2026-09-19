@@ -101,7 +101,7 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await page.getByTestId("help-close").click();
 
   await page.getByTestId("deploy").click();
-  // Held (ADR-0044): every frame below is a chosen state, not whichever one the enemy's
+  // Held (ADR-0046): every frame below is a chosen state, not whichever one the enemy's
   // pause had reached by the time the screenshot ran.
   await holdEnemyTurns(page);
   await shot("04-battle-1-start", "screen-battle");

@@ -77,7 +77,7 @@ export interface HudPorts {
   /** The live session, or `null` when no battle is mounted. */
   session(): Session | null;
   /**
-   * The page runs the enemy's turn itself (ADR-0044, the campaign page's pacer), so the
+   * The page runs the enemy's turn itself (ADR-0046, the campaign page's pacer), so the
    * primary button is INERT in `AI_TURN`. Absent or false — the engine viewer, which has
    * no pacer — the button stays the explicit Step of docs/10 §7's watch mode.
    */
@@ -519,7 +519,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     cancelBtn.disabled = session.phase !== "MOVE_STAGED" && session.phase !== "TARGET_STAGED";
 
     // THE PHASE-AWARE Wait/End-Turn BUTTON (docs/10 §3, AC-V38b). In `AI_TURN` it is
-    // INERT (ADR-0044): the enemy's turn runs itself from the moment it starts, so there
+    // INERT (ADR-0046): the enemy's turn runs itself from the moment it starts, so there
     // is no button to press — the plate keeps its place in the band and says whose turn
     // it is. Disabled like the other ribbon buttons, not hidden, so the band's layout
     // does not shift as the phase flips.
@@ -546,7 +546,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     // no room in a 780×56 band for eight controls plus a ninth.
     const done = session.phase === "ENDED" ? (ports.conclude?.() ?? null) : null;
     concludeBtn.hidden = done === null;
-    // …and the enemy's turn hides the same eight (ADR-0044, owner 2026-09-19), with the
+    // …and the enemy's turn hides the same eight (ADR-0046, owner 2026-09-19), with the
     // notice above in their slot. One assignment, so neither branch can re-show the
     // buttons the other hid.
     for (const b of ribbonButtons) b.hidden = done !== null || paced;
@@ -857,7 +857,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     const session = ports.session();
     if (!session) return;
     // In `AI_TURN` on the campaign page the button is disabled and the enemy acts on its
-    // own (ADR-0044); a click that somehow lands here is nothing, never a second Step
+    // own (ADR-0046); a click that somehow lands here is nothing, never a second Step
     // racing the pacer. On the engine viewer it is still watch mode's explicit Step.
     if (session.phase === "AI_TURN") {
       if (!(ports.enemyRunsItself?.() ?? false)) ports.act("step", () => session.step());

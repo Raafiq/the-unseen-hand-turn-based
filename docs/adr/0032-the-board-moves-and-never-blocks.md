@@ -54,7 +54,7 @@ Six properties are part of the decision, not implementation detail:
    cosmetic catch-up over a result that already happened. Input is never gated, no new phase
    narrows `accepting()`, and `autoplay` keeps looping steps synchronously. The prohibition
    that survives is `docs/10` §3's: **a wall-clock timer must never auto-advance a step**, or
-   command count becomes a function of elapsed time. **[AMENDED 2026-09-19 by ADR-0044:
+   command count becomes a function of elapsed time. **[AMENDED 2026-09-19 by ADR-0046:
    the enemy's turn starting now triggers one Step after a pause; a clock still never
    DECIDES a step — never by elapsed time, never counted, never batched.]** `docs/10` §8 already permits wall-clock
    for pacing so long as nothing derived from it reaches `BattleState`.

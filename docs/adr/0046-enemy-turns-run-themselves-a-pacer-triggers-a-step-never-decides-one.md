@@ -1,4 +1,4 @@
-# ADR-0044 — Enemy turns run themselves: the enemy's turn starting is the trigger; a pause sets only when the action is shown
+# ADR-0046 — Enemy turns run themselves: the enemy's turn starting is the trigger; a pause sets only when the action is shown
 
 - **Status:** Accepted — the owner, 2026-09-19, in words ("approved, proceed"), after two
   corrections recorded below: no button at all, and the trigger is the enemy's turn starting.

@@ -306,7 +306,7 @@ export async function openViewerPrep(page: Page): Promise<void> {
 }
 
 /**
- * HOLD THE ENEMY'S TURN STILL (ADR-0044). The enemy acts on its own after a pause, so a
+ * HOLD THE ENEMY'S TURN STILL (ADR-0046). The enemy acts on its own after a pause, so a
  * spec that reads or captures the board INSIDE `AI_TURN` races a real timer unless it
  * holds the pacer first. Watch mode ({@link watchStep}) still advances a held turn, which
  * is what keeps every capture frame-for-frame deterministic. A no-op on the engine viewer,

@@ -58,6 +58,45 @@
       }
     },
     {
+      "slotId": "blue-ottoline",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-ottoline"
+      }
+    },
+    {
+      "slotId": "blue-corin",
+      "teamId": 0,
+      "pos": {
+        "x": 0,
+        "y": 4
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-corin"
+      }
+    },
+    {
+      "slotId": "blue-isla",
+      "teamId": 0,
+      "pos": {
+        "x": 1,
+        "y": 2
+      },
+      "facing": "E",
+      "unit": {
+        "kind": "ref",
+        "recordId": "pc-isla"
+      }
+    },
+    {
       "slotId": "red-brigand-1",
       "teamId": 1,
       "pos": {

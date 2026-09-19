@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { closeDrawer, dismissScene, openDrawer, startNewGame } from "./helpers.js";
 
 /**
- * THE ENEMY'S TURN RUNS ITSELF (ADR-0044) — in the real page, on a real timer.
+ * THE ENEMY'S TURN RUNS ITSELF (ADR-0046) — in the real page, on a real timer.
  *
  * Every other game-page spec HOLDS the pacer so its frames and reads are of a chosen
  * state; this is the one that does not, because "the enemy acts without the player

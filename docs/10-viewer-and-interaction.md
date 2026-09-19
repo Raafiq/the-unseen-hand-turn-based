@@ -92,11 +92,11 @@ previews honest, and speculation impossible.
 > a refusal. **Confirm is the one way to spend a turn once a shot is aimed.** To end the
 > turn instead, Cancel first. The two controls are then never both live, so "which one did
 > I press" has one answer.
-| `AI_TURN` | — (input inert) | **entering `AI_TURN` triggers one Step** (ADR-0044) → `decide` → `applyCommand` → `AWAIT_ACTOR` |
+| `AI_TURN` | — (input inert) | **entering `AI_TURN` triggers one Step** (ADR-0046) → `decide` → `applyCommand` → `AWAIT_ACTOR` |
 | `ENDED` | — | terminal banner |
 
 > **An AI turn advances only through `Session.step()`, and the enemy's turn STARTING is
-> the trigger (ADR-0044, owner 2026-09-19).** There is no button and no tap. Entering
+> the trigger (ADR-0046, owner 2026-09-19).** There is no button and no tap. Entering
 > `AI_TURN` schedules exactly one Step after a pause the ×1/×2/×3 speed toggle sets; the
 > pause may be zero. What stays forbidden is a clock that DECIDES: nothing may run steps
 > by elapsed time, count how many remain, or batch a late fire into several — one enemy
@@ -132,7 +132,7 @@ previews honest, and speculation impossible.
   target click.** Hover previews are an addition, never a replacement.
 - **The action bar's right-hand primary button is PHASE-AWARE.** In a player phase it is
   **End Turn**, labelled with the price it will pay (`End Turn · Move only · −80 Clock`).
-  In `AI_TURN` the whole command ribbon is **hidden** (ADR-0044; owner 2026-09-19, "hide
+  In `AI_TURN` the whole command ribbon is **hidden** (ADR-0046; owner 2026-09-19, "hide
   the list of action buttons that's only used for players") and one line, "The enemy is
   acting…" (`ribbon-notice`), takes its slot so the two plates keep their place — because
   the enemy's turn runs itself from the moment it starts, so the stage needs no control
@@ -989,10 +989,11 @@ two VIEWS, not two panes, and the per-card deploy toggle is gone.** ~~Member det
 Equipment / Skills / Profile behind three tabs.~~ **Superseded 2026-09-09 by ADR-0042: one
 dossier sheet, no tabs, with a 1×6 portrait rail.**
 
-- **Party select** — six portrait cards in one 6×1 row, a read-only "This battle fields N
-  of 6. Tap a member to manage them.", an "In camp" caption on every card the encounter
-  does not field, the pre-battle beat on the **top rail**, and the wax Deploy plate on the
-  foot rail.
+- **Party select** — six portrait cards in one 6×1 row, a read-only "Tap a member to
+  manage them." line, the pre-battle beat on the **top rail**, and the wax Deploy plate on
+  the foot rail. ~~An "In camp" caption marked cards the encounter did not field~~ —
+  retired by ADR-0044: every encounter now authors six placements, so no card is ever
+  unfielded.
 - **Member detail is the character dossier** (built by `src/render/prep.ts` into
   `#prep-body`), reached by tapping a card. A `dossier-rail` of six portraits sits at the
   far left, in the campaign's roster order; tapping a rail cell swaps the sheet in place.
@@ -1102,8 +1103,9 @@ branches are untested by decision.
   rather than replacing it, so its count is the larger of the two, not a fourth state. The
   party counts move with the roster **size** (two extra members are five more text nodes: a
   name, an AP readout and a job line) and moved again when the "In camp" caption landed on
-  the four unfielded cards. Covered by "contrast: briefing and prep, before and after
-  spending" in `e2e/contrast.spec.ts`.
+  the four unfielded cards. ~~The "In camp" caption~~ is retired by ADR-0044 — every
+  encounter now fields all six, so the count no longer includes it. Covered by "contrast:
+  briefing and prep, before and after spending" in `e2e/contrast.spec.ts`.
 - **AC-V59 (the CSS-leak probe's own coverage is an exact allowlist, not a floor):** Every
   page-wide `index.html` rule that CDP reports as directly matching an element inside
   `#screen-title`, `#screen-scene` or `#screen-briefing`, on a property the scoped rule
@@ -1127,13 +1129,16 @@ branches are untested by decision.
   card opens that member — nothing inside the tile swallows the tap", "the view survives a
   repaint…", "opening a member focuses Back; going back focuses the card that was open",
   and "it does not survive leaving the member view — Back, or the next briefing."
-- **AC-V61 (six shown, N fielded, said out loud):** The party view SHALL mark exactly the
+- **AC-V61 (six shown, N fielded, said out loud):** ~~The party view SHALL mark exactly the
   members the **encounter** does not place, with an "In camp" caption, and state the count
   in a read-only line. The marks SHALL follow the encounter even when a stale
   `save.deployment` is present, and SHALL be suppressed entirely when the encounter fields
-  everybody. Covered by "battle 1 marks exactly the four members it does NOT field, and
-  says so in the hint" and "the fielded set follows the ENCOUNTER even when a stale
-  deployment is in the save."
+  everybody.~~ **Retired by ADR-0044 (2026-09-19):** every encounter now authors six
+  placements, so no card is ever unfielded and the "In camp" mark and count are gone. The
+  party view states only "Tap a member to manage them." Covered by "battle 1 marks exactly
+  the four members it does NOT field, and says so in the hint" and "the fielded set
+  follows the ENCOUNTER even when a stale deployment is in the save" — both retired with
+  the ADR; the deployment array survives as an order seam only.
 
 - **AC-V62 (the 1×6 rail: identity, order and the open marker, ADR-0042):** `dossier-rail`
   SHALL show exactly six cells, one per party member, in the campaign's own roster order —
@@ -1169,7 +1174,7 @@ branches are untested by decision.
   "buying Piercing Shot stamps it LEARNED, charges BOTH AP readouts, and names it in the
   receipt", "Close, Escape and a rail tap all shut it; focus goes back to LEARN", and
   "Escape closes it from anywhere in the member view, not only from inside it."
-- **AC-V68 (the enemy's turn runs itself, and the pacer cannot change the log, ADR-0044):**
+- **AC-V68 (the enemy's turn runs itself, and the pacer cannot change the log, ADR-0046):**
   Entering `AI_TURN` SHALL arm exactly ONE `Session.step()` after a pause of
   `BASE / speed` ms, through a pacer that owns no clock (its scheduler is injected) and
   reads no `BattleState`. For one seeded battle, the command log and the serialized state
@@ -1187,7 +1192,7 @@ branches are untested by decision.
   steps twice; a dropped pause left uncancelled) each go red in `pacer.test.ts` where its
   header names. Covered by `pacer.test.ts` "AC-V68" and `e2e/pacer.spec.ts` "the enemy acts
   on its own".
-- **AC-V69 (the speed toggle is a viewer preference, ADR-0044):** `pause(×2)` and
+- **AC-V69 (the speed toggle is a viewer preference, ADR-0046):** `pause(×2)` and
   `pause(×3)` SHALL be exactly half and one third of `pause(×1)`; the setting SHALL live on
   its own storage key (`tuh.prefs.v1`, never `tuh.campaign.v1`), survive a real reload, and
   leave the campaign save's stored string **byte-identical** across a toggle (a substring
@@ -1203,11 +1208,12 @@ branches are untested by decision.
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already
 states, re-asserted here for this screen's own controls.
 
-**`brief-deploy-note` is now a READ-ONLY line.** It reads "This battle fields N of 6. Tap a
-member to manage them." — a statement of what the encounter authors, not a control. There
-is no deploy toggle: who fights is authored per encounter until ADR-0041's six-placement
-slice lands, and `continueGame` clears `save.deployment` so a stale pick from the old build
-cannot silently field a subset.
+**`brief-deploy-note` is now a READ-ONLY line.** ~~It reads "This battle fields N of 6. Tap
+a member to manage them."~~ — **since ADR-0044, all five encounters field six, so the note
+reads "Tap a member to manage them." with no count.** There is no deploy toggle: who
+fights is authored per encounter, and `continueGame` clears `save.deployment` so a stale
+pick from the old build cannot silently field a subset; the array survives as an order
+seam a chosen deploy order still reaches battle state.
 
 **UNASSERTED, said plainly:** the one-member roster state (roster and `brief-deploy-note`
 both hidden) has no test — `e2e/briefing.spec.ts` documents it as `test.skip`, because no

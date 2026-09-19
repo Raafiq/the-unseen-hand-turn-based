@@ -1,5 +1,5 @@
 /**
- * AC-V68 / AC-V69 (ADR-0044): the enemy's turn runs itself, and the pacer cannot change
+ * AC-V68 / AC-V69 (ADR-0046): the enemy's turn runs itself, and the pacer cannot change
  * the command log.
  *
  * THE FIXTURE MUST DISCRIMINATE, and the test asserts that it does. A board where every

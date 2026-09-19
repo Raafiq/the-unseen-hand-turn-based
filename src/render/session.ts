@@ -485,7 +485,7 @@ export class Session {
     return this.log.map((c) => structuredClone(c));
   }
 
-  /** How many commands the log holds — the pacer's epoch reads this (ADR-0044); no clone. */
+  /** How many commands the log holds — the pacer's epoch reads this (ADR-0046); no clone. */
   commandCount(): number {
     return this.log.length;
   }

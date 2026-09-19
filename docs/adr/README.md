@@ -46,4 +46,5 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0041](0041-the-briefing-is-two-views-and-the-party-is-six.md) | The briefing is two views, the party is six, and hand-play is suspended until the combat revamp | Accepted (superseded in part by ADR-0042) | 2026-09-08 |
 | [0042](0042-the-member-view-is-one-dossier-no-tabs.md) | The member view is one dossier, no tabs — a 1×6 portrait rail replaces Equipment/Skills/Profile | Accepted | 2026-09-09 |
 | [0043](0043-the-combat-screen-is-battlefield-first.md) | The combat screen is battlefield-first, measured against a minimum landscape viewport (supersedes ADR-0037) | Accepted | 2026-09-09 |
-| [0044](0044-enemy-turns-run-themselves-a-pacer-triggers-a-step-never-decides-one.md) | Enemy turns run themselves: the enemy turn starting is the trigger, no button; ×1/×2/×3 scales only the pause before the action shows | Accepted | 2026-09-19 |
+| [0044](0044-all-six-deploy-on-every-map.md) | All six deploy on every map: every encounter authors six placements, no selection | Accepted | 2026-09-19 |
+| [0046](0046-enemy-turns-run-themselves-a-pacer-triggers-a-step-never-decides-one.md) | Enemy turns run themselves: the enemy turn starting is the trigger, no button; ×1/×2/×3 scales only the pause before the action shows | Accepted | 2026-09-19 |

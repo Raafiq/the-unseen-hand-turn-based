@@ -856,7 +856,7 @@
   border-color: var(--hud-face-edge-sel);
 }
 
-/* The enemy's turn: the ribbon's one line in place of the eight buttons (ADR-0044,
+/* The enemy's turn: the ribbon's one line in place of the eight buttons (ADR-0046,
    owner 2026-09-19). Same soft ink as an empty plate; centred in the slot the buttons
    vacate, so the plates either side do not move. */
 .tuh-ribbon-notice {

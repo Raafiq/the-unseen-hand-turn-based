@@ -552,8 +552,10 @@ test("deployment: the briefing lists the whole party, and Deploy fields the auth
   //
   // The half a browser still has to prove is the one that was never headless: the party
   // leaf lists EVERY member, and the units that reach the BOARD are the encounter's
-  // authored set — which at battle 1 is FEWER than the roster shows. That gap is real
-  // and currently unstated on screen; it is recorded here rather than asserted away.
+  // authored set — which is now the WHOLE roster, since every shipped encounter authors
+  // six `teamId: 0` placements (2026-09-19). The count is still read off the sim's board
+  // rather than written down here, so this test reports what the content authors instead
+  // of freezing a ramp the content no longer has.
   await page.goto("/");
   await page.getByTestId("new-game").click();
   await dismissScene(page);
@@ -568,13 +570,13 @@ test("deployment: the briefing lists the whole party, and Deploy fields the auth
   // The timeline names every unit due to act, so it is where "who actually took the
   // field" is observable to a player.
   const timeline = page.getByTestId("timeline");
-  // FEWER than the roster listed, and specifically the encounter's own set: the count is
-  // read off the sim's board rather than written down here, because which members the
-  // encounter authors is content and would rot the moment battle 1 is re-authored.
+  // EVERY member the roster listed reaches the board: the count is read off the sim
+  // rather than written down here, because which members the encounter authors is
+  // content and would rot the moment battle 1 is re-authored.
   const fieldedCount = await page.evaluate(
     () => window.tuhGame.state()?.units.filter((u) => u.teamId === 0).length ?? 0,
   );
-  expect(fieldedCount, "battle 1 fields fewer than the party — the ramp is authored").toBeLessThan(listed.length);
+  expect(fieldedCount, "battle 1 fields the whole party — six authored placements").toBe(listed.length);
   expect(fieldedCount).toBeGreaterThan(0);
   // The timeline names exactly those party members and no others — a stronger read than
   // "some name is there", which a timeline showing the whole roster would also pass.
@@ -1304,7 +1306,7 @@ test("reduced motion: the board animates by default and does not when it is aske
     await dismissScene(page);
     await page.getByTestId("deploy").click();
     await expect(page.getByTestId("screen-battle")).toBeVisible();
-    await holdEnemyTurns(page); // the frames below are of a chosen commit (ADR-0044)
+    await holdEnemyTurns(page); // the frames below are of a chosen commit (ADR-0046)
     // `textContent`, not `innerText`: the turn log lives in the ☰ drawer, which is
     // closed between steps, and `innerText` of a hidden subtree is "" — indistinguishable
     // from "no blow has landed".

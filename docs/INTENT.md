@@ -30,8 +30,7 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 **And the shell has never been played by hand on a real phone** — every claim about it is
 Chromium device emulation.
 
-Next: **the company marches together.** The party is six (ADR-0041) but encounters still
-author 2 / 3 / 4 / 4 / 4 placements. Everything else waits.
+Next: **the enemy retune.** All six now deploy on every map (ADR-0044). Foes are untouched.
 
 ---
 
@@ -47,7 +46,7 @@ The calls that shape every slice, not just the next one. Only what is still in f
 | For a taste change, approve rendered frames first — and collect **every** note before the engineer starts | owner, 2026-09-08 |
 | A brief's listed items are not optional. An agent that hands one back has failed the pass | owner, 2026-09-12 |
 | Never commit or push without the owner's words | owner, 2026-09-01 |
-| The party is six, all six will deploy, and there is no deploy toggle | ADR-0041 |
+| The party is six, all six deploy on every map, and there is no deploy toggle | ADR-0041, ADR-0044 |
 | Mastery is permanent; loadout swaps are free; learned abilities are never lost | `docs/02`, ADR-0002 |
 | Determinism is P0 — one seeded PRNG, no wall-clock, no `Math.random` in sim | `docs/05` §3, ADR-0004 |
 | The build-diversity gate stays at ≥8 with N=7; it is carried into M1, not weakened | `docs/06` AC-E2, `docs/11` §3 |
@@ -87,28 +86,26 @@ Read this before telling the owner "nothing is pending". Four asks are open.
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
-| H | **Pick the ×1 enemy pause** from two or three values shown running in the real game (ADR-0044). `BASE_PAUSE_MS = 800` is a placeholder | open, new 2026-09-19. Not asked yet: the values are rendered first, then put to the owner | `docs/10` AC-V69's number; whether the enemy round reads as too fast or too slow |
+| H | **Pick the ×1 enemy pause** from two or three values shown running in the real game (ADR-0046). `BASE_PAUSE_MS = 800` is a placeholder | open, new 2026-09-19. Not asked yet: the values are rendered first, then put to the owner | `docs/10` AC-V69's number; whether the enemy round reads as too fast or too slow |
 
 ---
 
-## THE NEXT SLICE — six on every map, an enemy retune, and enemy turns that run themselves
+## THE NEXT SLICE — the enemy retune (six on every map and self-running enemy turns have shipped)
 
 Owner: "work off the assumption that all battles will have 6 deployed; don't worry about
 selection yet." Owner: use `content-author` — it has Bash and runs its own tests.
 
-- Six `teamId: 0` placements per encounter, each a `{kind: "ref", recordId}` to a party
-  member, on a legal starting tile. Five encounters, today 2 / 3 / 4 / 4 / 4.
+- **Six placements landed on main (ADR-0044, PR #69).** All five encounters now author six
+  `teamId: 0` refs. The retune slice must un-park the two `DEFERRED (six-deploy)` tests
+  (`campaign-run.test.ts`, `playtest.test.ts`) or say why not.
 - **Retune the enemies in the SAME slice.** Tripling battle 1's party without touching the
   foes is a difficulty change nobody decided. Measure, do not guess.
 - **Do not re-tune from ADR-0027's numbers.** That profile is suspended, not disproved
   (ADR-0041). Re-measure from scratch after the placements land.
-- `campaign-run.test.ts` and `playtest.test.ts` each hold one parked ADR-0027 test — the
-  last two `DEFERRED (ADR-0041)` sites in the tree. If the retune makes the naive party lose
-  the finale again, un-park them; if not, say so out loud.
-- The turn-order rail shows six chips today against fewer real units. Six live placements is
-  the first time it carries a full friendly side — check it at both viewports.
+- `campaign-run.test.ts` and `playtest.test.ts` also each still hold one parked
+  `DEFERRED (ADR-0041)` test, unrelated to the retune — leave those parked.
 
-### Shipped in this slice: the enemy acts on its own (ADR-0044, owner 2026-09-19)
+### Shipped in this slice: the enemy acts on its own (ADR-0046, owner 2026-09-19)
 
 Entering `AI_TURN` arms one `Session.step()` after `BASE_PAUSE_MS / speed`; the command
 ribbon is hidden for the enemy's turn; the ×1/×2/×3 toggle lives in the ☰ menu on its own
@@ -124,7 +121,7 @@ storage key. `pacer.test.ts` (AC-V68/AC-V69) and `e2e/pacer.spec.ts` cover it.
 
 ### Landmines this slice will hit
 
-- **`AI_TURN` no longer holds still (ADR-0044).** A Playwright spec that pauses inside an
+- **`AI_TURN` no longer holds still (ADR-0046).** A Playwright spec that pauses inside an
   enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`;
   `e2e/stage-capture.spec.ts` is the first place to look.
 

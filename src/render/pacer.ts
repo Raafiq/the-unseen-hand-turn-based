@@ -1,5 +1,5 @@
 /**
- * THE ENEMY'S TURN RUNS ITSELF (ADR-0044) — and this file owns NO clock.
+ * THE ENEMY'S TURN RUNS ITSELF (ADR-0046) — and this file owns NO clock.
  *
  * The trigger is the session ENTERING `AI_TURN`. Nothing else starts an enemy action:
  * no button, no tap, no elapsed time. The ×1/×2/×3 speed toggle sets a PAUSE between
@@ -29,7 +29,7 @@
 import type { Session } from "./session.js";
 import type { SaveSlot } from "./storage.js";
 
-/** The speed toggle's three settings (ADR-0044 §3). */
+/** The speed toggle's three settings (ADR-0046 §3). */
 export type Speed = 1 | 2 | 3;
 export const SPEEDS: readonly Speed[] = [1, 2, 3];
 
@@ -136,7 +136,7 @@ export class Pacer {
 
   /**
    * THE BROWSER-SPEC SEAM (`GameApi.holdEnemyTurns`). Held, the pacer schedules nothing
-   * and `AI_TURN` sits still for a capture, exactly as it did before ADR-0044; watch-mode
+   * and `AI_TURN` sits still for a capture, exactly as it did before ADR-0046; watch-mode
    * Step still advances it. Releasing re-observes at once. Not reachable from any
    * control a player has.
    */

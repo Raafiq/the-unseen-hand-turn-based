@@ -106,7 +106,7 @@ job/ability/encounter schemas, AP purchase, Spec Kit initialized (`.specify/`, `
 
 **P3 — Enhancements · NOT STARTED.** Hybrid/fusion jobs (partial sim support in `job.ts`;
 no player-facing path), **rewind UI** (the substrate exists, the UI does not), scan. (The
-speed toggle left P3 for the six-deploy slice — ADR-0044.)
+speed toggle left P3 for the six-deploy slice — ADR-0046.)
 
 **P4 — Content, balance, polish · NOT STARTED.**
 
@@ -137,7 +137,7 @@ The single most important discipline. **Minimum viable job system that still del
 | Determinism / serializable state | **Must** | rewind, saves, and sharing all become rewrites |
 | Encounter benchmark suite | **Must** | balance is unverifiable |
 | Hybrid/fusion jobs | **Should** | **curated set only** — cap the count; the full N² web is a content trap |
-| Rewind UI, scan (speed toggle: pulled forward by ADR-0044) | **Should** | modern players expect them, but game is playable without |
+| Rewind UI, scan (speed toggle: pulled forward by ADR-0046) | **Should** | modern players expect them, but game is playable without |
 | Gear-as-ability + sockets | **Could** | keep only if it keeps feeding `docs/03` archetypes (#11/#12/#14) |
 | Build-sharing / codes | **Could** | free-ish given determinism; not a launch blocker |
 | Weapon skill-trees, set bonuses | **Cut without regret** | fold into AP trees; revisit only if playtest demands |

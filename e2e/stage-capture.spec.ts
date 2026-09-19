@@ -152,7 +152,7 @@ test("stage frames: the five interaction states, on the owner's phone", async ({
   await page.screenshot({ path: `${SHOTS}/851x324-actions-sheet.png` });
   await closeDrawer(page);
 
-  // 5. The enemy's turn. It runs itself after a pause (ADR-0044), so it is HELD here or
+  // 5. The enemy's turn. It runs itself after a pause (ADR-0046), so it is HELD here or
   // the frame would land on whichever state the timer had reached; the primary button is
   // inert, not a control.
   await holdEnemyTurns(page);
