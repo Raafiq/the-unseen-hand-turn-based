@@ -1777,26 +1777,6 @@ body:has(#screen-briefing:not([hidden])) { overflow: hidden; height: 100%; }
 #screen-briefing .ptab .pap { margin-left: auto; font-family: var(--roman); font-size: 0.56em; letter-spacing: 0.08em; }
 #screen-briefing .ptab .pjob { display: flex; align-items: center; gap: 0.24em; font-size: 0.72em; line-height: 1.2; }
 #screen-briefing .ptab .pjob svg { width: 0.95em; height: 0.95em; color: var(--ink); }
-/* IN CAMP — the encounter does not place this member in THIS battle (ADR-0041). A
-   caption and nothing else: no border, no ring, no opacity change on the face. A card
-   dimmed or outlined would read as a selection or a disabled control, and this member is
-   neither — they are still fully editable and their card still opens on a tap.
-
-   SUBDUED BY SIZE AND SHAPE, NOT BY COLOUR, and that is measured rather than chosen:
-   `--ink-soft` (#55401f) on the card's own ground (rgb(191, 153, 118)) is 3.75:1 against
-   a 4.5:1 floor for text this small, and `e2e/contrast.spec.ts` failed on exactly those
-   four captions (ADR-0028, docs/10 AC-V15). It carries the same `--ink` the name and job
-   line do, and reads as an aside through the roman face, the tracking, the italic and
-   the size. */
-#screen-briefing .ptab .camp {
-  display: block;
-  font-family: var(--roman);
-  font-size: 0.58em;
-  letter-spacing: 0.1em;
-  line-height: 1.3;
-  color: var(--ink);
-  font-style: italic;
-}
 #screen-briefing .pennant {
   position: absolute;
   right: 0.42em;

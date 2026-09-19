@@ -906,17 +906,18 @@ test.describe("briefing: control manifest", () => {
   });
 });
 
-test.describe("briefing: six shown, two fight (ADR-0041)", () => {
-  test("battle 1 marks exactly the four members it does NOT field, and says so in the hint", async ({
+test.describe("briefing: the whole party fields (all six deploy)", () => {
+  test("no card is marked in camp, and the note is the plain instruction", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 832, height: 328 });
     await toBriefing(page);
 
-    // THE ENCOUNTER IS THE SOURCE, and the assertion names the two it fields rather than
-    // counting marks: a count alone passes on a mark put on the wrong four cards.
-    // `camp-b1-the-toll-road.json` places `pc-vance` and `pc-kest` on team 0.
-    const marked = await page
+    // EVERY encounter now authors six `teamId: 0` placements, so the "six shown, N
+    // fight" state is gone from content and the mark that reported it is gone from the
+    // page. The assertion NAMES the six rather than counting cards: a count alone
+    // passes on a roster that lost a member and gained a duplicate.
+    const cards = await page
       .locator('[data-testid="prep-roster"] li.member')
       .evaluateAll((lis) =>
         lis.map((li) => ({
@@ -925,30 +926,21 @@ test.describe("briefing: six shown, two fight (ADR-0041)", () => {
           caption: (li.querySelector(".camp") as HTMLElement | null)?.innerText.trim() ?? null,
         })),
       );
-    expect(marked.length, "the shipped party is six").toBe(6);
     expect(
-      marked.filter((m) => m.camp === null).map((m) => m.name).sort(),
-      "battle 1's authored placements are Vance and Kest",
-    ).toEqual(["Kest", "Vance"]);
-    // The mark is VISIBLE, not just an attribute: every camp-marked card carries the
-    // caption too, and no fielded card does.
-    for (const m of marked) {
-      expect(m.caption === null, `${m.name}: caption/attribute disagree`).toBe(m.camp === null);
+      cards.map((c) => c.name).sort(),
+      "the shipped party is these six",
+    ).toEqual(["Briar", "Corin", "Isla", "Kest", "Ottoline", "Vance"]);
+    for (const c of cards) {
+      expect(c.camp, `${c.name}: data-camp survived`).toBeNull();
+      expect(c.caption, `${c.name}: an In camp caption survived`).toBeNull();
     }
 
     await expect(page.getByTestId("brief-deploy-note")).toHaveText(
-      "This battle fields 2 of 6. Tap a member to manage them.",
+      "Tap a member to manage them.",
     );
 
-    // …and it is READ-ONLY: a camp-marked card still opens its member like any other.
-    // (`data-camp` must not have become a disabled state — the whole party is editable.)
-    await openMember(page, "pc-isla");
-    await expect(page.locator("#screen-briefing .nameline h2")).toHaveText("Isla");
-
-    // MUTATION (RUN 2026-09-08): derive the mark and the count from `save.deployment`
-    // (`shell.deployment()?.chosen` reading the save's own array) instead of the
-    // encounter's `authored` — the save's deployment is empty at battle 1, so every card
-    // is marked, the "fields 2 of 6" hint disappears, and both assertions go red.
+    // MUTATION (RUN 2026-09-19): put `data-camp="true"` back on one card in
+    // `renderBriefingText` (game.ts) — the `toBeNull()` for that card goes red.
   });
 
   test("the fielded set follows the ENCOUNTER even when a stale deployment is in the save", async ({
@@ -993,13 +985,20 @@ test.describe("briefing: six shown, two fight (ADR-0041)", () => {
     await expect(page.getByTestId("screen-battle")).toBeVisible();
     const timeline = await page.getByTestId("timeline").innerText();
     const fielded = roster.map((n) => n.trim()).filter((n) => timeline.includes(n)).sort();
-    expect(fielded, "the stale deployment was honoured — Ottoline reached the board").toEqual([
+    expect(fielded, "the stale deployment was honoured — the board is not the six").toEqual([
+      "Briar",
+      "Corin",
+      "Isla",
       "Kest",
+      "Ottoline",
       "Vance",
     ]);
-    // MUTATION (RUN 2026-09-08): drop the `deployment: []` clear in
-    // `CampaignShell.continueGame` (`this.save = this.slotState.save`) — Ottoline is
-    // fielded in Kest's place and this assertion goes red.
+    // MUTATION (RUN 2026-09-08, still red 2026-09-19 by a different route): drop the
+    // `deployment: []` clear in `CampaignShell.continueGame` (`this.save =
+    // this.slotState.save`). The encounter now authors SIX slots, so an honoured
+    // two-name deployment no longer substitutes a wrong unit — it throws at load
+    // ("2 units chosen for 6 slots"), the battle screen never appears, and the
+    // `screen-battle` expectation above goes red before this list is ever read.
   });
 });
 

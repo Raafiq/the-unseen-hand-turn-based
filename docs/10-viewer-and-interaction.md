@@ -980,10 +980,11 @@ two VIEWS, not two panes, and the per-card deploy toggle is gone.** ~~Member det
 Equipment / Skills / Profile behind three tabs.~~ **Superseded 2026-09-09 by ADR-0042: one
 dossier sheet, no tabs, with a 1×6 portrait rail.**
 
-- **Party select** — six portrait cards in one 6×1 row, a read-only "This battle fields N
-  of 6. Tap a member to manage them.", an "In camp" caption on every card the encounter
-  does not field, the pre-battle beat on the **top rail**, and the wax Deploy plate on the
-  foot rail.
+- **Party select** — six portrait cards in one 6×1 row, a read-only "Tap a member to
+  manage them." line, the pre-battle beat on the **top rail**, and the wax Deploy plate on
+  the foot rail. ~~An "In camp" caption marked cards the encounter did not field~~ —
+  retired by ADR-0044: every encounter now authors six placements, so no card is ever
+  unfielded.
 - **Member detail is the character dossier** (built by `src/render/prep.ts` into
   `#prep-body`), reached by tapping a card. A `dossier-rail` of six portraits sits at the
   far left, in the campaign's roster order; tapping a rail cell swaps the sheet in place.
@@ -1093,8 +1094,9 @@ branches are untested by decision.
   rather than replacing it, so its count is the larger of the two, not a fourth state. The
   party counts move with the roster **size** (two extra members are five more text nodes: a
   name, an AP readout and a job line) and moved again when the "In camp" caption landed on
-  the four unfielded cards. Covered by "contrast: briefing and prep, before and after
-  spending" in `e2e/contrast.spec.ts`.
+  the four unfielded cards. ~~The "In camp" caption~~ is retired by ADR-0044 — every
+  encounter now fields all six, so the count no longer includes it. Covered by "contrast:
+  briefing and prep, before and after spending" in `e2e/contrast.spec.ts`.
 - **AC-V59 (the CSS-leak probe's own coverage is an exact allowlist, not a floor):** Every
   page-wide `index.html` rule that CDP reports as directly matching an element inside
   `#screen-title`, `#screen-scene` or `#screen-briefing`, on a property the scoped rule
@@ -1118,13 +1120,16 @@ branches are untested by decision.
   card opens that member — nothing inside the tile swallows the tap", "the view survives a
   repaint…", "opening a member focuses Back; going back focuses the card that was open",
   and "it does not survive leaving the member view — Back, or the next briefing."
-- **AC-V61 (six shown, N fielded, said out loud):** The party view SHALL mark exactly the
+- **AC-V61 (six shown, N fielded, said out loud):** ~~The party view SHALL mark exactly the
   members the **encounter** does not place, with an "In camp" caption, and state the count
   in a read-only line. The marks SHALL follow the encounter even when a stale
   `save.deployment` is present, and SHALL be suppressed entirely when the encounter fields
-  everybody. Covered by "battle 1 marks exactly the four members it does NOT field, and
-  says so in the hint" and "the fielded set follows the ENCOUNTER even when a stale
-  deployment is in the save."
+  everybody.~~ **Retired by ADR-0044 (2026-09-19):** every encounter now authors six
+  placements, so no card is ever unfielded and the "In camp" mark and count are gone. The
+  party view states only "Tap a member to manage them." Covered by "battle 1 marks exactly
+  the four members it does NOT field, and says so in the hint" and "the fielded set
+  follows the ENCOUNTER even when a stale deployment is in the save" — both retired with
+  the ADR; the deployment array survives as an order seam only.
 
 - **AC-V62 (the 1×6 rail: identity, order and the open marker, ADR-0042):** `dossier-rail`
   SHALL show exactly six cells, one per party member, in the campaign's own roster order —
@@ -1165,11 +1170,12 @@ branches are untested by decision.
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already
 states, re-asserted here for this screen's own controls.
 
-**`brief-deploy-note` is now a READ-ONLY line.** It reads "This battle fields N of 6. Tap a
-member to manage them." — a statement of what the encounter authors, not a control. There
-is no deploy toggle: who fights is authored per encounter until ADR-0041's six-placement
-slice lands, and `continueGame` clears `save.deployment` so a stale pick from the old build
-cannot silently field a subset.
+**`brief-deploy-note` is now a READ-ONLY line.** ~~It reads "This battle fields N of 6. Tap
+a member to manage them."~~ — **since ADR-0044, all five encounters field six, so the note
+reads "Tap a member to manage them." with no count.** There is no deploy toggle: who
+fights is authored per encounter, and `continueGame` clears `save.deployment` so a stale
+pick from the old build cannot silently field a subset; the array survives as an order
+seam a chosen deploy order still reaches battle state.
 
 **UNASSERTED, said plainly:** the one-member roster state (roster and `brief-deploy-note`
 both hidden) has no test — `e2e/briefing.spec.ts` documents it as `test.skip`, because no
