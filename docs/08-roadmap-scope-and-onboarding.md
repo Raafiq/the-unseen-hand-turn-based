@@ -15,7 +15,7 @@ Guiding rule: **foundational invariants come first, even if their UI comes later
 | **P0 — Core loop** | Prove the engine | Grid + CT tick scheduler (with pinned tie-break) + move/attack; **seeded RNG + serializable BattleState from day one**; formula test-vectors wired as tests | Rewind *substrate* exists here; no UI yet |
 | **P1 — Chassis + data** | Prove customization | 5-slot loadout; 3–4 base jobs; **data-driven job/ability/battle schema** (`docs/05` §6); AP purchase; **Spec Kit initialized** (see §5) | Battles are data now, so story battles can slot in later |
 | **P2 — Customization depth** | The pillar | Full 5+2 slots, per-job trees, mastery bonuses, free respec, transparency previews | Run the build-diversity metric for the first time |
-| **P3 — Enhancements** | Differentiators | Hybrid/fusion jobs, **rewind UI**, scan, speed toggle; evaluate `[OPTIONAL]` sockets against `docs/03` | Cut-line decisions get made here |
+| **P3 — Enhancements** | Differentiators | Hybrid/fusion jobs, **rewind UI**, scan; evaluate `[OPTIONAL]` sockets against `docs/03` | Cut-line decisions get made here |
 | **P4 — Content, balance, polish** | Ship-shape | Encounter suite, balance passes vs. the metric, difficulty toggles, onboarding, accessibility, build-sharing | New Game+ if scope allows |
 
 ### 1a. Progress against the phases
@@ -105,8 +105,8 @@ job/ability/encounter schemas, AP purchase, Spec Kit initialized (`.specify/`, `
       as a direction, not a number.)
 
 **P3 — Enhancements · NOT STARTED.** Hybrid/fusion jobs (partial sim support in `job.ts`;
-no player-facing path), **rewind UI** (the substrate exists, the UI does not), scan, speed
-toggle.
+no player-facing path), **rewind UI** (the substrate exists, the UI does not), scan. (The
+speed toggle left P3 for the six-deploy slice — ADR-0046.)
 
 **P4 — Content, balance, polish · NOT STARTED.**
 
@@ -137,7 +137,7 @@ The single most important discipline. **Minimum viable job system that still del
 | Determinism / serializable state | **Must** | rewind, saves, and sharing all become rewrites |
 | Encounter benchmark suite | **Must** | balance is unverifiable |
 | Hybrid/fusion jobs | **Should** | **curated set only** — cap the count; the full N² web is a content trap |
-| Rewind UI, scan, speed toggle | **Should** | modern players expect them, but game is playable without |
+| Rewind UI, scan (speed toggle: pulled forward by ADR-0046) | **Should** | modern players expect them, but game is playable without |
 | Gear-as-ability + sockets | **Could** | keep only if it keeps feeding `docs/03` archetypes (#11/#12/#14) |
 | Build-sharing / codes | **Could** | free-ish given determinism; not a launch blocker |
 | Weapon skill-trees, set bonuses | **Cut without regret** | fold into AP trees; revisit only if playtest demands |

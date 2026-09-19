@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "check:agents": "bash scripts/check-agent-models.sh",
-    "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/playtest.ts",
+    "check:rng": "bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/sim && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/playtest.ts && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/session.ts && bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh src/render/pacer.ts",
     "test": "vitest run --reporter=default --reporter=json --outputFile.json=coverage/vitest-summary.json",
     "test:watch": "vitest",
     "state": "vite-node scripts/gen-state.mts",

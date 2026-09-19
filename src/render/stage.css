@@ -856,6 +856,22 @@
   border-color: var(--hud-face-edge-sel);
 }
 
+/* The enemy's turn: the ribbon's one line in place of the eight buttons (ADR-0046,
+   owner 2026-09-19). Same soft ink as an empty plate; centred in the slot the buttons
+   vacate, so the plates either side do not move. */
+.tuh-ribbon-notice {
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--hud-ink-soft);
+}
+.tuh-ribbon-notice[hidden] {
+  display: none;
+}
+
 /* `[hidden]` MUST STILL HIDE IT. Setting `display: flex` directly on the button
    above (needed to stack the glyph over the label) otherwise fights the UA's own
    `[hidden] { display: none }` rule at EQUAL origin/specificity math the wrong
