@@ -6,6 +6,8 @@
   archer) the naive run clears battle 4 as well, so the two tests that carried this are
   parked. The finding is unmeasured, not disproved — re-measure, do not re-tune from the
   numbers below. Original status: **the number is MVP-PROVISIONAL** (the standing note from ADR-0025/0026). What is not provisional: the campaign must not be winnable without using the systems it is built around.
+  **Amended by ADR-0045 (2026-09-19):** decisions 1 and 3 are superseded by the six-deploy
+  foe retune — see that ADR's Consequences for what reverses.
 - **Date:** 2026-08-24
 - **Amends:** `docs/11` **AC-M1**, which asserted a finishable playthrough without saying which player it assumed.
 - **Owner docs:** `docs/11` AC-M1, `docs/06` (encounters), `docs/07` §3 (pacing)

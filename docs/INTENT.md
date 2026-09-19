@@ -1,11 +1,11 @@
-<!-- written-against: b4933f1 -->
+<!-- written-against: acf2034 -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1007 tests, 238 browser specs (`npm run check`).
+Green at the stamp: 1008 tests, 238 browser specs (`npm run check`).
 
 ---
 
@@ -30,7 +30,8 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 **And the shell has never been played by hand on a real phone** — every claim about it is
 Chromium device emulation.
 
-Next: **the enemy retune.** All six now deploy on every map (ADR-0044). Foes are untouched.
+Next: enemy turns that run themselves. All six now deploy on every map (ADR-0044); the
+enemy retune shipped (ADR-0045).
 
 ---
 
@@ -79,30 +80,23 @@ Nobody should start these. One line each; the detail lives where the pointer say
 
 ## OPEN — WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Three asks are open.
+Read this before telling the owner "nothing is pending". Four asks are open.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
+| H | Is `default` (cheapest-anywhere spending) at 1/16 — statistically the same as naive's 0/16 — the intended difficulty, or should the retune re-open headroom for a distinguishable middle band | open, new this slice | Whether ADR-0027's three-tier "learnable trap" story needs restoring or the two-tier read stands |
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
 
 ---
 
-## THE NEXT SLICE — six on every map, an enemy retune, and enemy turns that run themselves
+## THE NEXT SLICE — enemy turns that run themselves
 
 Owner: "work off the assumption that all battles will have 6 deployed; don't worry about
 selection yet." Owner: use `content-author` — it has Bash and runs its own tests.
 
-- **Six placements landed on this branch (ADR-0044).** All five encounters now author six
-  `teamId: 0` refs. The retune slice must un-park the two `DEFERRED (six-deploy)` tests
-  (`campaign-run.test.ts`, `playtest.test.ts`) or say why not.
-- **Retune the enemies in the SAME slice.** Tripling battle 1's party without touching the
-  foes is a difficulty change nobody decided. Measure, do not guess.
-- **Do not re-tune from ADR-0027's numbers.** That profile is suspended, not disproved
-  (ADR-0041). Re-measure from scratch after the placements land.
-- `campaign-run.test.ts` and `playtest.test.ts` also each still hold one parked
-  `DEFERRED (ADR-0041)` test, unrelated to the retune — leave those parked.
+- Enemy retune for six: shipped (ADR-0045); zero parked tests remain.
 
 ### And: the enemy acts on its own (owner, 2026-09-12)
 
