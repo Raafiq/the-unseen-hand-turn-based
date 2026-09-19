@@ -1,4 +1,4 @@
-<!-- written-against: ab2e2f0 -->
+<!-- written-against: 3b952d8 -->
 
 # INTENT — where this game is going, and what comes next
 
@@ -30,8 +30,8 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 **And the shell has never been played by hand on a real phone** — every claim about it is
 Chromium device emulation.
 
-Next: enemy turns that run themselves. All six now deploy on every map (ADR-0044); the
-enemy retune shipped (ADR-0045).
+Enemy turns run themselves (ADR-0046). All six deploy on every map (ADR-0044); the
+enemy retune shipped (ADR-0045). Next: the skill picker and the win / lose screen.
 
 ---
 
@@ -61,7 +61,6 @@ Nobody should start these. One line each; the detail lives where the pointer say
 | Item | State | Where the detail lives |
 |---|---|---|
 | Battle sprite art | Deferred by the owner (2026-09-12). The diamond tokens are deliberate placeholders. No silhouettes, no animation, no portrait-to-sprite matching | owner's note, this slice |
-| The win / lose overlay | Named as an overlay state that takes over interaction. Reserved, not built; `OBJECTIVE_BANNER` is still the only terminal prose | ADR-0043, owner 2026-09-12 |
 | Status pips on the unit token | Support reserved next to the token. No panel, nothing drawn yet | owner, 2026-09-12 |
 | Filling out the thief and knight skillsets | Thief is entirely `effect-deferred` (zero live actions); knight's tree is 2 of 9 live. `thief-f` stays unwired | ADR-0041 |
 | Anything tagged `[DEFERRED]` | Post-1.0 by convention | the docs' tag key |
@@ -71,9 +70,9 @@ Nobody should start these. One line each; the detail lives where the pointer say
 | Camera pan, pinch, double-tap-to-refit | Still uncovered. Tile faces are ~76×38 CSS px; the 44×44 hit overlay fixed taps, not the camera | `docs/10` §8e |
 | Skin B (dark-table stage) | In `stage.css`, not wired into `viewer.html` | `src/render/stage.css` |
 | Safe-area insets | Asserted as declared, not working; no notch emulation | `docs/10` AC-V41 |
-| Defects 1 and 2 (the game picks the ability; the healer cannot heal) | Live, nothing red. The next slice is what fixes them | `docs/defects.md` §1, §2 |
+| Defect 2 (the healer cannot heal) | Fixed in code when the `aoe` clause was lifted (ADR-0043); `docs/defects.md` §2 still reads live — retire it in the skill-picker slice | `docs/defects.md` §2 |
 | The `telemetry.test.ts` flake; test gaps A-H | Not scheduled; none is a shipping bug | `docs/defects.md` §4, §5 |
-| The action menu proposal | Owner-deferred; AC-V23…V29 unclaimed | `docs/proposals/action-menu.md` |
+| The action menu proposal as written | Superseded in part by `intent/skill-picker.md`; its green-colour and legend halves are pre-shell and stay deferred | `docs/proposals/action-menu.md` |
 | A SessionStart warning for missing remote branches | Declined 2026-09-01; do not re-propose | this line |
 
 ---
@@ -91,7 +90,17 @@ Read this before telling the owner "nothing is pending". Three asks are open; on
 
 ---
 
-## THE NEXT SLICE — not yet chosen (six on every map, the enemy retune and self-running enemy turns have all shipped)
+## THE NEXT SLICE — two, chosen by the owner 2026-09-19, one thread each
+
+| Slice | Intent file | What the owner decided |
+|---|---|---|
+| The skill picker | `intent/skill-picker.md` | Pressing Skill lists the unit's skills on a sheet above the command ribbon; the player picks one. Fixes `docs/defects.md` §1. Claims AC-V23… |
+| The win / lose screen | `intent/win-lose-screen.md` | A full-screen overlay in the concept look: the verdict plus what the party earned, one tap to leave |
+
+Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
+Frames are approved before an engineer starts (taste rule). Both slices touch `src/render/hud.ts`, so they run in sequence in the checkout, not side by side.
+
+### Shipped before this: the enemy retune and self-running enemy turns
 
 - **Enemy retune for six shipped (ADR-0045, PR #71).** Foe HP up inside the pacing band,
   more foes on battles 1–4, the finale recomposed. Zero `it.skip` remain in `src/`.
