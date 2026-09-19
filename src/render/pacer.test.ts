@@ -337,7 +337,10 @@ describe("AC-V68: the pacer cannot change the command log", () => {
 
 describe("AC-V69: the speed toggle is a viewer preference", () => {
   it("×2 and ×3 are exactly half and a third of ×1", () => {
-    expect(pauseMs(1)).toBe(BASE_PAUSE_MS);
+    // The literal, not the constant: AC-V69 names 800 ms as the owner's number
+    // (2026-09-19), and `toBe(BASE_PAUSE_MS)` would stay green through any drift.
+    expect(pauseMs(1)).toBe(800);
+    expect(BASE_PAUSE_MS).toBe(800);
     expect(pauseMs(2) * 2).toBe(pauseMs(1));
     expect(pauseMs(3) * 3).toBeCloseTo(pauseMs(1), -1);
     expect(pauseMs(3, 900) * 3).toBe(900);

@@ -1199,9 +1199,10 @@ branches are untested by decision.
   check cannot be the assertion: `speed` is also a unit stat in the save). An empty, garbage
   or out-of-range slot reads ×1; a slot that refuses to store does not throw. The ☰ menu's
   `menu-speed` entry SHALL cycle ×1 → ×2 → ×3 → ×1 through the same `setEnemySpeed` the
-  seam exposes. **The value of `pause(×1)` is the owner's, from rendered options, and is
-  NOT yet chosen: `BASE_PAUSE_MS = 800` is a provisional placeholder, not a rule.** Covered
-  by `pacer.test.ts` "AC-V69" and `e2e/pacer.spec.ts` "the speed toggle is a device
+  seam exposes. **`pause(×1)` SHALL be 800 ms** — the owner's number
+  (2026-09-19), picked from three clips of the same battle-1 enemy round recorded in the
+  running game at 400 / 800 / 1200 ms; `pacer.test.ts` pins the literal, not the constant.
+  Covered by `pacer.test.ts` "AC-V69" and `e2e/pacer.spec.ts` "the speed toggle is a device
   preference".
 
 **AC-V35's 44px floor now ALSO binds on this screen, via AC-V56** — the briefing screen's
