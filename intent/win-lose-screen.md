@@ -1,5 +1,5 @@
 # Intent: the win / lose screen
-Author: the owner. Date: 2026-09-19. Status: accepted (owner, 2026-09-19).
+Author: the owner. Date: 2026-09-19. Status: **shipped (ADR-0047, 2026-09-23)**.
 
 ## Problem
 A battle ends with one text line in the ribbon ("Battle over") and a Continue button.

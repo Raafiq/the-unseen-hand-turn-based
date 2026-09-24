@@ -21,8 +21,8 @@ async function bankOneVictory(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
-  await expect(page.getByTestId("screen-after")).toBeVisible();
+  await expect(page.getByTestId("result-verdict")).toHaveText("VICTORY");
+  await page.getByTestId("result-action").click();
   await page.evaluate(() => window.tuhGame.quitToTitle());
   await expect(page.getByTestId("screen-title")).toBeVisible();
 }

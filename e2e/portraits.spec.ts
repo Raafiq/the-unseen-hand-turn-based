@@ -143,9 +143,7 @@ test("ADR-0039: real art resolves per unit, by asset identity", async ({
   expect(brigandCard.src, "Brigand's card is not showing knight-m's asset").toContain("knight-m");
 
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
-  await expect(page.getByTestId("screen-after")).toBeVisible();
-  await page.getByTestId("next").click();
+  await page.getByTestId("result-action").click();
   await dismissScene(page); // no interlude authored before b2
 
   await expect(page.getByTestId("screen-briefing")).toBeVisible();

@@ -62,7 +62,7 @@ async function playCurrentBattle(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
+  await page.getByTestId("result-action").click();
 }
 
 test.describe("briefing: portrait identity", () => {
@@ -554,10 +554,9 @@ test.describe("briefing: the learn overlay", () => {
     await page.evaluate(() => window.tuhGame.deploy());
     await expect(page.getByTestId("screen-battle")).toBeVisible();
     await page.evaluate(() => window.tuhGame.autoplay());
-    await page.getByTestId("conclude").click();
-    await expect(page.getByTestId("screen-after")).toBeVisible();
-    const nextBtn = page.getByTestId("next");
-    await ((await nextBtn.isVisible()) ? nextBtn : page.getByTestId("retry")).click();
+    // ONE tap either way now (`intent/win-lose-screen.md`): `result-action` is
+    // Continue on a win and Retry on a loss, and both land back on a briefing.
+    await page.getByTestId("result-action").click();
     await dismissScene(page);
     await expect(page.getByTestId("screen-briefing")).toBeVisible();
     await openMember(page, "pc-briar");
@@ -838,9 +837,10 @@ test.describe("briefing: control manifest", () => {
     for (let i = 0; i < 2; i++) {
       await backToParty(page);
       await playCurrentBattle(page);
-      await expect(page.getByTestId("screen-after")).toBeVisible();
-      await page.getByTestId("next").click();
-      await dismissScene(page);
+      // Battle 2's win queues ITS OWN victory beat first, then the interlude already
+      // authored before b3 stands behind it — two scenes in a row where battle 1's
+      // win leaves only one (`intent/win-lose-screen.md`). Loop, not a fixed count.
+      while (await page.getByTestId("screen-scene").isVisible()) await dismissScene(page);
     }
     await expect(page.getByTestId("screen-briefing")).toBeVisible();
     let bought = false;

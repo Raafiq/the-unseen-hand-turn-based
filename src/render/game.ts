@@ -13,7 +13,7 @@
  * session. So elapsed time is measured here and cannot reach `BattleState`.
  */
 
-import type { StoryBeat, UnitRecord } from "../sim/index.js";
+import { apGrantAmount, NO_AP_REWARD, type StoryBeat, type UnitRecord } from "../sim/index.js";
 import {
   ENCOUNTERS,
   PORTRAIT_PLACEHOLDER,
@@ -47,6 +47,7 @@ import {
 import type { LookUp } from "./panels.js";
 import { jobCrest, jobLabel, mountPrep, type PrepHandle } from "./prep.js";
 import { wireLandscapeButton } from "./orientation.js";
+import { verdictOf, type ResultOverlayData, type ResultMember } from "./result-overlay.js";
 import { mountScene, type SceneHandle } from "./scene.js";
 import { SAVE_KEY, browserSlot, memorySlot } from "./storage.js";
 import { PLAYTEST_LOG_KEY, Recorder, diffRecord, summarize } from "./telemetry.js";
@@ -307,7 +308,7 @@ const hud: HudHandle = mountHud(el("stage-host"), {
       run: () => act("menu-speed", () => setEnemySpeed(nextSpeed(enemySpeed))),
     },
   ],
-  conclude: () => ({ label: "Continue ▸", run: () => act("btn-conclude", () => concludeAndLog()) }),
+  resultOverlay: () => resultOverlayPort(),
   // The entry plaque's text (combat revamp, owner decision 9): read from the
   // captured value {@link deployIntoBattle} sets BEFORE calling `shell.deploy()` —
   // `sceneTitle`/`sceneTagline` both read `shell.briefing()`, which is `null` the
@@ -325,6 +326,41 @@ const hud: HudHandle = mountHud(el("stage-host"), {
 let pendingBattleName: { title: string; tagline?: string } | null = null;
 
 /**
+ * "Battle N of 5", captured alongside {@link pendingBattleName} and for the same
+ * reason: `shell.result()` banks the battle as soon as it is decided — long before
+ * the player taps Continue/Retry — which advances `save.battleIndex` on a win, so
+ * `shell.briefing()`'s step would already name the NEXT battle by the time the
+ * result overlay or {@link logBattleOutcome} could read it lazily.
+ */
+let pendingBattleStep: { step: number; total: number } | null = null;
+
+/**
+ * The LIVE battle's encounter id, captured alongside {@link pendingBattleName} and
+ * for the same broken assumption: `paintBoard`'s own comment used to read
+ * "`briefing()` reads the save's pending battle, which on this screen is still the
+ * one being fought" — true only because banking used to happen at the Continue tap.
+ * Now `shell.result()` banks as soon as `ENDED` is reached (before any tap), which
+ * advances `save.battleIndex` on a win, so a repaint in that window would otherwise
+ * paint the JUST-STARTED next battle's terrain onto the still-live board's grid
+ * (`terrain: map is 9x5, grid is 7x5` — caught by `e2e/campaign.spec.ts`'s reload
+ * test, not reasoned out in advance).
+ */
+let pendingEncounterId: string | undefined;
+
+/**
+ * Guards {@link logBattleOutcome} to exactly one row per battle (reviewer finding 5,
+ * win-lose-screen slice). Reset alongside {@link pendingBattleStep} in
+ * {@link deployIntoBattle}. Logging now happens at BANK time
+ * (`resultOverlayPort`'s first successful `shell.result()`), not on the Continue/Retry
+ * tap: a reload mid-overlay — the overlay drew, the battle is banked, the player never
+ * taps — used to lose the row entirely, since nothing between bank and tap ever called
+ * `logBattleOutcome()`. A reload mid-VICTORY still loses the SCENE (accepted, see
+ * `CampaignShell.retry`'s own comment) but the playtest LOG row for that battle is no
+ * longer contingent on the tap that shows it.
+ */
+let outcomeLogged = false;
+
+/**
  * DEPLOY, THEN ANNOUNCE — the one extra step every deploy path takes over calling
  * `shell.deploy()` directly. Title falls back to the derived `battleTitle(id)`
  * exactly as the briefing's own `brief-title` does (`renderBriefingText`); the
@@ -338,6 +374,9 @@ function deployIntoBattle(): void {
       title: shell.sceneTitle() ?? battleTitle(brief.encounterId),
       ...(shell.sceneTagline() ? { tagline: shell.sceneTagline()! } : {}),
     };
+    pendingBattleStep = { step: brief.step, total: brief.total };
+    pendingEncounterId = brief.encounterId;
+    outcomeLogged = false;
   }
   shell.deploy();
   hud.announceBattle();
@@ -815,9 +854,12 @@ function paintBoard(): void {
   const session = shell.session;
   if (!session || shell.screen !== "BATTLE") return;
   const active = session.actor();
-  // The battle a player is LOOKING at, for its painted ground. `briefing()` reads the
-  // save's pending battle, which on this screen is still the one being fought.
-  const encounterId = shell.briefing()?.encounterId;
+  // The battle a player is LOOKING at, for its painted ground. NOT `shell.briefing()`:
+  // that reads the save's PENDING battle, which `shell.result()` may already have
+  // advanced past (banking now happens on entering `ENDED`, before Continue is
+  // tapped — see `pendingEncounterId`'s own comment) while this board is still
+  // showing the battle that just ended.
+  const encounterId = pendingEncounterId;
   // A battle with no authored terrain draws the flat look, unchanged — absent, not a
   // default map, because painting one battle's ground onto another's grid would be a lie
   // about where the fight is happening. The theme moves WITH the terrain: `FIELD_THEME`'s
@@ -890,14 +932,17 @@ function renderBattle(): void {
 }
 
 /**
- * A standalone scene — a prologue, an interlude, an epilogue (docs/10 AC-V17).
+ * A standalone scene — a prologue, an interlude, an epilogue — OR a just-decided
+ * battle's queued victory/defeat beat (`intent/win-lose-screen.md`); `shell.activeScene()`
+ * is the one place that distinction is made, so this reads whichever it hands back
+ * with no branch of its own (docs/10 AC-V17).
  *
  * The whole screen is the scene, which is why this is the one screen that takes a
  * document-level key handler and moves focus. The briefing deliberately gets neither:
  * it is full of selects and buttons where Space and Enter already mean something.
  */
 function renderScene(): void {
-  const scene = shell.pendingScene();
+  const scene = shell.activeScene();
   if (!scene) return;
   el("scene-title").textContent = scene.title ?? "";
   el("scene-title").hidden = scene.title === undefined;
@@ -1019,14 +1064,18 @@ function renderSaveError(): void {
  * The battle the player is on, for the log — supplied ONLY where it is unambiguous.
  *
  * `briefing()` reads the save's PENDING battle, which has already moved past the one
- * just fought by the time the after-battle screen renders. Reporting it there would
- * label the wrong fight, so those screens carry no step and `summarize` holds the last
- * one it saw. `undefined`, not 0 — absent, never a modeled zero.
+ * just fought by the time the after-battle screen renders — and, since the result
+ * overlay's `shell.result()` now banks as soon as a win is decided (before Continue
+ * is tapped), possibly BEFORE the player has even left the battle screen. The BATTLE
+ * case reads the captured `pendingBattleStep` for exactly that reason (the same fix
+ * `paintBoard`'s `pendingEncounterId` needed); `undefined`, not 0 — absent, never a
+ * modeled zero.
  */
 function loggedStep(): number | undefined {
+  if (shell.screen === "BATTLE") return pendingBattleStep?.step;
   // Deliberately NOT on SCENE. A scene sits between battles, so "which battle step is
   // this" has two defensible answers there — absent, not a guess (absent-not-zero).
-  if (shell.screen !== "BRIEFING" && shell.screen !== "BATTLE") return undefined;
+  if (shell.screen !== "BRIEFING") return undefined;
   return shell.briefing()?.step;
 }
 
@@ -1106,29 +1155,121 @@ let pendingFocus: (() => void) | null = null;
 /**
  * Bank the finished battle AND log how it went.
  *
- * The reads happen BEFORE `concludeBattle`, which nulls the session and advances the
- * save's battle index — afterwards there is no report to read and `briefing()` names
- * the NEXT fight. `attempt` is counted off `history` after banking, where this run's
- * own row is the last of however many this battle has now taken.
- *
- * Nothing here re-derives an outcome: `outcome` and `turns` come from the same
- * `RunReport` the campaign banked, so the log and the save cannot disagree.
+ * Kept for `GameApi.conclude` (a direct `window.tuhGame.conclude()` call, no
+ * longer reachable from a click — see {@link resultOverlayPort}). Reads
+ * `pendingBattleStep`, NOT `shell.briefing()?.step`: the result overlay's own
+ * first read may already have banked this battle (`CampaignShell.result()`),
+ * which advances `save.battleIndex` on a win, and `briefing()` would then name
+ * the NEXT fight instead of the one just decided.
  */
 function concludeAndLog(): void {
-  const step = shell.briefing()?.step ?? null;
-  const report = shell.session?.report() ?? null;
   shell.concludeBattle();
+  logBattleOutcome();
+}
+
+/**
+ * Log how the just-decided battle went, off the SAME banked artifact the save
+ * holds (`shell.lastBattle`/`shell.save.history`) — nothing here re-derives an
+ * outcome or a turn count. Safe to call more than once (each call re-reads the
+ * same still-live values); callers invoke it exactly once, right before the
+ * navigation that leaves the battle behind.
+ */
+function logBattleOutcome(): void {
+  if (outcomeLogged) return; // exactly one row per battle — see {@link outcomeLogged}
+  if (pendingBattleStep === null) return;
   const history = shell.save?.history ?? [];
   const last = history.at(-1);
-  if (step === null || report === null || last === undefined) return;
+  const banked = shell.lastBattle;
+  if (last === undefined || banked === null) return;
   telemetry.battle({
     battleId: last.battleId,
-    step,
+    step: pendingBattleStep.step,
     attempt: history.filter((h) => h.battleId === last.battleId).length,
     outcome: last.outcome,
-    turns: report.turns,
-    ticks: report.ticks,
+    turns: banked.report.turns,
+    ticks: banked.report.ticks,
   });
+  outcomeLogged = true;
+}
+
+/**
+ * THE RESULT OVERLAY'S CONTENT (intent/win-lose-screen.md), read fresh every
+ * repaint. `shell.result()` is what BANKS the battle (idempotent — see
+ * `CampaignShell.bankResult`), so every number below is copied off the sim's own
+ * `CampaignBattleRun`, never re-derived: `apGrantAmount` is the sim's own AP-grant
+ * formula (`src/sim/progression.ts`), and the weapon-drop line reads
+ * `shell.lastGrantedEquipment` — a diff of the save's inventory the shell itself
+ * took across the bank, not a guess made here.
+ *
+ * VICTORY lists the six party members with their real portraits (`resolvePortrait`,
+ * the same lookup the battle's own unit cards use, ADR-0039) and Continue banks
+ * nothing further — it only clears the session and lands wherever `arrive()` says
+ * (`shell.advanceAfterResult`). DEFEAT (and any non-victory outcome — draw,
+ * stalemate, timeout all read as a loss, same as `outcomeBeat()`) carries no
+ * roster (owner note 2's leaner card) and Retry replays the same battle
+ * (`shell.retry`).
+ */
+function resultOverlayPort(): { data: ResultOverlayData; action: { label: string; run: () => void } } | null {
+  const run = shell.result();
+  if (run === null || pendingBattleStep === null) return null;
+  // LOG AT BANK TIME (reviewer finding 5), not on the Continue/Retry tap: `run` is
+  // non-null the instant the battle is banked, which is the FIRST repaint after
+  // `ENDED` — well before a player who reloads mid-overlay ever gets to tap
+  // anything. `logBattleOutcome` is idempotent (`outcomeLogged`), so reading this
+  // port on every subsequent repaint writes nothing more.
+  logBattleOutcome();
+  const verdict = verdictOf(run.report.outcome);
+  const title = pendingBattleName?.title ?? battleTitle(run.encounterId);
+  const { step, total } = pendingBattleStep;
+
+  if (verdict === "DEFEAT") {
+    return {
+      data: { verdict, title, step, total },
+      action: {
+        label: "RETRY ▸",
+        // Logging already happened at bank time, above — see {@link logBattleOutcome}.
+        run: () => act("btn-retry", () => shell.retry()),
+      },
+    };
+  }
+
+  const members: ResultMember[] = (shell.save?.party ?? []).map((rec) => ({
+    id: rec.id,
+    name: rec.name,
+    // "No reward entry means 0 AP" is now the SIM's own constant (reviewer finding
+    // 12), not a fallback shape re-typed here — `NO_AP_REWARD` is the exact object
+    // `campaign.ts`/`campaign-run.ts` already use for the same "never deployed"
+    // case, so the render layer reads what "absent" means rather than guessing it.
+    ap: apGrantAmount(run.rewards[rec.id] ?? NO_AP_REWARD),
+    portrait: resolvePortrait(rec.id),
+  }));
+  // ONE ID, ONE NAME — the SAME grant (reviewer finding 13). The previous version
+  // paired the FIRST grant's id with EVERY grant's name joined, so a two-item win
+  // (`camp-the-first-march.json`'s battle 3 grants two weapons in one go) rendered
+  // an id that named only one of the two things the visible text claimed. The
+  // approved frame (`coverage/win-lose/victory-pass3-832x328.png`) is a single
+  // line, so — rather than widen the shape to a list and risk that layout — this
+  // takes the FIRST grant only, consistently: `firstGrantId` is what both fields
+  // below are now actually about.
+  const firstGrantId = shell.lastGrantedEquipment[0];
+  const data: ResultOverlayData = {
+    verdict,
+    title,
+    step,
+    total,
+    members,
+    ...(firstGrantId !== undefined
+      ? { weaponGrant: { id: firstGrantId, name: registry.equipment(firstGrantId).name } }
+      : {}),
+  };
+  return {
+    data,
+    action: {
+      label: "CONTINUE ▸",
+      // Logging already happened at bank time, above — see {@link logBattleOutcome}.
+      run: () => act("btn-conclude", () => shell.advanceAfterResult()),
+    },
+  };
 }
 
 function act(action: string, mutate: () => void): void {
@@ -1323,7 +1464,12 @@ document.addEventListener("keydown", (ev) => {
  */
 const api: GameApi = {
   screen: () => shell.screen,
+  activeSceneId: () => shell.activeScene()?.id ?? null,
   save: () => shell.save,
+  lastBattle: () => shell.lastBattle,
+  result: () => shell.result(),
+  equipmentName: (id) => registry.equipment(id).name,
+  portraitKey: (unitId) => resolvePortrait(unitId).key,
   canContinue: () => shell.canContinue(),
   // Routes through the SAME gate a click on the plaque does (`newGameClick`), so the
   // seam cannot silently overwrite a save the real button would have stopped to confirm.
@@ -1347,6 +1493,7 @@ const api: GameApi = {
     }),
   battleOver: () => shell.battleOver(),
   state: () => shell.session?.state ?? null,
+  cursor: () => shell.session?.cursor ?? null,
   clickTile: (x, y) => hud.pick({ x, y }),
   confirm: () => act("confirm", () => shell.session?.confirm()),
   cancel: () => act("cancel", () => shell.session?.cancel()),

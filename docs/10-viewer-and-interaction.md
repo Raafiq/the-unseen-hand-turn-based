@@ -93,7 +93,7 @@ previews honest, and speculation impossible.
 > turn instead, Cancel first. The two controls are then never both live, so "which one did
 > I press" has one answer.
 | `AI_TURN` | — (input inert) | **entering `AI_TURN` triggers one Step** (ADR-0046) → `decide` → `applyCommand` → `AWAIT_ACTOR` |
-| `ENDED` | — | terminal banner |
+| `ENDED` | — (board, rail, drawers, ☰ and keyboard all inert once the overlay is open) | **on the campaign battle screen, a full-stage result overlay renders** (ADR-0047): Victory or Defeat, mapped from the sim's outcome by `verdictOf`. Its one action button — Continue (win) or Retry (loss) — routes through `CampaignShell.advanceAfterResult()` / `retry()`, which play the battle's authored outcome beat (if any) through the scene player, then land on the next briefing (win) or the same battle's briefing (retry). The engine viewer (`viewer.html`) has no `ports.resultOverlay` and shows the plain terminal banner instead. |
 
 > **An AI turn advances only through `Session.step()`, and the enemy's turn STARTING is
 > the trigger (ADR-0046, owner 2026-09-19).** There is no button and no tap. Entering
@@ -1204,6 +1204,73 @@ branches are untested by decision.
   running game at 400 / 800 / 1200 ms; `pacer.test.ts` pins the literal, not the constant.
   Covered by `pacer.test.ts` "AC-V69" and `e2e/pacer.spec.ts` "the speed toggle is a device
   preference".
+
+### 6d. The win/lose result overlay (ADR-0047)
+
+- **AC-V70 (verdict mapping covers the full outcome enum):** `verdictOf` SHALL map
+  `"victory"` to VICTORY and each of `defeat` / `draw` / `stalemate` / `timeout` to
+  DEFEAT, looped over the sim's own `CampaignHistoryEntrySchema.shape.outcome.options`
+  (not a hand-copied list), each case asserted by name. Covered by
+  `result-overlay.test.ts` "verdictOf — every outcome the sim can record maps to a
+  label".
+- **AC-V71 (Victory shows all six members by identity, with the sim's own grant):** The
+  Victory card SHALL list every party member by `id`/name/portrait, each `+N AP` equal
+  to `apGrantAmount(rewards[id])` — asserted by swapping two members' AP figures so a
+  transposition is visible against a named id, not just a changed set of numbers.
+  Covered by `result-overlay.test.ts` "lists exactly the members it was given, by
+  id/name/AP — not a count" and `e2e/result-overlay.spec.ts` "lists exactly the six
+  party members by id, each AP figure equal to the banked grant".
+- **AC-V72 (the weapon-drip line, present iff granted):** Victory SHALL show
+  `weaponGrant`'s real name when the battle granted one, and the row SHALL be **absent**
+  (no dash, no placeholder) when it did not. Covered by `result-overlay.test.ts` "shows
+  the weapon grant's real name, not a hard-coded one" and "omits the weapon-drop row
+  entirely when the battle granted nothing — absent, not —", and
+  `e2e/result-overlay.spec.ts` "the weapon-drop line names the real grant reaching the
+  overlay — and nothing else in the inventory".
+- **AC-V73 (Defeat's five lines, no roster):** Defeat SHALL render no portrait and no
+  per-member card, and SHALL carry the five owner-specified lines (verdict, battle
+  title/step, "The party fell.", "No AP or new gear was awarded.", "Previously earned
+  AP and equipment are retained.") from one shared copy constant. Covered by
+  `result-overlay.test.ts` "renders no portrait and no per-member card" / "carries the
+  five owner-specified lines from the ONE shared copy constant" and
+  `e2e/result-overlay.spec.ts` "renders no portrait, no per-member card, and the five
+  specified lines".
+- **AC-V74 (the overlay disables everything under it):** On open, the objective plaque,
+  the ribbon and the ENDED toast SHALL be hidden (not merely covered); the board, rail,
+  every drawer, ☰ and arrow-key cursor movement SHALL be inert; a drawer left open by a
+  timed enemy step SHALL force-close the instant the overlay opens; and the layer SHALL
+  sit above every drawer/sheet in z-index (9 over 8) regardless of open order. Covered
+  by `e2e/result-overlay.spec.ts` "the objective plaque and the ribbon are HIDDEN (not
+  merely covered); the board and menu are inert" and "the ☰ drawer, opened during the
+  enemy's own timed step, force-closes the instant that step ends the battle — and the
+  overlay out-ranks it in z-index either way".
+- **AC-V75 (keyboard on the overlay):** Focus SHALL move to the action button on open,
+  survive an unrelated refresh, and ArrowRight SHALL NOT move any board cursor while the
+  overlay is open. Covered by `e2e/result-overlay.spec.ts` "focus moves to the action
+  button on open, survives an unrelated refresh, and ArrowRight cannot move the
+  cursor".
+- **AC-V76 (Continue/Retry route through the outcome beat, then the existing landing):**
+  Continue on a non-final Victory SHALL play that battle's own `victory` beat (by
+  identity, if authored) through the scene player before landing on the next stop;
+  Retry on Defeat SHALL play that battle's own `defeat` beat before landing on that
+  battle's briefing with the party byte-identical. Covered by
+  `e2e/result-overlay.spec.ts` "Continue on a non-final Victory plays battle 1's OWN
+  victory beat, by identity, then lands on the next stop" and "Retry on Defeat plays
+  battle 1's OWN defeat beat, by identity, then reaches its briefing with the party
+  byte-identical".
+- **AC-V77 (banked exactly once):** However many times the overlay is read before the
+  player taps its action button, the result SHALL be banked exactly once. Covered by
+  `e2e/result-overlay.spec.ts` "the save is banked exactly once, however many times the
+  overlay is read before the tap".
+- **AC-V78 (no overlap, no scroll, 44px targets, painted-ground contrast ≥4.5, both
+  viewports):** At 832×328 and 832×384, the overlay SHALL show no clipping or overlap,
+  every control SHALL measure at least 44×44 CSS px, and every text element's contrast
+  against its own painted, sampled ground SHALL be ≥4.5 (`resultGroundsAreReal` guards
+  that the sampled swatches are actually the grounds in use, per `contrast.spec.ts`'s
+  own `groundsAreReal` pattern). Covered by `e2e/result-overlay.spec.ts` "victory
+  overlay: no clipping/overlap, 44px targets, pinned contrast" and "defeat overlay: no
+  clipping/overlap, 44px target, pinned contrast, no text on the forbidden outer
+  stop", each run at both asserted viewports.
 
 **AC-V35's 44px floor now ALSO binds on this screen, via AC-V56** — the briefing screen's
 selects and roster cards are not a new exemption, they are the same floor AC-V35 already

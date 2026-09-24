@@ -174,6 +174,17 @@ export const ApRewardSchema = z
 export type ApReward = z.infer<typeof ApRewardSchema>;
 
 /**
+ * The reward for a roster member `resolveCampaignBattle`'s contribution fold found no
+ * entry for — someone who did not deploy, or whose deployed slot recorded nothing.
+ * Exported so a caller reading `result.rewards[id]` (the render layer's result overlay
+ * included) can ask the sim what "no entry" MEANS instead of re-typing the same object
+ * literal at every call site (`campaign.ts`, `campaign-run.ts` already agreed on it by
+ * coincidence, not by sharing one constant) — the same "ask, never re-derive" rule
+ * {@link apGrantAmount} itself already documents.
+ */
+export const NO_AP_REWARD: ApReward = { participated: false, meaningfulActions: 0 };
+
+/**
  * AP-grant constants (ADR-0012 PLACEHOLDERS, tuned by the grind-budget harness —
  * do not treat as balanced numbers). `ACTION_AP_CAP` is the load-bearing one for
  * AC-J7: it caps the per-action bonus so repeating a trivial action stops scaling.
@@ -183,8 +194,23 @@ export const AP_PER_ACTION = 8;
 export const ACTION_AP_CAP = 80;
 
 /**
- * Deterministic post-battle AP grant. Returns a NEW record with `ap` increased by
+ * The AP one battle's reward is worth, BEFORE it is added to a record —
  *   gained = participated ? BASE_AP_GRANT + min(ACTION_AP_CAP, meaningfulActions*AP_PER_ACTION) : 0
+ *
+ * Exported so a caller that only needs the NUMBER (the result overlay's per-member
+ * "+N AP" line) can ask the sim rather than re-deriving the formula — the same "ask,
+ * never re-derive" rule `moveRange`/`inAbilityRange` already enforce for legality.
+ * `awardAp` below is the only thing that actually banks it.
+ */
+export function apGrantAmount(reward: ApReward): number {
+  const r = ApRewardSchema.parse(reward);
+  const bonus = Math.min(ACTION_AP_CAP, r.meaningfulActions * AP_PER_ACTION);
+  return r.participated ? BASE_AP_GRANT + bonus : 0;
+}
+
+/**
+ * Deterministic post-battle AP grant. Returns a NEW record with `ap` increased by
+ * {@link apGrantAmount}.
  *
  * AC-J7 invariants encoded here:
  *   - The per-action bonus is CAPPED at `ACTION_AP_CAP`, so grinding a repeated
@@ -193,8 +219,5 @@ export const ACTION_AP_CAP = 80;
  *     so de-leveling can never increase a grant and stat growth stays orthogonal to AP.
  */
 export function awardAp(record: UnitRecord, reward: ApReward): UnitRecord {
-  const r = ApRewardSchema.parse(reward);
-  const bonus = Math.min(ACTION_AP_CAP, r.meaningfulActions * AP_PER_ACTION);
-  const gained = r.participated ? BASE_AP_GRANT + bonus : 0;
-  return { ...record, ap: record.ap + gained };
+  return { ...record, ap: record.ap + apGrantAmount(reward) };
 }

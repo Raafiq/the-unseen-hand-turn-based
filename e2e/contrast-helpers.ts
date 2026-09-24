@@ -210,6 +210,25 @@ export const GROUNDS = {
    * rather than silently measured against nothing.
    */
   briefWood: ["rgb(11, 5, 4)", "rgb(21, 11, 9)", "rgb(37, 24, 17)"],
+  /**
+   * THE RESULT OVERLAY's own leaf, on a DEFEAT verdict (`stage.css`'s
+   * `.tuh-result.defeat .rleaf`) — three stops shared with `leaf` above plus a FOURTH,
+   * darker one (`#a87a50`) the victory leaf never paints. `.tuh-result-layer` redeclares
+   * `--parch-hi`/`--parch`/`--parch-lo`/`--parch-burn` as its OWN local custom
+   * properties, in a separate stylesheet scope from the title screen's `leaf` above —
+   * they happen to share the same hex values today, but nothing ties the two together,
+   * which is exactly why `result-overlay.spec.ts`'s own guard samples THIS set off the
+   * live DOM rather than reusing `leaf` on the strength of the coincidence. `#a87a50` is
+   * the "forbidden outer stop" — ink over it measures ~4.25:1, under the 4.5 floor — so
+   * this is also the constant that check compares the sampled ground against.
+   */
+  resultDefeatLeaf: ["rgb(212, 175, 134)", "rgb(201, 159, 117)", "rgb(182, 136, 93)", "rgb(168, 122, 80)"],
+  /**
+   * The result overlay's own action button (`.rgo`) — a THIRD plaque family (a red
+   * "seal" gradient, `#b8202c`/`--seal-red`/`#6d0811`) no other screen paints, so it
+   * cannot reuse `plaque`/`briefSeal` even though the palette lineage is the same idea.
+   */
+  resultSeal: ["rgb(184, 32, 44)", "rgb(154, 14, 26)", "rgb(109, 8, 17)"],
 } as const;
 
 /**
