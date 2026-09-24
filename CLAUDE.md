@@ -122,10 +122,11 @@ Stack locked at P0 (ADR-0007): headless `src/sim/` + thin `src/render/`. **npm, 
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
+| `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:adr-index + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
 | `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/INTENT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
+| `npm run check:adr-index` | fails if any `docs/adr/NNNN-*.md` has no row in `docs/adr/README.md` (ADR-0045 sat unindexed for four days) |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
 | `npm run test:visual` | build + Playwright screenshots/video → `npm run gallery` for the proof-sheet |
@@ -317,7 +318,10 @@ put Fable in every specialist.
     in the new frames. The dossier's frames were approved without that list, so the LEARN
     list (spending AP — the whole progression loop) had nowhere to go; it cost an extra art
     pass, an extra engineer pass and a review blocker (2026-09-09). The engineer will not
-    catch it: it will invent a hiding place rather than stop.
+    catch it: it will invent a hiding place rather than stop. **Inventory the screens the
+    new flow SKIPS too, not only the one it redraws:** the result overlay bypassed
+    `AFTER_BATTLE`, and every battle's authored story beat went with it — the engineer
+    flagged it, the fix was a routing pass nobody had budgeted (2026-09-23).
   - **CHECK THE PIXEL BUDGET BEFORE A SPACING PASS.** At 832×328 the sheet is usually full.
     Read the last report's slack per column; when the ask needs pixels the fold does not
     have, ask the owner where they come from (two options), do not spend the pass. Doing so

@@ -100,3 +100,12 @@ The turn state machine lives in a **DOM-free `session.ts`** constructible over a
   fix to the owner as a failure, and only reading `stage-capture.spec.ts` settled it. Name
   the state in the filename (`-staged` vs `-staged-open`) and ship BOTH frames whenever a
   slice changes when something opens.
+- **A SCREEN APPROVED FROM A FRAME GETS TWO ASSERTIONS BEFORE ANY OTHER: its box against
+  the viewport, and its smallest rendered font.** The result overlay shipped at 45% of the
+  viewport with 7 px text while every box, contrast and 44 px test was green and the report
+  said "opened all four, they work" (2026-09-23). Nothing in that suite compared the built
+  screen to the approved frame's *size*. So, first: the root box of the new screen is ≥ the
+  fraction of the viewport the frame shows (the overlay: ≥ 0.8 × width), and the smallest
+  computed font-size of any text node inside it is ≥ 11 CSS px at 832×328. Only then the
+  identity, contrast and touch-target checks. A brief that names an approved frame names
+  these two numbers.
