@@ -186,6 +186,9 @@ no amount of engine depth answers that. Expect M0 to change M1's priorities.
   that works.
 - **AC-M3 (losing is a state, not a crash):** A lost battle SHALL reach a game-over the
   player can act on, and retrying SHALL restore the pre-battle party exactly.
+  **Still met, mechanism updated (ADR-0047, 2026-09-23):** the game-over state is now the
+  Defeat result overlay, shown the instant the battle is decided, with Retry live in it;
+  the `AFTER_BATTLE` screen this AC used to name is reload-only now (`docs/10` §3).
 - **AC-M4 (the story seam is real):** Battle text SHALL be loaded from data satisfying the
   `docs/08` §4 contract, with **no** narrative content compiled into the engine.
   *Discriminator:* an A/B — swapping the story data changes what the player reads, with no

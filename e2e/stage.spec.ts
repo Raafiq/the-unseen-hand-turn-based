@@ -1779,12 +1779,16 @@ test("the campaign reaches a battle on the stage and can finish it there", async
   expect(m.scroll.h).toBeLessThanOrEqual(m.scroll.ch + 1);
 
   await page.evaluate(() => window.tuhGame.autoplay());
-  // The primary button is REPLACED by Continue once the battle is decided — a decided
-  // battle has no turn left to end, and four controls do not fit the narrowest stage.
-  await expect(page.getByTestId("conclude")).toBeVisible();
+  // The whole ribbon (including the primary/end-turn button) is REPLACED by the
+  // result overlay once the battle is decided (`intent/win-lose-screen.md`, owner
+  // note 3) — a decided battle has no turn left to end, and no room in the band for
+  // eight controls plus a ninth.
+  await expect(page.getByTestId("result-overlay")).toBeVisible();
+  await expect(page.getByTestId("result-action")).toBeVisible();
   await expect(page.getByTestId("end-turn")).toBeHidden();
-  await page.getByTestId("conclude").click();
-  await expect(page.getByTestId("screen-after")).toBeVisible();
+  await page.getByTestId("result-action").click();
+  // Continue banks AND advances in one tap now — no `screen-after` stop for a live win.
+  await expect(page.getByTestId("screen-battle")).toBeHidden();
 });
 
 // ───────────────────────────────────────────────────────────────────────────────

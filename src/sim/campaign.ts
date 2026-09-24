@@ -36,7 +36,7 @@
 
 import { z } from "zod";
 import type { Outcome } from "./condition.js";
-import { awardAp, type ApReward } from "./progression.js";
+import { awardAp, NO_AP_REWARD, type ApReward } from "./progression.js";
 import { UnitRecordSchema, type UnitRecord } from "./roster.js";
 
 /** Current on-disk campaign schema version. Bump when a shape below changes. */
@@ -381,9 +381,7 @@ export function applyBattleResult(
 
   // A member with no entry in `rewards` never deployed; `awardAp` with
   // `participated: false` grants 0, so absence and non-participation agree.
-  const party = save.party.map((rec) =>
-    awardAp(rec, result.rewards[rec.id] ?? { participated: false, meaningfulActions: 0 }),
-  );
+  const party = save.party.map((rec) => awardAp(rec, result.rewards[rec.id] ?? NO_AP_REWARD));
   const battleIndex = save.battleIndex + 1;
   const advanced: CampaignSave = {
     ...save,

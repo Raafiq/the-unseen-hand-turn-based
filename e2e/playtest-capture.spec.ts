@@ -3,6 +3,7 @@ import {
   backToParty,
   prepEveryMember,
   dismissScene,
+  forfeitCurrentBattle,
   freezeMotion,
   holdEnemyTurns,
   openMember,
@@ -140,40 +141,71 @@ test("PLAYTEST: capture every screen a player passes through", async ({ page }) 
   await freezeMotion(page, null);
 
   await page.evaluate(() => window.tuhGame.autoplay());
+  // THE RESULT OVERLAY (intent/win-lose-screen.md) opens the instant the battle is
+  // decided — BEFORE any tap — so this is already the overlay's own frame, not the
+  // old bare "battle over" ribbon state. `06-battle-1-over` keeps its name (a player
+  // reaching this point sees the same board), `06b` is the new state added in the
+  // same slice that shipped it (`src/render/CLAUDE.md`'s capture rule).
   await shot("06-battle-1-over", "screen-battle");
-  await page.getByTestId("conclude").click();
-  await shot("07-after-battle", "screen-after");
+  await expect(page.getByTestId("result-overlay")).toBeVisible();
+  await shot("06b-victory-overlay", "screen-battle");
+  // Continue now banks AND advances in one tap — no separate `screen-after` stop for
+  // a live win, so there is nothing to capture between this and the next briefing.
+  await page.getByTestId("result-action").click();
 
   // Walk to the last briefing so the prep panel is shown fully stocked, capturing each
   // battle's BOARD on the way. Every map is painted by hand (ADR-0030) and nothing in the
   // suite can see a canvas, so these frames are the only way a human judges whether a map
   // reads as the place its name claims — a ford, a ruin, a broken span, a camp.
   for (let i = 0; i < 3; i++) {
-    await page.getByTestId("next").click();
-    await dismissScene(page);
+    // Battle 2's win queues ITS OWN authored victory beat first, and the interlude
+    // already authored before b3 (`sc-interlude-ford`) stands right behind it — two
+    // scenes in a row where every other gap has at most one
+    // (`intent/win-lose-screen.md`). Loop rather than assume a count.
+    while (await page.getByTestId("screen-scene").isVisible()) await dismissScene(page);
     await page.getByTestId("deploy").click();
     await board(`map-battle-${i + 2}`);
     await page.evaluate(() => window.tuhGame.autoplay());
-    await page.getByTestId("conclude").click();
+    await page.getByTestId("result-action").click();
   }
-  await page.getByTestId("next").click();
-  await dismissScene(page);
+  while (await page.getByTestId("screen-scene").isVisible()) await dismissScene(page);
   await shot("08-briefing-battle-5-party", "screen-briefing");
   await openMember(page);
   await shot("08b-briefing-battle-5-full-prep", "screen-briefing");
   await backToParty(page);
 
   // ADR-0027: an unprepped party LOSES the finale, so without this the walkthrough ends
-  // on the after-battle screen and the last frame is a defeat under a caption saying
-  // "ending". The set claims to show every screen a player passes through; the ending is
-  // one of them, and it is where the copy-log control lives.
+  // on a defeat under a caption saying "ending". The set claims to show every screen a
+  // player passes through; the ending is one of them, and it is where the copy-log
+  // control lives.
   await prepEveryMember(page);
   await page.getByTestId("deploy").click();
   await board("map-battle-5");
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
+  await page.getByTestId("result-action").click();
   // The epilogue stands in front of the ending (AC-V17).
   await shot("09-epilogue", "screen-scene");
   await dismissScene(page);
   await shot("10-ending", "screen-completed");
+});
+
+/**
+ * THE DEFEAT OVERLAY — a state the main walkthrough above never reaches (it always
+ * wins). Added in the same slice that shipped it (`src/render/CLAUDE.md`'s capture
+ * rule): a visible state no capture reaches has no proof frame.
+ */
+test("PLAYTEST: capture the defeat overlay (a forfeited battle)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  await startNewGame(page);
+  await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  await holdEnemyTurns(page);
+
+  await forfeitCurrentBattle(page);
+  await expect(page.getByTestId("result-overlay")).toBeVisible();
+  await expect(page.getByTestId("result-verdict")).toHaveText("DEFEAT");
+  await settleMotion(page);
+  await page.screenshot({ path: `${SHOTS}/06c-defeat-overlay.png`, fullPage: true });
 });

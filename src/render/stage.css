@@ -377,6 +377,423 @@
   color: var(--hud-ink-soft);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE RESULT OVERLAY (intent/win-lose-screen.md, ADR-0043 §4) — a port of the
+   approved mock `coverage/win-lose/overlay.html`, whose own file banner names
+   every token below as reused verbatim from the concept look's vocabulary
+   (overhaul.css's `#screen-title`/`#screen-briefing` blocks). DUPLICATED here
+   rather than hoisted to `:root` — the exact convention `overhaul.css`'s own
+   `#screen-scene` block documents (scoping a screen-only concept onto `:root`
+   would leak it everywhere for no shared benefit); `--iron`/`--parch`/etc
+   already mean something different-but-numerically-close in three other
+   files, and a shared name would invite editing the wrong one.
+
+   MOUNTED ON `.tuh-stage` ITSELF (`hud.ts`), so `inset: 0` here covers the WHOLE
+   grid — board, rail and band — not merely the board's own cell. A pass-2 defect
+   mounted this inside `boardBox`, which confined the sheet to ~360px (the board
+   cell's own width) and, because the sheet's width used to be keyed in `em` off a
+   font-size that ALSO caps out small at that mount, doubled up into unreadable
+   text. The rail's chips and the band's plates stay in the DOM (owner note 3 wants
+   them DISABLED, not removed, for focus/AT reasons) — this scrim simply paints
+   over them; z-index below is what keeps it above both. The ribbon and the entry
+   plaque are hidden OUTRIGHT by `hud.ts` on top of that (a hidden element is
+   unreachable by Tab; a covered one is not). */
+.tuh-result-layer {
+  --parch-hi: #ddb992;
+  --parch: #d4af86;
+  --parch-lo: #c99f75;
+  --parch-burn: #b6885d;
+  --plate-parch: #be956f;
+  --plaque: #1d1e1e;
+  --plaque-hi: #2b2725;
+  --plaque-lo: #1b1a17;
+  --plaque-lip: #282019;
+  --iron: #1b1512;
+  --iron-lo: #221c19;
+  --label: #fdf1dc;
+  --ink: #2c2114;
+  --rule: #372519;
+  --glow: #fcc14b;
+  --seal-red: #9a0e1a;
+
+  position: absolute;
+  inset: 0;
+  /* EXPLICIT, not relying on the (correct, but implementation-sensitive) default
+     that an absolutely-positioned grid child with no placement spans the whole
+     grid's padding box: `.tuh-stage` is a grid container now that this element
+     is mounted directly on it rather than inside `.tuh-board`. Pinned rather
+     than assumed, for the same reason `viewFor` is shared rather than
+     re-derived (`src/render/CLAUDE.md`) — a layout property this load-bearing
+     does not get a silent default. */
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  /* ABOVE `.tuh-drawer`/`.tuh-bottom-sheet` (z-index 8), not merely above the
+     board/rail/band (z-index ≤7): `hud.ts` also force-closes any open drawer or
+     sheet the instant the battle ends (`render()`'s ENDED branch), so this only
+     has to win the stacking order against whatever repaints before that branch
+     runs in the same frame — belt and suspenders, reviewer finding 1. */
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  font-family: var(--tuh-text);
+  /* A vh-only clamp, not vw+vh — the stage's height is the scarce dimension at
+     both asserted viewports (832×328/384, docs/10 §8) and the width has slack
+     `.tuh-result`'s own fixed cap (below) already spends honestly.
+     RETUNED (pass-3 fix): the previous coefficients (`2.6px + 1.55vh`) bottomed
+     out AT the 8px floor on the shorter of the two reference viewports, which is
+     what actually produced the ~7-8px text the pass-2 report named — moving the
+     mount point alone could not fix it, because `vh` is relative to the
+     VIEWPORT, not to whatever element the layer happens to be inside. The
+     smallest text in the sheet is `.rtag` ("NEW GEAR") at `0.56em`, so the floor
+     here is chosen to keep 0.56× of it ≥ 11px at 832×328 with margin:
+     0.56 × (6.6vh at 328px) ≈ 0.56 × 21.6px ≈ 12.1px. */
+  font-size: clamp(18px, 6.6vh, 28px);
+}
+
+.tuh-result-layer[hidden] {
+  display: none;
+}
+
+.tuh-result-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(128% 118% at 50% 44%, rgba(11, 5, 4, 0.55), rgba(11, 5, 4, 0.9) 78%);
+}
+
+.tuh-result {
+  position: relative;
+  z-index: 1;
+  /* A FIXED CAP, not an em multiple of the (now much larger) base font-size —
+     `44em` at the old ~8px base gave ~352px (the pass-2 defect's width); at the
+     retuned ~20px base it would give ~880px, overshooting the approved frame's
+     ~680px sheet (`coverage/win-lose/victory-pass1-832x328.png`, measured
+     right-edge ≈749px of 832 there, though that frame was captured before this
+     mount moved to the stage root). `94%` is the fallback for a narrower
+     viewport than either reference one; `680px` is what actually governs at
+     832px wide (680/832 ≈ 0.817, clearing AC's ≥0.8 floor with margin). */
+  width: min(94%, 680px);
+  max-height: 100%;
+  /* CLEARANCE FOR THE VERDICT PLAQUE'S OWN OVERHANG — pass-3's own regression,
+     caught by opening the frame rather than trusting the passing box-equality
+     test (which only measures the SHEET's box, not the plaque poking out above
+     it). `.rverdict` sits `translateY(-55%)` outside `.rleaf`'s top edge, and
+     `place-items: center` on `.tuh-result-layer` centers THIS card's own box —
+     never accounting for a child that overflows it. At the retuned (readable)
+     font-size the plaque's overhang is no longer a few px: it is tall enough to
+     push past the layer's own top edge and get clipped by `.tuh-host`'s
+     `overflow: hidden`, cropping "VICTORY"/"DEFEAT" to their lower halves. An
+     asymmetric top margin — sized to the plaque's actual overhang, not a guess —
+     shifts the CENTERED box down by half of it, which is exactly the clearance
+     the top needs. Overhang ≈ `1.85em` (font) × `1.16` (line-height) × `0.55`
+     (the translate fraction) + half the plaque's own vertical padding
+     (`(0.28+0.32)/2 em`) − the card's own `0.45em` padding already covering part
+     of it ≈ `1.1em`; rounded up for headroom against font metrics this formula
+     does not model exactly. */
+  margin-top: 1.3em;
+  display: flex;
+  padding: 0.45em;
+  background: linear-gradient(180deg, #3a2e26, var(--iron) 26%, var(--iron-lo) 82%, #100c0a);
+  box-shadow:
+    inset 0 1px 0 rgba(230, 196, 150, 0.3),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.85),
+    0 0 0 2px rgba(0, 0, 0, 0.72),
+    0 6px 18px rgba(0, 0, 0, 0.72);
+}
+
+.rsheet {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.rleaf {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Generous top padding — this is the pass-1 fix (owner note 1): the verdict
+     plaque straddles the leaf's own top rail at `translateY(-55%)`, and the old
+     `1.35em` top padding left too little clearance at 328px tall for the plaque's
+     own height, so it printed over "Battle 1 of 5". RETUNED (pass-3, alongside
+     `.tuh-result`'s own `margin-top`): at the retuned, readable font-size the
+     plaque's clearance from the LAYER's own top edge is handled there instead
+     (see its comment), so this only has to clear the plaque from THIS leaf's own
+     subtitle — `2em` still does, verified against the same assertion
+     (`rectsIntersect(verdictBox, whereBox)`) that caught the original defect. The
+     saved `0.5em` is part of what closes pass-3's own regression: the CONTINUE
+     button pushed below the 328px fold, caught by reading the frame rather than
+     trusting the passing width/box tests (which never measured the bottom edge). */
+  padding: 2em 0.9em 0.4em;
+  background: radial-gradient(
+    126% 100% at 50% 30%,
+    var(--parch-hi),
+    var(--parch) 52%,
+    var(--parch-lo) 82%,
+    var(--parch-burn)
+  );
+  box-shadow:
+    inset 0 0 0.6em 0.3em rgba(74, 40, 14, 0.5),
+    inset 0 0 0 1px rgba(58, 32, 12, 0.55);
+}
+
+/* DEFEAT: the same leaf, further into the scorch band — no new colours. Text
+   never reaches the outer `#a87a50` stop (4.17:1 against `--ink`, under the 4.5
+   floor): every defeat line sits centred in the leaf's own padded column, well
+   inside the radial gradient's lighter centre. */
+.tuh-result.defeat .rleaf {
+  background: radial-gradient(
+    126% 100% at 50% 30%,
+    var(--parch),
+    var(--parch-lo) 46%,
+    var(--parch-burn) 84%,
+    #a87a50
+  );
+  box-shadow:
+    inset 0 0 1em 0.52em rgba(58, 28, 8, 0.62),
+    inset 0 0 0 1px rgba(40, 20, 8, 0.65);
+  /* The leaner Defeat card (owner note 2): no portrait row to anchor the leaf's
+     height, so its five lines are CENTRED as a block rather than left hanging at
+     the top under the verdict plaque. */
+  justify-content: center;
+}
+
+.rverdict {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -55%);
+  z-index: 2;
+  padding: 0.28em 1.3em 0.32em;
+  font-family: var(--tuh-roman);
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  font-size: 1.85em;
+  line-height: 1.16;
+  white-space: nowrap;
+  color: var(--label);
+  background: linear-gradient(180deg, var(--plaque-hi), var(--plaque) 40%, var(--plaque-lo));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.14),
+    inset 0 -0.14em 0.4em rgba(0, 0, 0, 0.6),
+    0 0 0 0.14em var(--plaque-lip),
+    0 0 0 0.22em rgba(0, 0, 0, 0.6),
+    0 0.22em 0.5em rgba(0, 0, 0, 0.6);
+}
+
+.tuh-result.defeat .rverdict {
+  letter-spacing: 0.19em;
+}
+
+.rwhere {
+  flex: none;
+  margin: 0 0 0.45em;
+  text-align: center;
+  color: var(--ink);
+  font-style: italic;
+  font-size: 0.92em;
+  line-height: 1.2;
+}
+
+.rwhere b {
+  font-style: normal;
+  font-weight: 600;
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+.rparty {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  align-content: center;
+  gap: 0.3em;
+}
+
+.rmember {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  gap: 0.12em;
+}
+
+.rface {
+  position: relative;
+  flex: none;
+  width: 100%;
+  max-height: 100%;
+  /* SQUARED UP from `3/4` (pass-3 fix): the taller portrait-aspect crop was the
+     single biggest consumer of the sheet's vertical budget (~128px of the ~172px
+     party row at 832×328's retuned font-size) — enough on its own to push the
+     CONTINUE button below the 328px fold. `object-position: 50% 14%` (below)
+     already crops toward the top of the source art, so a squarer frame still
+     reads as a face, not a badge. */
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(180deg, var(--parch-hi), var(--parch-lo));
+  box-shadow:
+    inset 0 0 0 1px rgba(40, 22, 8, 0.72),
+    0 0.12em 0.3em rgba(0, 0, 0, 0.34);
+  overflow: hidden;
+}
+
+.rface img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 14%;
+  display: block;
+}
+
+.rwho {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.82em;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rap {
+  font-family: var(--tuh-roman);
+  font-weight: 600;
+  font-size: 0.6em;
+  letter-spacing: 0.05em;
+  color: var(--label);
+  line-height: 1;
+  padding: 0.22em 0.4em 0.24em;
+  background: linear-gradient(180deg, var(--plaque-hi), var(--plaque) 46%, var(--plaque-lo));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 226, 180, 0.12);
+}
+
+.tuh-result.defeat .rap {
+  color: #c9bfae;
+  letter-spacing: 0.12em;
+}
+
+.rfoot {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: 0.55em;
+  margin-top: 0.45em;
+}
+
+.rfoot-centered {
+  justify-content: center;
+}
+
+.rdrop {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.2em 0.55em 0.24em;
+  background: var(--plate-parch);
+  box-shadow:
+    inset 0 0 0 1px rgba(40, 22, 8, 0.62),
+    inset 0 1px 0 rgba(255, 236, 206, 0.3);
+}
+
+.rtag {
+  flex: none;
+  font-family: var(--tuh-roman);
+  font-weight: 600;
+  font-size: 0.56em;
+  letter-spacing: 0.11em;
+  color: var(--ink);
+}
+
+.rrule {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  background: var(--rule);
+  opacity: 0.55;
+}
+
+.ritem {
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.88em;
+  line-height: 1.2;
+}
+
+.ritem i {
+  font-weight: 400;
+  font-size: 0.88em;
+  opacity: 0.92;
+}
+
+/* THE 44×44 TOUCH-TARGET FLOOR (docs/10 §8, ~line 164/737) — measured in CSS px
+   AFTER the stage transform, so this button is sized in real px, not `em`, and a
+   min-height/width floor is asserted rather than assumed from the recipe. */
+.rgo {
+  flex: none;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.3em 1em 0.32em;
+  font-family: var(--tuh-roman);
+  font-weight: 600;
+  font-size: 0.8em;
+  letter-spacing: 0.09em;
+  color: var(--label);
+  background: linear-gradient(180deg, #b8202c, var(--seal-red) 44%, #6d0811);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 198, 180, 0.28),
+    inset 0 -0.16em 0.4em rgba(0, 0, 0, 0.42),
+    0 0 0 0.14em var(--plaque-lip),
+    0 0 0 0.22em rgba(0, 0, 0, 0.55);
+}
+
+.rgo:hover {
+  filter: brightness(1.06);
+}
+
+.rgo:focus-visible {
+  outline: 2px solid var(--glow);
+  outline-offset: 2px;
+}
+
+.rmsg,
+.rreward,
+.rretain {
+  flex: none;
+  margin: 0.3em 0 0;
+  text-align: center;
+  color: var(--ink);
+}
+
+.rreward {
+  font-style: italic;
+}
+
+.rretain {
+  font-size: 0.88em;
+  opacity: 0.92;
+}
+
 /* ── the right-side turn-order rail ───────────────────────────────────────── */
 
 /* BLACKENED IRON/STEEL VERTICAL FRAME (owner MATERIAL brief, pass 3: the fill

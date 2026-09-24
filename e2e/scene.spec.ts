@@ -57,7 +57,7 @@ async function playCurrentBattle(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
+  await page.getByTestId("result-action").click();
 }
 
 test("scene: backdrop resolves to the bundled night asset by name", async ({ page }) => {
@@ -107,13 +107,12 @@ test("scene: the portrait frame breaks the rail for a real-art speaker", async (
   await dismissScene(page); // the prologue
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await playCurrentBattle(page);
-  await expect(page.getByTestId("screen-after")).toBeVisible();
-  await page.getByTestId("next").click();
   await dismissScene(page); // no interlude authored before b2
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await playCurrentBattle(page);
-  await expect(page.getByTestId("screen-after")).toBeVisible();
-  await page.getByTestId("next").click();
+  // Battle 2's own authored victory beat plays first (`intent/win-lose-screen.md`) —
+  // a DIFFERENT scene, standing in front of the interlude this test actually wants.
+  await dismissScene(page);
   await expect(page.getByTestId("screen-scene")).toBeVisible();
 
   const figure = page.getByTestId("scene-story-portrait");

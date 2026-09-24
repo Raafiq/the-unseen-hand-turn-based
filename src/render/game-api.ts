@@ -11,12 +11,54 @@ import type { Screen } from "./campaign-shell.js";
 import type { Speed } from "./pacer.js";
 import type { Phase } from "./session.js";
 import type { PlaytestLog } from "./telemetry.js";
-import type { BattleState, CampaignSave, LoadoutSlot, UnitRecord } from "../sim/index.js";
+import type { BattleState, CampaignBattleRun, CampaignSave, LoadoutSlot, Position, UnitRecord } from "../sim/index.js";
 
 export interface GameApi {
   screen: () => Screen;
+  /**
+   * The id of whatever the SCENE screen is currently showing — a queued outcome beat
+   * (`"outcome:<battleId>"`) or a pack scene's own id (`"sc-prologue"`) — or `null`
+   * off that screen. A READ over `CampaignShell.activeScene()`, exposed so a test can
+   * assert WHICH beat reached the scene player (identity, not merely that some scene
+   * did) without pinning any story-pack prose (`check:story`).
+   */
+  activeSceneId: () => string | null;
   /** The live save, or `null` before a game is started. */
   save: () => CampaignSave | null;
+  /**
+   * The most recently banked battle's report and AP grants — the SAME artifact the
+   * result overlay reads (`CampaignShell.result`/`lastBattle`), exposed as a READ so
+   * a test can compute an expected AP figure off the sim's own
+   * `apGrantAmount(rewards[id])` and compare it to what the overlay shows, rather
+   * than re-typing a number. `null` before any battle has been banked.
+   */
+  lastBattle: () => CampaignBattleRun | null;
+  /**
+   * The registry's own name for an equipment id (`registry.equipment(id).name`).
+   * `campaign-data.ts` cannot be imported into a Playwright spec directly — it pulls
+   * in Vite-only asset imports (raw `.svg`/`.png`, `with { type: "json" }`) that a
+   * plain Node/tsx loader cannot resolve — so a test that needs a REAL item name
+   * (e.g. to prove the result overlay's drop line names ONLY what was granted, not
+   * the whole inventory) reads it through this seam instead of re-typing a guess.
+   */
+  equipmentName: (id: string) => string;
+  /**
+   * The SAME portrait key `resolvePortrait(unitId).key` (ADR-0039) would answer —
+   * exposed for the same reason {@link equipmentName} is, so a test can assert a
+   * result-overlay member card's `data-portrait-key` names the RIGHT face, not
+   * merely that some image arrived.
+   */
+  portraitKey: (unitId: string) => string;
+  /**
+   * `CampaignShell.result()` ITSELF — the call that banks a just-decided battle
+   * (idempotent from the first read on), not merely a read of the already-banked
+   * artifact the way {@link lastBattle} is. Exposed so a test proving "reading the
+   * result overlay's content many times banks exactly once" can call the SAME port
+   * `hud.ts`'s repaint loop calls (`resultOverlayPort` → `shell.result()`), rather
+   * than looping over {@link lastBattle}, which never re-banks anything and would
+   * pass identically whether or not the real bank-once guard still worked.
+   */
+  result: () => CampaignBattleRun | null;
   canContinue: () => boolean;
   newGame: () => void;
   continueGame: () => void;
@@ -38,6 +80,14 @@ export interface GameApi {
    */
   /** The live battle state, or `null` off the battle screen. A READ; nothing mutates. */
   state: () => BattleState | null;
+  /**
+   * The keyboard tile cursor (arrow keys), or `null` off the battle screen / before
+   * any turn has placed one. Exposed so a test can prove an ArrowKey press did NOT
+   * move it (e.g. while the result overlay is open, reviewer finding 15) — the
+   * absence of a staged target or a command is not that proof, since `moveCursor`
+   * alone emits neither.
+   */
+  cursor: () => Position | null;
   clickTile: (x: number, y: number) => void;
   /** Commit the staged target (ADR-0038). A no-op with nothing staged. */
   confirm: () => void;

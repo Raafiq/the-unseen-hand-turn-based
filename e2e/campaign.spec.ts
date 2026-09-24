@@ -43,7 +43,7 @@ async function playCurrentBattle(page: Page): Promise<void> {
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
+  await page.getByTestId("result-action").click();
 }
 
 test("campaign shell: title → battle → saved progress survives a reload", async ({ page }) => {
@@ -111,14 +111,15 @@ test("campaign shell: title → battle → saved progress survives a reload", as
   await page.screenshot({ path: `${SHOTS}/22-battle.png`, fullPage: true });
 
   await page.evaluate(() => window.tuhGame.autoplay());
-  await expect(page.getByTestId("conclude")).toBeVisible();
-  await page.getByTestId("conclude").click();
-  await expect(page.getByTestId("screen-after")).toBeVisible();
-  await expect(page.getByTestId("after-title")).toHaveText("Battle won");
-  // Structure, not prose: the block is populated and attributed. Pinning the line
-  // would make swapping the story pack — the point of the seam — a test failure.
-  await expect(page.getByTestId("after-story")).not.toBeEmpty();
-  await page.screenshot({ path: `${SHOTS}/23-after-battle.png`, fullPage: true });
+  // THE RESULT OVERLAY (intent/win-lose-screen.md) now replaces the old `screen-after`
+  // stop for a live win — Continue banks AND advances in one tap, so there is no
+  // second screen to land on before the briefing/scene. `e2e/result-overlay.spec.ts`
+  // covers the overlay's own content in depth; this is the one place in THIS file
+  // that still opens it, kept as a smoke check that the seam is wired end to end.
+  await expect(page.getByTestId("result-overlay")).toBeVisible();
+  await expect(page.getByTestId("result-verdict")).toHaveText("VICTORY");
+  await page.screenshot({ path: `${SHOTS}/23-victory-overlay.png`, fullPage: true });
+  await page.getByTestId("result-action").click();
 
   const afterOne = await stored(page);
   expect(afterOne).toContain('"battleIndex":1');
@@ -191,10 +192,15 @@ test("campaign shell: the five-battle run reaches its ending in the browser", as
     await expect(page.getByTestId("brief-step")).toContainText(`Battle ${i + 1} of 5`);
     await prepEveryMember(page);
     await playCurrentBattle(page);
+    // Continue (the result overlay's own action, clicked inside `playCurrentBattle`)
+    // now banks AND advances in one tap — no `screen-after`/`next` stop for a live
+    // win any more (`intent/win-lose-screen.md`). It also plays the JUST-WON battle's
+    // own authored victory beat through the scene player first, so between b2 and b3
+    // TWO scenes stand in a row — b2's own beat, then the pre-authored interlude
+    // before b3 — where every other gap has at most one. LOOPED rather than a fixed
+    // count, so this does not need to know which battle authors what.
     if (i < 4) {
-      await expect(page.getByTestId("screen-after")).toBeVisible();
-      await page.getByTestId("next").click();
-      await dismissScene(page);
+      while (await page.getByTestId("screen-scene").isVisible()) await dismissScene(page);
     }
   }
 
@@ -260,8 +266,10 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   // buying one charges its price exactly once (asserted below).
   for (let i = 0; i < 2; i++) {
     await playCurrentBattle(page);
-    await page.getByTestId("next").click();
-    await dismissScene(page);
+    // Battle 2's win queues its OWN victory beat first, then the pre-authored
+    // interlude before b3 stands behind it — two scenes in a row where battle 1's
+    // win leaves only one. Loop rather than assume a count.
+    while (await page.getByTestId("screen-scene").isVisible()) await dismissScene(page);
   }
   await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
   const apBefore = Number(
@@ -343,16 +351,17 @@ test("between-battle prep: banked AP buys a new command, and it survives a reloa
   // entirely and hands every unit every ability it has LEARNED. Clearing the slot has to
   // take the command away again. Same battle, same unit, one control moved.
   // Play it out — the board was only ever entered to READ the projection, so nothing has
-  // driven it to an end yet and `conclude` is hidden until something does.
+  // driven it to an end yet and the result overlay is closed until something does.
   await page.evaluate(() => window.tuhGame.autoplay());
-  await page.getByTestId("conclude").click();
-  await expect(page.getByTestId("screen-after")).toBeVisible();
   // Whichever way that battle went. The party carries its loadout across both doors, so
   // the assertion below does not depend on the outcome — and hard-coding one of them
   // would make this test fail the day the balance moves, for a reason that is not its
-  // subject.
-  const next = page.getByTestId("next");
-  await ((await next.isVisible()) ? next : page.getByTestId("retry")).click();
+  // subject. ONE tap either way now: `result-action` is Continue on a win and Retry on
+  // a loss — Continue lands on the NEXT battle's briefing (`advanceAfterResult`
+  // advances `battleIndex`), Retry lands back on THIS SAME battle's (`retry` restores
+  // it) — either way a `screen-briefing`, which is all this assertion needs.
+  await expect(page.getByTestId("result-overlay")).toBeVisible();
+  await page.getByTestId("result-action").click();
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await openDossier(page, "pc-vance");
@@ -787,7 +796,11 @@ test("playtest log: the recorder observes the real page, not a test path", async
   expect(rejob).not.toBeNull();
 
   await playCurrentBattle(page);
-  await expect(page.getByTestId("screen-after")).toBeVisible();
+  // Continue plays battle 1's OWN authored victory beat through the scene player
+  // before landing (`intent/win-lose-screen.md`) — a second `SCENE` row, distinct
+  // from the prologue's. Dismiss it so the run actually reaches battle 2's briefing,
+  // which is what the screens array below still claims.
+  await dismissScene(page);
 
   const played = await readLog();
   const kinds = new Set(played.events.map((e) => e.kind));
@@ -802,9 +815,11 @@ test("playtest log: the recorder observes the real page, not a test path", async
   expect(actions).toContain("btn-new-game");
   expect(actions).toContain("btn-deploy");
   expect(actions).toContain("btn-conclude");
-  // Still an EXACT ordered array — it now also fails if the scene screen stops being
-  // reached, which is the failure mode a "contains" check could not see.
-  expect(screens).toEqual(["TITLE", "SCENE", "BRIEFING", "BATTLE", "AFTER_BATTLE"]);
+  // Still an EXACT ordered array — it now also fails if a scene screen stops being
+  // reached, which is the failure mode a "contains" check could not see. No
+  // `AFTER_BATTLE` stop for a live win (`intent/win-lose-screen.md`): Continue banks,
+  // plays battle 1's own beat (the second `SCENE`), and lands on battle 2's briefing.
+  expect(screens).toEqual(["TITLE", "SCENE", "BRIEFING", "BATTLE", "SCENE", "BRIEFING"]);
 
   // The battle row is read off the SAME `RunReport` the campaign banked, so the log and
   // the save cannot disagree about how the fight went.
@@ -855,7 +870,6 @@ test("playtest log: it survives a reload, and one click hands it over", async ({
 
   await dismissScene(page);
   await playCurrentBattle(page);
-  await expect(page.getByTestId("screen-after")).toBeVisible();
 
   const before = await readLog();
   expect(before.events.filter((e) => e.kind === "battle")).toHaveLength(1);
@@ -973,7 +987,6 @@ test("AC-V16: the read position survives two different prep edits", async ({ pag
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await playCurrentBattle(page);
-  await page.getByTestId("next").click();
   await dismissScene(page);
   await expect(page.getByTestId("screen-briefing")).toBeVisible();
   await expect(page.getByTestId("brief-step")).toContainText("Battle 2 of 5");
@@ -1019,9 +1032,23 @@ test("AC-V16: the read position survives two different prep edits", async ({ pag
 
   // THE OTHER HALF, and it is required: without it a handle that NEVER resets passes
   // everything above. A genuinely different beat must start from line one again.
+  // The "genuinely different beat" this half needs is battle 3's OWN pre-beat, behind
+  // the interlude scene authored before it — a different `brief:...` cache key on the
+  // same `brief-story` box, which is exactly the box the two edits above were held
+  // against. `brief-story` is untouched by anything on `SCENE` (that screen owns a
+  // separate `scene-story` box), so this claim survives however many scenes stand
+  // between here and battle 3's briefing.
   await playCurrentBattle(page);
-  await expect(page.getByTestId("screen-after")).toBeVisible();
-  expect(await page.locator('[data-testid="after-story"] p.line').count()).toBe(1);
+  // TWO scenes now stand between battle 2's win and battle 3's briefing
+  // (`intent/win-lose-screen.md`): battle 2's own authored victory beat (reachable
+  // again — it plays through the scene player before landing) plays first, THEN the
+  // interlude (`sc-interlude-ford`) that was already authored before b3. `dismissScene`
+  // is a single dismiss per call and tolerant of nothing to dismiss, so two calls
+  // cover exactly the two, in order, regardless of which is authored in a future pack.
+  await dismissScene(page); // b2's own victory beat
+  await dismissScene(page); // the interlude before b3 (sc-interlude-ford)
+  await expect(page.getByTestId("brief-step")).toContainText("Battle 3 of 5");
+  expect(await lineCount(page)).toBe(1);
 });
 
 test("AC-V16: there is no motion to reduce", async ({ page }) => {

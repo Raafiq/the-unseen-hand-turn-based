@@ -1,5 +1,5 @@
 # Intent: the win / lose screen
-Author: the owner. Date: 2026-09-19. Status: accepted (owner, 2026-09-19).
+Author: the owner. Date: 2026-09-19. Status: **shipped (ADR-0047, 2026-09-23)**.
 
 ## Problem
 A battle ends with one text line in the ribbon ("Battle over") and a Continue button.
@@ -25,9 +25,12 @@ The overlay is the only thing the player can touch until they tap it.
 - Asserted at 832×328 and 832×384 only.
 - Frames approved by the owner before the engineer starts (taste rule).
 
-## Decided by the owner (2026-09-19)
+## Decided by the owner (2026-09-19, 2026-09-22)
 - The overlay shows the verdict plus what the party earned (AP, a weapon drop).
+- Defeat offers Retry (owner, 2026-09-22).
+- Draw, stalemate and timeout are shown as Defeat (owner, 2026-09-22). Timeout is real:
+  every encounter carries `maxTurns: 300`, and the sim's outcome enum is
+  `victory | defeat | draw | stalemate | timeout` (`src/sim/campaign.ts`).
 
 ## Open questions
-- Does Defeat offer Retry from the briefing, or only "back to title"?
-- Draw, timeout and stalemate: shown as Defeat, or with their own line?
+- None.

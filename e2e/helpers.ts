@@ -169,12 +169,25 @@ export async function prepEveryMember(page: Page): Promise<void> {
  * before battle 2 — so a helper demanding one at every landing would encode a rule
  * nobody wrote. That the prologue actually exists is asserted separately, by AC-V17's
  * own tests, where a vanished scene fails loudly instead of being shrugged past here.
+ *
+ * THE STRICT CHECK IS ON IDENTITY, NOT ON THE SCREEN GOING HIDDEN — a queued
+ * end-of-battle outcome beat can stand directly in front of an authored pack scene
+ * (`intent/win-lose-screen.md`; b2's own victory beat, then the interlude before b3, in
+ * the shipped pack), so `screen-scene` can legitimately still read "SCENE" the instant
+ * after a successful dismiss. What must change is WHICH scene is showing
+ * (`window.tuhGame.activeSceneId()`), so a click that did nothing (a broken Continue)
+ * still fails loudly, and a click that correctly advanced past a chained scene does not.
  */
 export async function dismissScene(page: Page): Promise<void> {
   const screen = page.getByTestId("screen-scene");
   if (!(await screen.isVisible())) return;
+  const before = await page.evaluate(() => window.tuhGame.activeSceneId());
   await page.getByTestId("scene-continue").click();
-  await expect(screen).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => window.tuhGame.activeSceneId()), {
+      message: "dismissScene: activeSceneId did not change — the click may not have advanced the shell",
+    })
+    .not.toBe(before);
 }
 
 /**
@@ -333,4 +346,22 @@ export async function watchStep(page: Page): Promise<void> {
   await page.getByTestId("btn-step").click();
   await page.getByTestId("hud-menu").click();
   await expect(page.getByTestId("menu-drawer")).toBeHidden();
+}
+
+/**
+ * Lose the live battle by refusing to fight — skip every player turn, let the enemy
+ * act, until the enemy wins. The same "wait it out" shape `campaign-shell.test.ts`'s
+ * own `forfeit()` uses, driven through the shipped `endTurn`/`step` seam (docs/10
+ * §7), never a shortcut that skips legality.
+ */
+export async function forfeitCurrentBattle(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const g = window.tuhGame;
+    let guard = 0;
+    while (g.phase() !== "ENDED") {
+      if (g.phase() === "PLAYER_IDLE" || g.phase() === "MOVE_STAGED") g.endTurn();
+      else g.step();
+      if (++guard > 600) throw new Error("forfeitCurrentBattle: the battle never ended");
+    }
+  });
 }

@@ -51,6 +51,7 @@ import {
   type LookUp,
 } from "./panels.js";
 import { abilityLabel } from "./prep.js";
+import { resultOverlayHtml, type ResultOverlayData } from "./result-overlay.js";
 import type { Phase, Session } from "./session.js";
 import { mountBoardFit, type BoardFitController, type StageBox } from "./stage.js";
 
@@ -114,12 +115,18 @@ export interface HudPorts {
    */
   menu(): { id: string; label: string; run?: () => void }[];
   /**
-   * What to do once the battle is decided, for a page that has somewhere to go.
-   * `null`/absent on the engine viewer, which has no campaign to return to — so the
-   * button is BUILT on both pages and merely never shown on one, keeping the stage's
-   * child set identical (AC-V42).
+   * The end-of-battle result overlay's content and its one action, for a page that
+   * has somewhere to go once a battle is decided (`intent/win-lose-screen.md`,
+   * ADR-0043 §4). `null`/absent on the engine viewer, which has no campaign to
+   * return to — so the overlay element is BUILT on both pages and merely never
+   * triggered on one, keeping the stage's child set identical (AC-V42, the same rule
+   * the entry plaque and the old `conclude` port it replaces both followed).
+   *
+   * `action.label`/`run` are OWNED BY THE CALLER (banking timing and navigation are
+   * campaign-shell concerns — this module never re-derives a verdict); `data`
+   * (`ResultOverlayData`) is passed straight to `resultOverlayHtml`.
    */
-  conclude?(): { label: string; run: () => void } | null;
+  resultOverlay?(): { data: ResultOverlayData; action: { label: string; run: () => void } } | null;
   /**
    * THE ENTRY PLAQUE'S TEXT (owner decision 9, `intent/combat-revamp.md`), or
    * `null`/absent for a page with no battle identity to announce (the engine
@@ -258,6 +265,21 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   const plaqueTitle = el("p", "plaque-title");
   const plaqueTagline = el("p", "plaque-tagline");
   plaque.append(plaqueTitle, plaqueTagline);
+  // THE RESULT OVERLAY (intent/win-lose-screen.md). Mounted on `.tuh-stage` itself
+  // (appended below, AFTER `rail`/`band`), NOT inside `boardBox` — `inset: 0` there
+  // covers only the board's own grid cell (~360px wide at 832px), which is why the
+  // pass-2 build's sheet rendered unreadably narrow. On the stage root, `inset: 0`
+  // spans the WHOLE grid (board + rail + band, `stage.css`'s `grid-template-areas`),
+  // matching the approved frame (`coverage/win-lose/victory-pass1-832x328.png`),
+  // where the sheet reaches ~80% of the viewport width. The rail and the band sit
+  // UNDER the scrim (z-index) and are separately made inert below (owner note 3) —
+  // covering them is what hides the live-looking plates and the ☰ stud, not a
+  // second `hidden` on each. BUILT on both pages (AC-V42's child-set rule);
+  // `renderResultOverlay` below leaves it empty and hidden whenever
+  // `ports.resultOverlay` is absent or returns `null`.
+  const resultLayer = el("div", "tuh-result-layer");
+  resultLayer.dataset["testid"] = "result-layer";
+  resultLayer.hidden = true;
   boardBox.append(canvas, tileHits, plaque);
 
   // ── the right-side turn-order rail ───────────────────────────────────────
@@ -302,9 +324,6 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   confirmBtn.classList.add("tuh-confirm");
   const cancelBtn = ribbonButton("✕", "Cancel", "cancel");
   cancelBtn.classList.add("tuh-cancel");
-  const concludeBtn = ribbonButton("▸", "Continue", "conclude");
-  concludeBtn.classList.add("tuh-commit");
-  concludeBtn.hidden = true;
   const ribbonButtons = [moveBtn, attackBtn, actionsBtn, itemBtn, defendBtn, primaryBtn, confirmBtn, cancelBtn];
   // THE ENEMY'S TURN HAS NO COMMANDS (owner, 2026-09-19: "hide the list of action
   // buttons that's only used for players"). On the campaign page every ribbon button is
@@ -315,7 +334,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   ribbonNotice.dataset["testid"] = "ribbon-notice";
   ribbonNotice.textContent = PHASE_HINT.AI_TURN + "…";
   ribbonNotice.hidden = true;
-  ribbon.append(...ribbonButtons, concludeBtn, ribbonNotice);
+  ribbon.append(...ribbonButtons, ribbonNotice);
 
   const targetPlate = el("button", "tuh-target-plate");
   targetPlate.type = "button";
@@ -397,6 +416,9 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     settingsDrawer.root,
     helpDrawer.root,
     actionsSheet,
+    // LAST, so it stacks above `rail`/`band` regardless of z-index ties — see its own
+    // comment above, by `boardBox.append`.
+    resultLayer,
   );
 
   // ── drawer/sheet bookkeeping ──────────────────────────────────────────────
@@ -415,6 +437,20 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
    */
   type Overlay = "menu" | "unit" | "settings" | "help" | "actions" | "preview" | null;
   let overlay: Overlay = null;
+  /**
+   * Is the RESULT OVERLAY actually on screen right now — set by `renderResultOverlay`,
+   * read by `pickAt`'s guard. Deliberately NOT `session.phase === "ENDED"` (reviewer
+   * finding 14): `ports.resultOverlay` is OPTIONAL, and `viewer.html`'s engine viewer
+   * never wires it, so a phase-only guard made a battle's units permanently
+   * uninspectable there the instant it ended — with no overlay ever covering the
+   * board to justify it. Scoped to "the overlay is actually open", the same
+   * condition that governs everything else the overlay disables.
+   */
+  let resultOverlayOpen = false;
+  /** The `[data, actionLabel]` JSON last painted into `resultLayer` — `null` while
+   * closed. Lets `renderResultOverlay` skip the rebuild (and the focus steal that
+   * comes with it) when nothing actually changed. */
+  let lastResultSignature: string | null = null;
   /** Whose card the unit drawer shows: `null` means the acting unit. */
   let inspectId: string | null = null;
   let focused = false;
@@ -459,6 +495,33 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     // deep-dive sheet uses, so the two can never disagree (owner decision 2).
     targetPlate.innerHTML = targetPlateHtml(session, look);
 
+    // THE RESULT OVERLAY OUTRANKS EVERY DRAWER AND SHEET IT ACTUALLY COVERS (owner
+    // note 3, reviewer finding 1). Computed ONCE here — not re-derived by
+    // `renderResultOverlay` below — so both this drawer-closing branch and that
+    // paint agree on the SAME answer to "is it open". A drawer opened mid-battle
+    // (☰, a unit inspect, the forecast sheet) does not close itself just because
+    // the NEXT render happens to be the one where the battle ends, so force it
+    // closed here rather than relying on the overlay's z-index alone to hide a
+    // still-open, still-focusable "Quit to title" underneath it.
+    //
+    // FIRES ONLY ON THE OPEN TRANSITION (`!resultOverlayOpen` — the PREVIOUS
+    // render's answer, read before `renderResultOverlay` below overwrites it), not
+    // on every render while the overlay stays open. That is deliberate, not an
+    // optimization: `pickAt` (finding 3/14) and the `keydown` handler (finding 15)
+    // are each independently responsible for refusing a NEW open while the overlay
+    // is already up, and every ordinary opener (☰, the unit tab, the target plate)
+    // is `disabled` the instant it is. If this ran unconditionally on every render
+    // it would also paper over a REGRESSION in any one of those three guards —
+    // silently closing whatever they let through and leaving no test able to see
+    // the gap, exactly the redundant-masking shape this repo's evidence rules
+    // forbid. Gated on the overlay ACTUALLY being open, not merely on `ENDED`:
+    // `ports.resultOverlay` is optional and `viewer.html` never wires it, so a
+    // phase-only guard would force every drawer shut there too, with no overlay
+    // ever covering anything to justify it (finding 14 is the matching fix in
+    // `pickAt`, below).
+    const resultInfo = session.phase === "ENDED" ? (ports.resultOverlay?.() ?? null) : null;
+    if (resultInfo !== null && !resultOverlayOpen) overlay = null;
+
     // THE UNIT DRAWER CLOSES WHEN A TARGET IS SELECTED (AC-V37) — and only then. It
     // deliberately survives an ILLEGAL tap: a drawer that closed on any board tap
     // would pass "it closed after a target tap" while telling the player nothing.
@@ -485,14 +548,17 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     toast.className = `tuh-toast ${session.fatal ? "fatal" : session.reason ? "warn" : "info"}`;
     toast.textContent = message ?? "";
 
-    renderControls(session);
+    renderControls(session, resultInfo);
     renderDrawers(session, look);
     rebuildTileHits();
 
     ports.paintBoard();
   }
 
-  function renderControls(session: Session): void {
+  function renderControls(
+    session: Session,
+    resultInfo: { data: ResultOverlayData; action: { label: string; run: () => void } } | null,
+  ): void {
     const playable =
       session.phase === "PLAYER_IDLE" ||
       session.phase === "MOVE_STAGED" ||
@@ -541,16 +607,72 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
     confirmBtn.disabled = session.phase !== "TARGET_STAGED";
 
-    // The campaign's way off a finished battle. It REPLACES the whole ribbon rather
-    // than crowding beside it: a decided battle has no turn left to end, and there is
-    // no room in a 780×56 band for eight controls plus a ninth.
-    const done = session.phase === "ENDED" ? (ports.conclude?.() ?? null) : null;
-    concludeBtn.hidden = done === null;
+    renderResultOverlay(resultInfo, paced);
+  }
+
+  /**
+   * THE RESULT OVERLAY (intent/win-lose-screen.md) is the campaign's whole way off a
+   * finished battle now — it REPLACES the ribbon rather than crowding beside it (a
+   * decided battle has no turn left to end, and there is no room in a 780×56 band for
+   * eight controls plus a ninth), and it HIDES the entry plaque and the ribbon
+   * outright rather than merely covering them (owner note 3): the plaque's own
+   * auto-dismiss timer is a cosmetic fade, not a guarantee it is gone by the time a
+   * battle ends inside its ~1.7s hold+fade window.
+   *
+   * "Only the result-screen actions should remain interactive" (owner note 3): the ☰
+   * menu and the two plate buttons only ever open a drawer or a sheet ABOVE the
+   * board, which the overlay now covers, so they are DISABLED (not hidden — the
+   * band's layout must not shift) rather than left reachable underneath it.
+   *
+   * THE TOAST IS HIDDEN TOO. `renderScreens`'s toast carries the terminal banner
+   * itself ("Victory — the objective is complete" / "Defeat — the battle is lost",
+   * `session.outcome`) once the battle ends — the overlay's own VICTORY/DEFEAT
+   * plaque is the verdict now, so a second copy of it sitting under (pass-2 defect:
+   * overlapping) the sheet's bottom edge is a duplicate, not a second source of
+   * truth. `toast.hidden` is left as-is once the overlay closes — it never shows
+   * for a decided battle in campaign play (the overlay is the only way off `ENDED`).
+   */
+  function renderResultOverlay(
+    info: { data: ResultOverlayData; action: { label: string; run: () => void } } | null,
+    paced: boolean,
+  ): void {
+    const open = info !== null;
+    const wasOpen = resultOverlayOpen;
+    resultOverlayOpen = open;
+    resultLayer.hidden = !open;
+    if (info === null) {
+      resultLayer.innerHTML = "";
+      lastResultSignature = null;
+    } else {
+      // DO NOT REBUILD WHEN THE DATA IS UNCHANGED (reviewer finding 15) — same
+      // reason `renderMenu`'s button list is built once and relabelled in place
+      // (`renderDrawers`'s own comment): `refresh()` runs on nearly every action,
+      // and `replaceChildren`/`innerHTML` destroys focus inside the subtree on
+      // EVERY call, even one that changes nothing. A player who tabbed off the
+      // action button would otherwise be silently pulled back to it on the next
+      // unrelated repaint.
+      const signature = JSON.stringify([info.data, info.action.label]);
+      if (signature !== lastResultSignature) {
+        resultLayer.innerHTML = resultOverlayHtml(info.data, info.action.label);
+        lastResultSignature = signature;
+      }
+      // MOVE FOCUS TO THE ACTION BUTTON the instant the overlay OPENS — not on
+      // every repaint while it stays open, which would be the same "yanked back"
+      // problem the paragraph above describes.
+      if (!wasOpen) {
+        resultLayer.querySelector<HTMLButtonElement>('[data-testid="result-action"]')?.focus();
+      }
+    }
+    ribbon.hidden = open;
+    if (open) plaque.hidden = true;
+    if (open) toast.hidden = true;
+    menuBtn.disabled = open;
+    activePlate.disabled = open;
+    targetPlate.disabled = open;
     // …and the enemy's turn hides the same eight (ADR-0046, owner 2026-09-19), with the
-    // notice above in their slot. One assignment, so neither branch can re-show the
-    // buttons the other hid.
-    for (const b of ribbonButtons) b.hidden = done !== null || paced;
-    if (done) concludeBtn.querySelector(".rb-label")!.textContent = done.label;
+    // notice above in their slot — moot once `ribbon.hidden` is true, kept so the two
+    // conditions can never disagree about which buttons are visible.
+    for (const b of ribbonButtons) b.hidden = open || paced;
   }
 
   /**
@@ -871,8 +993,17 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     ports.act("confirm", () => ports.session()?.confirm());
   });
 
-  concludeBtn.addEventListener("click", () => {
-    ports.conclude?.()?.run();
+  // DELEGATED: the action button is rebuilt by `resultOverlayHtml`'s innerHTML on
+  // every render (same reason `renderDrawers`' doc comment gives for the panels it
+  // rebuilds), so a listener on the button itself would be lost the next repaint.
+  // Re-calling `ports.resultOverlay()` at click time — rather than capturing the
+  // `run` closure from the render that built this DOM — is the same pattern the old
+  // `conclude` port used: cheap, pure and idempotent (`CampaignShell.result()` only
+  // banks once), so calling it again here can never re-bank or emit a command.
+  resultLayer.addEventListener("click", (ev) => {
+    const target = ev.target instanceof Element ? ev.target.closest('[data-testid="result-action"]') : null;
+    if (target === null) return;
+    ports.resultOverlay?.()?.action.run();
   });
 
   /** Client pixels → CANVAS backing pixels. The rect already carries the board fit. */
@@ -893,6 +1024,21 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
    */
   function pickAt(p: Position | null): void {
     const session = ports.session();
+    // THE RESULT OVERLAY DISABLES BATTLEFIELD INTERACTION (owner note 3,
+    // intent/win-lose-screen.md): a decided battle has no legal target and no actor,
+    // so this tap would otherwise fall through to the read-only unit-inspect branch
+    // below and open a drawer UNDER the overlay — a response to a tap the overlay is
+    // supposed to have made inert. No `ports.act` call either, so it leaves no row in
+    // the playtest log, same as a tap the board was never listening for.
+    //
+    // GATED ON THE OVERLAY ACTUALLY BEING OPEN, not on `session.phase === "ENDED"`
+    // alone (reviewer finding 14): `ports.resultOverlay` is optional, and
+    // `viewer.html`'s engine viewer never wires it, so a phase-only guard made
+    // every unit permanently uninspectable there the instant a battle ended — with
+    // no overlay ever on screen to justify it. `resultOverlayOpen` is set by
+    // `renderResultOverlay` from the SAME `ports.resultOverlay()` read, so this
+    // agrees with what is actually painted rather than re-deriving its own answer.
+    if (resultOverlayOpen) return;
     if (!session || p === null) {
       ports.act("pick", () => ports.session()?.onPick(p));
       return;
@@ -980,6 +1126,11 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   canvas.addEventListener("keydown", (ev) => {
     const session = ports.session();
     if (!session) return;
+    // THE RESULT OVERLAY IS THE ONLY LIVE CONTROL (owner note 3, reviewer finding
+    // 15) — cursor movement is its own branch below, never routed through `pickAt`,
+    // so it needs its OWN guard: without this an ArrowKey could still walk the
+    // cursor across a board the overlay has otherwise made inert.
+    if (resultOverlayOpen) return;
     const stepVec = CURSOR_STEP[ev.key];
     if (stepVec) {
       ev.preventDefault();

@@ -22,7 +22,7 @@
 
 import { loadEncounter, parseEncounter, type Encounter, type EncounterResolver } from "./encounter.js";
 import { runFromState, type RunOptions, type RunReport, type UnitContribution } from "./harness.js";
-import type { ApReward } from "./progression.js";
+import { NO_AP_REWARD, type ApReward } from "./progression.js";
 import type { UnitRecord } from "./roster.js";
 import type { BattleState } from "./state.js";
 import {
@@ -74,7 +74,7 @@ export interface CampaignRunOptions extends RunOptions {
  * zero while the campaign still looked like it worked.
  */
 function rewardOf(contribution: UnitContribution | undefined): ApReward {
-  if (!contribution) return { participated: false, meaningfulActions: 0 };
+  if (!contribution) return NO_AP_REWARD;
   return { participated: true, meaningfulActions: contribution.landedActions };
 }
 

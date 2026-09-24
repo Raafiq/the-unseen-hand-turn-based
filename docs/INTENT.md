@@ -1,11 +1,11 @@
-<!-- written-against: 3b952d8 -->
+<!-- written-against: 57b90a0 -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1022 tests, 240 browser specs (`npm run check`).
+Green at the stamp: 1046 tests, 254 browser specs (`npm run check`).
 
 ---
 
@@ -31,7 +31,8 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 Chromium device emulation.
 
 Enemy turns run themselves (ADR-0046). All six deploy on every map (ADR-0044); the
-enemy retune shipped (ADR-0045). Next: the skill picker and the win / lose screen.
+enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). Next: the
+skill picker.
 
 ---
 
@@ -90,15 +91,19 @@ Read this before telling the owner "nothing is pending". Three asks are open; on
 
 ---
 
-## THE NEXT SLICE — two, chosen by the owner 2026-09-19, one thread each
+## THE NEXT SLICE — chosen by the owner 2026-09-19
 
 | Slice | Intent file | What the owner decided |
 |---|---|---|
 | The skill picker | `intent/skill-picker.md` | Pressing Skill lists the unit's skills on a sheet above the command ribbon; the player picks one. Fixes `docs/defects.md` §1. Claims AC-V23… |
-| The win / lose screen | `intent/win-lose-screen.md` | A full-screen overlay in the concept look: the verdict plus what the party earned, one tap to leave |
 
 Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
-Frames are approved before an engineer starts (taste rule). Both slices touch `src/render/hud.ts`, so they run in sequence in the checkout, not side by side.
+Frames are approved before an engineer starts (taste rule).
+
+### Shipped: the win/lose result overlay (ADR-0047, `intent/win-lose-screen.md`)
+
+Victory/Defeat overlay on every decided battle; AP now banks at decision, not the
+Continue tap; Continue/Retry route through the outcome scene beat then land. AC-V70…AC-V78.
 
 ### Shipped before this: the enemy retune and self-running enemy turns
 
@@ -141,3 +146,8 @@ storage key. `pacer.test.ts` (AC-V68/AC-V69) and `e2e/pacer.spec.ts` cover it.
 - **`.pennant` and `.finial` are `pointer-events: none`**, so a handler on the row is not
   observable through a tap.
 - **`docs/visual/parchment/`'s two briefing jpgs are stale** — pre-split, four-member.
+- **The result overlay is on the stage root at z-index 9, above every drawer at 8**
+  (ADR-0047). A new drawer must sit at ≤8 or it will sit over the overlay it should not.
+- **`AFTER_BATTLE` is reload-only now.** Retry from it must not re-queue the outcome
+  beat it already showed inline — `CampaignShell.retry()` reads `this.screen` before it
+  moves to tell the two cases apart.

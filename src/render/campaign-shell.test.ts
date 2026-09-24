@@ -60,14 +60,22 @@ function shell(slot: SaveSlot = memorySlot(), storyPack: StoryPack | null = stor
  * TOLERANT ON PURPOSE, and the split matters. Scenes are OPTIONAL content — the campaign
  * authors one before b1 and b3 and none before b2 — so a helper that demanded a scene at
  * every landing would be asserting a rule nobody wrote. What it IS strict about is that
- * dismissing one works: if the shell was on SCENE, it must not still be. The claim that
- * the prologue actually exists is carried separately, by AC-V17's own test, where a
- * vanished scene fails loudly rather than being shrugged past here.
+ * dismissing works: each call clears exactly one scene, and it does not return until the
+ * shell is genuinely off `SCENE` (a bounded loop, never an infinite one — `endScene()`
+ * always narrows the anchor forward). LOOPED, not a single dismiss, because a queued
+ * outcome beat (`intent/win-lose-screen.md`) can now land directly in front of an
+ * authored interlude — b2's win beat stands in front of b3's own interlude in the
+ * shipped pack — and passing only the first would leave `SCENE` still showing the
+ * second. The claim that the prologue actually exists is carried separately, by
+ * AC-V17's own test, where a vanished scene fails loudly rather than being shrugged
+ * past here.
  */
 function passScene(s: CampaignShell): void {
-  if (s.screen !== "SCENE") return;
-  s.endScene();
-  expect(s.screen).not.toBe("SCENE");
+  let guard = 0;
+  while (s.screen === "SCENE") {
+    s.endScene();
+    if (++guard > 10) throw new Error("passScene: still on SCENE after 10 dismissals");
+  }
 }
 
 /** Play the live battle out with the balance probe on both seats. */
@@ -786,6 +794,296 @@ describe("lastBattle — the live detail of the battle just banked", () => {
     // battle the player can no longer see, on a screen with no run in progress.
     s.quitToTitle();
     expect(s.lastBattle).toBeNull();
+  });
+});
+
+describe("result() / advanceAfterResult() / retry() — the result overlay's shell seam", () => {
+  /**
+   * ASSERT: `result()` is `null` before the battle ends, non-null the instant it
+   * does, and calling it MANY times banks the AP grant exactly ONCE — the AP is
+   * read before ANY navigation call, the way the overlay itself reads it every
+   * repaint. MUTATION this catches: banking again on every `result()` call (or on
+   * both `result()` and `advanceAfterResult()`) would double the grant below —
+   * `intent/win-lose-screen.md`'s "the save is banked exactly once" rule.
+   */
+  it("banks on the first read of result() and never again, how many times it is read", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    expect(s.result()).toBeNull(); // ongoing — nothing to show yet
+    autoplay(s);
+    const first = s.result();
+    expect(first).not.toBeNull();
+    const apAfterFirstRead = s.save!.party.find((r) => r.id === "pc-vance")!.ap;
+    // Read it another four times, exactly as a render loop would.
+    for (let i = 0; i < 4; i++) s.result();
+    expect(s.save!.party.find((r) => r.id === "pc-vance")!.ap).toBe(apAfterFirstRead);
+    expect(s.result()).toEqual(first);
+  });
+
+  /**
+   * ASSERT: after a WIN, `advanceAfterResult()` lands the SAME place `arrive()`
+   * would (the next briefing, or a scene standing in front of it) — never
+   * `AFTER_BATTLE`, which the live overlay has already replaced. MUTATION this
+   * catches: wiring Continue to the old `concludeBattle()` routing goes red here
+   * (screen would be `AFTER_BATTLE`, not `BRIEFING`/`SCENE`).
+   */
+  it("advanceAfterResult after a win skips AFTER_BATTLE entirely", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    autoplay(s);
+    expect(s.result()?.report.outcome).toBe("victory");
+    s.advanceAfterResult();
+    expect(s.screen).not.toBe("AFTER_BATTLE");
+    expect(["SCENE", "BRIEFING"]).toContain(s.screen);
+    expect(s.session).toBeNull();
+  });
+
+  /**
+   * ASSERT: the FINAL battle's victory still reaches `COMPLETED` (docs/render
+   * determinism note) — `advanceAfterResult` must not special-case "the last
+   * battle" any differently than `concludeBattle` did. Walks all five battles
+   * with the balance probe on both seats (AC-M1's own shipped seam).
+   */
+  it("the final battle's victory still lands on COMPLETED via advanceAfterResult", () => {
+    const s = shell();
+    s.newGame();
+    for (let i = 0; i < campaign.battles.length; i++) {
+      passScene(s);
+      // ADR-0027: the finale is tuned so an UNPREPPED party loses it — the same reason
+      // the AC-M1 walkthrough above preps as the optimizer would.
+      prepAsOptimizer(s);
+      s.deploy();
+      autoplay(s);
+      expect(s.result()?.report.outcome).toBe("victory");
+      s.advanceAfterResult();
+    }
+    passScene(s); // the epilogue stands in front of COMPLETED (AC-V17)
+    expect(s.screen).toBe("COMPLETED");
+    expect(s.save?.status).toBe("completed");
+  });
+
+  /**
+   * ASSERT: `retry()` reachable DIRECTLY off the result overlay (no `concludeBattle`
+   * in between) lands on the SAME battle's briefing with the party BYTE-IDENTICAL
+   * to what it was before the loss — comparing the party array's JSON before and
+   * after, not just a field. MUTATION this catches: `retry()` wired to
+   * `nextBattle()`/`arrive()` on the wrong branch, or leaving the party mutated,
+   * goes red on either assertion.
+   */
+  it("retry() straight off the overlay replays the same battle, party unchanged", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    const before = JSON.stringify(startCampaign(campaign).party);
+    s.deploy();
+    forfeit(s);
+    expect(s.result()?.report.outcome).not.toBe("victory");
+    expect(s.save?.status).toBe("gameOver");
+    s.retry();
+    expect(s.session).toBeNull();
+    passScene(s);
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.briefing()?.battleId).toBe("b1");
+    expect(s.briefing()?.retrying).toBe(true);
+    expect(JSON.stringify(s.save!.party)).toBe(before);
+  });
+
+  /**
+   * ASSERT: after a non-final WIN, `advanceAfterResult()` queues THIS battle's own
+   * authored `victory` beat through the scene player — by IDENTITY (`outcome:b1:victory`,
+   * and the beat's `lines` matching the pack's own b1 entry), not merely "some scene
+   * showed" — before landing on the existing next stop. MUTATION this catches: routing
+   * Continue straight to `arrive()` (the pre-fix behaviour) goes red on the first two
+   * assertions — the screen is already `BRIEFING`, and `activeScene()` is `null`.
+   */
+  it("advanceAfterResult on a non-final win plays the battle's OWN victory beat first", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    autoplay(s);
+    expect(s.result()?.report.outcome).toBe("victory");
+    s.advanceAfterResult();
+    expect(s.screen).toBe("SCENE");
+    expect(s.activeScene()?.id).toBe("outcome:b1:victory");
+    expect(s.activeScene()?.beat.lines).toEqual(story.entries.find((e) => e.battleId === "b1")!.victory?.lines);
+    passScene(s);
+    expect(s.screen).toBe("BRIEFING"); // b2 authors no pre-battle scene of its own
+  });
+
+  /**
+   * ASSERT: after a LOSS, `retry()` queues THIS battle's own authored `defeat` beat the
+   * same way, then lands on the same battle's briefing. MUTATION this catches: `retry()`
+   * skipping the queue goes red on the identity assertion the same way the win test does.
+   */
+  it("retry on a loss plays the battle's OWN defeat beat first", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    forfeit(s);
+    expect(s.result()?.report.outcome).not.toBe("victory");
+    s.retry();
+    expect(s.screen).toBe("SCENE");
+    expect(s.activeScene()?.id).toBe("outcome:b1:defeat");
+    expect(s.activeScene()?.beat.lines).toEqual(story.entries.find((e) => e.battleId === "b1")!.defeat?.lines);
+    passScene(s);
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.briefing()?.battleId).toBe("b1");
+  });
+
+  /**
+   * REVIEWER FINDING 2 (win-lose-screen slice) — "the beat plays ONCE per outcome".
+   * A reload while the DEFEAT overlay was still open never taps Retry through the live
+   * overlay: the in-memory session is gone, so a FRESH shell's `continueGame()` lands
+   * straight on `AFTER_BATTLE` (the save was already persisted `gameOver` by `result()`'s
+   * own bank — the same `bankResult()` the live overlay uses). `game.ts`'s `renderAfter()`
+   * reads `outcomeBeat()` and shows it INLINE on THAT screen — surface 1, asserted here
+   * directly off the shell method the render layer calls, with no DOM. Retry from there
+   * must not queue the SAME beat again through the scene player — surface 2.
+   *
+   * FIX CHOSEN: Retry called FROM `AFTER_BATTLE` skips `queueOutcomeSceneOrArrive()`
+   * outright. Retry reached any other way (straight off the live overlay, where
+   * `s.screen` is still `"BATTLE"`) is untouched — proved by the test directly above,
+   * which still lands on `SCENE` with the beat.
+   *
+   * MUTATION: reverting `retry()` to always queue goes red on the last two assertions —
+   * `reopened.screen` would be `"SCENE"` and `activeScene()?.id` would be
+   * `"outcome:b1:defeat"` again, the exact double presentation this test exists to catch.
+   */
+  it("a reload during a banked DEFEAT shows the beat once — inline on AFTER_BATTLE, not again via Retry", () => {
+    const slot = memorySlot();
+    const s = shell(slot);
+    s.newGame();
+    passScene(s);
+    s.deploy();
+    forfeit(s);
+    expect(s.result()?.report.outcome).not.toBe("victory"); // banks + persists, same as the live overlay
+    expect(s.screen).toBe("BATTLE"); // never touched AFTER_BATTLE — the overlay replaced it
+
+    // THE RELOAD: a fresh shell over the SAME slot, as if the tab had just reopened.
+    const reopened = shell(slot);
+    reopened.continueGame();
+    expect(reopened.screen).toBe("AFTER_BATTLE");
+    // SURFACE 1 — what `renderAfter()` shows inline, right here.
+    expect(reopened.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === "b1")!.defeat?.lines,
+    );
+
+    reopened.retry();
+    // SURFACE 2 must not exist — no second presentation through the scene player.
+    expect(reopened.screen).not.toBe("SCENE");
+    expect(reopened.activeScene()).toBeNull();
+  });
+
+  /**
+   * "Same for the final battle" (finding 2's own words) — the fix is a branch on
+   * `this.screen`, not on which battle it is, so this proves it generalizes rather
+   * than asserting it.
+   */
+  it("same reload fix for the FINAL battle's own loss", () => {
+    const slot = memorySlot();
+    const s = shell(slot);
+    s.newGame();
+    for (let i = 0; i < campaign.battles.length - 1; i++) {
+      passScene(s);
+      prepAsOptimizer(s);
+      s.deploy();
+      autoplay(s);
+      expect(s.result()?.report.outcome).toBe("victory");
+      s.advanceAfterResult();
+    }
+    passScene(s);
+    s.deploy();
+    forfeit(s);
+    expect(s.result()?.report.outcome).not.toBe("victory");
+    expect(s.save?.status).toBe("gameOver"); // losing the last battle is still a loss, never "completed"
+    const lastId = s.save!.history.at(-1)!.battleId;
+
+    const reopened = shell(slot);
+    reopened.continueGame();
+    expect(reopened.screen).toBe("AFTER_BATTLE");
+    expect(reopened.outcomeBeat()?.lines).toEqual(
+      story.entries.find((e) => e.battleId === lastId)!.defeat?.lines,
+    );
+
+    reopened.retry();
+    expect(reopened.screen).not.toBe("SCENE");
+    expect(reopened.activeScene()).toBeNull();
+  });
+
+  /**
+   * ASSERT: the FINAL victory's beat is never queued a second time as a SCENE outcome —
+   * `renderCompleted()` already reads it straight off `COMPLETED` (`src/render/CLAUDE.md`'s
+   * "screen the state machine skips" trap, mirrored). After the fifth `advanceAfterResult()`,
+   * whatever the SCENE screen shows is the PACK's own epilogue, identified by id, never
+   * `outcome:b5:victory`. MUTATION this catches: dropping the `status === "completed"`
+   * guard in `queueOutcomeSceneOrArrive` would queue b5's beat here, failing the id
+   * equality — the same beat `COMPLETED` renders would then show TWICE.
+   */
+  it("the final battle's victory beat is not re-queued as a SCENE outcome (it renders once, on COMPLETED)", () => {
+    const s = shell();
+    s.newGame();
+    for (let i = 0; i < campaign.battles.length; i++) {
+      passScene(s);
+      prepAsOptimizer(s);
+      s.deploy();
+      autoplay(s);
+      expect(s.result()?.report.outcome).toBe("victory");
+      s.advanceAfterResult();
+    }
+    expect(s.screen).toBe("SCENE");
+    expect(s.activeScene()?.id).toBe("sc-epilogue"); // the pack's own scene, not an outcome beat
+    passScene(s);
+    expect(s.screen).toBe("COMPLETED");
+    expect(s.outcomeBeat()?.lines).toEqual(story.entries.find((e) => e.battleId === "b5")!.victory?.lines);
+  });
+
+  /**
+   * ASSERT: with the battle's own beat absent from the pack (a swapped pack — the seam
+   * `docs/11` AC-M4 guarantees), `advanceAfterResult` lands DIRECTLY — no invented SCENE
+   * hop. MUTATION this catches: constructing `outcomeScene` off a `null` beat (rather
+   * than gating on it) would leave the screen on `SCENE` here with nothing to show.
+   */
+  it("with the pack authoring no beat for this battle, advanceAfterResult lands directly", () => {
+    const noBeats = parseStoryPack({
+      storySchemaVersion: STORY_SCHEMA_VERSION,
+      campaignId: campaign.id,
+      characters: [],
+      entries: campaign.battles.map((b) => ({ battleId: b.id })),
+      scenes: [],
+    });
+    const s = shell(memorySlot(), noBeats);
+    s.newGame();
+    expect(s.screen).toBe("BRIEFING"); // no prologue authored either
+    s.deploy();
+    autoplay(s);
+    expect(s.result()?.report.outcome).toBe("victory");
+    s.advanceAfterResult();
+    expect(s.screen).toBe("BRIEFING");
+    expect(s.activeScene()).toBeNull();
+  });
+
+  /**
+   * ASSERT: `lastGrantedEquipment` is the weapon this battle's win actually paid —
+   * `def.battles[1].grants` (`data/campaign/camp-the-first-march.json`) — identified
+   * by id, not merely non-empty. MUTATION this catches: listing the WHOLE inventory
+   * (which also carries battle 0's own starting grants) instead of the diff would
+   * include `wpn-arming-sword`/`wpn-cestus` too.
+   */
+  it("lastGrantedEquipment names exactly what THIS win newly granted", () => {
+    const s = shell();
+    s.newGame();
+    passScene(s);
+    expect(s.lastGrantedEquipment).toEqual([]);
+    s.deploy();
+    autoplay(s);
+    expect(s.result()).not.toBeNull();
+    expect(s.lastGrantedEquipment).toEqual(campaign.battles[1]!.grants ?? []);
   });
 });
 

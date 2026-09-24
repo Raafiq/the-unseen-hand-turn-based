@@ -30,7 +30,7 @@ These lived only in `docs/INTENT.md`, which is rewritten every slice. They belon
 
 ## Two traps the shell sets, both earned
 
-- **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the final victory's story beat was unreadable until the ending screen rendered it too — one scene a player could never see, with every per-battle test green. When you add anything to a screen, enumerate the **transitions**, not the states: `concludeBattle` branches on status, `continueGame` lands on three different screens, and a loss on the last battle still goes to `AFTER_BATTLE`.
+- **A screen the state machine SKIPS has content nobody can reach.** Winning the LAST battle goes straight to `COMPLETED` and never passes through `AFTER_BATTLE`, so the final victory's story beat was unreadable until the ending screen rendered it too — one scene a player could never see, with every per-battle test green. When you add anything to a screen, enumerate the **transitions**, not the states. ~~A loss on the last battle still goes to `AFTER_BATTLE`~~ — **superseded (ADR-0047): live play never reaches `AFTER_BATTLE` any more, win or loss. Every decided battle shows the result overlay (`hud.ts`, `result-overlay.ts`); `AFTER_BATTLE` is now only the landing for a reload mid-`gameOver`, where there is no live session left to overlay.** The trap recurs there in a new shape: `AFTER_BATTLE`'s own defeat-beat rendering exists solely to cover that one reload path — a second screen the ordinary run now skips, kept alive on purpose for the case that still needs it.
 - **A sim docstring that delegates a rule to "the caller" is an obligation nobody is told about.** `changeJob` says "the caller/UI picks from unlocked jobs" and validates nothing, which made `secondary === currentJob` reachable through the back door — exactly the state `setLoadoutSlot` refuses to create, and one that throws nowhere downstream. The caller owes a test. And **ask first whether a schema can see both fields**: a refinement on `UnitRecordSchema` tells every codec boundary forever, where a docstring told nobody.
 
 ## The briefing screen is two views (ADR-0041)
@@ -100,3 +100,12 @@ The turn state machine lives in a **DOM-free `session.ts`** constructible over a
   fix to the owner as a failure, and only reading `stage-capture.spec.ts` settled it. Name
   the state in the filename (`-staged` vs `-staged-open`) and ship BOTH frames whenever a
   slice changes when something opens.
+- **A SCREEN APPROVED FROM A FRAME GETS TWO ASSERTIONS BEFORE ANY OTHER: its box against
+  the viewport, and its smallest rendered font.** The result overlay shipped at 45% of the
+  viewport with 7 px text while every box, contrast and 44 px test was green and the report
+  said "opened all four, they work" (2026-09-23). Nothing in that suite compared the built
+  screen to the approved frame's *size*. So, first: the root box of the new screen is ≥ the
+  fraction of the viewport the frame shows (the overlay: ≥ 0.8 × width), and the smallest
+  computed font-size of any text node inside it is ≥ 11 CSS px at 832×328. Only then the
+  identity, contrast and touch-target checks. A brief that names an approved frame names
+  these two numbers.

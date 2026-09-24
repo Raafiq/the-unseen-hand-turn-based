@@ -17,6 +17,7 @@ import {
   checkMastery,
   changeJob,
   awardAp,
+  apGrantAmount,
   learnedNodeIds,
   ACTION_AP_CAP,
   BASE_AP_GRANT,
@@ -171,5 +172,28 @@ describe("AC-J7 — AP grants are capped and level-independent", () => {
     const rec = defaultUnitRecord("w", "wizard", { ap: 25 });
     const after = awardAp(rec, { participated: false, meaningfulActions: 999 });
     expect(after.ap).toBe(25);
+  });
+
+  /**
+   * `apGrantAmount` is the NUMBER `awardAp` adds — the result overlay reads it
+   * directly rather than diffing a record's `ap` before/after (the whole record is
+   * already post-bank by the time the overlay renders).
+   *
+   * ASSERT: the standalone amount equals the delta `awardAp` actually applies, across
+   * a case that participated (with an uncapped and a capped action count) and one that
+   * didn't. MUTATION this catches: `apGrantAmount` drifting from `awardAp`'s own
+   * formula (e.g. forgetting the cap, or granting a flat base regardless of
+   * `participated`) would fail at least one of the three deltas below.
+   */
+  it("apGrantAmount equals the delta awardAp actually applies", () => {
+    const rec = defaultUnitRecord("w", "wizard", { ap: 0 });
+    for (const reward of [
+      { participated: true, meaningfulActions: 5 },
+      { participated: true, meaningfulActions: 500 },
+      { participated: false, meaningfulActions: 999 },
+    ] as const) {
+      const delta = awardAp(rec, reward).ap - rec.ap;
+      expect(apGrantAmount(reward)).toBe(delta);
+    }
   });
 });

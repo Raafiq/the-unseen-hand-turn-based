@@ -91,8 +91,34 @@ export class CampaignShell {
   save: CampaignSave | null = null;
   /** The battle in progress, or `null` outside `BATTLE`. */
   session: Session | null = null;
+  /**
+   * True once the live battle's report has been folded into `save` (win or loss).
+   * Reset on every `deploy()`. This is what makes {@link result} safe to call on
+   * every repaint: the first read banks the battle (idempotent from then on), so
+   * the result overlay can show real AP before the player ever taps Continue/Retry
+   * (`intent/win-lose-screen.md`'s design decision) without ever banking twice.
+   */
+  private resultBanked = false;
+  /**
+   * Equipment ids THIS battle's win newly added to the inventory — a diff of
+   * `save.inventory` taken across the bank, not a re-derivation of `grantEquipment`'s
+   * own idempotency rule. `[]` for a loss, or a win that authored no grant. Reset
+   * alongside `resultBanked`.
+   */
+  lastGrantedEquipment: readonly string[] = [];
   /** The encounter the live battle is judged against — kept for the fold-back. */
   private encounter: Encounter | null = null;
+  /**
+   * A just-decided battle's authored victory/defeat beat, queued to play through
+   * the SAME scene player a standalone scene uses (owner decision,
+   * `intent/win-lose-screen.md`, 2026-09-22: "Victory goes on to the scene or
+   * prep"). Set by {@link advanceAfterResult}/{@link retry}, cleared by
+   * {@link endScene}. Kept OUT of `save.scenesSeen` on purpose: that set is for
+   * `StoryScene`s the pack owns and that must never replay; an outcome beat is
+   * gated by having just happened, not by an idempotent read-once record, and it
+   * is not a member of `storyPack.scenes` at all.
+   */
+  private outcomeScene: { battleId: string; kind: "victory" | "defeat"; beat: StoryBeat } | null = null;
 
   /**
    * What the title screen offers as "Continue": a readable save, nothing, or a reason it
@@ -139,6 +165,12 @@ export class CampaignShell {
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
+    this.resultBanked = false;
+    this.lastGrantedEquipment = [];
+    // A queued outcome scene belongs to the run being LEFT — leaking it into a fresh
+    // save shows the old run's beat first (by identity, `activeScene()` checks it
+    // before `pendingScene()`) and re-derives the wrong landing once dismissed.
+    this.outcomeScene = null;
     this.arrive();
   }
 
@@ -162,6 +194,11 @@ export class CampaignShell {
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
+    this.resultBanked = false;
+    this.lastGrantedEquipment = [];
+    // Same reason `newGame()` clears it — a reload/resume must not resurrect a
+    // beat queued by whatever session was live when the tab last closed.
+    this.outcomeScene = null;
     // gameOver still lands on AFTER_BATTLE — the retry screen is where a loss is
     // acknowledged, and a scene must never stand in front of that.
     if (this.save.status === "gameOver") this.screen = "AFTER_BATTLE";
@@ -175,6 +212,16 @@ export class CampaignShell {
     this.session = null;
     this.encounter = null;
     this.lastBattle = null;
+    this.resultBanked = false;
+    this.lastGrantedEquipment = [];
+    // THE BUG THIS LINE FIXES: a queued outcome scene survived a quit-to-title and a
+    // subsequent New Game, so the fresh campaign's SCENE screen showed the OLD run's
+    // victory beat first (by identity — `activeScene()` checks `outcomeScene` before
+    // `pendingScene()`), and dismissing it revealed the real prologue behind it —
+    // TWO scenes where the fresh save authors only one, so the first `dismissScene`
+    // landed back on SCENE instead of the briefing. Caught by
+    // `title.spec.ts`'s "Yes starts a fresh run" test.
+    this.outcomeScene = null;
     this.screen = "TITLE";
     this.refreshSlot();
   }
@@ -252,14 +299,42 @@ export class CampaignShell {
   }
 
   /**
-   * Dismiss the pending scene: mark it read, persist, and go where it stood in front of.
+   * What the SCENE screen shows right now — a just-decided battle's outcome beat
+   * (queued by {@link advanceAfterResult}/{@link retry}) if one is pending, else the
+   * pack's own standalone scene. ONE reader for `renderScene()`, so there is exactly
+   * one story renderer (`src/render/CLAUDE.md`) regardless of which queue fed it.
+   * `id` is a stable key, not a `scenesSeen` entry — see {@link outcomeScene}.
+   */
+  activeScene(): { id: string; title?: string | undefined; beat: StoryBeat } | null {
+    if (this.outcomeScene) {
+      return {
+        id: `outcome:${this.outcomeScene.battleId}:${this.outcomeScene.kind}`,
+        beat: this.outcomeScene.beat,
+      };
+    }
+    return this.pendingScene();
+  }
+
+  /**
+   * Dismiss whatever the SCENE screen is showing right now and go where it stood in
+   * front of. A queued {@link outcomeScene} is simply cleared (see its own doc — it
+   * never joins `scenesSeen`); a pack scene is marked read, persisted, on the same
+   * boundary every other `persist()` sits on.
    *
    * MARKED ON EXIT, not on entry. A reload part-way through a scene therefore replays it
-   * from the top, which is the friendlier answer and puts the write on the same boundary
-   * every other `persist()` sits on. How far the player had read is presentation and is
-   * deliberately not saved.
+   * from the top, which is the friendlier answer.
+   *
+   * `arrive()` may land back on `SCENE` — the next anchor can hold its own authored
+   * scene (an outcome beat followed immediately by an interlude, e.g. b2 → b3 in the
+   * shipped pack) — and that is correct: each call dismisses exactly the one scene
+   * on screen, not a whole backlog at once.
    */
   endScene(): void {
+    if (this.outcomeScene) {
+      this.outcomeScene = null;
+      this.arrive();
+      return;
+    }
     const scene = this.pendingScene();
     if (!this.save || !scene) return;
     this.save = { ...this.save, scenesSeen: [...this.save.scenesSeen, scene.id] };
@@ -348,6 +423,8 @@ export class CampaignShell {
       },
     });
     this.screen = "BATTLE";
+    this.resultBanked = false;
+    this.lastGrantedEquipment = [];
   }
 
   /**
@@ -417,32 +494,114 @@ export class CampaignShell {
   }
 
   /**
-   * Bank the finished battle: fold its report into the save, persist, and move to the
-   * screen the result implies. The report comes from {@link Session.report}, which is
-   * assembled from the same `harness.ts` helpers the headless runner uses — so what is
-   * banked for a played battle and for a probed one is the same artifact.
+   * Fold the finished battle's report into the save and persist it — the half of the
+   * old `concludeBattle` that does not touch the screen. IDEMPOTENT: a second call is
+   * a no-op, guarded by {@link resultBanked}, because this now runs as a SIDE EFFECT of
+   * the first read of {@link result} (on entering `ENDED`, before any tap), not only
+   * when the player taps Continue/Retry — the result overlay has to show real AP
+   * before the tap (`intent/win-lose-screen.md`). Banking twice would double the AP
+   * grant and double-issue nothing only because `grantEquipment` happens to be a set;
+   * `resultBanked` is what stops it being relied on twice.
    *
    * Throws while the battle is still running: `applyBattleResult` refuses an `ongoing`
-   * outcome, and it is right to. Banking an unfinished battle would advance the campaign
-   * past a fight nobody won.
+   * outcome, and it is right to. Banking an unfinished battle would advance the
+   * campaign past a fight nobody won.
    */
-  concludeBattle(): void {
+  private bankResult(): void {
+    if (this.resultBanked) return;
     if (!this.save || !this.session || !this.encounter) {
       throw new Error("concludeBattle: no battle in progress");
     }
     const report = this.session.report();
     if (!report) throw new Error("concludeBattle: the battle produced no report");
+    const before = new Set(this.save.inventory);
     const step = resolveCampaignBattle(this.def, this.save, this.encounter, report);
     this.save = step.save;
     this.lastBattle = step.battle;
+    // What THIS battle granted, not "everything owned" — `grantEquipment` is a set, so
+    // diffing before/after is the only way to say "issued to the party" honestly rather
+    // than re-listing the whole inventory (docs/render honesty rule: derive off the real
+    // projection, never off a guess).
+    this.lastGrantedEquipment = step.save.inventory.filter((id) => !before.has(id));
+    this.resultBanked = true;
     this.persist();
+  }
+
+  /**
+   * The banked result of the battle just decided, for the result overlay — `null`
+   * while the battle is still ongoing or once the player has moved past it. Reading
+   * this is what BANKS the battle (see {@link bankResult}); calling it on every
+   * repaint is safe. The overlay never re-derives a verdict or an AP total: every
+   * number it shows is copied off `CampaignBattleRun.rewards`/`report.outcome`, which
+   * `bankResult` folds in from the same `harness.ts` helpers the headless runner uses.
+   */
+  result(): CampaignBattleRun | null {
+    if (!this.session || this.session.phase !== "ENDED") return null;
+    this.bankResult();
+    return this.lastBattle;
+  }
+
+  /**
+   * Bank the finished battle (if {@link result} has not already) and move to the
+   * screen the result implies. Kept for the headless suite and for any caller that
+   * wants bank-and-navigate in one call; the LIVE result overlay uses {@link result}
+   * to bank early and {@link advanceAfterResult}/{@link retry} to navigate once the
+   * player taps, which is why those two no longer stop at `AFTER_BATTLE` for a win.
+   */
+  concludeBattle(): void {
+    this.bankResult();
+    if (!this.save) throw new Error("concludeBattle: no battle in progress");
     this.session = null;
     this.encounter = null;
+    this.resultBanked = false;
     // A win goes through `arrive`, so the epilogue can stand in front of the ending.
     // A loss goes straight to AFTER_BATTLE: the retry screen is the one place a defeat
     // is acknowledged, and no scene belongs in front of it.
     if (this.save.status === "completed") this.arrive();
     else this.screen = "AFTER_BATTLE";
+  }
+
+  /**
+   * Continue off a WIN's result overlay. The battle is already banked by the time the
+   * overlay could show it ({@link result}), so this only clears the live session and
+   * queues the just-won battle's authored victory beat — through the scene player,
+   * before landing wherever `arrive()` says: the next briefing, an interlude scene, or
+   * (the last battle) the epilogue/`COMPLETED`. Unlike `concludeBattle()`, it never
+   * stops at `AFTER_BATTLE`: that screen is gone from this path entirely.
+   */
+  advanceAfterResult(): void {
+    if (!this.resultBanked || !this.save) return;
+    this.session = null;
+    this.encounter = null;
+    this.resultBanked = false;
+    this.queueOutcomeSceneOrArrive();
+  }
+
+  /**
+   * Play the just-decided battle's authored outcome beat through the scene player, or
+   * land directly when the pack authors none (owner decision,
+   * `intent/win-lose-screen.md`, 2026-09-22). Shared by {@link advanceAfterResult} and
+   * {@link retry} — the only two callers that navigate off the live result overlay.
+   *
+   * THE FINAL VICTORY IS EXCLUDED. `renderCompleted()` already reads
+   * {@link outcomeBeat} straight off `COMPLETED` — the fix for the mirror-image trap
+   * `src/render/CLAUDE.md` names ("a screen the state machine skips has content
+   * nobody can reach"). Queuing it here too would show the SAME beat on two screens
+   * in a row instead of on none.
+   */
+  private queueOutcomeSceneOrArrive(): void {
+    const last = this.save?.history.at(-1);
+    const beat = this.save?.status === "completed" ? null : (last ? this.outcomeBeat() : null);
+    if (last && beat) {
+      this.outcomeScene = {
+        battleId: last.battleId,
+        kind: last.outcome === "victory" ? "victory" : "defeat",
+        beat,
+      };
+      this.screen = "SCENE";
+    } else {
+      this.arrive();
+    }
   }
 
   /**
@@ -477,12 +636,40 @@ export class CampaignShell {
    */
   retry(): void {
     if (!this.save || this.save.status !== "gameOver") return;
+    // THE BEAT PLAYS ONCE PER OUTCOME (reviewer finding 2, `intent/win-lose-screen.md`).
+    // A reload while the DEFEAT overlay was still open never taps Retry through the
+    // live overlay at all: the in-memory session is gone, so `continueGame()` lands a
+    // fresh shell straight on `AFTER_BATTLE` (the save was already persisted `gameOver`
+    // by `result()`'s own bank) — and `game.ts`'s `renderAfter()` reads `outcomeBeat()`
+    // and shows it INLINE, right there, the instant that screen renders. Queuing the
+    // SAME beat again through the scene player here would be a second presentation of
+    // lines the player already read on the screen they are tapping Retry FROM.
+    // `this.screen` is read BEFORE it moves, so it still names where Retry was called
+    // from: `"AFTER_BATTLE"` for that reload landing (and for `concludeBattle()`'s own
+    // direct arrival, which renders identically were it ever put on screen), anything
+    // else (`"BATTLE"`, live overlay) for a Retry that has never shown the beat before.
+    const beatAlreadyShown = this.screen === "AFTER_BATTLE";
     this.save = retryBattle(this.save);
+    // Reachable directly off the DEFEAT overlay now (skipping `AFTER_BATTLE`), where
+    // the just-decided session is still alive — nulled here rather than left to the
+    // next `deploy()`, matching `concludeBattle`. A no-op when it already is (the old
+    // AFTER_BATTLE-screen path, where `concludeBattle` cleared it first).
+    this.session = null;
+    this.encounter = null;
+    this.resultBanked = false;
     this.persist();
-    // Through `arrive` like every other landing, and the seen-set is what makes this
-    // correct with no special case: an interlude already read is not replayed on a
-    // retry, and one somehow unread still plays.
-    this.arrive();
+    if (beatAlreadyShown) {
+      // Skip straight to where `queueOutcomeSceneOrArrive` would otherwise land AFTER
+      // the (now-skipped) beat — a pending pre-battle scene, or the briefing.
+      this.arrive();
+    } else {
+      // Through `queueOutcomeSceneOrArrive` like `advanceAfterResult` — the just-lost
+      // battle's authored `defeat` beat (if any) plays through the scene player first,
+      // then `arrive()`: the seen-set is what makes THAT half correct with no special
+      // case, an interlude already read is not replayed on a retry, and one somehow
+      // unread still plays.
+      this.queueOutcomeSceneOrArrive();
+    }
   }
 
   // ─── between-battle prep (docs/11 M0 item 3) ──────────────────────────────
