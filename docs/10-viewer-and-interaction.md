@@ -153,6 +153,11 @@ previews honest, and speculation impossible.
 - **Cancel** unwinds **one** level: from `TARGET_STAGED` back to `MOVE_STAGED` or
   `PLAYER_IDLE`, from `MOVE_STAGED` to `PLAYER_IDLE`. Tapping the actor clears the whole
   draft to turn start. Total and free — the sim was never called.
+  > **The level Cancel undoes is the most recent STEP, not always the picker's own pick**
+  > (skill picker, ADR-0048). Attack → stage a move → Cancel undoes the move (the later
+  > step) and leaves Attack selected — it does not unwind the picker first regardless of
+  > what was staged. Skill → open the chip sheet → pick a chip → Cancel returns to the open
+  > sheet with the pick cleared; a second Cancel returns to root. See AC-V26(b).
 - **Illegal tap** is a no-op plus a toast naming the reason ("Out of Move range"). Never a
   throw, never a state change, never a consumed command. The toast is **render-only**: the
   command log is byte-identical with and without it. **The toast is UNTIMED** — it is
@@ -266,6 +271,16 @@ the row entirely.
 
 `[BASELINE]` The player's action set is **whatever the loadout projects** — the viewer
 reads `unit.abilities` and never grants an action the build did not earn.
+
+**The skill picker (`intent/skill-picker.md`, ADR-0048, shipped).** Pressing Skill with
+two or more learned abilities opens a chip sheet above the command ribbon; the player picks
+one and the board paints that skill's own reach (from the sim's `inAbilityRange`, at the
+actor's tile or the staged move tile). A unit with exactly one skill skips the sheet and
+auto-picks it, going straight to targeting as before; a unit with none shows no chips at
+all. An unavailable skill (no legal target from here) is still a real, selectable chip —
+its reach still paints and its reason shows in the target plate — but nothing can commit it.
+Attack behaves the same way when no foe is in reach: no chips (there is only one Attack),
+but the same reach-plus-reason treatment. See §6's AC-V23…V29.
 
 Known limitations of the shipped demo roster, stated rather than hidden:
 
@@ -453,9 +468,80 @@ degenerate fixture where all orderings coincide).
   **legible** — have no test today and must land as an AC with a test or be marked
   explicitly aspirational.
 
-- **AC-V23 through AC-V29 — RESERVED for the action-menu proposal**
-  (`docs/proposals/action-menu.md`, deferred 2026-09-02). Not free; mint nothing in this
-  range until that spec lands or is dropped.
+- **AC-V23…AC-V29 — the skill picker (`intent/skill-picker.md`, ADR-0048, shipped this
+  slice).** Chips above the ribbon list the actor's real skills; the sim's own range rule
+  paints reach; an unavailable skill is selectable but not executable. This set is
+  narrower than `docs/proposals/action-menu.md`'s AC-V23…V29 (§11 there) — that proposal's
+  green colour, legend and keyboard/colour-distance halves are **not** part of it and stay
+  deferred (`docs/proposals/action-menu.md` marks the split). Tests: `session.test.ts`
+  ("the skill picker" describe block), `panels.test.ts`, `iso.test.ts`, `e2e/skill-picker.spec.ts`.
+
+  **AC-V23 (picking a chip fires that skill, not the first legal match).** Two skills on
+  one unit, both legal against the same foe — picking the SECOND chip commits the SECOND
+  skill's ability id. *Discriminator, and it is `docs/defects.md` §1's own fix:* reverting
+  `Session`'s skill-select branch to the old first-match search (`targetOptions(state,
+  actorId, from, "skill")`) makes the committed command carry the first skill regardless of
+  the pick. **Asserted** (`session.test.ts`).
+
+  **AC-V24 (reach equals the sim's own `inAbilityRange`, not a radius).** `Session.reach()`
+  equals exactly `inAbilityRange`'s own set for the picked ability; a tile inside the
+  horizontal box but outside the height box is absent. *Discriminator:* a Manhattan-radius
+  reach (no height check) wrongly includes a height-3 tile at the horizontal distance and
+  wrongly drops a same-height corner tile the real rule includes. **Asserted**
+  (`session.test.ts`, against `inAbilityRange` directly).
+
+  **AC-V25 (reach redraws from the staged tile, not the actor's own position).** Once a
+  move is staged, `reach()` is computed from the staged tile. *Discriminator:* reading
+  `actor().pos` instead of the staged-tile accessor never shows a tile reachable only from
+  the staged position. **Asserted** (`session.test.ts`).
+
+  **AC-V26 (switching action clears the pick; Cancel undoes the most recent step).**
+  **(a)** Switching Attack↔Skill clears the prior pick and its reach at once — no stale
+  reach survives the round trip, and switching back to Skill re-opens the chip sheet rather
+  than remembering the old pick. **(b)** Cancel unwinds **one step**, and "step" means the
+  most recently taken action, not always "the ribbon's own pick": Attack → stage a move →
+  Cancel leaves `PLAYER_IDLE` with the move undone and Attack still selected (the move was
+  the later step); Skill → pick a chip → Cancel returns to the open sheet with the pick
+  cleared; chips open with nothing picked → Cancel returns to root. *Discriminator:*
+  unwinding the picker first regardless of what was staged most recently — deleting the
+  `MOVE_STAGED` branch from `cancel()` — leaves the move intact and drops `commandMode()`
+  to `null` on the Attack→move→Cancel case. **Asserted** (`session.test.ts`, two `describe`
+  blocks: "AC-V26(a)", "AC-V26(b)"/"Cancel undoes the MOST RECENT step").
+
+  **AC-V27 (an unavailable skill is selectable; its reason shows; Confirm cannot fire it).**
+  A skill with no legal target is still a real chip — selectable, its reach still paints,
+  its reason ("No foe in reach", etc.) shows in the target plate — but `onPick` refuses to
+  stage a target for it and `Confirm` cannot commit it. Applies identically to Attack with
+  no foe in reach. *Discriminator:* falling back to a synthesized target (`actor.abilities[0]`)
+  when the real lookup misses, instead of refusing, grows the command log by one where it
+  must stay at zero. In the browser, Confirm is genuinely `disabled` for this state — no
+  click path reaches it at all. **Asserted** (`session.test.ts`, `panels.test.ts`,
+  `e2e/skill-picker.spec.ts` — "an unavailable chip among 2+").
+
+  **AC-V28 (zero- and one-skill units show no chips).** A unit with no skills, or exactly
+  one, never renders a `skill-chip` element; one skill goes straight to targeting as
+  before (auto-picked), the informational read-only list still opens. *Discriminator:*
+  `hud.ts`'s `options.length > 1` guard is the thing under test — removing it would render
+  a one-element chip sheet instead of auto-picking. **Asserted** (`e2e/skill-picker.spec.ts`,
+  real content: `pc-vance` rejobbed to a skillset with zero live actions; `pc-briar`'s
+  own single starting skill).
+
+  **AC-V29 (the chip sheet and reach paint, at 832×328/384).** All of the following are
+  **asserted**, each against real or purpose-built content, `e2e/skill-picker.spec.ts`:
+  chips are ≥44 CSS px tall; three real chips overflow the sheet's own `max-width: 280px`
+  and scroll rather than shrink or clip (name span and chip both have `clientWidth ≥
+  scrollWidth`); the strip's width stays under 60% of the board canvas, and its background
+  is the ribbon's own parchment token (`--hud-face-bg`), never the old full-width dark band
+  (`--hud-bg`); the sheet is a `position: absolute` overlay — board height is unchanged
+  with it open; it is hidden after a pick and after Cancel; the target plate's text sits
+  inside its own box at ≥11 CSS px; and the pink reach token (`FIELD_THEME.reach`) is
+  counted directly off the canvas pixel buffer, not asserted by a whole-canvas screenshot
+  diff (unstable on battle 1 — a damage popup stays partly drawn across otherwise-identical
+  frames). **Not asserted, and stays deferred with the rest of `docs/proposals/
+  action-menu.md`:** a green "help" colour, a redrawn legend, and the colour-distance
+  floors (own-ground/cross-ground dE00) that guard `FIELD_THEME.reach` the way AC-V29
+  in that proposal guards `highlight`/`target`/`friendly`/`staged` — `FIELD_THEME.reach`
+  has no such floor today.
 
 - **AC-V22 (the stat plate shows only what the sim models):** The battle screen SHALL carry
   a plate describing the unit the forecast says acts **next**, and it SHALL print only
@@ -627,8 +713,8 @@ degenerate fixture where all orderings coincide).
 
 ### 6a. The landscape-phone stage (ADR-0037, ADR-0038)
 
-> **Namespace note.** AC-V21 is reserved for the motion layer and AC-V23…AC-V29 for the
-> action-menu proposal. This set therefore starts at **AC-V33**.
+> **Namespace note.** AC-V21 is reserved for the motion layer and AC-V23…AC-V29 are the
+> skill picker (§6, above; ADR-0048). This set therefore starts at **AC-V33**.
 >
 > **WHAT EACH CRITERION ACTUALLY SWEEPS — stated, because "asserted at five viewports"
 > would be a claim about ten specs that only two of them make.** **AC-V33 and AC-V34 sweep

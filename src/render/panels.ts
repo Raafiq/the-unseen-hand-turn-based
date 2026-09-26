@@ -468,7 +468,36 @@ export function activePlateHtml(session: Session, look: LookUp): string {
  */
 export function targetPlateHtml(session: Session, look: LookUp): string {
   const p = session.preview();
-  if (!p) return `<span class="plate-empty">No target</span>`;
+  if (!p) {
+    // THE UNAVAILABLE/UNRESOLVED-ACTION READOUT (skill picker,
+    // `intent/skill-picker.md`, "reason B — the existing target plate", and the
+    // owner's post-review decision: "the target plate names the picked skill …
+    // e.g. AIMED SHOT · Reach 5 · Pick a target"). TWO rows, never three separately
+    // boxed ones: `plate-name` keeps its own row (same as every other plate state
+    // in this file), and Reach + the second half fold onto ONE flowing text line
+    // that is allowed to WRAP — that is what fits inside the plate's fixed 50px
+    // box. The old three-`plate-row` stack (name / reach / reason, each forced
+    // onto its own flex row) is what clipped "ATTACK" off the top and the reason
+    // text off the bottom in `attack-no-target-pass2-*.png`.
+    //
+    // NO `.reason` / `.hint` CLASS — `index.html` carries a page-wide, UNSCOPED
+    // `.reason { margin-top: 14px; padding: 8px 0 0; … }` rule for the dossier
+    // screen's own text (`src/render/CLAUDE.md`'s "a page-wide rule on a property
+    // the scoped rule does not name still wins"), and it matched here: it alone
+    // added 22px of dead space above this row, which is what actually pushed the
+    // content past the plate's 44px budget and produced the clipping this fix is
+    // for. `data-testid` is the only hook a test needs; `.plate-detail` alone
+    // carries every visual rule.
+    const ability = session.currentAbility();
+    const reason = session.actionReason();
+    if (ability) {
+      const detail = reason
+        ? `<span class="plate-detail" data-testid="target-reason">Reach ${ability.range.h} · ⊘ ${esc(reason)}</span>`
+        : `<span class="plate-detail" data-testid="target-hint">Reach ${ability.range.h} · Pick a target</span>`;
+      return `<span class="plate-name">${esc(abilityLabel(ability.id))}</span>` + detail;
+    }
+    return `<span class="plate-empty">No target</span>`;
+  }
   const meta = look(p.targetId);
   const color = meta?.color ?? FALLBACK_COLOR;
   const warn = p.counterRisk

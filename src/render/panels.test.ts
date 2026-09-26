@@ -16,7 +16,9 @@ import {
   createBattleState,
   defaultUnit,
   makeFlatTiles,
+  type BattleAbility,
   type BattleState,
+  type UnitState,
 } from "../sim/index.js";
 import { registry } from "./campaign-data.js";
 import { forecast } from "./demo.js";
@@ -578,5 +580,120 @@ describe("targetPlateHtml / activePlateHtml — the combat-revamp band (ADR-0043
     const htmlB = targetPlateHtml(s, twoFoeLook);
     expect(htmlB).toContain("Wizard");
     expect(htmlB).not.toContain("Brigand");
+  });
+});
+
+/**
+ * THE SKILL PICKER'S TARGET PLATE (skill-picker slice, `intent/skill-picker.md`,
+ * owner's post-review decision: "the target plate names the picked skill … e.g.
+ * AIMED SHOT · Reach 5 · Pick a target"). Two states share this code path with no
+ * preview yet: an ability picked with a legal target somewhere but nothing staged
+ * (item 3), and an ability with NO legal target at all (item 2/review fix — the
+ * fixed-height plate box that used to clip both).
+ */
+describe("targetPlateHtml — the picked-skill readout, no target staged yet (review fix)", () => {
+  const HERO_POS = { x: 1, y: 1 };
+  const ALLY_POS = { x: 3, y: 1 }; // inside HEAL's box, so the "pick a target" case is real
+  const width = 5;
+  const height = 3;
+
+  const HEAL_ID = "skill.heal-test";
+  const healAbility: BattleAbility = {
+    id: HEAL_ID,
+    actionKind: "action",
+    formula: "heal",
+    power: 10,
+    element: "none",
+    accuracy: 100,
+    range: { h: 4, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+
+  function fixture(): BattleState {
+    const base = defaultUnit("hero", 0, {
+      pos: HERO_POS,
+      facing: "E",
+      pa: 10,
+      hp: 200,
+      maxHp: 255,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      // ALREADY AT THE THRESHOLD (mirrors the fixture above): `Session.reset()`
+      // accrues CT until someone reaches ct >= 100, and this fixture needs HERO
+      // specifically to be the active actor, not whoever `speed` happens to favour.
+      ct: 100,
+    });
+    const hero: UnitState = { ...base, abilities: [...base.abilities, healAbility] };
+    const ally = defaultUnit("ally", 0, { pos: ALLY_POS, facing: "W", hp: 100, maxHp: 100 });
+    return createBattleState({
+      seed: 1,
+      grid: { width, height, tiles: makeFlatTiles(width, height, 0) },
+      units: [hero, ally],
+    });
+  }
+
+  const look = looks({ hero: { label: "Vance", color: "#4f8cff" }, ally: { label: "Briar", color: "#6ce07a" } });
+
+  /**
+   * ITEM 3: a picked skill with a legal target somewhere, nothing staged — the
+   * plate must NAME THE PICKED SKILL, by identity, not any old ability's name.
+   * MUTATION: print the actor's FIRST ability's name (`hero.abilities[0]!.id`)
+   * instead of `ability.id` in `targetPlateHtml`'s picked-skill branch — this goes
+   * red below (`html` still reads "Heal Test" for an actor whose first ability is
+   * `basic.attack`, so the mutant's label would not match at all).
+   */
+  it("names the PICKED skill and says 'Pick a target', by identity — not just any name", () => {
+    const s = new Session({ makeState: fixture, playerTeam: 0 });
+    s.setCommandMode("skill");
+    s.selectSkill(HEAL_ID);
+    expect(s.selectedSkill()).toBe(HEAL_ID);
+    expect(s.targets().length).toBeGreaterThan(0); // a real legal target exists
+    expect(s.preview()).toBeNull(); // …but nothing is STAGED yet
+
+    const html = targetPlateHtml(s, look);
+    expect(html).toContain("Heal Test"); // `abilityLabel`'s de-kebab Title Case fallback
+    expect(html).toContain("Reach 4");
+    expect(html).toContain("Pick a target");
+    expect(html).not.toContain("No target");
+
+    // Staging the real target replaces this with the existing preview state.
+    s.onPick(ALLY_POS);
+    expect(s.preview()).not.toBeNull();
+    const staged = targetPlateHtml(s, look);
+    expect(staged).toContain("Briar");
+    expect(staged).not.toContain("Pick a target");
+  });
+
+  /**
+   * ITEM 2 (review fix): every text node the plate renders for this state must
+   * fit inside the plate's own line budget — proven here by asserting the HTML
+   * carries the reason on a SEPARATE element from the name (so a 50px box with a
+   * tight line-height can lay them out as two lines, not clip a three-row stack).
+   * The real clipping check (rendered box vs box) is `e2e/skill-picker.spec.ts`'s
+   * job — DOM string content cannot see `overflow: hidden`.
+   */
+  it("an unavailable action still names itself, its reach and the rules' own reason", () => {
+    const s = new Session({
+      makeState: () => {
+        const st = fixture();
+        // DROP the only other unit entirely — a heal with no ally ANYWHERE on the
+        // board is unavailable regardless of range, the cleanest real "no legal
+        // target" case (distinct from a range-based one, already covered by
+        // AC-V27/the session-level tests).
+        return { ...st, units: st.units.filter((u) => u.id !== "ally") };
+      },
+      playerTeam: 0,
+    });
+    s.setCommandMode("skill");
+    s.selectSkill(HEAL_ID);
+    expect(s.targets()).toEqual([]);
+    expect(s.actionReason()).toBe("No ally in reach");
+
+    const html = targetPlateHtml(s, look);
+    expect(html).toContain("Heal Test");
+    expect(html).toContain("Reach 4");
+    expect(html).toContain("No ally in reach");
+    expect(html).toContain('data-testid="target-reason"');
   });
 });

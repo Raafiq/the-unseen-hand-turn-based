@@ -387,6 +387,18 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   scrollable(abilityList, "Learned abilities", "");
   actionsSheet.append(actionsHead, abilityList);
 
+  // THE SKILL PICKER'S CHIP SHEET (skill-picker slice, `intent/skill-picker.md`,
+  // approved look `coverage/frames/skill-picker/sheet-B-pass1-*`). A SEPARATE
+  // element from `actionsSheet` above — that one is the read-only informational
+  // list (AC-V38a, unchanged, still what a one-skill unit's Skill press opens) —
+  // because this one is the actual PICK gesture and only ever appears for two or
+  // more skills. `hidden` gives it "never a permanent height cost" for free: a
+  // hidden element has no box to lay out.
+  const skillChips = el("div", "tuh-skill-chips");
+  skillChips.dataset["testid"] = "skill-chips";
+  skillChips.hidden = true;
+  scrollable(skillChips, "Choose a skill");
+
   // The help drawer's content never changes at runtime, so it is built once — for the
   // same reason `game.ts`'s `<dialog>` help is: rebuilding it would throw away the
   // reader's scroll position for nothing.
@@ -416,6 +428,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     settingsDrawer.root,
     helpDrawer.root,
     actionsSheet,
+    skillChips,
     // LAST, so it stacks above `rail`/`band` regardless of z-index ties — see its own
     // comment above, by `boardBox.append`.
     resultLayer,
@@ -580,9 +593,17 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     // state agree. Move sets no filter, so it is never shown pressed.
     const mode = session.commandMode();
     attackBtn.setAttribute("aria-pressed", String(mode === "attack"));
-    actionsBtn.setAttribute("aria-pressed", String(mode === "skill" && overlay === "actions"));
+    actionsBtn.setAttribute("aria-pressed", String(mode === "skill"));
 
-    cancelBtn.disabled = session.phase !== "MOVE_STAGED" && session.phase !== "TARGET_STAGED";
+    // ALSO enabled with a picked ribbon mode and no staged draft (skill-picker
+    // slice): Cancel now has a real "back one level" meaning there too — a picked
+    // chip back to the sheet, the sheet (or Attack) back to root — and a disabled
+    // button would make that gesture unreachable by anyone using the ribbon rather
+    // than a raw `session.cancel()` call.
+    cancelBtn.disabled =
+      session.phase !== "MOVE_STAGED" &&
+      session.phase !== "TARGET_STAGED" &&
+      session.commandMode() === null;
 
     // THE PHASE-AWARE Wait/End-Turn BUTTON (docs/10 §3, AC-V38b). In `AI_TURN` it is
     // INERT (ADR-0046): the enemy's turn runs itself from the moment it starts, so there
@@ -708,6 +729,10 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
     settingsDrawer.body.replaceChildren(readout(session), statusBlock(session, look));
     renderActions(session);
+    // NOT gated by `overlay` — the chip sheet's own visibility is derived straight
+    // from session state (two-or-more skills, none picked yet), not from the
+    // drawer/overlay state machine the other sheets share.
+    renderSkillChips(session);
   }
 
   /**
@@ -812,6 +837,51 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       li.append(name, range);
       abilityList.append(li);
     }
+  }
+
+  /**
+   * THE SKILL PICKER'S CHIPS (`intent/skill-picker.md`): one row per
+   * {@link Session.skillOptions}, straight off the unit's own projection — never a
+   * static table, so a build's second and later learned skills appear the moment
+   * they exist. VISIBLE ONLY while choosing (two-or-more skills, none picked yet);
+   * `hidden` otherwise, so it costs zero layout height when it does not apply
+   * (`intent/skill-picker.md`: "never a permanent height cost").
+   *
+   * An UNAVAILABLE skill is still a real `<button>` — selectable, per the owner's
+   * "Decided by the owner 2026-09-24" — distinguished from an available one by BOTH
+   * a class (colour/border) AND its own text (the reason replaces "Reach N"), so
+   * targetability is never colour alone.
+   */
+  function renderSkillChips(session: Session): void {
+    const options = session.skillOptions();
+    const show = session.commandMode() === "skill" && session.selectedSkill() === null && options.length > 1;
+    skillChips.hidden = !show;
+    if (!show) {
+      skillChips.replaceChildren();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const option of options) {
+      const btn = el("button", "tuh-chip");
+      btn.type = "button";
+      btn.dataset["testid"] = "skill-chip";
+      btn.dataset["ability"] = option.ability.id;
+      if (!option.available) {
+        btn.classList.add("unavailable");
+        btn.setAttribute("aria-disabled", "true"); // selectable (not `disabled`) — see the doc comment above
+      }
+      const name = el("span", "chip-name");
+      name.textContent = abilityLabel(option.ability.id);
+      const meta = el("span", "chip-meta");
+      meta.textContent = option.available ? `Reach ${option.reach}` : `${option.reason} · Reach ${option.reach}`;
+      btn.append(name, meta);
+      btn.addEventListener("click", () => {
+        ports.act("skill-chip", () => ports.session()?.selectSkill(option.ability.id));
+        canvas.focus();
+      });
+      frag.append(btn);
+    }
+    skillChips.replaceChildren(frag);
   }
 
   /**
@@ -938,8 +1008,17 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
   menuBtn.addEventListener("click", () => setOverlay("menu"));
   actionsBtn.addEventListener("click", () => {
-    ports.session()?.setCommandMode("skill");
-    setOverlay("actions");
+    ports.act("skill-mode", () => {
+      const session = ports.session();
+      if (!session) return;
+      session.setCommandMode("skill");
+      // ONE OR ZERO SKILLS: unchanged from before chips existed — the informational
+      // sheet opens and the board goes straight to targeting. TWO OR MORE: the chip
+      // sheet (`renderSkillChips`) opens instead, driven by session state; opening
+      // the read-only list here too would stack two panels for one gesture, which
+      // no approved frame shows.
+      if (session.skillOptions().length <= 1) setOverlay("actions");
+    });
   });
   actionsClose.addEventListener("click", () => setOverlay(null));
   menuDrawer.close.addEventListener("click", () => setOverlay(null));

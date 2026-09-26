@@ -2,7 +2,18 @@
 
 **Tag:** `[BASELINE]` — this is FFT's own menu. The current one-click flow is the deviation.
 **Owning doc if accepted:** `docs/10-viewer-and-interaction.md` (§3 state table + §6, AC-V23 onward).
-**Status: PROPOSAL. Not approved, not implemented. Owner reviewed 2026-09-02.**
+**Status: PROPOSAL. Not approved, not implemented as written. Owner reviewed 2026-09-02.**
+
+**Partly superseded by the skill picker (`intent/skill-picker.md`, ADR-0048, shipped
+this slice — `docs/10` §5, §6 AC-V23…V29).** The picker ships the part of this proposal
+`docs/defects.md` §1 named as the live bug: a chip sheet replacing the first-match ability
+pick, reach painted from the sim's own range rule, and a reason in the target plate for an
+unavailable skill. It does **not** ship this proposal's menu shape (a root
+Move/Act/Wait tree with a grouped command list), its **green** colour language, its
+redrawn **legend**, or its **keyboard** AC (§11's AC-V27) and **colour-distance** AC (§11's
+AC-V29) — those stay `[DEFERRED]`, per `docs/INTENT.md`'s NOT GREEN-LIT list. **The AC
+numbers below (AC-V23…V29) are superseded by `docs/10`'s own AC-V23…V29** — the letters
+were reused for what actually shipped, mint nothing against these numbers.
 
 ## 0. Bottom line
 
@@ -162,7 +173,14 @@ AoE targeting and footprint preview (consequence: Cure stays unusable, shown dis
 | Q5 | Does `GameApi` gain `clickTile`? | Yes, mirroring `viewer-api.ts` through the same `onPick` |
 | Q6 | Esc changes meaning to "back one level" | Accept |
 
-## 11. Acceptance Criteria — AC-V23 … AC-V29
+## 11. Acceptance Criteria — AC-V23 … AC-V29 (superseded — see status note above)
+
+**These letters now belong to `docs/10`'s own AC-V23…V29 (the skill picker, ADR-0048).**
+Kept below for the record of what this proposal asked for. Rough correspondence: AC-V23(c)
+and AC-V25's "the chosen ability fires" both shipped, in the picker's simpler chip-sheet
+form, not this section's grouped command list. AC-V23(a)/(b), AC-V24 (colour panels),
+AC-V26's exact cancel-stack shape, AC-V27 (keyboard), AC-V28 (green + non-colour channel)
+and AC-V29 (colour-distance floors) did **not** ship and stay `[DEFERRED]`.
 
 **AC-V23 (the menu is the unit's real command list).** Rows derived from the `abilities` projection + registry skillset labels, never a static table.
 - **(a) Two units, two menus.** Fixture: Briar (`aim.aimed-shot`) and Kest (`punch-art.wave-fist`) — both shipped, both deployed in battle 1. *Discriminator:* a hard-coded menu renders identically for both.

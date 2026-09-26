@@ -47,6 +47,14 @@ case "$type" in
       || missing+=("MUTATION — for each new test, the mutation it must go red on (run it, say so in the report)")
     printf '%s\n' "$prompt" | grep -Eq 'ASSERT|DISCRIMINAT' \
       || missing+=("ASSERT / DISCRIMINATOR — what each new test asserts, including the IDENTITY of the thing (name, key, id), not only that something is present")
+    # A brief that names an approved frame must also name the NUMBERS that frame is
+    # judged by. Twice (2026-09-24, win/lose and skill picker) the engineer shipped a
+    # screen that matched none of them while every test was green, because the brief
+    # carried only the filename — a second pass each time (~500k).
+    if [ "$type" = viewer-engineer ] && printf '%s\n' "$prompt" | grep -Eiq '\.png'; then
+      printf '%s\n' "$prompt" | grep -q 'LOOK:' \
+        || missing+=("LOOK: — the brief names a frame; say the numbers it is judged by (box vs viewport or board, background token, smallest font in CSS px) and ASSERT them")
+    fi
     ;;
   art-director)
     printf '%s\n' "$prompt" | grep -Eiq 'no alternatives|one pass' \

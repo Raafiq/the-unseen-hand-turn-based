@@ -33,9 +33,11 @@ import {
   assembleReport,
   decideBalanceProbe,
   evalTerminal,
+  isBasicAttack,
   moveRange,
   seedContributions,
   winningTeamOf,
+  type BattleAbility,
   type BattleState,
   type AppliedCommand,
   type Command,
@@ -53,13 +55,28 @@ import { PLAYER_TEAM, makeDemoBattle } from "./demo.js";
 // reach the one file in `src/render` that emits commands.
 import type { MotionBeat } from "./motion.js";
 import {
+  abilityReach,
   computeActPreview,
+  skillAbilities,
   targetOptions,
+  targetOptionsForAbility,
   turnCost,
+  unavailableReason,
   type ActPreview,
   type TargetOption,
   type TurnCost,
 } from "./preview.js";
+
+/** One row of the skill picker (`intent/skill-picker.md`) — a chip. */
+export interface SkillOption {
+  ability: BattleAbility;
+  /** `ability.range.h`, printed on the chip ("Reach N") — never re-derived. */
+  reach: number;
+  /** Whether the sim's own range rule finds at least one legal target from here. */
+  available: boolean;
+  /** Set iff `!available` — one of the two reasons the sim can honestly produce. */
+  reason: string | null;
+}
 
 /**
  * docs/10 §3's states, verbatim — SIX of them since ADR-0038.
@@ -217,6 +234,16 @@ export class Session {
    * previous actor's turn can never narrow the next actor's board.
    */
   private commandFilter: "attack" | "skill" | null = null;
+  /**
+   * THE SKILL PICKER'S OWN CHIP (skill-picker slice). `null` while the chip sheet is
+   * open (two-or-more skills, none chosen yet) or while Skill mode holds no skills at
+   * all. {@link setCommandMode} auto-fills this the instant a unit has EXACTLY one
+   * skill — "Skill goes straight to targeting, as today" (owner, 2026-09-24) — so the
+   * chip sheet only ever appears for two or more. Reset by every mode switch and by
+   * {@link settle}, same as {@link commandFilter}, so a leftover pick from the
+   * previous actor's turn can never narrow the next actor's board.
+   */
+  private selectedSkillId: string | null = null;
 
   constructor(opts: SessionOptions = {}) {
     this.makeState = opts.makeState ?? makeDemoBattle;
@@ -285,6 +312,7 @@ export class Session {
   private settle(): void {
     this.draft = null;
     this.commandFilter = null;
+    this.selectedSkillId = null;
 
     // WITHOUT rules only: a battle handed to us already decided must never have its
     // clock advanced. WITH rules the fold is the harness's, verbatim — advance,
@@ -450,13 +478,25 @@ export class Session {
   /**
    * Legal act targets from the staged position — straight from the sim, then
    * narrowed by whichever ribbon button the player pressed (see
-   * {@link commandFilter}'s docstring). `null` (the default, and the ONLY value
-   * before the combat-revamp ribbon existed) leaves this byte-identical to what it
-   * always returned.
+   * {@link commandFilter}'s docstring).
+   *
+   * SKILL MODE WITH NO CHIP PICKED YET returns EMPTY — the chip sheet is open and
+   * "one action's overlays at a time" (`intent/skill-picker.md`) means nothing is
+   * painted until a specific skill is chosen. SKILL MODE WITH A CHIP PICKED asks
+   * `targetOptionsForAbility` for THAT ability specifically, never `targetOptions`'s
+   * "first match" — that first-match search is `docs/defects.md` §1: a unit with two
+   * legal skills on one target could never have its second skill chosen by a click,
+   * because the search stopped at the first. `null`/`"attack"` are unaffected and stay
+   * byte-identical to what this always returned (a unit carries exactly one basic
+   * attack, so "first match under kind=attack" and "the one attack ability" agree).
    */
   targets(): TargetOption[] {
     const from = this.actFrom();
     if (!from || !this.accepting() || this.activeUnitId === null) return [];
+    if (this.commandFilter === "skill") {
+      if (!this.selectedSkillId) return [];
+      return targetOptionsForAbility(this.state, this.activeUnitId, from, this.selectedSkillId);
+    }
     return targetOptions(this.state, this.activeUnitId, from, this.commandFilter ?? undefined);
   }
 
@@ -471,9 +511,116 @@ export class Session {
    * board simply offers nothing to tap, exactly as it would if the unit had no
    * abilities of that kind, which is an honest answer for e.g. a unit with no
    * learned skill pressing "Skill".
+   *
+   * SKILL MODE ALSO RESETS AND RE-FILLS {@link selectedSkillId} (skill-picker slice):
+   * a unit with exactly one skill is auto-picked, so the board goes straight to
+   * targeting exactly as it did before chips existed; two or more leaves it `null`
+   * and the chip sheet opens. Any other mode — including re-pressing the SAME mode,
+   * which is how the ribbon's own click handlers call this — clears it, which is the
+   * "switching Attack/Skill clears the old reach and targets at once" rule: a stale
+   * pick from a moment ago can never narrow the next selection.
    */
   setCommandMode(mode: "attack" | "skill" | null): void {
     this.commandFilter = mode;
+    this.selectedSkillId = null;
+    if (mode === "skill") {
+      const options = this.skillOptions();
+      if (options.length === 1) this.selectedSkillId = options[0]!.ability.id;
+    }
+  }
+
+  /**
+   * Pick (or, given `null`, un-pick back to the chip sheet) one of the actor's own
+   * skills. A no-op outside Skill mode or for an ability the actor does not carry —
+   * `abilityId` always comes from {@link skillOptions}, so a mismatch means a stale
+   * caller, not a legal deselect.
+   *
+   * AN UNAVAILABLE SKILL MAY BE SELECTED (`intent/skill-picker.md`, "Decided by the
+   * owner 2026-09-24"): the player gets to see ITS reach and reason. What it may
+   * never do is execute — and it structurally cannot, because {@link targets} for an
+   * unavailable ability is empty, so `onPick` has nothing to stage and {@link confirm}
+   * has nothing to commit.
+   */
+  selectSkill(abilityId: string | null): void {
+    if (this.commandFilter !== "skill") return;
+    if (abilityId === null) {
+      this.selectedSkillId = null;
+      return;
+    }
+    if (!this.skillOptions().some((o) => o.ability.id === abilityId)) return;
+    this.selectedSkillId = abilityId;
+  }
+
+  /** The chip currently picked, or `null` while the sheet is open / nothing applies. */
+  selectedSkill(): string | null {
+    return this.selectedSkillId;
+  }
+
+  /**
+   * The actor's own skills as the chip sheet shows them (`intent/skill-picker.md`):
+   * one row per non-attack clickable ability, each with the sim's OWN verdict on
+   * whether it currently has a legal target. Empty outside Skill mode.
+   */
+  skillOptions(): SkillOption[] {
+    const from = this.actFrom();
+    const actor = this.actor();
+    if (!from || !actor || !this.accepting() || this.activeUnitId === null) return [];
+    return skillAbilities(actor).map((ability) => {
+      const legal = targetOptionsForAbility(this.state, this.activeUnitId as string, from, ability.id);
+      return {
+        ability,
+        reach: ability.range.h,
+        available: legal.length > 0,
+        reason: legal.length > 0 ? null : unavailableReason(ability),
+      };
+    });
+  }
+
+  /**
+   * The ability the board is currently acting with: the one basic attack in Attack
+   * mode, the picked chip in Skill mode, `null` otherwise (including "chips open,
+   * nothing picked yet" — see {@link targets}'s docstring for why that stays blank).
+   *
+   * PUBLIC so the target plate (`panels.ts`) can print its name/reach when there is
+   * no preview to summarise (the "Attack / Reach 1 / ⊘ No foe in reach" state,
+   * `intent/skill-picker.md`) — the same read {@link reach} and {@link actionReason}
+   * already use, not a second table.
+   */
+  currentAbility(): BattleAbility | null {
+    const actor = this.actor();
+    if (!actor) return null;
+    if (this.commandFilter === "attack") return actor.abilities.find(isBasicAttack) ?? null;
+    if (this.commandFilter === "skill" && this.selectedSkillId) {
+      return actor.abilities.find((a) => a.id === this.selectedSkillId) ?? null;
+    }
+    return null;
+  }
+
+  /**
+   * THE PINK "REACH" PANEL (`intent/skill-picker.md`): every tile the CURRENT action
+   * could reach from {@link actFrom} — occupied or not — so the player can see where
+   * to move to get in range, not only which unit already stands in it. Straight from
+   * the sim's own `inAbilityRange`, per tile (`preview.ts`'s `abilityReach`); redraws
+   * from the STAGED move tile the instant one is staged, because {@link actFrom}
+   * already does that for {@link targets}.
+   */
+  reach(): Position[] {
+    const from = this.actFrom();
+    const ability = this.currentAbility();
+    if (!from || !ability || !this.accepting() || this.activeUnitId === null) return [];
+    return abilityReach(this.state.grid, from, ability.range);
+  }
+
+  /**
+   * Why the CURRENT action (Attack, or the picked skill) has no legal target right
+   * now — for the target plate (`intent/skill-picker.md`, "reason B"). `null` while
+   * nothing is chosen (chips open) or while the current action IS legal.
+   */
+  actionReason(): string | null {
+    const ability = this.currentAbility();
+    if (!ability) return null;
+    if (this.targets().length > 0) return null;
+    return unavailableReason(ability);
   }
 
   targetTiles(): Position[] {
@@ -619,6 +766,40 @@ export class Session {
    * Illegal ⇒ NO-OP plus a reason chip. Never a throw, never a state change,
    * never a consumed command (docs/10 §3).
    */
+  /**
+   * Why tapping a LIVING unit that is not a legal target refused the tap
+   * (skill-picker slice, `intent/skill-picker.md`) — the reason the RULES
+   * actually produced for that specific tap, never a generic range excuse
+   * papering over a different cause.
+   *
+   * CHIPS OPEN, NOTHING PICKED YET: `targets()` is empty by design (see its own
+   * docstring), so every tap would otherwise chip "Out of Ability range" even on
+   * a foe well within every one of the actor's own skills — a false reason. "Pick
+   * a skill first" is a UI-STATE message (there is no ability yet for the sim to
+   * have an opinion about), which is why it is allowed despite the rule elsewhere
+   * that a reason must be one the rules can produce.
+   *
+   * A TYPE MISMATCH (a heal on a foe, a damage ability on an ally) is refused by
+   * the SAME ally/foe split `targetOptionsForAbility`/`targetOptions` already
+   * enforce — name THAT rule ("Heals allies only" / "Damages foes only"), not
+   * "Out of Ability range": the tapped unit can be standing right next to the
+   * actor and still be refused, and blaming range there is simply wrong.
+   */
+  private tapRefusalReason(actor: UnitState, occupant: UnitState): string {
+    if (this.commandFilter === "skill" && this.selectedSkillId === null) {
+      return "Pick a skill first";
+    }
+    const ally = occupant.teamId === actor.teamId;
+    const ability = this.currentAbility();
+    if (ability) {
+      const healOnly = ability.formula === "heal";
+      if (ally !== healOnly) {
+        return healOnly ? "Heals allies only" : "Damages foes only";
+      }
+    }
+    return ally ? "No action for that ally" : "Out of Ability range";
+  }
+
   onPick(p: Position | null): void {
     if (p === null) return;
     this.cursor = { x: p.x, y: p.y };
@@ -661,9 +842,7 @@ export class Session {
     if (occupant) {
       const option = this.targets().find((t) => t.unit.id === occupant.id);
       if (!option) {
-        this.refuse(
-          occupant.teamId === actor.teamId ? "No action for that ally" : "Out of Ability range",
-        );
+        this.refuse(this.tapRefusalReason(actor, occupant));
         return;
       }
       this.stageAct(option);
@@ -706,6 +885,45 @@ export class Session {
       const actorId = this.draft?.actorId ?? this.activeUnitId;
       this.draft = move && actorId ? { actorId, move, act: null } : null;
       this.phase = move ? "MOVE_STAGED" : "PLAYER_IDLE";
+      this.reason = null;
+      return;
+    }
+    // A STAGED MOVE (docs/10 §3: "MOVE_STAGED: Cancel ⇒ PLAYER_IDLE") is the MOST
+    // RECENT step whenever it exists — it always happens AFTER any ribbon pick
+    // chronologically, since Move/Attack/Skill selection never itself creates a
+    // draft — so it must unwind BEFORE the ribbon's own picks below, never after.
+    // Bug this fixes: Attack → stage a move → Cancel used to fall through to the
+    // ribbon-unwind branch below (which only clears `commandFilter`, not the
+    // draft), dropping the mode while leaving the move staged — the opposite of
+    // "undo the most recent step". `commandFilter`/`selectedSkillId` are left
+    // untouched here on purpose: they were set BEFORE the move, so this Cancel
+    // must not touch them — a second Cancel (now with no draft) reaches the
+    // ribbon-unwind branch below for that earlier step.
+    if (this.phase === "MOVE_STAGED") {
+      this.draft = null;
+      this.phase = "PLAYER_IDLE";
+      this.reason = null;
+      return;
+    }
+    // NO STAGED DRAFT: unwind the RIBBON's own pick one level before falling back to
+    // clearing the (empty) draft (skill-picker slice, `intent/skill-picker.md`,
+    // "Cancel steps back one level"). A picked chip goes back to the chip sheet; the
+    // chip sheet (or Attack) goes back to root. Only two or more skills get the
+    // intermediate level — a one-skill unit was auto-picked straight into targeting
+    // ("as today"), so its own Cancel goes straight back to root, exactly as it did
+    // before chips existed.
+    if (
+      this.commandFilter === "skill" &&
+      this.selectedSkillId !== null &&
+      this.skillOptions().length > 1
+    ) {
+      this.selectedSkillId = null;
+      this.reason = null;
+      return;
+    }
+    if (this.commandFilter !== null) {
+      this.commandFilter = null;
+      this.selectedSkillId = null;
       this.reason = null;
       return;
     }

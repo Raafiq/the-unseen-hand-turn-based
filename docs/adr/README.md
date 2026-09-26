@@ -50,3 +50,4 @@ Durable records of non-trivial decisions and **why** they were made. Append-only
 | [0045](0045-retune-the-five-foes-for-six-deployed.md) | Retune the five campaign foes for six deployed | Accepted | 2026-09-19 |
 | [0046](0046-enemy-turns-run-themselves-a-pacer-triggers-a-step-never-decides-one.md) | Enemy turns run themselves: the enemy turn starting is the trigger, no button; ×1/×2/×3 scales only the pause before the action shows | Accepted | 2026-09-19 |
 | [0047](0047-the-win-lose-overlay-ap-banks-at-decision-not-at-the-tap.md) | The win/lose overlay; AP banks at decision, not at the tap; Continue/Retry route through the scene player; `AFTER_BATTLE` demoted to a reload-only landing | Accepted | 2026-09-23 |
+| [0048](0048-the-skill-picker-chips-above-the-ribbon-reach-from-the-sims-own-range-rule.md) | The skill picker: chips above the ribbon, reach from the sim's own range rule, no new engine command | Accepted | 2026-09-24 |

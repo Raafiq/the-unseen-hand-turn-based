@@ -38,6 +38,7 @@ import {
   zodiacCompatibility,
   type BattleAbility,
   type BattleState,
+  type GridState,
   type Position,
   type ReactionKind,
   type UnitState,
@@ -260,8 +261,103 @@ export interface TargetOption {
  * matching ability), so a unit with two abilities that both clear this filter
  * still offers only its first — unchanged, and not this clause's concern.
  */
-function isClickTargetable(ability: BattleAbility): boolean {
+export function isClickTargetable(ability: BattleAbility): boolean {
   return ability.actionKind === "action" && ability.formula !== "none";
+}
+
+/**
+ * The actor's own SKILLS for the picker (skill-picker slice, `intent/skill-picker.md`):
+ * every clickable ability that is NOT the basic swing. Straight off `unit.abilities` —
+ * the same projection the sim fights with, never a second table — so a build's second
+ * and later learned skills appear here the moment they exist.
+ */
+export function skillAbilities(actor: UnitState): BattleAbility[] {
+  return actor.abilities.filter((a) => isClickTargetable(a) && !isBasicAttack(a));
+}
+
+/**
+ * THE ONE ally/foe-split-plus-range TEST, shared by every caller that asks "can
+ * THIS ability legally land on THIS unit from HERE" — `targetOptions` (first-match
+ * search) and `targetOptionsForAbility` (one pinned ability) both used to carry
+ * their own copy of `(formula === "heal") !== ally` + `inAbilityRange`, which is
+ * exactly the kind of duplication `src/render/CLAUDE.md` warns can drift into two
+ * answers. Heals target allies (including self); every other formula targets foes.
+ */
+function isEligibleTarget(
+  grid: GridState,
+  from: Position,
+  ability: BattleAbility,
+  actorTeamId: number,
+  other: UnitState,
+): boolean {
+  const ally = other.teamId === actorTeamId;
+  if ((ability.formula === "heal") !== ally) return false;
+  return inAbilityRange(grid, from, other.pos, ability.range);
+}
+
+/**
+ * Every unit `ability` (a SPECIFIC ability, not "whichever matches first") could
+ * legally act on from `from` — the sim decides membership via `inAbilityRange` and
+ * the ally/foe split `targetOptions` already uses (both now read
+ * {@link isEligibleTarget}), just pinned to one ability instead of taking the
+ * actor's first match.
+ *
+ * THIS IS THE FIX FOR `docs/defects.md` §1: `targetOptions` returns one option per
+ * unit by walking `actor.abilities` in order and stopping at the first hit, so a unit
+ * with two legal skills on one target could never have its SECOND skill chosen by a
+ * click. Once the player has picked a specific ability (a chip), the board must ask
+ * THIS function, not `targetOptions`, or the picked chip is cosmetic.
+ */
+export function targetOptionsForAbility(
+  state: BattleState,
+  actorId: string,
+  from: Position,
+  abilityId: string,
+): TargetOption[] {
+  const actor = state.units.find((u) => u.id === actorId);
+  if (!actor) return [];
+  const ability = actor.abilities.find((a) => a.id === abilityId);
+  if (!ability || !isClickTargetable(ability)) return [];
+  const out: TargetOption[] = [];
+  for (const other of state.units) {
+    if (other.hp <= 0 || other.id === actor.id) continue;
+    if (!isEligibleTarget(state.grid, from, ability, actor.teamId, other)) continue;
+    out.push({ unit: other, ability });
+  }
+  return out;
+}
+
+/**
+ * Every tile `ability` could reach FROM `from` — win or lose, occupied or not. This is
+ * the pink "reach" panel (`intent/skill-picker.md`, "Decided by the owner
+ * 2026-09-24"): it exists so a player can see where to MOVE to get in range, not only
+ * which unit is already in range. Straight off the sim's own {@link inAbilityRange},
+ * evaluated per tile — never a geometric radius re-derived here (the trap named in
+ * `src/render/CLAUDE.md`). A height delta that clears the horizontal box but fails
+ * `range.v` is correctly excluded, because `inAbilityRange` itself excludes it.
+ */
+export function abilityReach(
+  grid: GridState,
+  from: Position,
+  range: BattleAbility["range"],
+): Position[] {
+  const out: Position[] = [];
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      if (inAbilityRange(grid, from, { x, y }, range)) out.push({ x, y });
+    }
+  }
+  return out;
+}
+
+/**
+ * Why an ability currently has no legal target — the ONLY two reasons the sim can
+ * honestly produce today (range + the ally/foe split `targetOptionsForAbility` reads).
+ * MP and charge are not enforced by the driver (`src/render/CLAUDE.md`'s brief), so
+ * this never invents a reason the rules do not.
+ */
+export function unavailableReason(ability: BattleAbility): string {
+  return ability.formula === "heal" ? "No ally in reach" : "No foe in reach";
 }
 
 /**
@@ -293,13 +389,11 @@ export function targetOptions(
   const out: TargetOption[] = [];
   for (const other of state.units) {
     if (other.hp <= 0 || other.id === actor.id) continue;
-    const ally = other.teamId === actor.teamId;
     const ability = actor.abilities.find((a) => {
       if (!isClickTargetable(a)) return false;
       if (kind === "attack" && !isBasicAttack(a)) return false;
       if (kind === "skill" && isBasicAttack(a)) return false;
-      if ((a.formula === "heal") !== ally) return false; // heal allies, damage foes
-      return inAbilityRange(state.grid, from, other.pos, a.range);
+      return isEligibleTarget(state.grid, from, a, actor.teamId, other);
     });
     if (ability) out.push({ unit: other, ability });
   }

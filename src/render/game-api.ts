@@ -9,7 +9,7 @@
 
 import type { Screen } from "./campaign-shell.js";
 import type { Speed } from "./pacer.js";
-import type { Phase } from "./session.js";
+import type { Phase, SkillOption } from "./session.js";
 import type { PlaytestLog } from "./telemetry.js";
 import type { BattleState, CampaignBattleRun, CampaignSave, LoadoutSlot, Position, UnitRecord } from "../sim/index.js";
 
@@ -148,6 +148,29 @@ export interface GameApi {
   /** The ×1/×2/×3 speed toggle (AC-V69). `set` is the same path the ☰ menu's entry takes. */
   enemySpeed: () => Speed;
   setEnemySpeed: (speed: Speed) => void;
+  /**
+   * READS for the skill picker (`intent/skill-picker.md`, AC-V23…V29) — the SAME
+   * `Session` methods `hud.ts`'s ribbon/chip-strip/target-plate call, exposed so a
+   * spec can assert on them directly rather than parsing rendered text. Chip
+   * SELECTION itself is driven through the real chip elements
+   * (`[data-testid="skill-chip"]`), not through this seam — there is no parallel
+   * path for the gesture that matters (docs/10 §7).
+   */
+  commandMode: () => "attack" | "skill" | null;
+  skillOptions: () => SkillOption[];
+  selectedSkill: () => string | null;
+  reach: () => Position[];
+  actionReason: () => string | null;
+  /**
+   * TEST-ONLY, mirroring `CampaignShell.updateParty`'s own test usage
+   * (`campaign-shell.test.ts`, `updateParty({ ..., ap: 500 })`) — not reachable from
+   * any control a player has, and it touches no command. Exists so a browser spec can
+   * reach a REAL second learned skill (e.g. `aim.leg-shot`, requires `aimed-shot`,
+   * 120 AP) through the SAME `prep().learn()` a player's LEARN button calls, without
+   * grinding several battles' worth of AP first. Between battles only, same guard as
+   * `updateParty`.
+   */
+  grantTestAp: (recordId: string, amount: number) => void;
 }
 
 /** The prep methods the page exposes; a subset of `PrepHandle`, by value where it can be. */

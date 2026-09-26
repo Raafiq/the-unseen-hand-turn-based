@@ -1705,6 +1705,125 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* THE SKILL PICKER'S CHIP SHEET (`intent/skill-picker.md`, owner review
+   2026-09-24: "the approved floating parchment chips with the board visible
+   around them, not a full-width band") — a NARROW, CENTRED, floating row, sized
+   to its own content rather than the full board width, sitting with a gap
+   ABOVE the ribbon so it reads as a card resting on the board, not a fourth HUD
+   region. `background: var(--hud-face-bg)` is the SAME token the six ribbon
+   buttons paint their own faces with (`--hud-face-bg`/`--hud-face-ink`,
+   `rgb(212,175,134)` light parchment on dark ink) — deliberately NOT
+   `--hud-bg`, which is the dark band this replaced.
+
+   `max-width: 280px` is MEASURED, not guessed: at 832×328 the board canvas is
+   ~556px wide, and three REAL chips at real ability-name widths ("Piercing
+   Shot") already sum to ~380px of content — over 60% of that canvas on their
+   own. 280px keeps the STRIP under the 60% floor with real margin at both
+   reference viewports; three-or-more chips then genuinely scroll
+   (`overflow-x: auto` below), which is the explicitly accepted mechanism
+   ("horizontal scroll when they do not fit, never shrink"), not a fallback
+   for a case that should not arise. `[hidden]` gives "never a permanent
+   height cost" for free — a hidden element contributes no box, so the board
+   never shrinks to make room for a sheet that is not showing. */
+.tuh-skill-chips {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--band-h) + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 280px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--hud-face-bg);
+  border: 1px solid var(--hud-rule);
+  border-radius: 6px;
+  box-shadow: 0 3px 8px rgba(20, 14, 8, 0.4);
+  z-index: 8;
+}
+
+.tuh-skill-chips[hidden] {
+  display: none;
+}
+
+/* ≥44px tall (owner's implementation note), horizontal scroll when they overflow —
+   `flex: none` is what lets the row overflow its container instead of shrinking
+   each chip to fit, which would violate "never shrink text". Each chip is
+   TRANSPARENT over the strip's own parchment fill above — a hairline dark-ink
+   border is enough to separate them, so the strip reads as one light parchment
+   card, not a chain of darker tiles sitting on it. */
+.tuh-chip {
+  flex: none;
+  min-height: 44px;
+  min-width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid rgba(36, 26, 13, 0.28);
+  border-radius: 3px;
+  color: var(--hud-face-ink);
+  font-family: var(--tuh-roman);
+  cursor: pointer;
+}
+
+.tuh-chip .chip-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tuh-chip .chip-meta {
+  font-size: 11px;
+  color: rgba(36, 26, 13, 0.65);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* UNAVAILABLE: distinct from an available chip by BOTH the border/ink colour AND
+   its own text (the reason replaces "Reach N" — see `renderSkillChips`), never by
+   colour alone (`docs/04` §7). Still a real, focusable, clickable button — the
+   owner's "an unavailable skill may be selected to see its reach and reason". */
+.tuh-chip.unavailable {
+  border-color: var(--hud-warn);
+}
+
+.tuh-chip.unavailable .chip-meta {
+  color: var(--hud-warn);
+}
+
+.tuh-chip:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 2px;
+}
+
+/* THE UNAVAILABLE/UNRESOLVED-ACTION DETAIL LINE (skill picker, `panels.ts`'s
+   `targetPlateHtml`) — Reach + the reason (or "Pick a target") folded onto ONE
+   flowing block that is allowed to WRAP (`white-space: normal`, unlike every
+   other plate field, which is a single fixed fact that gets `nowrap` +
+   ellipsis). 11px, not the 10px every other plate figure uses — the reason
+   text was measured clipping off the bottom of the 50px box at 10px inside a
+   forced-nowrap flex row; wrapping into its own up-to-two-line block under the
+   name is what actually fits (see the caller's own comment for the budget
+   arithmetic). Neutral informational tone, deliberately NOT `.plate-warn`'s
+   alarm colour — "no legal target from here" is the same fact a dimmed chip
+   already states, not a danger. */
+.tuh-band .plate-detail {
+  flex: none;
+  display: block;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--hud-ink-soft);
+  white-space: normal;
+}
+
 /* The settings readout (docs/10 AC-V40). Monospaced so two viewports' numbers line
    up when the owner photographs the screen. */
 .tuh-readout {

@@ -796,6 +796,31 @@ describe("the board colours units by TEAM, not by a demo-only id table (playtest
     expect(withRange.fills.lastIndexOf(SAND)).toBe(ground);
   });
 
+  it(
+    "DISCRIMINATING: `opts.reach` (skill-picker slice) is painted, in the pink " +
+      "token, distinct from `opts.range`. MUTATION: delete the reach-paint block " +
+      "in `iso.ts` (~662) — `withReach.fills` stops containing `FIELD_THEME.reach` " +
+      "and this goes red.",
+    () => {
+      const withReach = recordingCtx();
+      draw(withReach.ctx, twoTeams(), CANVAS_W, CANVAS_H, {
+        theme: FIELD_THEME,
+        reach: [{ x: 1, y: 1 }],
+      });
+      const without = recordingCtx();
+      draw(without.ctx, twoTeams(), CANVAS_W, CANVAS_H, { theme: FIELD_THEME });
+
+      // A/B on the output: the SAME state, drawn with and without `opts.reach`.
+      expect(withReach.fills).toContain(FIELD_THEME.reach);
+      expect(without.fills).not.toContain(FIELD_THEME.reach);
+      expect(withReach.strokes).toContain(FIELD_THEME.reachEdge);
+
+      // Its own token, not an alias of the move-range panel's — the two panels
+      // must be able to coexist and read as different things.
+      expect(FIELD_THEME.reach).not.toBe(FIELD_THEME.highlight);
+    },
+  );
+
   it("DISCRIMINATING: the range panel separates from every ground it can sit on", () => {
     // WHY THIS IS NOT A WCAG CHECK. `FIELD_THEME.highlight`'s comment tabulates WCAG
     // contrast ratios, and on `sand.base` the ratio is 1.07 — which reads as "the panel

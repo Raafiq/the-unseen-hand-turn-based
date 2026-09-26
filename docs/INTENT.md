@@ -1,11 +1,11 @@
-<!-- written-against: 57b90a0 -->
+<!-- written-against: 88a1c46 -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1046 tests, 254 browser specs (`npm run check`).
+Green at the stamp: 1058 tests, 273 browser specs (`npm run check`).
 
 ---
 
@@ -31,8 +31,12 @@ or a deliberate forfeit, so "completable" means reachable — never fun, pacing 
 Chromium device emulation.
 
 Enemy turns run themselves (ADR-0046). All six deploy on every map (ADR-0044); the
-enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). Next: the
-skill picker.
+enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). **The skill
+picker shipped (ADR-0048, uncommitted):** pressing Skill with 2+ learned abilities opens
+a chip sheet above the ribbon; picking one paints that skill's own reach, from the sim's
+`inAbilityRange`; an unavailable skill (or Attack with no foe in reach) is selectable
+with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired. Next:
+Attack shoots at range for a bow (`intent/bow-attack.md`).
 
 ---
 
@@ -71,16 +75,15 @@ Nobody should start these. One line each; the detail lives where the pointer say
 | Camera pan, pinch, double-tap-to-refit | Still uncovered. Tile faces are ~76×38 CSS px; the 44×44 hit overlay fixed taps, not the camera | `docs/10` §8e |
 | Skin B (dark-table stage) | In `stage.css`, not wired into `viewer.html` | `src/render/stage.css` |
 | Safe-area insets | Asserted as declared, not working; no notch emulation | `docs/10` AC-V41 |
-| Defect 2 (the healer cannot heal) | Fixed in code when the `aoe` clause was lifted (ADR-0043); `docs/defects.md` §2 still reads live — retire it in the skill-picker slice | `docs/defects.md` §2 |
 | The `telemetry.test.ts` flake; test gaps A-H | Not scheduled; none is a shipping bug | `docs/defects.md` §4, §5 |
-| The action menu proposal as written | Superseded in part by `intent/skill-picker.md`; its green-colour and legend halves are pre-shell and stay deferred | `docs/proposals/action-menu.md` |
+| The action menu proposal as written | Superseded by the skill picker (ADR-0048) for the chip/reach/reason half; its menu shape, green colour, legend and keyboard/colour-distance halves stay deferred | `docs/proposals/action-menu.md` |
 | A SessionStart warning for missing remote branches | Declined 2026-09-01; do not re-propose | this line |
 
 ---
 
 ## OPEN — WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Three asks are open; one is parked.
+Read this before telling the owner "nothing is pending". Six asks are open; one is parked.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
@@ -88,66 +91,62 @@ Read this before telling the owner "nothing is pending". Three asks are open; on
 | C | Confirm the v4 settings (ChatGPT app, "high thinking", `style-ref-1..4.png` as Image 1-4), and say why v4 `priest-m` came back 2:3 | open, minor | The run records in `gpt-portrait-prompts.md` stop reading "assumed" |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
+| J | Which weapon types shoot at range, and how far, for the bow-attack slice | open, new — needs `fft-fidelity` sources | `intent/bow-attack.md`'s scope |
+| K | Does Aimed Shot still earn its slot once a bow's basic Attack already shoots | open, new | Whether Aimed Shot needs a redesign once bow-attack ships |
+| L | Does weapon-range Attack wait for the full equipment system, or land as a range field on today's inline weapon | open, new | `intent/bow-attack.md`'s implementation shape and whether it needs a schema migration now |
 
 ---
 
-## THE NEXT SLICE — chosen by the owner 2026-09-19
+## THE NEXT SLICE — chosen by the owner 2026-09-24
 
 | Slice | Intent file | What the owner decided |
 |---|---|---|
-| The skill picker | `intent/skill-picker.md` | Pressing Skill lists the unit's skills on a sheet above the command ribbon; the player picks one. Fixes `docs/defects.md` §1. Claims AC-V23… |
+| Weapon-range Attack | `intent/bow-attack.md` | Basic Attack takes its reach from the weapon held — a bow shoots, a sword hits the next tile. Engine change (schema + golden tests); no balance retune green-lit. Closes `docs/defects.md` §1's remaining row. |
 
 Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
 Frames are approved before an engineer starts (taste rule).
 
-### Shipped: the win/lose result overlay (ADR-0047, `intent/win-lose-screen.md`)
+### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, uncommitted)
 
-Victory/Defeat overlay on every decided battle; AP now banks at decision, not the
-Continue tap; Continue/Retry route through the outcome scene beat then land. AC-V70…AC-V78.
+Skill opens a chip sheet above the ribbon for 2+ learned abilities; one skill auto-picks
+and skips it; zero shows no chips. Reach paints from `inAbilityRange`, at the actor's tile
+or the staged move tile. An unavailable skill (or Attack, no foe in reach) is selectable,
+shows its reason in the target plate, but cannot be confirmed. Cancel undoes the most
+recent step, not always the picker's own pick. No new engine command. AC-V23…V29 in
+`docs/10`. `docs/defects.md` §1 and §2 retired.
 
-### Shipped before this: the enemy retune and self-running enemy turns
+### Shipped before this: the win/lose overlay, the enemy retune, self-running enemy turns
 
-- **Enemy retune for six shipped (ADR-0045, PR #71).** Foe HP up inside the pacing band,
-  more foes on battles 1–4, the finale recomposed. Zero `it.skip` remain in `src/`.
-  Open asks it left are in the section above (I) and in ADR-0045 §Consequences.
-
-### Shipped in this slice: the enemy acts on its own (ADR-0046, owner 2026-09-19)
-
-Entering `AI_TURN` arms one `Session.step()` after `BASE_PAUSE_MS / speed`; the command
-ribbon is hidden for the enemy's turn; the ×1/×2/×3 toggle lives in the ☰ menu on its own
-storage key. `pacer.test.ts` (AC-V68/AC-V69) and `e2e/pacer.spec.ts` cover it.
-
-- **The ×1 pause is 800 ms, the owner's number (2026-09-19)** — picked from three clips of
-  the same battle-1 enemy round at 400 / 800 / 1200 ms; `docs/10` AC-V69 carries it and
-  `pacer.test.ts` pins the literal. Whether a board tap shortens the pause, and whether
-  back-to-back enemies get a shorter beat, were not asked and are not green-lit.
-- Nothing about animation (walking, swings, casts) is green-lit. The toggle scales only
-  the pause today.
+Result overlay on every decided battle (ADR-0047, AC-V70…AC-V78). Enemy retune for six
+deployed (ADR-0045). Enemy turns run themselves — entering `AI_TURN` arms one `step()`
+after a pause the ×1/×2/×3 toggle sets, 800 ms at ×1 (ADR-0046, AC-V68/AC-V69). Nothing
+about animation (walking, swings, casts) is green-lit; the toggle scales only the pause.
 
 ### Landmines this slice will hit
 
+- **The page-wide `.reason`/`.hint` rules in `index.html` win over scoped plate classes**
+  on any property both set — check computed style, not just which class was added.
+- **A whole-canvas screenshot diff is not stable on battle 1.** A damage popup stays
+  partly drawn across otherwise-identical frames; count reach-hue pixels off the canvas
+  buffer instead (`e2e/skill-picker.spec.ts`'s `pinkPixelCount`).
+- **The entry plaque banner must be waited out** (`[data-testid="entry-plaque"]` hidden)
+  before any stage capture, or the frame shows a fading banner, not a real state.
+- **`pickAt` in `hud.ts` opens the inspect drawer for any tap on a non-targetable
+  occupant.** "Chips open, tap a foe" is unreachable by a real click — proven at the
+  session level (`tapRefusalReason`) instead.
+- **The three-chip strip is `max-width: 280px`**, so a third real chip already scrolls;
+  do not assume it fits.
 - **`AI_TURN` no longer holds still (ADR-0046).** A Playwright spec that pauses inside an
-  enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`;
-  `e2e/stage-capture.spec.ts` is the first place to look.
-
+  enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`.
 - **The rail and band bodies are PINNED to exact colours** in `e2e/contrast.spec.ts` and
-  `e2e/contrast-helpers.ts` (`GROUNDS.ironFrame`, `GROUNDS.plate`, asserted disjoint). A
-  repaint means updating the pinned value in the same edit — never loosening the check.
+  `e2e/contrast-helpers.ts`. A repaint means updating the pinned value in the same edit.
 - **`Item` and `Defend` are visible but have NO engine command.** `CommandSchema` stays
   `move | act | wait`. Do not wire them as a side effect of a content slice.
-- **The plates pack 3 rows into 50px.** A fourth row clips silently — that is how the unit
-  name shipped invisible. See `src/render/CLAUDE.md`, "in the DOM is not on the screen".
-- **`851x324-target-staged.png` taps the forecast sheet OPEN on purpose.** Read
-  `e2e/stage-capture.spec.ts` before reading a frame as a bug.
-- **`npm run check:counts` goes red on ANY spec change.** Re-run `test`, then fix the three
-  live claims (`CLAUDE.md`, `README.md`, here).
-- **`mockups/src/build-css.sh` hard-codes `overhaul.css` lines 1254-2551**; the file is
-  longer, so the appended split block is outside its range.
-- **`.pennant` and `.finial` are `pointer-events: none`**, so a handler on the row is not
-  observable through a tap.
-- **`docs/visual/parchment/`'s two briefing jpgs are stale** — pre-split, four-member.
+- **The plates pack 3 rows into 50px.** A fourth row clips silently. See
+  `src/render/CLAUDE.md`, "in the DOM is not on the screen".
+- **`npm run check:counts` goes red on ANY spec change.** Re-run `test`, then fix the
+  three live claims (`CLAUDE.md`, `README.md`, here).
 - **The result overlay is on the stage root at z-index 9, above every drawer at 8**
-  (ADR-0047). A new drawer must sit at ≤8 or it will sit over the overlay it should not.
-- **`AFTER_BATTLE` is reload-only now.** Retry from it must not re-queue the outcome
-  beat it already showed inline — `CampaignShell.retry()` reads `this.screen` before it
-  moves to tell the two cases apart.
+  (ADR-0047). A new drawer must sit at ≤8.
+- **`AFTER_BATTLE` is reload-only now.** `CampaignShell.retry()` reads `this.screen`
+  before it moves to tell a reload apart from an inline-shown outcome beat.
