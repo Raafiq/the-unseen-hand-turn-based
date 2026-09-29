@@ -10,6 +10,7 @@ description: >-
   before claiming a screen works.
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 effort: high
+maxTurns: 200
 model: sonnet
 ---
 

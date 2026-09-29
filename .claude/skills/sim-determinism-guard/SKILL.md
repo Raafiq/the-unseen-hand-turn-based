@@ -33,7 +33,7 @@ Determinism is a **P0 architectural invariant** (`docs/05` §3), not a feature t
 Run the bundled script over the sim source to catch the obvious violations:
 
 ```bash
-bash .claude/skills/sim-determinism-guard/scripts/check-rng.sh sim/
+npm run check:rng   # scans src/sim and src/render/{playtest,session,pacer}.ts
 ```
 
 > **The check greps raw text — comments and strings included.** When you document

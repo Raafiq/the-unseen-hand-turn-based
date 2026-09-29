@@ -28,19 +28,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-git-write.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-git-write.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/require-retro-before-pr.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-retro-before-pr.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-designated-branch.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-designated-branch.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-stranded-branch.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-stranded-branch.sh"
           }
         ]
       },
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-quiet-suites.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-quiet-suites.sh"
           }
         ]
       },
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-big-reads.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-big-reads.sh"
           }
         ]
       },
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-resume.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-resume.sh"
           }
         ]
       },
@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/guard-brief.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-brief.sh"
           }
         ]
       }
@@ -86,11 +86,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-start.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/record-designated-branch.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/record-designated-branch.sh"
           }
         ]
       }
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/reply-style.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/reply-style.sh"
           }
         ]
       }

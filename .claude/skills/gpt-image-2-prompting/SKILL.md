@@ -38,7 +38,7 @@ Rules that matter most:
 - **One texture descriptor per surface class.** Stacking "dense crosshatching" + "paper grain" + "dry ink" makes the model texture every surface into noise. Pick one, and say where it applies ("hatching only in shadows, flat washes elsewhere").
 - **Literal text goes in "quotes" or ALL CAPS**, with font style, size, and placement.
 - **Short prompts (< 2 sentences)** can be a single paragraph. Use the 5-part template with line breaks for anything more.
-- Max 7,000 characters, but shorter usually wins. Don't overload one prompt; iterate.
+- No length limit is confirmed (see `references/model-guide.md`); shorter usually wins. Don't overload one prompt; iterate.
 
 ## Template: edit
 

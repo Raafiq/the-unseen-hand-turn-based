@@ -227,11 +227,13 @@ the viewer, flat pale sand-tan background colour #e9d7a8
 **Prompt weights (`::`).** A `::` splits a prompt into concepts and a number sets
 importance (`woman::3`); negative weights are allowed. The official No page says
 `--no` is worth only **-0.5**, so `man::-1` would push twice as hard. The
-**Multi-Prompts & Weights** page (`/hc/en-us/articles/32658968492557`) has NOT been
-captured — ask the owner for it before writing `::` syntax. Guessing at syntax is
-what produced the `--style raw` error.
+**Multi-Prompts & Weights** page is captured in `raw/multi-prompts-weights.html`:
+`::` weights do not work in V7 or V8.2.
 
 ## Stage 2 — the 16 portraits
+
+> **Superseded for portraits (ADR-0035):** portraits are generated in GPT Image 2; the
+> prompts are in `docs/visual/portraits/gpt-portrait-prompts.md`. Kept as the history.
 
 **8 jobs × 2 genders.** Jobs from `src/render/prep.ts`: Knight, Monk, Wizard, Thief,
 Priest, Archer, Geomancer, Summoner. Enemies are human only and reuse the set.
@@ -277,6 +279,6 @@ style survives a subject change. Fourteen is not.
 | job × gender → asset key | `PORTRAITS` in `src/render/campaign-data.ts` |
 | the style reference used | the portrait ADR, so a 17th portrait can match |
 
-The boot-time portrait check (`campaign-data.ts:115-123`) and the `["placeholder"]`
+The boot-time portrait check (the `PORTRAITS` map in `campaign-data.ts`) and the `["placeholder"]`
 tripwire (`campaign-shell.test.ts:872-879`) **will go red** on that commit. That is
 the tripwire working — it exists to force this review.

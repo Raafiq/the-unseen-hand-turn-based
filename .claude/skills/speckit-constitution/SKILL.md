@@ -76,7 +76,7 @@ and commands read the constitution at runtime and are not modified here.
 
 ## Outline
 
-You are updating the project constitution at `.specify/memory/constitution.md`. This file is a TEMPLATE containing placeholder tokens in square brackets (e.g. `[PROJECT_NAME]`, `[PRINCIPLE_1_NAME]`). Your job is to (a) collect/derive concrete values and (b) fill the template precisely.
+You are updating the project constitution at `.specify/memory/constitution.md`. In this repo the file is a projection of `docs/00-vision-and-pillars.md`, not a template. Amend `docs/00` first, then re-derive this file from it.
 
 **Note**: If `.specify/memory/constitution.md` does not exist yet, it should have been initialized from `.specify/templates/constitution-template.md` during project setup. If it's missing, copy the template first.
 

@@ -45,7 +45,12 @@ t 0 "HEAD:designated"              "git $P origin HEAD:$DESIGNATED"
 
 echo "-- must BLOCK --"
 t 2 "an invented branch"           "git $P -u origin claude/landing-page-swap"
+# Designated = HEAD, so on a `main` checkout this case pushed at the designation
+# and passed the guard. Pin a non-main designation; the explicit refspec makes
+# the checked-out branch irrelevant here.
+echo "claude/fixture-designated" > .claude/.session-branch
 t 2 "straight at main"             "git $P origin main"
+echo "$DESIGNATED" > .claude/.session-branch
 t 2 "after a chained check"        "npm run check && git $P -u origin claude/landing-page-swap"
 t 2 "src:dst destination"          "git $P origin HEAD:claude/landing-page-swap"
 t 2 "--force at another branch"    "git $P --force origin some/other-branch"

@@ -11,7 +11,7 @@ description: >-
 
 # Repo Orientation
 
-This repo is the **systems/combat game** for a turn-based tactics RPG modeled on Final Fantasy Tactics: War of the Lions. It is currently **docs-only** (planning phase). The docs are the source of truth for the code that will follow. Narrative comes later from a separate story repo.
+This repo is the **systems/combat game** for a turn-based tactics RPG modeled on Final Fantasy Tactics: War of the Lions. The docs outrank the code (`src/sim`, `src/render`); read `docs/INTENT.md` first. Narrative comes later from a separate story repo.
 
 **Always read the relevant doc before acting.** Don't infer the design from memory of FFT — this project deviates from FFT deliberately in tagged places.
 
@@ -28,7 +28,7 @@ This repo is the **systems/combat game** for a turn-based tactics RPG modeled on
 | Encounter design + AI as the balance test-harness | `docs/06-encounters-and-ai.md` |
 | Economy, pacing, grind-budget, tuning philosophy | `docs/07-economy-and-pacing.md` |
 | Roadmap, cut-lines, onboarding, narrative-repo seam | `docs/08-roadmap-scope-and-onboarding.md` |
-| Tech stack (deferred), tooling, helper skills | `docs/09-tech-stack-and-tooling.md` |
+| Tech stack (locked, ADR-0007), tooling, helper skills | `docs/09-tech-stack-and-tooling.md` |
 | **Why a settled decision was made** | `docs/adr/` (Architecture/Any Decision Records) |
 
 `docs/01`, `02`, `05`, `06` each end with an **Acceptance Criteria (SDD-ready)** section — that's the testable spec for the corresponding code.
