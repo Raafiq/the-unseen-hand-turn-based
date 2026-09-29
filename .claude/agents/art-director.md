@@ -83,7 +83,7 @@ was rejected on sight because its head was a loose triangle beside the arc. Buil
 from the path's end point and end tangent (or an SVG marker), and check in the frame that
 its base sits on the curve.
 
-## Midjourney v8.1 — you can now ask for pictures
+## Midjourney - the owner runs it
 
 The owner subscribes to **Midjourney v8.1**. You cannot call it; the owner runs it. So a
 third production mode exists alongside frames and mockups:
@@ -101,7 +101,7 @@ is style; give one prompt per subject when the style is already settled.
 
 | Use it for | Do not use it for |
 |---|---|
-| Character portraits — the thing that does not exist (every frame holds a self-labelling placeholder) | Anything that must line up to the isometric grid. It cannot hold tile geometry. |
+| Style references for scenes and props (portraits are made in GPT Image 2, ADR-0035) | Anything that must line up to the isometric grid. It cannot hold tile geometry. |
 | Style references and mood boards — settling taste before anyone writes a stylesheet | Producing the battle map. Rule 1 above still binds: the map is drawn in code. |
 | Seamless ground textures (`--tile`) as a source for the painted terrain | UI screens. The parchment shell is measured DOM text; a generated screen cannot be measured. |
 | Props, banners, item and job icons | Anything whose colours must match. See the palette trap below. |
@@ -134,10 +134,8 @@ is style; give one prompt per subject when the style is already settled.
   drawn look is *the destination, not a placeholder for art*. Generated art for the **map**
   therefore contradicts a recorded decision — route it to the PO for an ADR rather than
   shipping it. Portraits and props are not covered by that decision and are free.
-- **VERSION SYNTAX IS UNVERIFIED.** The flags above (`--sref`, `--tile`, `--ar`, `--no`,
-  `--stylize`) are from earlier Midjourney versions. Nothing in this repo has confirmed
-  them against **v8.1**. Write prompts that read fine with the flags stripped, and ask the
-  owner to correct a flag rather than guessing at one.
+- **Check every flag against the `midjourney` skill**, which holds the official docs for
+  the version the owner runs. Ask the owner about a flag the skill does not cover.
 - **A GENERATED IMAGE IS NOT EVIDENCE THE GAME LOOKS LIKE THAT.** It is a target. The
   distance between the target and what the renderer can actually draw is the honest part of
   your handback, and it is the part that gets skipped.

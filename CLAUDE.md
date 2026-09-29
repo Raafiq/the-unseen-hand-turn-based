@@ -6,20 +6,10 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1046 tests, 254 browser specs, determinism guard, CI, GitHub Pages. A campaign is playable start to finish at the **site root** (`/`; the engine viewer moved to `/viewer.html`): title screen, one `localStorage` save, five battles, a **six-member** party that keeps what it earns, weapons on an authored drip, scene text, prep screen (ADR-0022 … ADR-0026). ~~The party chooses who deploys~~ — **the deploy toggle is gone (ADR-0041) and all six now deploy on every map (ADR-0044); foes retuned for it (ADR-0045).** The briefing is **two views** — party select, then a character dossier (ADR-0041, ADR-0042): a 1×6 portrait rail plus Identity / Stats / Profile and Gear / Skills / Job Customization, no tabs, with a LEARN overlay for spending AP — asserted at 832×328 and 832×384 only. The board **moves** on a commit (ADR-0032). The battle screen is built **battlefield-first** on a CSS-grid stage (ADR-0043, superseding ADR-0037/ADR-0038): a right-side turn-order rail plus a bottom band (active-unit plate, command ribbon, target plate) leave the board ≥75% unobscured at rest at the 832×328/384 reference viewports, and **Confirm is a separate tap**. The
-campaign page is set on **parchment** and its text contrast is measured, not eyeballed
-(ADR-0028, `docs/10` AC-V15). Story text is a **scene player** — a portrait, a name plate
-and one line at a time, with a prologue, an interlude and an epilogue that belong to no
-battle (ADR-0029, AC-M8/M9, AC-V16/V17). **Nine** of ten approved portraits are wired (ADR-0039, ADR-0041) and
-every party member has a real face; only `thief-f` is unwired, and jobs with no approved
-portrait still show the self-labelling placeholder. The title screen, the scene
-player **and the briefing** ship in the owner's new concept look (ADR-0040, ADR-0041);
-battle poses do not. **Hand-play works again (ADR-0043 combat-revamp shell):**
-`isClickTargetable` now accepts `aoe`/`speed` abilities, so wizards and priests are
-tap-castable. Seven of the nine `DEFERRED (ADR-0041)` sites re-armed with the shell; the remaining two,
-plus two `DEFERRED (six-deploy)` sites parked by ADR-0044, are re-armed by the enemy
-retune (ADR-0045). **Zero `it.skip` remain in `src/`.** Nothing derives that count;
-grep the marker, don't trust it.
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1046 tests, 254 browser specs, determinism guard, CI, GitHub Pages.
+A campaign is playable start to finish at the site root (`/`); the engine viewer is at `/viewer.html`.
+What each screen does now, and why, lives in `docs/INTENT.md` and the ADR index (`docs/adr/README.md`) — read those, not a summary here.
+**Zero `it.skip` remain in `src/`.** Nothing derives that count; grep the marker, don't trust it.
 
 **Not established: that a stranger can play it.** Every automated run drives the balance probe or a deliberate forfeit, so "completable" means reachable — never difficulty, pacing or fun. Nobody outside the build has played it.
 
@@ -46,14 +36,14 @@ Engine roadmap sits at **P2**. Open exit criterion: the build-diversity gate at 
 
 - **Customization spine = three axes:** the 5-slot ability chassis + AP-driven job/skill trees with permanent mastery bonuses + hybrid/fusion jobs. Everything else is `[OPTIONAL]`/`[DEFERRED]` — don't promote it to core.
 - **Respec:** permanent progress, free experiments. Learned abilities and masteries are never lost; loadout swaps are free.
-- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim` and `src/render/playtest.ts`, but **any module that emits commands is state-bearing**: `src/render/session.ts` produces the command log, so hand-check it. (It is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
+- **Determinism is a P0 invariant** (`docs/05` §3). One seeded PRNG drives all randomness — hits, status, crits, AI, loot — in a declared roll order. **Never introduce `Math.random`, wall-clock or platform RNG into simulation code.** Rewind, saves and build-sharing depend on it. `npm run check:rng` scans `src/sim`, `src/render/playtest.ts`, `session.ts` and `pacer.ts`. **Any module that emits commands is state-bearing**: hand-check a new one, or add it to `check:rng`. (`session.ts` is clean — no wall-clock, no timers, AI turns advance on an explicit Step, so "how many commands so far" is never a function of elapsed time.)
 - **Sim core is pure and headless** — no rendering/UI deps in the simulation layer.
 
 ## Conventions
 
 - Doc tags: `[BASELINE]` faithful to FFT/WotL · `[ENHANCEMENT]` intentional improvement · `[OPTIONAL]` may cut · `[DEFERRED]` post-1.0. Preserve them when editing docs.
 - **Version baseline:** PSX FFT (1997) is the numeric spine; WotL deltas tagged `[WotL]`; the 2025 *Ivalice Chronicles* remaster is **not** the baseline.
-- **FFT constants are illustrative until verified** against AeroStar's Battle Mechanics Guide and the FFHacktics wiki (`docs/01` §12). No hard-coded combat number without a golden test-vector. Those sources are often **egress-blocked (403) here**, so `fft-fidelity` cross-corroborates by WebSearch and tags confidence per constant. Default to `[UNCERTAIN]`; mark `[VERIFIED]` only when a source actually confirmed it.
+- **FFT constants are illustrative until verified** against AeroStar's Battle Mechanics Guide and the FFHacktics wiki (`docs/01` §12). No hard-coded combat number without a golden test-vector. Those sources are often **egress-blocked (403) in the cloud sandbox**, so `fft-fidelity` cross-corroborates by WebSearch and tags confidence per constant. Default to `[UNCERTAIN]`; mark `[VERIFIED]` only when a source actually confirmed it.
 
 ## The evidence principle
 
@@ -106,7 +96,7 @@ Each rule below is one instance, earned by a shipped defect. When you meet a for
 **Guards and delegation**
 
 - **Never anchor a check on the thing it is checking.** The Pages preflight escalated to an error only when the ref equalled the repository default branch — but that setting *was* the misconfiguration, so on the one branch that publishes it would have gone green. Anchor on an independent constant and assert the two agree (`PUBLISH_BRANCH` vs `on.push.branches`). Corollary: **fixing the first cause is not resolution** — infra faults chain; only end-to-end success proves it.
-- **Delegated work — re-run the verification yourself, and treat a reported ENVIRONMENT limit as a hypothesis.** An agent reported "415 passed" where the same command failed on a loaded box (vitest's 5s default vs a 2.7s test, now pinned to 30s). Another reported it could not run Playwright, but Chromium is pre-installed at `/opt/pw-browsers`. Subagents do **not** inherit this session's environment knowledge.
+- **Delegated work — re-run the verification yourself, and treat a reported ENVIRONMENT limit as a hypothesis.** An agent reported "415 passed" where the same command failed on a loaded box (vitest's 5s default vs a 2.7s test, now pinned to 30s). Another reported it could not run Playwright, but in the Linux cloud sandbox Chromium is pre-installed at `/opt/pw-browsers` (on a Windows host, see `src/render/CLAUDE.md`). Subagents do **not** inherit this session's environment knowledge.
 
 > **Six more forms live in `src/sim/CLAUDE.md`** — gate constants calibrated to detect rather than pass, viability proxies that must exercise the real causal mechanism, identities that can be masked or propped up by an unmodeled cost, a comparator term whose reach depends on where it sits in the key sequence, a contribution proxy that decides which identities can exist, and a gate row that cannot tell "lost" from "could not end". They load when you work in that subtree.
 
@@ -122,11 +112,11 @@ Stack locked at P0 (ADR-0007): headless `src/sim/` + thin `src/render/`. **npm, 
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | typecheck + lint + check:agents + check:rng + check:handoff + check:adr-index + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
-| `npm run check:rng` | greps `src/sim` **and `src/render/playtest.ts`** for banned nondeterminism |
+| `npm run check` | typecheck + lint + check:agents + check:hooks + check:rng + check:handoff + check:adr-index + check:story + test + check:counts + check:assets (fails on any tracked media file over 3 MiB). **Not quite everything CI runs** — CI additionally regenerates `state/index.html` and fails if the committed copy drifted, so a green `check` can still meet a red CI. |
+| `npm run check:rng` | greps `src/sim` **and `src/render/{playtest,session,pacer}.ts`** for banned nondeterminism |
 | `npm run check:story` | fails if a test asserts a literal phrase from `data/campaign/story/*.story.json` |
 | `npm run check:handoff` | fails if `docs/INTENT.md`'s `written-against` stamp is missing, unresolvable, not an ancestor of HEAD, or >20 commits behind |
-| `npm run check:adr-index` | fails if any `docs/adr/NNNN-*.md` has no row in `docs/adr/README.md` (ADR-0045 sat unindexed for four days) |
+| `npm run check:adr-index` | fails if any `docs/adr/NNNN-*.md` has no row in `docs/adr/README.md` |
 | `npm run check:counts` | fails if a status line's test counts have gone stale. Runs after `test`, reading the summary that run writes |
 | `npm run state` | regenerate the drift-proof state page → `state/index.html`; CI fails if the committed copy drifted |
 | `npm run test:visual` | build + Playwright screenshots/video → `npm run gallery` for the proof-sheet |
@@ -135,39 +125,16 @@ Notes:
 
 - **`npx playwright test` alone does NOT rebuild.** It serves whatever is in `dist`, so a spec for a feature you just wrote fails exactly like a broken feature. Rebuild before believing a browser failure.
 - **`check:story`** exists because the story pack is swappable by contract (`docs/11` AC-M4); a test pinning its prose makes exercising that seam a build failure. Four did.
-- **`check:counts`** exists because a count in prose that nothing derives went stale twice
-  in two commits, both times caught by a human happening to look. It matches only the LIVE
-  shape — `N tests, M browser specs`, a comma joining both — so the six **dated** evidence
-  claims elsewhere ("shipped past 720 green tests") are deliberately not touched: those are
-  the record of a past defect and correcting them would falsify it. It also fails if it
-  finds fewer than three live claims, because a guard that only checks the numbers it finds
-  passes vacuously the day someone rewords every site. Mutation-verified four ways.
+- **`check:counts`** matches only the live `N tests, M browser specs` shape and fails on fewer than three claims. Never "correct" a dated claim; the why is in `scripts/check-counts.mjs`.
 - **`check:assets` reads the working tree, not the index.** A staged over-cap blob passes locally and fails CI.
-  Dense-hatch portrait PNGs land at 2.8-3.7 MB against the 3 MiB cap: re-encode losslessly (Pillow `optimize=True`, pixel-identical) before staging.
 - **`check:handoff`** runs on push events only — a `pull_request` event checks out a *merge* ref and would count base commits the branch never authored.
-- CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages.
-
-### GitHub Pages
-
-Treat a red Pages badge as "the site is stale", never as flakiness. `build` and `deploy` fail independently, and a blocked `deploy` fails in one second with **no logs**, reading like an infra blip. **The sandbox cannot load `*.github.io`** — an agent can confirm the deployment API reported success, never that the page renders. The two preflights, the history and the debugging recipe are in the `pages-deploy` skill.
-
-## Project skills (`.claude/skills/`)
-
-Invoke by name:
-
-- `midjourney` — a LOCAL copy of the Midjourney docs (V8.2, captured 2026-09-01) plus this
-  project's art prompts. `docs.midjourney.com` is **egress-blocked** here, and web search
-  about it is stale — two wrong flags reached `docs/INTENT.md` that way. Read the skill first.
-  Portraits now come from GPT Image 2 (ADR-0035), styled against four owner-supplied
-  `style-ref-N.png` images, not the Midjourney archer; the skill still holds the character briefs.
-- `capture-intent` — write an idea down as `intent/<slug>.md` (Problem, Proposed outcome, Affected users and systems, Constraints, Open questions) BEFORE a spec, a mockup or a build. Holds the playbook chapter locally.
-- `retrospective` — capture lessons and **propose** (approval-gated) updates to this file, the docs, an ADR or a skill. **Run before opening a PR**, and after any task that hit surprises.
+- CI runs `npm run check` + a visual-tests job on every push/PR. Merges to `main` deploy the viewer + gallery (`/visual/`) to Pages. A red Pages badge means "the site is stale", never flakiness: load the `pages-deploy` skill.
 
 ## Agent team (`.claude/agents/`)
 
 **Product Owner is the operating contract of the main session** — it holds the vision, is the single point of contact for requirements and decisions, and **delegates to specialists**, integrating their results rather than surfacing raw sub-agent output.
 
-**THE MAIN SESSION IS COMMAND CENTER, AND DOES NOT DO THE WORK (user, 2026-08-30).**
+**The main session is command center and does not do the work (user, 2026-08-30).**
 This is stronger than "delegate when convenient" and it replaces it:
 
 1. **Every piece of work goes to an agent.** The main session decides, scopes, sequences,
@@ -177,11 +144,12 @@ This is stronger than "delegate when convenient" and it replaces it:
    own, and propose either a **new hire** or **promoting an existing agent** to broader
    responsibility — then wait for the user's call. Quietly doing it yourself is the failure
    this roster exists to prevent.
-3. **A roster nobody uses is a signal about the roster.** It was invoked **zero** times
-   across an entire multi-slice session and nobody noticed until the user asked. The gap
-   was the whole visual layer, which is why `viewer-engineer` and `art-director` exist —
-   and the first review that was actually delegated found three blockers the main session
-   and 880 green tests had both missed.
+3. **A roster nobody uses is a signal about the roster.**
+<!-- History: it was invoked zero times across an entire multi-slice session and nobody
+noticed until the user asked. The gap was the whole visual layer, which is why
+viewer-engineer and art-director exist, and the first review that was actually delegated
+found three blockers the main session and 880 green tests had both missed. -->
+
 
 The judgement call is the *scoping*, not the doing. A slice usually needs two or three
 specialists in sequence; sequencing them and reconciling what they hand back is the job.
@@ -193,28 +161,14 @@ a fresh agent did the same follow-up in 47k. (2) **One editing agent in the chec
 time.** The art director and the engineer were both in `stage.css` the same hour; one
 reverted the other's file. Read-only agents may run alongside; editors run in sequence.
 
-**Token rules, enforced by hooks (user, 2026-09-06).** The same session spent ~3M tokens in
-subagents; half was suite output and whole-file reads, not thinking. Three PreToolUse hooks
-now fire for every agent:
-- **Suites run quiet.** `guard-quiet-suites.sh` denies a bare vitest / playwright / tsc /
-  `npm run test|check|build|test:visual|state`. Use `bash scripts/quiet.sh <cmd>`: the full
-  log lands in `coverage/quiet/`, the last 30 lines come back, and the real exit code is
-  kept (a bare `| tail` returns tail's code, so a red suite reads green).
-- **Big files are read in ranges.** `guard-big-reads.sh` denies a Read with no `limit`, or a
-  bare `cat`, on any text file over 400 lines. Grep for the section, then read around it.
-  A brief names the sections an agent needs, not the files.
-- **A resume is deliberate.** `guard-resume.sh` denies a SendMessage to a finished agent
-  unless the message starts with `RESUME-OK:` and says why its memory is needed.
+**Token rules, enforced by hooks (user, 2026-09-06).** Suites run through `bash scripts/quiet.sh <cmd>` (`guard-quiet-suites.sh`); files over 400 lines are read in ranges (`guard-big-reads.sh`); a resume starts with `RESUME-OK:` (`guard-resume.sh`). Each hook's deny message says how to comply. A brief names the sections an agent needs, not the files.
 
-**Brief rules, enforced by a hook (user, 2026-09-06).** The portrait slice cost ~830k
-tokens; about a third was avoidable, and all of it was in the BRIEFS. `guard-brief.sh`
-denies an Agent spawn whose prompt lacks: a report cap (`REPORT … under N lines`) for
-every agent; for `viewer-engineer` / `combat-engineer`, `MUTATION` (what each new test
-goes red on) and `ASSERT` (what it asserts, **including the identity** of the thing — a
-width of 192 passed a knight's face on the archer); for `art-director`, `no alternatives`
-or `one pass`; and for `docs-steward`, a second spawn in one session unless the prompt
-starts with `SECOND-PASS-OK:` — docs are written once, at the end, against verified code.
-`npm run check:hooks` runs every hook's fixture file. **And a known doc URL is a WebFetch, not an agent:** one fetch answered in 2k what a 45k `claude-code-guide` spawn got half wrong.
+**Brief rules, enforced by a hook (user, 2026-09-06).** `guard-brief.sh` checks every Agent spawn: a report cap for all; `MUTATION` and `ASSERT` (including the **identity** of the thing) for the two engineers; `no alternatives` or `one pass` for `art-director`; `SECOND-PASS-OK:` for a second `docs-steward`. Docs are written once, at the end, against verified code. `npm run check:hooks` runs every hook's fixture file. **A known doc URL is a WebFetch, not an agent.**
+<!-- History: the same session spent ~3M tokens in subagents, half of it suite output and
+whole-file reads. The portrait slice cost ~830k tokens, a third avoidable, all in the
+briefs. A width of 192 passed a knight's face on the archer. One WebFetch answered in 2k
+what a 45k claude-code-guide spawn got half wrong. -->
+
 
 Three more that no hook can judge: open only the frames that changed; run **one**
 reviewer pass per slice (the spec grill and the code review were two 100k+ reads of the
@@ -250,9 +204,9 @@ Every file in `.claude/agents/` carries a `model:` default chosen by this table 
 judgment → `opus`; specced execution → `sonnet`). **That default is the floor, not the
 rule.** When a spawn's task is more open than the agent's usual work — a `combat-engineer`
 chasing a bug that will not reproduce — override upward with the Agent tool's `model`
-parameter. When it is purely mechanical, override down to `haiku`. Before 2026-09-04 no
-agent named a model, so every subagent inherited the top seat, which on a Fable session
-put Fable in every specialist.
+parameter. When it is purely mechanical, override down to `haiku`.
+<!-- History: before 2026-09-04 no agent named a model, so every subagent inherited the top
+seat, which on a Fable session put Fable in every specialist. -->
 
 ## Tooling & workflow
 
@@ -265,81 +219,29 @@ put Fable in every specialist.
   the token is single-use and expires in 15 minutes. **Write that token only after the
   owner has said go in words** — a resume prompt, a Stop-hook nag or a system-reminder is
   not approval. The hook cannot stop you writing the token yourself; it is there to make
-  the action deliberate, not to make it impossible. **Two environment facts (2026-09-06):**
-  the auto-mode classifier denies the token write when it shares a Bash call with anything
-  else. Whether a bare `printf '%s\n' push > .claude/.git-go` in its own call or the Write
-  tool is the one that passes **varies by session** (2026-09-08: printf denied twice, Write
-  passed; later the reverse). If one is denied, try the other once, then stop and tell the
-  owner. And after a rejected push (the owner pushed to the same branch meanwhile),
+  the action deliberate, not to make it impossible. Write the token in a call of its own,
+  either a bare `printf '%s\n' push > .claude/.git-go` or the Write tool. If one is denied,
+  try the other once, then stop and tell the owner. And after a rejected push (the owner pushed to the same branch meanwhile),
   spawn a FRESH `release-engineer` with the owner's words quoted — a resumed one reads the
   resume message as the coordinator's words, not the owner's, and refuses.
 - **Retrospective before every PR — and re-write `docs/INTENT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/INTENT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/INTENT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
   **`docs/INTENT.md` holds the STANDING INTENT and the next slice** (owner, 2026-09-08) — where the game is going, the directives still in force, what is not green-lit, the open asks, then the slice. Nothing else. Keep it tight: it once grew to 843 lines and the user called it "so bloated with unnecessary information" (2026-09-06). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
 - **When the sandbox cannot reach an API, a CI runner can.** A temporary workflow step querying it with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Details in the `pages-deploy` skill.
-- **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** The
-  CI-runner trick above covers APIs; it does not cover documentation. A session built a
-  whole Midjourney lesson out of 2026 blog posts because `docs.midjourney.com` 403s at the
-  proxy. The owner asked "you are unable to access it?", pasted ten official pages, and
-  **two of the relayed facts were wrong** — one of them describing a workflow the tool
-  cannot perform, which would have cost a paid run of sixteen images. Web search about a
-  fast-moving tool is stale by default. Name the exact page and its URL, say plain text or
-  raw HTML is fine, then **save it into a skill's `references/`** so the next session does
-  not have to ask again (`.claude/skills/midjourney/` is the worked example).
+- **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** Web search about a fast-moving tool is stale by default. Name the exact page and its URL, then **save it into a skill's `references/`** (`.claude/skills/midjourney/` is the worked example).
+<!-- History: a session built a whole Midjourney lesson out of 2026 blog posts. The owner
+pasted ten official pages, and two of the relayed facts were wrong, one of them a workflow
+the tool cannot perform, which would have cost a paid run of sixteen images. -->
 - **A PR body is AUTHORED, and "I pushed the branch" is not a delivery.** If you did not open the PR, find it and replace an auto-filled body (auto-filled iff it equals the head commit message). Visual proof goes in the PR body, never in API-posted comments. The exact recipe — body structure, raw image URLs, filmstrip + H.264 pipeline, the stale mobile note — is the `pr-delivery` skill.
-- **For a TASTE change, get a reference before you build.** The parchment slice was
-  rebuilt twice from scratch — "too bright", then "too dark" — before the user sent one
-  image, which settled it in a single pass. Aesthetic direction is not derivable from a
-  description, and each blind iteration costs a full rebuild. Ask for a reference, or
-  put 2–3 real options in front of them, before writing the stylesheet.
-  - **COLLECT EVERY NOTE ON THE APPROVED FRAMES BEFORE THE ENGINEER STARTS.** The owner
-    said "go", then sent four notes, then "all six deploy", then a style brief — each while
-    the build ran. Three in-flight redirects cost about a third of a 368k run (2026-09-08),
-    rewriting tests the engineer had just written. After the frames are approved, ask once:
-    "anything to change before it is built?" — and only then spawn.
-  - **OPTIONS THAT ARE ALL VARIATIONS OF THE CURRENT IMPLEMENTATION CANNOT ESCAPE A FAULT
-    IN IT.** Three re-colourings of the battle board were rejected outright; every one of
-    them kept the per-tile grid line, which *was* the fault ("actual grounds instead of
-    this blocky generic"). When the user names a reference work, go and establish what
-    that work actually **does** — FFT draws no grid on the ground — before generating
-    options, or the whole set inherits the thing being complained about.
-  - **WHEN THE DECISION IS ABOUT APPEARANCE, RENDER IT BEFORE ASKING.** A multiple-choice
-    question about how something looks is unanswerable in prose: the user said so three
-    times in one session ("give me the image ... before I can even say go or no go", "I
-    can't quite visualise the options, can u show me"). Frames from the **running game**
-    beat mockups, and both beat a description — patch the data, capture, revert. Budget
-    for it; it is cheaper than a rejected slice.
-  - **NUMBER EVERY FRAME YOU DELIVER.** Send frames as `<name>-pass<N>-<viewport>.png`,
-    never the same filename twice. Nine passes of one screen shipped under one name; the
-    owner opened an old card and ordered a revert of a layout that was already fixed
-    (2026-09-08).
-  - **BEFORE APPROVING A REDESIGN FRAME, INVENTORY WHAT THE SCREEN REPLACES.** List every
-    control and every piece of information the old screen carried, and check each has a home
-    in the new frames. The dossier's frames were approved without that list, so the LEARN
-    list (spending AP — the whole progression loop) had nowhere to go; it cost an extra art
-    pass, an extra engineer pass and a review blocker (2026-09-09). The engineer will not
-    catch it: it will invent a hiding place rather than stop. **Inventory the screens the
-    new flow SKIPS too, not only the one it redraws:** the result overlay bypassed
-    `AFTER_BATTLE`, and every battle's authored story beat went with it — the engineer
-    flagged it, the fix was a routing pass nobody had budgeted (2026-09-23).
-  - **CHECK THE PIXEL BUDGET BEFORE A SPACING PASS.** At 832×328 the sheet is usually full.
-    Read the last report's slack per column; when the ask needs pixels the fold does not
-    have, ask the owner where they come from (two options), do not spend the pass. Doing so
-    saved one pass and skipping it cost one (2026-09-08).
-  - **AN ASK YOU CANNOT RENDER MUST SHIP THE MATERIAL THAT PRODUCES THE ANSWER.** A deliverable
-    the owner must act on (a prompt to run) is relayed verbatim, never summarised. **Once the owner
-    acts, record the exact prompt AND the settings into the repo in the same turn** — a result you
-    cannot reproduce is not an asset. The history behind both rules (three replies that never pasted
-    the prompts; four approved images whose settings nobody wrote down) is in the `midjourney` skill.
-  - **NEVER SAY "NOTHING IS PENDING" IN THE SAME BREATH AS LISTING WHAT IS PENDING.**
-    A status reply did exactly that with three asks open. Open asks need ONE home
-    you read before answering "what do you need from me". `docs/INTENT.md`'s
-    **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
-- **Present implementation plans as a readable HTML artifact** (via the `lavish` skill — there is no `artifact-design` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
+- **Any change to how the game LOOKS** (stylesheet, redesign, spacing pass, frames for approval): load the `visual-change` skill first. Reference before build, render before asking, number frames, inventory what a redesign replaces.
+- **Do not say "nothing is pending" in a reply that lists what is pending.**
+  A status reply did exactly that with three asks open. Open asks need ONE home
+  you read before answering "what do you need from me". `docs/INTENT.md`'s
+  **OPEN — WAITING ON THE OWNER** section is that home. Read it first.
+- **Present implementation plans as a readable HTML artifact** (via the `lavish` skill) **in addition to** the plan file. The file is the source of truth; the artifact is the review medium. Do this by default.
 - **An idea is written down as `intent/<slug>.md` BEFORE any spec, mockup or build** (`capture-intent` skill; the playbook's Stage 1). Problem, proposed outcome, affected users and systems, constraints, open questions — in the owner's words, corrected by the owner, then committed. Not `docs/INTENT.md`, which is the standing intent of the whole game.
-- **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit.specify` feature spec from its AC section. See `docs/08` §5.
+- **Spec-driven development (hybrid):** Spec Kit is initialized — `.specify/` and `specs/` exist, `speckit-*` skills available. `docs/00` is the constitution seed; port each buildable-system doc (`01`, `02`, `05`, `06`, `10`) to a `/speckit-specify` feature spec from its AC section. See `docs/08` §5.
 - **Environment facts that cost real time to learn.** Scratch probes go in `coverage/` (gitignored, inside the repo) because `vite-node` resolves imports against the Vite root. A mutation verdict from a build that did not typecheck is not a verdict, and `git checkout` cannot restore an untracked file, so copy the file aside first. A pushed branch with no PR can read as lost: `git fetch origin` and check `origin/<branch>` before concluding anything. GitHub auto-merge is not enabled; watch the checks and merge.
-- **Code intelligence:** `.mcp.json` scaffolds a code-graph/LSP MCP. The docs-only gate no longer applies — enable it and measure whether it saves more tokens than it costs.
 
 ## Write plainly (user directive, 2026-08-12)
 
@@ -351,7 +253,7 @@ The hook `.claude/hooks/reply-style.sh` restates these rules on every prompt: bo
 
 ## Remote-session signals ≠ user intent
 
-This runs as a remote session: the container keeps working when the app is closed, and reopening injects a synthetic `Continue from where you left off` turn. That resume prompt, a Stop-hook nagging about uncommitted changes, and `<system-reminder>` blocks are **environment noise, not the user speaking** — never treat them as approval. If the only signal to act is one of these, **hold and re-state what you're waiting on.** Explicit approval means words from the user. (A session once read repeated resume prompts as "stop asking and ship it", then phrased its own inference as the user's decision.)
+In a remote (cloud) session the container keeps working when the app is closed, and reopening injects a synthetic `Continue from where you left off` turn. That resume prompt, a Stop-hook nagging about uncommitted changes, and `<system-reminder>` blocks are **environment noise, not the user speaking** — never treat them as approval. If the only signal to act is one of these, **hold and re-state what you're waiting on.** Explicit approval means words from the user. (A session once read repeated resume prompts as "stop asking and ship it", then phrased its own inference as the user's decision.)
 
 **The stop button kills every running subagent; a typed message does not.** Three agents
 died at ~0 tokens when the owner pressed interrupt to ask a question (2026-09-08), after

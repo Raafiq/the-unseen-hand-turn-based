@@ -25,16 +25,14 @@ In Claude Code the **main session is always the human's interlocutor** — subag
 | `content-author` | Job/ability/status/battle data, and a battle's terrain | now | `sonnet` | `docs/05` schemas, `docs/01` fidelity |
 | `qe-tester` | Whether a test can FAIL; coverage against the ACs; defect repro | now | `sonnet` | `docs/*` acceptance criteria |
 | `playtester` | Player-experience critique; spawn **2–3** with distinct personas | now | `sonnet` | `docs/03` archetypes, `docs/00` |
+| `Explore` | Read-only code search; overrides the built-in Explore so searches run on Haiku; loads no `CLAUDE.md` | now | `haiku` | its brief only |
 
 **Seat** is the agent's default `model:`, set by the routing table in `CLAUDE.md` (open
 judgment → `opus`, specced execution → `sonnet`). Override per spawn when the task is more
 open or more mechanical than the agent's usual work. Never `fable`.
 
-**Every agent is active.** The roster was written on 2026-07-30 against a repo with no
-code, and four of them still said "until the stack is locked" / "pre-code" / "play on
-paper" long after P0 and P1 had landed — which reads as *not my job yet* on work that is
-squarely theirs. Rewritten 2026-08-30. If you find another pre-code gate, it is stale;
-delete it.
+**Every agent is active.** A "pre-code" or "until the stack is locked" gate in an agent
+file is stale: delete it.
 
 Two boundaries worth stating because they are new and adjacent:
 
@@ -83,4 +81,3 @@ them, and expect them on the next session; do not conclude the definition is bro
   session in which the agents were never once invoked.
 - Design/review/fidelity/playtest agents are **read-only** (no code edits) — they produce findings/proposals the PO integrates. `art-director` is read-only *for shipped source*: it may write mockups and capture scripts to a scratch path, because its whole contract is to argue with rendered pictures rather than prose.
 - `combat-engineer` and `content-author` may edit code/data, and must honor the determinism invariant (`sim-determinism-guard`) and the doc acceptance criteria.
-- Model/tool scoping is left conservative now (mostly inherit); tune per agent at P0 (see `task-model-routing` for cheap-vs-strong routing once tasks exist).

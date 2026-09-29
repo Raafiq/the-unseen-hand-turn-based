@@ -26,7 +26,7 @@
     "check:story": "bash scripts/check-story-literals.sh",
     "check:counts": "node scripts/check-counts.mjs",
     "check:assets": "node scripts/check-assets.mjs",
-    "check:hooks": "for t in .claude/hooks/*.test.sh; do bash \"$t\" >/dev/null || { echo \"FAIL $t\"; bash \"$t\"; exit 1; }; done; echo \"check:hooks ok ($(ls .claude/hooks/*.test.sh | wc -l) hook fixtures)\""
+    "check:hooks": "bash scripts/check-hooks.sh"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

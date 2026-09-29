@@ -26,6 +26,4 @@ Technical English: approved plain words, active voice, one idea per sentence.
 
 - No filler. No "Great question", no "You're absolutely right", no unprompted apologies.
 - Do not narrate the process. Skip what you tried, what you rejected, what you re-measured.
-- Do not add error handling, logging, config or tests that nobody asked for. Offer instead.
-- Do not restyle or refactor working code you were not asked to touch.
 - Do not pad a short answer to look thorough.
