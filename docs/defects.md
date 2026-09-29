@@ -17,7 +17,7 @@ slice:
 |---|---|
 | The basic swing is melee whatever the weapon | `basicAttackFrom` (`src/sim/state.ts:462`) hard-codes `range {h:1,v:1}`; equipment is deferred (`docs/05` §4) |
 
-That row is now tracked as its own intent: `intent/bow-attack.md` — Attack should take its
+That row is now tracked as its own intent: `intent/weapon-range.md` — Attack should take its
 reach from the weapon (a bow shoots), an engine change with no balance retune green-lit.
 
 <details><summary>Original entry (struck, kept for the record)</summary>

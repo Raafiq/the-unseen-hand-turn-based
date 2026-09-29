@@ -113,7 +113,7 @@ own test usage) — no new command, no new save shape.
 
 - **`docs/defects.md` §1 is retired**, this branch — the committed fix is the discriminator
   (`session.test.ts`, "AC-V23"). Its third evidence row (basic Attack is melee whatever the
-  weapon) is **not** closed by this slice and is carried forward as `intent/bow-attack.md`.
+  weapon) is **not** closed by this slice and is carried forward as `intent/weapon-range.md`.
 - **`docs/defects.md` §2 is retired** in the same pass — it was already fixed by ADR-0043's
   `isClickTargetable` change and had gone stale reading live; corrected here rather than
   left for a future agent to re-discover.
@@ -157,5 +157,5 @@ Unchanged: 2+ skills open the menu, one skill auto-picks, zero shows none; reach
 - `src/render/session.ts`, `hud.ts`, `iso.ts`, `panels.ts`, `game-api.ts` — the code.
 - `src/render/session.test.ts` ("the skill picker" describe block), `panels.test.ts`,
   `iso.test.ts`, `e2e/skill-picker.spec.ts`, `e2e/skill-picker-capture.spec.ts` — the tests.
-- `intent/bow-attack.md` — the next slice, carrying forward `docs/defects.md` §1's
+- `intent/weapon-range.md` — the next slice, carrying forward `docs/defects.md` §1's
   unclosed third row.

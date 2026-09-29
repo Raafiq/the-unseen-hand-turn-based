@@ -32,7 +32,7 @@ The Attack button stays one basic swing and goes straight to targeting. When no 
 ## Decided by the owner (2026-09-24)
 - A unit with exactly one skill: Skill goes straight to targeting, as today. The list opens only for two or more.
 - A skill with no legal target is dimmed and shows a short reason (for example "Out of range", "No ally hurt").
-- The same applies to Attack: it lists nothing, but when no foe is in reach it shows the short reason. Weapon attacks (an archer's shot) are not green-lit; they need an engine change (`intent/bow-attack.md`).
+- The same applies to Attack: it lists nothing, but when no foe is in reach it shows the short reason. Weapon attacks (an archer's shot) are not green-lit; they need an engine change (`intent/weapon-range.md`).
 - After Attack or a skill is picked, the board colours that action's full reach around the unit — from where it stands, or from the staged move tile once a move is staged — so the player can see where to move to get in range. Not the union over every reachable tile.
 
 ## Open questions
