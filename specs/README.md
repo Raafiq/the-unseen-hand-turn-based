@@ -16,6 +16,7 @@ from `docs/00`.
 | [`002-job-system`](002-job-system/spec.md) | `docs/02` | 5-slot chassis, AP trees + mastery, hybrids, free respec (the core) |
 | [`003-simulation`](003-simulation/spec.md) | `docs/05` | Scheduler + tie-break, resolution pipeline, seeded RNG, rewind, `BattleState`, schemas |
 | [`004-encounters-ai`](004-encounters-ai/spec.md) | `docs/06` | Benchmark suite, AI test-harness, difficulty-without-inflation |
+| [`005-weapon-range`](005-weapon-range/spec.md) | `docs/01` AC-011…016, ADR-0049 | A weapon carries `range {h,v}`; Attack, AI, reactions and the viewer read it; one bow on Briar |
 
 Creative docs (`docs/03` build-fantasy catalog, `docs/04` differentiators) stay
 GDD references the specs cite, not specs themselves.

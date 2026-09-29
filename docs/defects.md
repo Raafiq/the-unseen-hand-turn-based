@@ -19,6 +19,7 @@ slice:
 
 That row is now tracked as its own intent: `intent/weapon-range.md` — Attack should take its
 reach from the weapon (a bow shoots), an engine change with no balance retune green-lit.
+Specified 2026-09-29: ADR-0049, `docs/01` AC-011…AC-016, `specs/005-weapon-range/spec.md`. Not built yet.
 
 <details><summary>Original entry (struck, kept for the record)</summary>
 

@@ -491,7 +491,8 @@ degenerate fixture where all orderings coincide).
   horizontal box but outside the height box is absent. *Discriminator:* a Manhattan-radius
   reach (no height check) wrongly includes a height-3 tile at the horizontal distance and
   wrongly drops a same-height corner tile the real rule includes. **Asserted**
-  (`session.test.ts`, against `inAbilityRange` directly).
+  (`session.test.ts`, against `inAbilityRange` directly). Attack's own reach comes from the
+  weapon's range (ADR-0049); `docs/01` AC-016 owns that case.
 
   **AC-V25 (reach redraws from the staged tile, not the actor's own position).** Once a
   move is staged, `reach()` is computed from the staged tile. *Discriminator:* reading

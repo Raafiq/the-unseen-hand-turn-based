@@ -137,8 +137,7 @@ after mastery, before the clamp, so a support's multiplier scales the *post*-mas
 Its **ability** mods (`chargeSpeed`, `abilityRange`) are not stats at all: they fold onto each
 projected `BattleAbility` at build time, so they travel inside the serialized battle and a
 replay never re-reads the content registry (the self-containment rule, ADR-0010/ADR-0011).
-Ability mods apply to **skills only**, never to the weapon-derived `basic.attack` — equipment
-is still deferred, so there is no weapon range for a range-up support to widen.
+Ability mods apply to **skills only**, never to the weapon-derived `basic.attack`. A weapon now carries its own `range` (ADR-0049, `docs/01` AC-011…AC-016), but a range-up support still does not widen it — that is not in this slice.
 
 **A support may not touch a unit's Speed** — the same structural ban traits carry (AC-P5,
 ADR-0012), enforced by the schema shape. `chargeSpeed` is a *charged action's* own accrual
