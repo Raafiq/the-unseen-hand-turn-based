@@ -41,6 +41,11 @@ async function reachBattle(page: Page): Promise<void> {
   await dismissScene(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
+  // THE ENTRY PLAQUE (`hud.ts`'s "THE TOLL ROAD" banner, owner decision 9) is a
+  // timed fade that sits OVER the board — every frame this spec captured showed
+  // it still fading (review fix, skill-picker slice). Wait for it to leave the
+  // DOM before any capture below; no fixed sleep.
+  await expect(page.getByTestId("entry-plaque")).toBeHidden();
   await settleMotion(page);
 }
 

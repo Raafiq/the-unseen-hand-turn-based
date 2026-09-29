@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 A turn-based tactics RPG modeled on **Final Fantasy Tactics: War of the Lions**, built around deep character customization and an intensive job system. This repo is the systems/combat game; narrative content comes from a **separate story repo** (not started), loaded here as data.
 
-**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1046 tests, 254 browser specs, determinism guard, CI, GitHub Pages.
+**Status: M0 — all seven items built.** Headless sim (`src/sim`) + thin viewer (`src/render`), 1059 tests, 286 browser specs, determinism guard, CI, GitHub Pages.
 A campaign is playable start to finish at the site root (`/`); the engine viewer is at `/viewer.html`.
 What each screen does now, and why, lives in `docs/INTENT.md` and the ADR index (`docs/adr/README.md`) — read those, not a summary here.
 **Zero `it.skip` remain in `src/`.** Nothing derives that count; grep the marker, don't trust it.

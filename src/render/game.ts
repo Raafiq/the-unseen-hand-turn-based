@@ -873,6 +873,7 @@ function paintBoard(): void {
     activeControl:
       active === undefined ? undefined : active.teamId === session.playerTeam ? "player" : "ai",
     range: session.moveTiles(),
+    reach: session.reach(),
     targets: session.targetTiles(),
     staged: session.stagedTile(),
     cursor: hud.canvasFocused() ? session.cursor : null,
@@ -1502,6 +1503,17 @@ const api: GameApi = {
   commandCount: () => shell.session?.commands().length ?? 0,
   stagedTarget: () => shell.session?.stagedTarget() ?? null,
   reason: () => shell.session?.reason ?? null,
+  commandMode: () => shell.session?.commandMode() ?? null,
+  skillOptions: () => shell.session?.skillOptions() ?? [],
+  selectedSkill: () => shell.session?.selectedSkill() ?? null,
+  reach: () => shell.session?.reach() ?? [],
+  actionReason: () => shell.session?.actionReason() ?? null,
+  grantTestAp: (recordId, amount) =>
+    guard(() => {
+      const record = shell.save?.party.find((r) => r.id === recordId);
+      if (!record) return;
+      shell.updateParty({ ...record, ap: record.ap + amount });
+    }),
   conclude: () => act("btn-conclude", () => concludeAndLog()),
   next: () => act("btn-next", () => shell.nextBattle()),
   retry: () => act("btn-retry", () => shell.retry()),

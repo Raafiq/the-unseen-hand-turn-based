@@ -115,6 +115,7 @@ function paintBoard(): void {
     activeControl:
       active === undefined ? undefined : active.teamId === session.playerTeam ? "player" : "ai",
     range: session.moveTiles(),
+    reach: session.reach(),
     targets: session.targetTiles(),
     staged: session.stagedTile(),
     cursor: hud.canvasFocused() ? session.cursor : null,

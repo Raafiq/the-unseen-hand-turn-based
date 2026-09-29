@@ -31,6 +31,14 @@ export interface Theme {
   impassable: string;
   highlight: string;
   highlightEdge: string;
+  /**
+   * Fill/edge for an action's full REACH (skill picker, `intent/skill-picker.md`,
+   * "Decided by the owner 2026-09-24"): every tile the chosen action could reach,
+   * occupied or not — painted UNDER `highlight`/`target` so the move panel and the
+   * legal-target tint still read on top of it.
+   */
+  reach: string;
+  reachEdge: string;
   active: string;
   /** Ring colour for an AI-controlled active unit (distinct from the player's). */
   activeAi: string;
@@ -58,6 +66,8 @@ export const DARK_THEME: Theme = {
   impassable: "#6a2f2f",
   highlight: "#e2a94833",
   highlightEdge: "#e2a948",
+  reach: "#e879f040",
+  reachEdge: "#e879f0",
   active: "#f4d06a",
   activeAi: "#ff7a3c",
   staged: "#7fd7ff3d",
@@ -145,6 +155,12 @@ export const FIELD_THEME: Theme = {
   // mostly hidden. The panel is information; the ground beneath it is not.
   highlight: "#8fd0ffb3",
   highlightEdge: "#eaf7ff",
+  // THE ACTION-REACH PANEL (skill picker, `intent/skill-picker.md`, "Decided by the
+  // owner 2026-09-24"): "filled pink (#e879f0 ~63% alpha), a thin light outline" —
+  // the art director's own approved values (`coverage/frames/skill-picker/
+  // reach-skill-A-pass1-*`), not re-derived here. 0.63 * 255 ≈ 161 = 0xA1.
+  reach: "#e879f0a1",
+  reachEdge: "#fbe6fb",
   active: "#ffd968",
   activeAi: "#ff8a44",
   staged: "#ffeca047",
@@ -485,6 +501,15 @@ export interface DrawOptions {
   activeControl?: "player" | "ai" | undefined;
   /** Legal move destinations (from the sim's `moveRange`). */
   range?: readonly Position[];
+  /**
+   * Every tile the CURRENT action could reach (skill-picker slice,
+   * `intent/skill-picker.md`) — occupied or not, straight from the sim's own
+   * `inAbilityRange` (`Session.reach`/`preview.ts`'s `abilityReach`). Painted BEFORE
+   * `range`/`targets` so the blue move panel and the legal-target tint still read on
+   * top of it, matching the owner's approved frames
+   * (`coverage/frames/skill-picker/reach-skill-A-pass1-*`).
+   */
+  reach?: readonly Position[];
   /** Tiles holding a legal act target FROM the staged position. */
   targets?: readonly Position[];
   /** The staged move destination: marker + a translucent ghost of the actor. */
@@ -560,6 +585,7 @@ export function draw(
 
   const key = (p: Position): string => `${p.x},${p.y}`;
   const rangeSet = new Set((opts.range ?? []).map(key));
+  const reachSet = new Set((opts.reach ?? []).map(key));
   const targetSet = new Set((opts.targets ?? []).map(key));
   const stagedKey = opts.staged ? key(opts.staged) : null;
   const cursorKey = opts.cursor ? key(opts.cursor) : null;
@@ -632,6 +658,17 @@ export function draw(
     }
 
     const k = `${x},${y}`;
+
+    // ACTION REACH — painted FIRST, under the move panel and the legal-target tint,
+    // so both still read on top of it (owner's approved frames, skill-picker slice).
+    if (reachSet.has(k)) {
+      diamond(ctx, top);
+      ctx.fillStyle = theme.reach;
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = theme.reachEdge;
+      ctx.stroke();
+    }
 
     // Move-range highlight.
     if (rangeSet.has(k)) {

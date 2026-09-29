@@ -22,11 +22,13 @@ import {
   createBattleState,
   decideBalanceProbe,
   defaultUnit,
+  inAbilityRange,
   makeFlatTiles,
   replay,
   runFromState,
   serialize,
   tileAt,
+  type BattleAbility,
   type BattleState,
   type Command,
   type Position,
@@ -1507,4 +1509,422 @@ describe("a played battle reports what a probed one reports (docs/11 AC-M1)", ()
     expect(report.contributionByUnit["hero"]?.kos).toBe(1);
     expect(Object.keys(report.abilityUsage).length).toBeGreaterThan(0);
   });
+});
+
+/**
+ * THE SKILL PICKER (`intent/skill-picker.md`, AC-V23…V29) — purpose-built fixtures,
+ * because no shipped unit carries two skills (`docs/proposals/action-menu.md`
+ * AC-V23(b): "no shipped unit equips a Secondary" — the same content gap this slice
+ * inherits). `docs/defects.md` §1 is the bug these first fix: `targetOptions` takes
+ * the FIRST matching ability, so a unit with a SECOND legal skill on the same target
+ * could never have it chosen by a click.
+ */
+describe("the skill picker (intent/skill-picker.md, AC-V23…V29)", () => {
+  const P_HERO: Position = { x: 2, y: 2 };
+  const P_FOE: Position = { x: 3, y: 2 }; // distance 1 — BOTH skills below reach it
+  const P_TALL: Position = { x: 4, y: 2 }; // distance 2, height 3 — inside beta's h, outside its v
+  const P_CONTROL: Position = { x: 0, y: 2 }; // distance 2, height 0 — the height-floor's control
+  const P_MID: Position = { x: 5, y: 2 }; // distance 3 — inside beta's h, outside alpha/attack's
+  const P_STAGE: Position = { x: 2, y: 3 }; // one step south — a legal move destination
+  const P_FROM_STAGE_ONLY: Position = { x: 2, y: 4 }; // distance 2 from start, 1 from P_STAGE
+
+  const ALPHA_ID = "skill.alpha";
+  const BETA_ID = "skill.beta";
+
+  const alphaAbility: BattleAbility = {
+    id: ALPHA_ID,
+    actionKind: "action",
+    formula: "physical",
+    power: 10,
+    element: "none",
+    accuracy: 100,
+    range: { h: 1, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+  const betaAbility: BattleAbility = {
+    id: BETA_ID,
+    actionKind: "action",
+    formula: "physical",
+    power: 20,
+    element: "none",
+    accuracy: 100,
+    range: { h: 3, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+
+  /**
+   * Hero with TWO skills, ALPHA first in array order — so the pre-fix
+   * "abilities.find first match" behaviour would always pick ALPHA regardless of
+   * which chip the player tapped, which is exactly the discriminator ASSERT #1 needs.
+   * `P_FOE` is reachable by BOTH, so both chips are `available`.
+   */
+  function pickerFixture(): BattleState {
+    const width = 8;
+    const height = 5;
+    const tiles: Tile[] = makeFlatTiles(width, height, 0);
+    tiles[P_TALL.y * width + P_TALL.x] = { height: 3, passable: true };
+    const base = defaultUnit("hero", 0, {
+      pos: { ...P_HERO },
+      facing: "E",
+      speed: 12,
+      move: 3,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 10,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    const hero: UnitState = { ...base, abilities: [alphaAbility, betaAbility, ...base.abilities] };
+    const foe = defaultUnit("foe", 1, {
+      pos: { ...P_FOE },
+      facing: "W",
+      speed: 11,
+      move: 3,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 6,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    return createBattleState({ seed: 777, grid: { width, height, tiles }, units: [hero, foe] });
+  }
+
+  /** A single skill whose range reaches nothing — both Attack and Skill are unavailable. */
+  const SHORT_ID = "skill.short";
+  const shortAbility: BattleAbility = {
+    id: SHORT_ID,
+    actionKind: "action",
+    formula: "physical",
+    power: 10,
+    element: "none",
+    accuracy: 100,
+    range: { h: 1, v: 1 },
+    inflicts: [],
+    speed: null,
+    aoe: null,
+  };
+  const P_FAR_FOE: Position = { x: 7, y: 0 };
+
+  function unavailableFixture(): BattleState {
+    const width = 8;
+    const height = 5;
+    const tiles: Tile[] = makeFlatTiles(width, height, 0);
+    const base = defaultUnit("hero", 0, {
+      pos: { x: 0, y: 0 },
+      facing: "E",
+      speed: 12,
+      move: 1,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 10,
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    const hero: UnitState = { ...base, abilities: [shortAbility, ...base.abilities] };
+    const foe = defaultUnit("foe", 1, {
+      pos: { ...P_FAR_FOE },
+      facing: "W",
+      speed: 11,
+      move: 1,
+      jump: 1,
+      hp: 400,
+      maxHp: 400,
+      pa: 6,
+      evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+    });
+    return createBattleState({ seed: 778, grid: { width, height, tiles }, units: [hero, foe] });
+  }
+
+  it(
+    "AC-V23 — picking the SECOND chip fires the SECOND skill's ability id " +
+      "(docs/defects.md §1, red→green). MUTATION: revert `targets()`'s skill branch " +
+      "to `targetOptions(state, actorId, from, \"skill\")` (the old first-match search) " +
+      "and this goes red — the committed command carries ALPHA regardless of the pick.",
+    () => {
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s.setCommandMode("skill");
+      const chips = s.skillOptions();
+      expect(chips.map((c) => c.ability.id)).toEqual([ALPHA_ID, BETA_ID]); // both legal
+      expect(chips.every((c) => c.available)).toBe(true);
+
+      s.selectSkill(BETA_ID); // the SECOND chip
+      expect(s.selectedSkill()).toBe(BETA_ID);
+      s.onPick(P_FOE);
+      expect(s.stagedTarget()).toEqual({ abilityId: BETA_ID, unitId: "foe" });
+      s.confirm();
+      expect(s.commands()).toHaveLength(1);
+      expect(s.commands()[0]).toMatchObject({ kind: "act", abilityId: BETA_ID });
+    },
+  );
+
+  it(
+    "AC-V24 — reach() equals exactly the sim's own inAbilityRange, and a tile inside " +
+      "the horizontal box but outside the height box is absent. MUTATION: replace " +
+      "abilityReach's inAbilityRange call with a Manhattan radius (no height check) " +
+      "and this goes red (P_TALL wrongly included, corner tiles wrongly excluded).",
+    () => {
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s.setCommandMode("skill");
+      s.selectSkill(BETA_ID);
+      const got = s.reach();
+
+      const expected: Position[] = [];
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 8; x++) {
+          if (inAbilityRange(s.state.grid, P_HERO, { x, y }, betaAbility.range)) {
+            expected.push({ x, y });
+          }
+        }
+      }
+      expect(got.length).toBe(expected.length);
+      expect(got.length).toBeGreaterThan(0);
+      for (const p of expected) expect(at(got, p)).toBe(true);
+
+      expect(at(got, P_TALL)).toBe(false); // height 3, delta 3 > v:1 — excluded
+      expect(at(got, P_CONTROL)).toBe(true); // same horizontal distance, height 0 — included
+    },
+  );
+
+  it(
+    "AC-V25 — reach() redraws from the STAGED move tile, not the unit's own position. " +
+      "MUTATION: in Session.reach(), read `this.actor()!.pos` instead of `this.actFrom()` " +
+      "and this goes red (P_FROM_STAGE_ONLY never appears).",
+    () => {
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s.setCommandMode("skill");
+      s.selectSkill(ALPHA_ID); // h:1 — reaches only immediate neighbours
+      expect(at(s.reach(), P_FROM_STAGE_ONLY)).toBe(false); // 2 tiles from the hero's start
+
+      s.onPick(P_STAGE); // stage a move — pure UI intent, nothing touches the sim
+      expect(s.phase).toBe("MOVE_STAGED");
+      expect(at(s.reach(), P_FROM_STAGE_ONLY)).toBe(true); // 1 tile from the staged position
+    },
+  );
+
+  it(
+    "AC-V26(a) — switching Attack→Skill clears the prior action's reach at once. " +
+      "MUTATION: delete `this.selectedSkillId = null;` from setCommandMode and this " +
+      "goes red on the second half below (a stale pick survives the round trip).",
+    () => {
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s.setCommandMode("attack");
+      expect(at(s.reach(), P_MID)).toBe(false); // basic.attack h:1 cannot reach distance 3
+
+      s.setCommandMode("skill");
+      s.selectSkill(BETA_ID); // h:3 — reaches P_MID
+      expect(at(s.reach(), P_MID)).toBe(true);
+
+      s.setCommandMode("attack"); // switch away — P_MID must vanish immediately
+      expect(at(s.reach(), P_MID)).toBe(false);
+
+      s.setCommandMode("skill"); // and switching BACK must re-open the chip sheet,
+      expect(s.selectedSkill()).toBeNull(); // not silently remember BETA
+      expect(s.reach()).toEqual([]);
+    },
+  );
+
+  it(
+    "AC-V26(b) — Cancel unwinds the picker one level at a time: a picked chip back " +
+      "to the sheet, the sheet back to root. Sim untouched throughout (AC-V6).",
+    () => {
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      const clean = serialize(s.state);
+      s.setCommandMode("skill");
+      expect(s.reach()).toEqual([]); // chips open, nothing picked
+
+      s.selectSkill(BETA_ID);
+      expect(at(s.reach(), P_MID)).toBe(true);
+
+      s.cancel(); // level 1: back to the chip sheet
+      expect(s.commandMode()).toBe("skill");
+      expect(s.selectedSkill()).toBeNull();
+      expect(s.reach()).toEqual([]);
+
+      s.cancel(); // level 2: back to root
+      expect(s.commandMode()).toBeNull();
+      expect(s.reach()).toEqual([]);
+
+      expect(serialize(s.state)).toBe(clean); // never touched the sim
+      expect(s.commands()).toHaveLength(0);
+    },
+  );
+
+  it(
+    "AC-V27 — an unavailable skill is selectable (reach + reason), and Confirm cannot " +
+      "execute it. MUTATION: in onPick, fall back to a synthesized option " +
+      "(`{ unit: occupant, ability: actor.abilities[0]! }`) when `targets().find(...)` " +
+      "misses, instead of refusing — this goes red (the log grows by one).",
+    () => {
+      const s = new Session({ makeState: unavailableFixture, playerTeam: 0 });
+      s.setCommandMode("skill"); // one skill — auto-picked, straight to targeting
+      expect(s.selectedSkill()).toBe(SHORT_ID);
+
+      const chips = s.skillOptions();
+      expect(chips).toHaveLength(1);
+      expect(chips[0]).toMatchObject({ available: false, reason: "No foe in reach" });
+
+      expect(s.reach().length).toBeGreaterThan(0); // still shown — the player can see it
+      expect(s.targets()).toEqual([]); // …but nothing is a legal target
+      expect(s.actionReason()).toBe("No foe in reach"); // the target-plate reason
+
+      const before = s.commands().length;
+      s.onPick(P_FAR_FOE); // try to tap the (out-of-range) foe anyway
+      expect(s.phase).not.toBe("TARGET_STAGED"); // refused, nothing staged
+      s.confirm(); // a no-op with nothing staged
+      expect(s.commands()).toHaveLength(before);
+
+      // Attack shows the same behaviour — no chips involved, same reach+reason rule.
+      s.setCommandMode("attack");
+      expect(s.reach().length).toBeGreaterThan(0);
+      expect(s.actionReason()).toBe("No foe in reach");
+    },
+  );
+
+  it(
+    "Cancel undoes the MOST RECENT step, not always the ribbon's own pick " +
+      "(review fix). MUTATION: in `cancel()`, delete the `phase === \"MOVE_STAGED\"` " +
+      "branch (unwind the picker first regardless) — the FIRST case below goes red: " +
+      "the move survives and `commandMode()` drops to `null` instead.",
+    () => {
+      // Attack → stage a move → Cancel: the MOVE is the most recent step, so it is
+      // what unwinds — `docs/10` §3's "MOVE_STAGED: Cancel ⇒ PLAYER_IDLE" — and the
+      // ribbon's own Attack pick (the EARLIER step) survives this Cancel.
+      const s1 = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s1.setCommandMode("attack");
+      s1.onPick(P_STAGE); // stage a move — pure UI intent (AC-V6)
+      expect(s1.phase).toBe("MOVE_STAGED");
+      s1.cancel();
+      expect(s1.phase).toBe("PLAYER_IDLE");
+      expect(s1.draft).toBeNull();
+      expect(s1.commandMode()).toBe("attack"); // the earlier step is untouched
+
+      // Skill → pick a chip → Cancel: back to the sheet, mode still "skill".
+      const s2 = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s2.setCommandMode("skill");
+      s2.selectSkill(BETA_ID);
+      s2.cancel();
+      expect(s2.commandMode()).toBe("skill");
+      expect(s2.selectedSkill()).toBeNull();
+
+      // Chips open (nothing picked) → Cancel: back to root.
+      const s3 = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s3.setCommandMode("skill");
+      s3.cancel();
+      expect(s3.commandMode()).toBeNull();
+    },
+  );
+
+  it(
+    "an unavailable chip among 2+: the sim's own verdict, and Confirm cannot fire " +
+      "it. MUTATION: `if (!available) return;` at the top of `selectSkill` — the " +
+      "select+onPick+confirm sequence below goes red (`selectedSkill()` never " +
+      "becomes ALPHA, so `reach`/`targets` cannot be read for the unavailable pick " +
+      "at all — the whole 'see it, cannot fire it' contract is unreachable).",
+    () => {
+      // A DIFFERENT fixture from `pickerFixture` on purpose: ALPHA (h:1) and BETA
+      // (h:3) must actually DISAGREE on the SAME foe, which needs it at a distance
+      // ALPHA excludes and BETA includes — `pickerFixture`'s own foe sits at
+      // distance 1, inside BOTH, so it cannot discriminate them.
+      const width = 8;
+      const height = 5;
+      function twoRangeFixture(): BattleState {
+        const tiles: Tile[] = makeFlatTiles(width, height, 0);
+        const base = defaultUnit("hero", 0, {
+          pos: { x: 1, y: 2 },
+          facing: "E",
+          speed: 12,
+          move: 1,
+          jump: 1,
+          hp: 400,
+          maxHp: 400,
+          pa: 10,
+          weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+          evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+        });
+        const hero: UnitState = { ...base, abilities: [alphaAbility, betaAbility, ...base.abilities] };
+        const foe = defaultUnit("foe", 1, {
+          pos: { x: 3, y: 2 }, // distance 2 — outside ALPHA's h:1, inside BETA's h:3
+          facing: "W",
+          speed: 11,
+          move: 1,
+          jump: 1,
+          hp: 400,
+          maxHp: 400,
+          pa: 6,
+          evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
+        });
+        return createBattleState({ seed: 779, grid: { width, height, tiles }, units: [hero, foe] });
+      }
+
+      const s = new Session({ makeState: twoRangeFixture, playerTeam: 0 });
+      s.setCommandMode("skill");
+      const chips = s.skillOptions();
+      expect(chips.map((c) => c.ability.id)).toEqual([ALPHA_ID, BETA_ID]);
+      expect(chips.find((c) => c.ability.id === BETA_ID)).toMatchObject({ available: true });
+      expect(chips.find((c) => c.ability.id === ALPHA_ID)).toMatchObject({
+        available: false,
+        reason: "No foe in reach",
+      });
+
+      s.selectSkill(ALPHA_ID); // select the UNAVAILABLE one — allowed (owner decision)
+      expect(s.selectedSkill()).toBe(ALPHA_ID);
+      expect(s.reach().length).toBeGreaterThan(0); // still shown
+      expect(s.targets()).toEqual([]); // …but nothing is legal
+
+      const before = s.commands().length;
+      s.onPick({ x: 3, y: 2 }); // try to fire it on the foe anyway
+      expect(s.phase).not.toBe("TARGET_STAGED");
+      s.confirm();
+      expect(s.commands()).toHaveLength(before); // Confirm cannot execute it
+    },
+  );
+
+  it(
+    "false reasons on a tap: chips open with nothing picked names the UI state, " +
+      "not a sim rule; a heal picked on a foe names the ability's OWN target rule, " +
+      "not a range excuse (review fix, `session.ts` `tapRefusalReason`).",
+    () => {
+      // Chips open, nothing picked yet: tapping the foe must not blame range —
+      // `targets()` is deliberately empty in this state (see its own docstring), so
+      // the OLD code always chipped "Out of Ability range" here even though the foe
+      // is well within every one of the actor's own skills.
+      const s = new Session({ makeState: pickerFixture, playerTeam: 0 });
+      s.setCommandMode("skill");
+      s.onPick(P_FOE);
+      expect(s.reason).toBe("Pick a skill first");
+      expect(s.phase).toBe("PLAYER_IDLE");
+
+      // A HEAL ability picked, a FOE tapped: the ally/foe split refused it, not
+      // range — the foe is standing well within the heal's own box.
+      const healAbility: BattleAbility = {
+        id: "skill.heal",
+        actionKind: "action",
+        formula: "heal",
+        power: 10,
+        element: "none",
+        accuracy: 100,
+        range: { h: 3, v: 1 },
+        inflicts: [],
+        speed: null,
+        aoe: null,
+      };
+      const withHeal = (): BattleState => {
+        const st = pickerFixture();
+        const hero = st.units.find((u) => u.id === "hero")!;
+        hero.abilities = [...hero.abilities, healAbility];
+        return st;
+      };
+      const s2 = new Session({ makeState: withHeal, playerTeam: 0 });
+      s2.setCommandMode("skill");
+      s2.selectSkill("skill.heal");
+      s2.onPick(P_FOE); // adjacent-ish foe, well within the heal's h:3 box
+      expect(s2.reason).toBe("Heals allies only");
+    },
+  );
 });

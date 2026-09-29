@@ -448,6 +448,18 @@ export function activePlateHtml(session: Session, look: LookUp): string {
 }
 
 /**
+ * What the open skill menu has highlighted, as the target plate needs it (owner
+ * correction 2). Render-only: the menu's highlight is a viewer cursor over
+ * `Session.skillOptions()`, never session state, and no command is emitted by moving it.
+ * `reason` is `null` for an available skill and the sim's own reason for a muted one.
+ */
+export interface SkillMenuHighlight {
+  abilityId: string;
+  reach: number;
+  reason: string | null;
+}
+
+/**
  * The TARGET UNIT plate (combat revamp, ADR-0043, owner decision 2). Driven by
  * {@link Session.preview} — the SAME staged/hover computation the deep-dive sheet
  * reads — so the compact plate can never disagree with the sheet it summarises.
@@ -466,9 +478,49 @@ export function activePlateHtml(session: Session, look: LookUp): string {
  * it is never built, so a test cannot find it in the DOM at all. A build with the
  * risk stripped and one with it present differ by a whole element, not a class.
  */
-export function targetPlateHtml(session: Session, look: LookUp): string {
+export function targetPlateHtml(session: Session, look: LookUp, menu?: SkillMenuHighlight): string {
   const p = session.preview();
-  if (!p) return `<span class="plate-empty">No target</span>`;
+  if (!p && menu) {
+    // THE SKILL MENU IS OPEN (owner correction 2, 2026-09-29): the plate shows the
+    // HIGHLIGHTED row — name + "Reach N", and for a muted row "<reason> · Reach N".
+    // The ability, its reach and its reason are the caller's read off
+    // `Session.skillOptions()` (the sim's own verdict); nothing here re-derives them.
+    // Two rows, same budget as the branch below (name, then one wrapping detail line).
+    const detail = menu.reason
+      ? `<span class="plate-detail" data-testid="target-reason">${esc(menu.reason)} · Reach ${menu.reach}</span>`
+      : `<span class="plate-detail" data-testid="target-reach">Reach ${menu.reach}</span>`;
+    return `<span class="plate-name">${esc(abilityLabel(menu.abilityId))}</span>` + detail;
+  }
+  if (!p) {
+    // THE UNAVAILABLE/UNRESOLVED-ACTION READOUT (skill picker,
+    // `intent/skill-picker.md`, "reason B — the existing target plate", and the
+    // owner's post-review decision: "the target plate names the picked skill …
+    // e.g. AIMED SHOT · Reach 5 · Pick a target"). TWO rows, never three separately
+    // boxed ones: `plate-name` keeps its own row (same as every other plate state
+    // in this file), and Reach + the second half fold onto ONE flowing text line
+    // that is allowed to WRAP — that is what fits inside the plate's fixed 50px
+    // box. The old three-`plate-row` stack (name / reach / reason, each forced
+    // onto its own flex row) is what clipped "ATTACK" off the top and the reason
+    // text off the bottom in `attack-no-target-pass2-*.png`.
+    //
+    // NO `.reason` / `.hint` CLASS — `index.html` carries a page-wide, UNSCOPED
+    // `.reason { margin-top: 14px; padding: 8px 0 0; … }` rule for the dossier
+    // screen's own text (`src/render/CLAUDE.md`'s "a page-wide rule on a property
+    // the scoped rule does not name still wins"), and it matched here: it alone
+    // added 22px of dead space above this row, which is what actually pushed the
+    // content past the plate's 44px budget and produced the clipping this fix is
+    // for. `data-testid` is the only hook a test needs; `.plate-detail` alone
+    // carries every visual rule.
+    const ability = session.currentAbility();
+    const reason = session.actionReason();
+    if (ability) {
+      const detail = reason
+        ? `<span class="plate-detail" data-testid="target-reason">Reach ${ability.range.h} · ⊘ ${esc(reason)}</span>`
+        : `<span class="plate-detail" data-testid="target-hint">Reach ${ability.range.h} · Pick a target</span>`;
+      return `<span class="plate-name">${esc(abilityLabel(ability.id))}</span>` + detail;
+    }
+    return `<span class="plate-empty">No target</span>`;
+  }
   const meta = look(p.targetId);
   const color = meta?.color ?? FALLBACK_COLOR;
   const warn = p.counterRisk
