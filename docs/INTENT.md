@@ -1,4 +1,4 @@
-<!-- written-against: 88a1c46 -->
+<!-- written-against: 12eda10 -->
 
 # INTENT — where this game is going, and what comes next
 
@@ -32,7 +32,7 @@ Chromium device emulation.
 
 Enemy turns run themselves (ADR-0046). All six deploy on every map (ADR-0044); the
 enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). **The skill
-picker shipped (ADR-0048, uncommitted):** pressing Skill with 2+ learned abilities opens
+picker shipped (ADR-0048, merged to main in PR #75):** pressing Skill with 2+ learned abilities opens
 a vertical 3-row menu up from SKILL; picking one paints that skill's own reach, from the sim's
 `inAbilityRange`; an unavailable skill (or Attack with no foe in reach) is selectable
 with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired. Next:
@@ -106,7 +106,7 @@ Read this before telling the owner "nothing is pending". Six asks are open; one 
 Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
 Frames are approved before an engineer starts (taste rule).
 
-### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, uncommitted)
+### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, merged in PR #75)
 
 Skill opens a vertical menu up from SKILL for 2+ learned abilities: 3 rows x 46 px, scrolls
 in whole rows, two-tap pick (tap highlights, tap again picks; a muted row never picks); the

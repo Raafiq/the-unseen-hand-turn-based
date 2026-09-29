@@ -1,5 +1,5 @@
 # Intent: the player picks the skill
-Author: the owner. Date: 2026-09-19. Status: accepted (owner, 2026-09-19).
+Author: the owner. Date: 2026-09-19. Status: **shipped (ADR-0048, PR #75, 2026-09-29)**.
 
 ## Problem
 The Skill button on the battle screen does not let the player choose a skill.

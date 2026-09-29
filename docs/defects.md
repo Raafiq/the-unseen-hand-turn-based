@@ -7,9 +7,9 @@ Retire an entry by striking it and naming the commit that closed it; do not dele
 
 ## 1. ~~The game picks the player's ability (viewer, found 2026-09-02)~~ — RETIRED
 
-**Fixed by the skill picker slice, this branch** (`intent/skill-picker.md`, ADR-0048, no
-commit yet — see `docs/INTENT.md`). The player now picks a skill from a chip sheet when two
-or more are learned, and the committed command carries the picked ability's id
+**Fixed by the skill picker slice, merged to main in PR #75** (`intent/skill-picker.md`,
+ADR-0048, commits `8cba15f` and `ef8f06a`). The player now picks a skill from a vertical
+3-row menu when two or more are learned, and the committed command carries the picked ability's id
 (`docs/10` AC-V23). One row of the original evidence stays live and is not closed by this
 slice:
 
