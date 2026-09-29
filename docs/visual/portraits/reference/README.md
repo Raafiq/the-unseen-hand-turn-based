@@ -65,9 +65,8 @@ GPT copies the refs' paper over the number in the prompt.
 The ten v4 prompts are in `docs/visual/portraits/gpt-portrait-prompts.md`; each row's prompt is the fenced block under the heading it names.
 The owner ran all ten on 2026-09-05 evening and said "I finished updating the images".
 
-**Settings - ASSUMED, not confirmed.** ChatGPT app, GPT Image 2, "high thinking", `style-ref-1..4.png` attached as Image 1-4, as that file's "How to run" block asks.
-The owner reported no change from that block, and was not asked to confirm each setting; the block says to report any deviation, and none was reported.
-Which four refs were actually attached is unconfirmed.
+**Settings - CONFIRMED by the owner, 2026-09-29.** ChatGPT app, GPT Image 2, "high thinking", `style-ref-1..4.png` attached as Image 1-4, as that file's "How to run" block asks.
+Why v4 `priest-m` came back 2:3 is still unexplained.
 **Both archers were finished with a follow-up edit prompt in the app** (owner, 2026-09-06, verbatim in their rows); no other portrait is recorded as edited.
 
 | File | Version | Prompt | Size | Status |
