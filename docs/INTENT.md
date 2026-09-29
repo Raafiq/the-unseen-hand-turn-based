@@ -5,7 +5,7 @@
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1058 tests, 273 browser specs (`npm run check`).
+Green at the stamp: 1059 tests, 286 browser specs (`npm run check`).
 
 ---
 
@@ -33,7 +33,7 @@ Chromium device emulation.
 Enemy turns run themselves (ADR-0046). All six deploy on every map (ADR-0044); the
 enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). **The skill
 picker shipped (ADR-0048, uncommitted):** pressing Skill with 2+ learned abilities opens
-a chip sheet above the ribbon; picking one paints that skill's own reach, from the sim's
+a vertical 3-row menu up from SKILL; picking one paints that skill's own reach, from the sim's
 `inAbilityRange`; an unavailable skill (or Attack with no foe in reach) is selectable
 with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired. Next:
 Attack shoots at range for a bow (`intent/bow-attack.md`).
@@ -76,7 +76,7 @@ Nobody should start these. One line each; the detail lives where the pointer say
 | Skin B (dark-table stage) | In `stage.css`, not wired into `viewer.html` | `src/render/stage.css` |
 | Safe-area insets | Asserted as declared, not working; no notch emulation | `docs/10` AC-V41 |
 | The `telemetry.test.ts` flake; test gaps A-H | Not scheduled; none is a shipping bug | `docs/defects.md` §4, §5 |
-| The action menu proposal as written | Superseded by the skill picker (ADR-0048) for the chip/reach/reason half; its menu shape, green colour, legend and keyboard/colour-distance halves stay deferred | `docs/proposals/action-menu.md` |
+| The action menu proposal as written | Superseded by the skill picker (ADR-0048) for the menu/reach/reason half; its menu shape, green colour, legend and keyboard/colour-distance halves stay deferred | `docs/proposals/action-menu.md` |
 | A SessionStart warning for missing remote branches | Declined 2026-09-01; do not re-propose | this line |
 
 ---
@@ -108,8 +108,10 @@ Frames are approved before an engineer starts (taste rule).
 
 ### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, uncommitted)
 
-Skill opens a chip sheet above the ribbon for 2+ learned abilities; one skill auto-picks
-and skips it; zero shows no chips. Reach paints from `inAbilityRange`, at the actor's tile
+Skill opens a vertical menu up from SKILL for 2+ learned abilities: 3 rows x 46 px, scrolls
+in whole rows, two-tap pick (tap highlights, tap again picks; a muted row never picks); the
+target plate shows the highlighted skill. One skill auto-picks and skips it; zero shows no
+menu. Reach paints from `inAbilityRange`, at the actor's tile
 or the staged move tile. An unavailable skill (or Attack, no foe in reach) is selectable,
 shows its reason in the target plate, but cannot be confirmed. Cancel undoes the most
 recent step, not always the picker's own pick. No new engine command. AC-V23…V29 in
@@ -132,10 +134,11 @@ about animation (walking, swings, casts) is green-lit; the toggle scales only th
 - **The entry plaque banner must be waited out** (`[data-testid="entry-plaque"]` hidden)
   before any stage capture, or the frame shows a fading banner, not a real state.
 - **`pickAt` in `hud.ts` opens the inspect drawer for any tap on a non-targetable
-  occupant.** "Chips open, tap a foe" is unreachable by a real click — proven at the
+  occupant.** "Menu open, tap a foe" is unreachable by a real click — proven at the
   session level (`tapRefusalReason`) instead.
-- **The three-chip strip is `max-width: 280px`**, so a third real chip already scrolls;
-  do not assume it fits.
+- **The owner rejected two horizontal designs for the skill picker** (a boxed strip, then
+  a bare row). FFT's vertical nested menu is the reference for battle menus.
+- **The skill menu shows exactly 3 rows;** more scroll in whole rows. Keep the highlight visible.
 - **`AI_TURN` no longer holds still (ADR-0046).** A Playwright spec that pauses inside an
   enemy turn races the real pause. Stub the pacer's scheduler or drive `autoplay`.
 - **The rail and band bodies are PINNED to exact colours** in `e2e/contrast.spec.ts` and

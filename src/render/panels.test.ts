@@ -696,4 +696,43 @@ describe("targetPlateHtml — the picked-skill readout, no target staged yet (re
     expect(html).toContain("No ally in reach");
     expect(html).toContain('data-testid="target-reason"');
   });
+
+  /**
+   * OWNER CORRECTION 2 (2026-09-29): while the skill MENU is open the plate reads the
+   * HIGHLIGHTED row, handed in as the optional third argument — never the session's own
+   * picked skill (there is none yet). A/B on the output: the same session with two
+   * different highlights renders different plates naming different skills, and the
+   * argument's absence leaves the old "No target" plate byte-identical.
+   * MUTATION: have the menu branch ignore `menu` and print `session.currentAbility()`'s
+   * name (or a constant) — the two highlights then render the same plate and this goes red.
+   */
+  it("the open menu's highlighted row is what the plate names — reach, and for a muted row the reason first", () => {
+    const s = new Session({ makeState: fixture, playerTeam: 0 });
+    s.setCommandMode("skill"); // hero has one skill (heal): auto-picked — clear it, as the menu's open state
+    s.selectSkill(null);
+    expect(s.selectedSkill()).toBeNull();
+    expect(s.preview()).toBeNull();
+
+    const bare = targetPlateHtml(s, look);
+    expect(bare).toContain("No target"); // no argument: unchanged
+    const available = targetPlateHtml(s, look, { abilityId: HEAL_ID, reach: 4, reason: null });
+    const muted = targetPlateHtml(s, look, { abilityId: "aim.leg-shot", reach: 5, reason: "No foe in reach" });
+
+    expect(available).toContain("Heal Test");
+    expect(available).toContain("Reach 4");
+    expect(available).not.toContain("No foe in reach");
+    expect(available).not.toContain("No target");
+    expect(muted).toContain("Leg Shot");
+    expect(muted).not.toContain("Heal Test");
+    expect(muted).toContain("No foe in reach · Reach 5"); // reason FIRST, then reach
+    expect(muted).toContain('data-testid="target-reason"');
+    expect(available).not.toContain('data-testid="target-reason"');
+    expect(available).not.toBe(muted);
+
+    // A STAGED target outranks the menu argument (the menu is closed by then).
+    s.selectSkill(HEAL_ID);
+    s.onPick(ALLY_POS);
+    expect(s.preview()).not.toBeNull();
+    expect(targetPlateHtml(s, look, { abilityId: "aim.leg-shot", reach: 5, reason: null })).toContain("Briar");
+  });
 });

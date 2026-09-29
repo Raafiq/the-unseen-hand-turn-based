@@ -49,10 +49,11 @@ import {
   timelineHtml,
   unitCardHtml,
   type LookUp,
+  type SkillMenuHighlight,
 } from "./panels.js";
 import { abilityLabel } from "./prep.js";
 import { resultOverlayHtml, type ResultOverlayData } from "./result-overlay.js";
-import type { Phase, Session } from "./session.js";
+import type { Phase, Session, SkillOption } from "./session.js";
 import { mountBoardFit, type BoardFitController, type StageBox } from "./stage.js";
 
 /** The canvas's backing store — the fixed surface `viewFor` fits the board to. */
@@ -387,17 +388,36 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   scrollable(abilityList, "Learned abilities", "");
   actionsSheet.append(actionsHead, abilityList);
 
-  // THE SKILL PICKER'S CHIP SHEET (skill-picker slice, `intent/skill-picker.md`,
-  // approved look `coverage/frames/skill-picker/sheet-B-pass1-*`). A SEPARATE
-  // element from `actionsSheet` above — that one is the read-only informational
-  // list (AC-V38a, unchanged, still what a one-skill unit's Skill press opens) —
-  // because this one is the actual PICK gesture and only ever appears for two or
-  // more skills. `hidden` gives it "never a permanent height cost" for free: a
-  // hidden element has no box to lay out.
-  const skillChips = el("div", "tuh-skill-chips");
-  skillChips.dataset["testid"] = "skill-chips";
-  skillChips.hidden = true;
-  scrollable(skillChips, "Choose a skill");
+  // THE SKILL PICKER'S MENU (skill-picker slice, `intent/skill-picker.md`, "Owner
+  // correction 2", reference `coverage/frames/skill-picker/owner-ref-vertical-menu.webp`):
+  // a narrow VERTICAL scrolling menu opened upward from SKILL, one skill per row, name
+  // only. A SEPARATE element from `actionsSheet` above — that one is the read-only
+  // informational list (AC-V38a, unchanged, still what a one-skill unit's Skill press
+  // opens) — because this one is the actual PICK gesture and only ever appears for two
+  // or more skills. `hidden` gives it "never a permanent height cost" for free.
+  //
+  // Two boxes so the continuation cues can sit still while the rows scroll: `skillMenu`
+  // is the iron frame (fixed window, never scrolls), `skillMenuRows` is the scroller
+  // inside it. The cues are frame children OVERLAID on the window's top and bottom
+  // edge (absolutely positioned, `pointer-events: none`), so they take no row's space
+  // and never leave a partial row.
+  const skillMenu = el("div", "tuh-skill-menu");
+  skillMenu.dataset["testid"] = "skill-menu";
+  skillMenu.hidden = true;
+  const skillCueUp = el("span", "tuh-skill-cue up");
+  skillCueUp.dataset["testid"] = "skill-menu-up";
+  skillCueUp.textContent = "▲";
+  skillCueUp.setAttribute("aria-hidden", "true");
+  skillCueUp.hidden = true;
+  const skillCueDown = el("span", "tuh-skill-cue down");
+  skillCueDown.dataset["testid"] = "skill-menu-down";
+  skillCueDown.textContent = "▼";
+  skillCueDown.setAttribute("aria-hidden", "true");
+  skillCueDown.hidden = true;
+  const skillMenuRows = el("div", "tuh-skill-rows");
+  skillMenuRows.dataset["testid"] = "skill-menu-rows";
+  scrollable(skillMenuRows, "Choose a skill", "listbox");
+  skillMenu.append(skillCueUp, skillMenuRows, skillCueDown);
 
   // The help drawer's content never changes at runtime, so it is built once — for the
   // same reason `game.ts`'s `<dialog>` help is: rebuilding it would throw away the
@@ -428,7 +448,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     settingsDrawer.root,
     helpDrawer.root,
     actionsSheet,
-    skillChips,
+    skillMenu,
     // LAST, so it stacks above `rail`/`band` regardless of z-index ties — see its own
     // comment above, by `boardBox.append`.
     resultLayer,
@@ -478,6 +498,19 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
    * desktop) is never slammed shut in the same pass that opened it.
    */
   let sheetWasOpen = false;
+  /**
+   * THE SKILL MENU'S VIEWER-SIDE STATE — a cursor over `Session.skillOptions()`, never
+   * session state (see `renderSkillMenu`). `menuState` is computed ONCE per `render()`
+   * so the plate and the menu paint the same highlight; `menuWasOpen` is what makes
+   * "row 1 on every open" a transition rather than a per-repaint reset.
+   */
+  let menuHighlight: string | null = null;
+  let menuWasOpen = false;
+  let menuState: { open: boolean; options: SkillOption[]; justOpened: boolean } = {
+    open: false,
+    options: [],
+    justOpened: false,
+  };
 
   const setOverlay = (next: Overlay): void => {
     overlay = overlay === next ? null : next;
@@ -506,7 +539,11 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
     // THE TARGET UNIT PLATE — driven by `session.preview()`, the SAME read the
     // deep-dive sheet uses, so the two can never disagree (owner decision 2).
-    targetPlate.innerHTML = targetPlateHtml(session, look);
+    // While the skill menu is open the plate shows the HIGHLIGHTED row (owner
+    // correction 2). `skillMenuState` runs first so the plate and the menu read the
+    // same highlight.
+    menuState = skillMenuState(session);
+    targetPlate.innerHTML = targetPlateHtml(session, look, menuHighlightFor(session));
 
     // THE RESULT OVERLAY OUTRANKS EVERY DRAWER AND SHEET IT ACTUALLY COVERS (owner
     // note 3, reviewer finding 1). Computed ONCE here — not re-derived by
@@ -729,10 +766,10 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
     settingsDrawer.body.replaceChildren(readout(session), statusBlock(session, look));
     renderActions(session);
-    // NOT gated by `overlay` — the chip sheet's own visibility is derived straight
-    // from session state (two-or-more skills, none picked yet), not from the
+    // NOT gated by `overlay` — the menu's own visibility is derived straight from
+    // session state (two-or-more skills, none picked yet), not from the
     // drawer/overlay state machine the other sheets share.
-    renderSkillChips(session);
+    renderSkillMenu();
   }
 
   /**
@@ -840,48 +877,236 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
   }
 
   /**
-   * THE SKILL PICKER'S CHIPS (`intent/skill-picker.md`): one row per
-   * {@link Session.skillOptions}, straight off the unit's own projection — never a
-   * static table, so a build's second and later learned skills appear the moment
-   * they exist. VISIBLE ONLY while choosing (two-or-more skills, none picked yet);
-   * `hidden` otherwise, so it costs zero layout height when it does not apply
-   * (`intent/skill-picker.md`: "never a permanent height cost").
+   * THE SKILL PICKER'S MENU (`intent/skill-picker.md`, "Owner correction 2"): one row
+   * per {@link Session.skillOptions}, straight off the unit's own projection — never a
+   * static table, so a build's second and later learned skills appear the moment they
+   * exist. VISIBLE ONLY while choosing (two-or-more skills, none picked yet); `hidden`
+   * otherwise, so it costs zero layout height when it does not apply.
    *
-   * An UNAVAILABLE skill is still a real `<button>` — selectable, per the owner's
-   * "Decided by the owner 2026-09-24" — distinguished from an available one by BOTH
-   * a class (colour/border) AND its own text (the reason replaces "Reach N"), so
-   * targetability is never colour alone.
+   * THE HIGHLIGHT IS A VIEWER CURSOR, NOT SESSION STATE: {@link menuHighlight} is an
+   * ability id held here, reset to row 1 each time the menu opens. Moving it emits no
+   * command and touches no `Session` field, so determinism and replay are untouched;
+   * only PICKING calls `Session.selectSkill`, the same call the chip sheet made.
+   *
+   * A MUTED row (no legal target from here) is a real row, still highlightable so its
+   * reason can be read in the target plate — distinguished by a `muted` class AND
+   * `aria-disabled` + an `aria-label` carrying the reason, so it is never colour alone.
+   * A second tap on a muted row does NOT pick it ({@link pickHighlighted}).
    */
-  function renderSkillChips(session: Session): void {
-    const options = session.skillOptions();
-    const show = session.commandMode() === "skill" && session.selectedSkill() === null && options.length > 1;
-    skillChips.hidden = !show;
-    if (!show) {
-      skillChips.replaceChildren();
+  function renderSkillMenu(): void {
+    const state = menuState;
+    skillMenu.hidden = !state.open;
+    if (!state.open) {
+      skillMenuRows.replaceChildren();
+      skillCueUp.hidden = true;
+      skillCueDown.hidden = true;
       return;
     }
     const frag = document.createDocumentFragment();
-    for (const option of options) {
-      const btn = el("button", "tuh-chip");
-      btn.type = "button";
-      btn.dataset["testid"] = "skill-chip";
-      btn.dataset["ability"] = option.ability.id;
+    for (const option of state.options) {
+      const id = option.ability.id;
+      const row = el("div", "tuh-skill-row");
+      row.setAttribute("role", "option");
+      row.dataset["testid"] = "skill-row";
+      row.dataset["ability"] = id;
+      const highlighted = id === menuHighlight;
+      row.setAttribute("aria-selected", String(highlighted));
+      if (highlighted) row.classList.add("highlighted");
+      const name = abilityLabel(id);
       if (!option.available) {
-        btn.classList.add("unavailable");
-        btn.setAttribute("aria-disabled", "true"); // selectable (not `disabled`) — see the doc comment above
+        row.classList.add("muted");
+        row.setAttribute("aria-disabled", "true"); // highlightable, never pickable
+        row.setAttribute("aria-label", `${name}, unavailable: ${option.reason ?? "no legal target"}`);
       }
-      const name = el("span", "chip-name");
-      name.textContent = abilityLabel(option.ability.id);
-      const meta = el("span", "chip-meta");
-      meta.textContent = option.available ? `Reach ${option.reach}` : `${option.reason} · Reach ${option.reach}`;
-      btn.append(name, meta);
-      btn.addEventListener("click", () => {
-        ports.act("skill-chip", () => ports.session()?.selectSkill(option.ability.id));
-        canvas.focus();
+      row.textContent = name;
+      row.addEventListener("click", () => {
+        if (menuHighlight !== id) {
+          menuHighlight = id;
+          ports.refresh();
+        } else {
+          pickHighlighted();
+        }
       });
-      frag.append(btn);
+      frag.append(row);
     }
-    skillChips.replaceChildren(frag);
+    const hadFocus = document.activeElement === skillMenuRows;
+    // A repaint (a tap that only moves the highlight) rebuilds the rows; keep the window
+    // where it was rather than snapping back to the top and re-revealing from there.
+    const keptScroll = skillMenuRows.scrollTop;
+    skillMenuRows.replaceChildren(frag);
+    layoutSkillMenu();
+    skillMenuRows.scrollTop = keptScroll;
+    revealHighlightedRow();
+    // The menu opens FOCUSED, so Up/Down/Enter work at once (owner: "Keyboard"); a
+    // repaint while it is open keeps focus where it already was.
+    if (state.justOpened || hadFocus) skillMenuRows.focus({ preventScroll: true });
+    // A web font that lands after this render changes the menu's width; measure again
+    // once it has, or the menu is centred on a width it no longer has.
+    if (typeof document !== "undefined" && document.fonts && document.fonts.status !== "loaded") {
+      void document.fonts.ready.then(() => layoutSkillMenu());
+    }
+  }
+
+  /**
+   * Is the menu open, and what does it hold — the ONE place both the plate and the
+   * menu read, so they can never disagree about which row is highlighted. Also owns
+   * the highlight's lifecycle: row 1 on every open, and row 1 again if the highlighted
+   * skill is no longer in the list.
+   */
+  function skillMenuState(session: Session): { open: boolean; options: SkillOption[]; justOpened: boolean } {
+    const options = session.skillOptions();
+    const open = session.commandMode() === "skill" && session.selectedSkill() === null && options.length > 1;
+    const justOpened = open && !menuWasOpen;
+    menuWasOpen = open;
+    if (!open) {
+      menuHighlight = null;
+    } else if (justOpened || !options.some((o) => o.ability.id === menuHighlight)) {
+      menuHighlight = options[0]!.ability.id;
+    }
+    return { open, options, justOpened };
+  }
+
+  /** The highlighted row as the target plate needs it, or `undefined` with the menu closed. */
+  function menuHighlightFor(session: Session): SkillMenuHighlight | undefined {
+    const option = session.skillOptions().find((o) => o.ability.id === menuHighlight);
+    if (!option || menuHighlight === null) return undefined;
+    return { abilityId: option.ability.id, reach: option.reach, reason: option.available ? null : option.reason };
+  }
+
+  /**
+   * THE SECOND TAP / ENTER. Picks the highlighted skill unless it is muted: a muted
+   * skill can be highlighted to read its reason, and the menu simply stays open.
+   */
+  function pickHighlighted(): void {
+    const session = ports.session();
+    if (!session || menuHighlight === null) return;
+    const id = menuHighlight;
+    const option = session.skillOptions().find((o) => o.ability.id === id);
+    if (!option || !option.available) return;
+    ports.act("skill-pick", () => ports.session()?.selectSkill(id));
+    canvas.focus();
+  }
+
+  /** Up/Down move the highlight (no wrap), Enter/Space pick it. `true` = the key was ours. */
+  function skillMenuKey(ev: KeyboardEvent): boolean {
+    if (skillMenu.hidden) return false;
+    const session = ports.session();
+    if (!session) return false;
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      const options = session.skillOptions();
+      const at = options.findIndex((o) => o.ability.id === menuHighlight);
+      const next = Math.min(options.length - 1, Math.max(0, at + (ev.key === "ArrowDown" ? 1 : -1)));
+      const target = options[next];
+      if (target && target.ability.id !== menuHighlight) {
+        menuHighlight = target.ability.id;
+        ports.refresh();
+      }
+      return true;
+    }
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      pickHighlighted();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Scroll the rows just enough that the highlighted one is fully inside the window.
+   * `offsetTop` is relative to the scroller (`position: relative`), so both edges are
+   * whole multiples of the row height and the window never rests on a partial row.
+   * Never scrolls an ancestor.
+   */
+  function revealHighlightedRow(): void {
+    const row = skillMenuRows.querySelector<HTMLElement>(".tuh-skill-row.highlighted");
+    if (row) {
+      if (row.offsetTop < skillMenuRows.scrollTop) skillMenuRows.scrollTop = row.offsetTop;
+      else if (row.offsetTop + row.offsetHeight > skillMenuRows.scrollTop + skillMenuRows.clientHeight) {
+        skillMenuRows.scrollTop = row.offsetTop + row.offsetHeight - skillMenuRows.clientHeight;
+      }
+    }
+    updateSkillCues();
+  }
+
+  /** The ▲ / ▼ show only while there is more above / below the window. */
+  function updateSkillCues(): void {
+    const max = skillMenuRows.scrollHeight - skillMenuRows.clientHeight;
+    skillCueUp.hidden = skillMenu.hidden || skillMenuRows.scrollTop <= 1;
+    skillCueDown.hidden = skillMenu.hidden || max <= 1 || skillMenuRows.scrollTop >= max - 1;
+  }
+  skillMenuRows.addEventListener("scroll", updateSkillCues);
+
+  /**
+   * THE HIGHLIGHT IS ALWAYS VISIBLE (owner, 2026-09-29). Keyboard and tap already keep
+   * it in the window ({@link revealHighlightedRow}: a step past an edge scrolls exactly
+   * one row, a tap only ever lands on a visible row). A WHEEL or TOUCH-DRAG scroll is the
+   * remaining way to strand it: the plate would name a skill whose row is scrolled out of
+   * view. So once a scroll SETTLES, a highlight that is not fully inside the window moves
+   * to the nearest fully visible row — the top visible row when the list was scrolled
+   * down past it, the bottom visible row when scrolled up past it — and the plate
+   * follows through the same `refresh` every other highlight move uses. Invariant in any
+   * settled state: plate skill == highlighted row == a fully visible row.
+   *
+   * Render-only; the highlight is a viewer cursor (no command, no session field). `scrollend`
+   * marks the settle where the browser has it; elsewhere a debounced `scroll` stands in.
+   * The timer is a UI debounce, not a game clock: nothing derived from it is a command.
+   */
+  function settleHighlight(): void {
+    const session = ports.session();
+    if (!session || skillMenu.hidden || menuHighlight === null) return;
+    const rowEl = skillMenuRows.querySelector<HTMLElement>(".tuh-skill-row.highlighted");
+    if (!rowEl) return;
+    const top = skillMenuRows.scrollTop;
+    const bottom = top + skillMenuRows.clientHeight;
+    if (rowEl.offsetTop >= top - 0.5 && rowEl.offsetTop + rowEl.offsetHeight <= bottom + 0.5) return;
+    const options = session.skillOptions();
+    const firstFull = Math.ceil((top - 0.5) / SKILL_ROW_H);
+    const lastFull = Math.floor((bottom + 0.5) / SKILL_ROW_H) - 1;
+    const at = options.findIndex((o) => o.ability.id === menuHighlight);
+    const index = Math.min(options.length - 1, Math.max(0, at < firstFull ? firstFull : lastFull));
+    const target = options[index];
+    if (!target || target.ability.id === menuHighlight) return;
+    menuHighlight = target.ability.id;
+    ports.refresh();
+  }
+  const hasScrollEnd: boolean = "onscrollend" in window;
+  if (hasScrollEnd) {
+    skillMenuRows.addEventListener("scrollend", settleHighlight);
+  } else {
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    skillMenuRows.addEventListener("scroll", () => {
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+      settleTimer = setTimeout(settleHighlight, 120);
+    });
+  }
+
+  /**
+   * WHERE THE MENU SITS (owner correction 2). Written inline from measured boxes
+   * because the SKILL button's x moves with the viewport: its bottom edge meets the
+   * ribbon's top edge, its centre is SKILL's centre, clamped inside the board column
+   * (never under the rail, never off the left edge). THE WINDOW NEVER CHANGES SIZE:
+   * its height is {@link SKILL_MENU_ROWS} whole rows plus the two frame borders — the
+   * smallest fixed box that holds them — and every skill past it scrolls inside.
+   * Pure measurement: it writes only this element's own style.
+   */
+  function layoutSkillMenu(): void {
+    if (skillMenu.hidden) return;
+    const stageRect = stage.getBoundingClientRect();
+    const ribbonRect = ribbon.getBoundingClientRect();
+    const skillRect = actionsBtn.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
+    skillMenu.style.setProperty("--skill-row-h", `${SKILL_ROW_H}px`);
+    skillMenu.style.setProperty("--skill-frame", `${SKILL_FRAME_PX}px`);
+    skillMenu.style.height = `${SKILL_MENU_ROWS * SKILL_ROW_H + 2 * SKILL_FRAME_PX}px`;
+
+    const minLeft = SKILL_MENU_EDGE_MARGIN;
+    const maxRight = railRect.left - stageRect.left - SKILL_MENU_EDGE_MARGIN;
+    const width = skillMenu.offsetWidth;
+    const centre = skillRect.left + skillRect.width / 2 - stageRect.left;
+    skillMenu.style.left = `${Math.min(Math.max(centre - width / 2, minLeft), maxRight - width)}px`;
+    skillMenu.style.bottom = `${stageRect.bottom - ribbonRect.top}px`;
+    updateSkillCues();
   }
 
   /**
@@ -1019,6 +1244,9 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
       // no approved frame shows.
       if (session.skillOptions().length <= 1) setOverlay("actions");
     });
+  });
+  skillMenu.addEventListener("keydown", (ev) => {
+    skillMenuKey(ev);
   });
   actionsClose.addEventListener("click", () => setOverlay(null));
   menuDrawer.close.addEventListener("click", () => setOverlay(null));
@@ -1210,6 +1438,9 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
     // so it needs its OWN guard: without this an ArrowKey could still walk the
     // cursor across a board the overlay has otherwise made inert.
     if (resultOverlayOpen) return;
+    // THE SKILL MENU OWNS Up/Down/Enter while it is open (owner correction 2) — the
+    // board cursor must not also move under it.
+    if (skillMenuKey(ev)) return;
     const stepVec = CURSOR_STEP[ev.key];
     if (stepVec) {
       ev.preventDefault();
@@ -1262,6 +1493,7 @@ export function mountHud(host: HTMLElement, ports: HudPorts): HudHandle {
 
   const boardFit: BoardFitController = mountBoardFit(boardBox, canvas, CANVAS_W, CANVAS_H, () => {
     rebuildTileHits();
+    layoutSkillMenu();
     // Nothing in the HUD is sized in CSS px besides the board, but the settings
     // readout quotes its fitted box, so it has to be redrawn while open.
     if (overlay === "settings") {
@@ -1354,6 +1586,19 @@ function drawer(testId: string, side: "left" | "right", heading: string): Drawer
   root.append(head, body);
   return { root, title, body, close };
 }
+
+/** One skill row's height: >= the 44px touch floor (owner correction 2). */
+const SKILL_ROW_H = 46;
+/**
+ * Rows the menu shows, ALWAYS (owner, 2026-09-29, "Final refinement"): the window is
+ * exactly this many whole rows whatever the viewport and however many skills there are;
+ * every skill past it scrolls inside, snapping to whole rows.
+ */
+const SKILL_MENU_ROWS = 3;
+/** The iron frame's border, px. The ▲ / ▼ cues overlay the frame edge; they own no strip. */
+const SKILL_FRAME_PX = 2;
+/** Px of clear board kept between the menu and the left edge / the turn rail. */
+const SKILL_MENU_EDGE_MARGIN = 4;
 
 /**
  * Make an overflowing panel reachable by keyboard.

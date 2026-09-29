@@ -6,7 +6,7 @@
 
 **Partly superseded by the skill picker (`intent/skill-picker.md`, ADR-0048, shipped
 this slice — `docs/10` §5, §6 AC-V23…V29).** The picker ships the part of this proposal
-`docs/defects.md` §1 named as the live bug: a chip sheet replacing the first-match ability
+`docs/defects.md` §1 named as the live bug: a vertical 3-row menu replacing the first-match ability
 pick, reach painted from the sim's own range rule, and a reason in the target plate for an
 unavailable skill. It does **not** ship this proposal's menu shape (a root
 Move/Act/Wait tree with a grouped command list), its **green** colour language, its
@@ -177,7 +177,7 @@ AoE targeting and footprint preview (consequence: Cure stays unusable, shown dis
 
 **These letters now belong to `docs/10`'s own AC-V23…V29 (the skill picker, ADR-0048).**
 Kept below for the record of what this proposal asked for. Rough correspondence: AC-V23(c)
-and AC-V25's "the chosen ability fires" both shipped, in the picker's simpler chip-sheet
+and AC-V25's "the chosen ability fires" both shipped, in the picker's simpler vertical-menu
 form, not this section's grouped command list. AC-V23(a)/(b), AC-V24 (colour panels),
 AC-V26's exact cancel-stack shape, AC-V27 (keyboard), AC-V28 (green + non-colour channel)
 and AC-V29 (colour-distance floors) did **not** ship and stay `[DEFERRED]`.

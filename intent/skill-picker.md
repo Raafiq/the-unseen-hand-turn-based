@@ -47,3 +47,25 @@ List B (horizontal parchment chips above the ribbon), reach colour A (filled pin
 - Switching Attack/Skill clears the old reach and targets at once. One action's overlays at a time. No new permanent HUD regions.
 - Verify the whole flow at 832×328: nothing needlessly covers the active unit or the target, text readable, 44 px targets, select/cancel/switch leave no stale overlay.
 - Decided (owner, 2026-09-24, after review): the chips are the approved floating parchment chips with the board visible around them, not a full-width band. On pick they close and the target plate names the picked skill (e.g. "AIMED SHOT · Reach 5 · Pick a target"). No chip stays lit.
+
+## Owner correction (2026-09-29, reference `coverage/frames/skill-picker/owner-ref-skill-row.webp`)
+The shipped strip (a framed parchment box, tall two-line cards, third card clipped at `max-width: 280px`) drifted from the approved design. Replace it with one compact horizontal row of chips, anchored around the SKILL button, 3–5 px above the ribbon. No enclosing box. Chips 44–48 px tall, thin dark ink/iron edge, light depth, compact padding, name on one line as primary text, "Reach N" smaller and quieter. Three ordinary skills fit at 832×328; no chip or word is ever clipped. Scrolling only when a unit has more skills than fit, and then show a small edge of the next whole chip as a cue. States: default parchment, selected with a restrained gold outline, unavailable muted and clearly inert. Picker closes on pick; Cancel uses the ribbon. No icons for now. Do not change the unit plate, command buttons, rail, target plate, tile colours, board size or camera.
+
+## Owner correction 2 (2026-09-29, reference `coverage/frames/skill-picker/owner-ref-vertical-menu.webp`) — SUPERSEDES the horizontal row above
+Reject the horizontal chip row. After comparison with FFT/WotL, use a compact VERTICAL scrolling ability menu, like FFT's nested battle menus.
+- SKILL opens a narrow parchment-and-iron menu upward from/near the SKILL button. One skill per row, one column, never spread horizontally. No cards, chips, pills, tabs or carousel.
+- Rows ≥44 px. About 3–4 rows visible at 832×328; more skills scroll vertically inside the SAME fixed-size window (never grows toward the screen edge), with a restrained up/down continuation indicator when more exist.
+- Rows show the name only — no "Reach N" under each name. Selection uses the game's existing gold pointer/highlight (a `›` pointer and a gold row tint), not a whole-row button.
+- The existing bottom-right target/info plate shows the HIGHLIGHTED skill: name + "Reach N". A muted (unusable) skill stays in the list; when highlighted, the plate says why, e.g. "Holy / No foe in reach · Reach 5".
+- Tap flow (owner, 2026-09-29): the menu opens with the first skill highlighted and the plate showing it. Tapping a row highlights it (pointer moves, plate updates). Tapping the highlighted row again picks it: the menu closes and the reach paints. A muted skill can be highlighted to read its reason but cannot be picked.
+- The menu may overlap a narrow part of the board while open. It disappears on pick or cancel. Cancel uses the ribbon.
+- No icons for now (owner, 2026-09-29). No description line — abilities carry no description text in `data/base-pack.json`.
+- Do not change the battlefield, command ribbon, unit plate, turn rail or targeting.
+
+## Final refinement (owner, 2026-09-29, reference `coverage/frames/skill-picker/owner-ref-vertical-3rows.webp`)
+Keep the vertical menu. Show exactly 3 rows (46 px each) at 832×328 in the smallest fixed window that holds them; more skills scroll vertically. Keep the gold pointer, highlighted row and muted rows; details stay in the bottom-right plate. Thinner, lighter dark/iron frame — a compact FFT battle command window, not a modal. ▲/▼ only when more exists above/below. Never a partial row (scroll snaps to whole rows). Never a state that looks like a duplicated or wrapped entry. Nothing else in the HUD changes.
+
+## Last two fixes (owner, 2026-09-29) — the 3-row window is approved; no other visual change
+1. The highlighted skill is always visible. Keyboard/controller: moving past the top or bottom visible row scrolls exactly one whole row. Touch: tapping a visible row highlights it. After a touch-drag or wheel scroll settles, the highlight moves to a visible row (preferred). No stable state may show a plate for a skill that is not visibly highlighted.
+2. Frame separation: keep the 2 px border; add a subtle warm/brass outer keyline or a faint 1–2 px shadow. No glow, no modern drop shadow, no thick outline, no bigger footprint.
+Unchanged: 3 rows, 46 px, menu position and width, typography, gold selected row, ▲/▼, plate placement, ribbon, battlefield.

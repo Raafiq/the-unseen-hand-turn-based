@@ -37,10 +37,14 @@ shell (ADR-0043) landed first and changed the screen it would have modified unde
 
 ### 1. The picker `[ENHANCEMENT]`
 
-Pressing **Skill** with two or more learned abilities opens a small sheet of chips —
+> **SUPERSEDED 2026-09-29 (owner) — see "Amended 2026-09-29" below.** The chip wording in
+> this section and in §6's last bullet is kept as the record; the shipped design is a
+> vertical 3-row menu.
+
+~~Pressing **Skill** with two or more learned abilities opens a small sheet of chips —
 horizontal, parchment-styled, floating above the command ribbon over the board's bottom
 edge — never a full-width band. One chip per real ability in `unit.abilities` order,
-`≥44` CSS px tall, reading `Reach N` when legal or the ability's own reason when not. The
+`≥44` CSS px tall, reading `Reach N` when legal or the ability's own reason when not.~~ The
 player picks one; the sheet closes; the board paints that skill's reach; the target plate
 names the picked skill by identity ("AIMED SHOT · Reach 5 · Pick a target"), not just that
 some skill was picked.
@@ -99,9 +103,11 @@ own test usage) — no new command, no new save shape.
   reach shows the same treatment.
 - Reach paints from wherever the unit currently stands, actor's tile or staged tile — never
   the union over every reachable tile.
-- Approved design: List B (horizontal parchment chips), reach colour A (filled pink),
+- ~~Approved design: List B (horizontal parchment chips), reach colour A (filled pink),
   reason B (the existing target plate). Chips are the floating strip with the board visible
-  around them, not a full-width band; on pick they close and the plate names the skill.
+  around them, not a full-width band; on pick they close and the plate names the skill.~~
+  **List B superseded 2026-09-29.** Reach colour A (filled pink) and reason B (the target
+  plate) still stand.
 
 ## Consequences
 
@@ -119,6 +125,28 @@ own test usage) — no new command, no new save shape.
   Named here so it is not assumed covered by the sweep that guards `highlight`/`target`.
 - **No balance change.** No combat constant moves; the picker only changes which ability
   a click commits, never what any ability does.
+
+## Amended 2026-09-29 (owner)
+
+The owner rejected the horizontal chips twice — first a boxed strip that clipped the third
+chip, then a bare horizontal row — for an FFT-style vertical menu. It supersedes §1's
+chip sheet and §6's "List B". The final design (`intent/skill-picker.md`, "Owner
+correction 2"; asserted by `docs/10` AC-V23…V29):
+
+| Part | Rule |
+| --- | --- |
+| Opens | Up from the SKILL button, over the board |
+| Size | Exactly 3 rows x 46 px, a fixed window |
+| Overflow | Scrolls in whole rows; ▲/▼ shown only when more rows exist |
+| Row | Name only, no icons. Gold pointer and tinted row on the highlight |
+| Unusable skill | Row is muted, and a muted row never picks |
+| Pick | Two taps: the first highlights, the second picks |
+| Target plate | Shows the highlighted skill's name and `Reach N`, or its reason |
+| Highlight | Always a visible row. Keyboard scrolls one row; after a wheel or drag settles, it moves to a visible row |
+| Frame | 2 px iron frame with a 1 px brass keyline |
+
+Unchanged: 2+ skills open the menu, one skill auto-picks, zero shows none; reach from
+`inAbilityRange`; unavailable is selectable but not confirmable; Cancel undoes the latest step.
 
 ## References
 

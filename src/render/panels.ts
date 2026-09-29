@@ -448,6 +448,18 @@ export function activePlateHtml(session: Session, look: LookUp): string {
 }
 
 /**
+ * What the open skill menu has highlighted, as the target plate needs it (owner
+ * correction 2). Render-only: the menu's highlight is a viewer cursor over
+ * `Session.skillOptions()`, never session state, and no command is emitted by moving it.
+ * `reason` is `null` for an available skill and the sim's own reason for a muted one.
+ */
+export interface SkillMenuHighlight {
+  abilityId: string;
+  reach: number;
+  reason: string | null;
+}
+
+/**
  * The TARGET UNIT plate (combat revamp, ADR-0043, owner decision 2). Driven by
  * {@link Session.preview} — the SAME staged/hover computation the deep-dive sheet
  * reads — so the compact plate can never disagree with the sheet it summarises.
@@ -466,8 +478,19 @@ export function activePlateHtml(session: Session, look: LookUp): string {
  * it is never built, so a test cannot find it in the DOM at all. A build with the
  * risk stripped and one with it present differ by a whole element, not a class.
  */
-export function targetPlateHtml(session: Session, look: LookUp): string {
+export function targetPlateHtml(session: Session, look: LookUp, menu?: SkillMenuHighlight): string {
   const p = session.preview();
+  if (!p && menu) {
+    // THE SKILL MENU IS OPEN (owner correction 2, 2026-09-29): the plate shows the
+    // HIGHLIGHTED row — name + "Reach N", and for a muted row "<reason> · Reach N".
+    // The ability, its reach and its reason are the caller's read off
+    // `Session.skillOptions()` (the sim's own verdict); nothing here re-derives them.
+    // Two rows, same budget as the branch below (name, then one wrapping detail line).
+    const detail = menu.reason
+      ? `<span class="plate-detail" data-testid="target-reason">${esc(menu.reason)} · Reach ${menu.reach}</span>`
+      : `<span class="plate-detail" data-testid="target-reach">Reach ${menu.reach}</span>`;
+    return `<span class="plate-name">${esc(abilityLabel(menu.abilityId))}</span>` + detail;
+  }
   if (!p) {
     // THE UNAVAILABLE/UNRESOLVED-ACTION READOUT (skill picker,
     // `intent/skill-picker.md`, "reason B — the existing target plate", and the
