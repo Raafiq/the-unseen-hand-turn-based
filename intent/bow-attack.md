@@ -1,5 +1,5 @@
 # Intent: Attack with a bow shoots
-Author: the owner. Date: 2026-09-24. Status: accepted (owner, 2026-09-24) — the slice right after the skill picker.
+Author: the owner. Date: 2026-09-24. Status: accepted (owner, 2026-09-24) — the next slice now that the skill picker is merged (PR #75).
 
 ## Problem
 The Attack button reaches one tile for every unit, whatever the weapon.

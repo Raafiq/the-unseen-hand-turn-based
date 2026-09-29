@@ -435,19 +435,18 @@ The "mid" skin tier came out deeper and more saturated (saturation 153-164 on `k
 The minor per-portrait misses are eyeballed at 1:1 and invisible at 72x96 and 96x128.
 **Rerun - v4.1:** run only `archer-f` and `priest-m` from their edited blocks above, same settings, same four refs in the same order, and the same 3:4 size as the other nine (`priest-m` came out 1024x1536, the only 2:3 file; if the app offers a size, pick the one that gives 1086x1448); save over the same file names.
 
-### Settings - ASSUMED, not confirmed
+### Settings - CONFIRMED by the owner, 2026-09-29
 
 | Setting | Value | Confidence |
 | --- | --- | --- |
-| Tool | ChatGPT app, not the API | assumed - the "How to run" block asks for it; the owner reported no change |
-| Model | GPT Image 2 | assumed, same basis |
-| Thinking level | "high thinking" | assumed, same basis |
-| Attachments | `style-ref-1..4.png` as Image 1-4, each as a style reference | assumed; the block asks the owner to say which were attached if fewer, and nothing was said |
-| Output size | as delivered by the app; no size chosen | assumed; nine files are near 3:4, `priest-m.png` is 1024x1536 (2:3), and the record does not say why |
-| Prompt text | the fenced block under each heading, verbatim | assumed; the owner's earlier words on v1 were "i used the same prompt u provided" |
+| Tool | ChatGPT app, not the API | confirmed (owner, 2026-09-29, one-word "Yes" to the question naming GPT Image 2, "high thinking" and the four style refs) |
+| Model | GPT Image 2 | confirmed, same answer |
+| Thinking level | "high thinking" | confirmed, same answer |
+| Attachments | `style-ref-1..4.png` as Image 1-4, each as a style reference | confirmed, same answer |
+| Output size | as delivered by the app; no size chosen | still assumed; nine files are near 3:4, `priest-m.png` is 1024x1536 (2:3), and why stays unexplained |
+| Prompt text | the fenced block under each heading, verbatim | still assumed; the owner's earlier words on v1 were "i used the same prompt u provided" |
 
-The "How to run" block asks the owner to report any deviation; none was reported.
-That is the only basis for every row above, so each is tagged assumed until the owner confirms.
+The owner confirmed the tool, model, thinking level and attachments on 2026-09-29. Output size and prompt text rest only on "no deviation was reported".
 
 ### Outputs
 
@@ -471,7 +470,7 @@ The six v3 files for monk, geomancer and summoner were deleted by the owner the 
 ## Run record - v4.1, 2026-09-06
 
 The owner reran `archer-f` and `priest-m` and said: "done, note that for archer-f, we had to run [the edit below]. Leave paper color as is. as for the four style-ref pictures, it's just some random generation and I chose the ones i like".
-Settings as the v4 record assumes (ChatGPT app, GPT Image 2, high thinking, the four style refs as Images 1-4); no deviation was reported.
+Settings as the v4 record (ChatGPT app, GPT Image 2, high thinking, the four style refs as Images 1-4; confirmed by the owner 2026-09-29); no deviation was reported.
 Both files were run with the pre-2026-09-06 Scene text that named the page hex `#e9d7a8`; the blocks above were changed afterwards and have not been run.
 Sizes and bytes measured with Pillow on 2026-09-06 00:45.
 
