@@ -192,8 +192,9 @@ is transformed with no judgment.
 | `fable` | The **top-level seat only**, and only when the owner started the session on it. Never a subagent, never a `model:` in an agent definition, never a `model` override on a spawn. Delegate earlier and compact harder than on Opus. |
 
 **Effort and spawn caps (user, 2026-09-06).** Every agent file also carries an `effort:`
-floor, and `check:agents` fails without one: `high` for the seats that still work out
-what to do or write code and tests (a missed test costs a second pass), `medium` for
+floor, and `check:agents` fails without one: `high` for the seats that write code and
+tests or review adversarially (a missed test costs a second pass), `medium` for design
+and spec seats (owner, 2026-09-29: on Opus 5.5 effort buys checking, not a better design),
 specced prose, review-by-checklist and data work. Effort is set only in the frontmatter;
 the Agent tool has no effort parameter. `.claude/settings.json` sets
 `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` (a specialist cannot spawn its own) and
@@ -227,6 +228,7 @@ seat, which on a Fable session put Fable in every specialist. -->
 - **Retrospective before every PR — and re-write `docs/INTENT.md` in the same pass.** Run the `retrospective` skill — it now starts by costing the session per agent and appending a row to `docs/token-ledger.md`, which the pre-PR hook requires — propose approval-gated updates, then rewrite `docs/INTENT.md` (next slice, landmines, what is *not* green-lit) and re-stamp `written-against` to the branch head. Writing the handoff while context is hot is the whole point. **And a handoff that names a lookup must name where each input comes from.** "`look()` resolves job x gender" reached `docs/INTENT.md` when nothing in the roster or the battle state carries a gender; grep for each field a scoped resolution reads before writing the slice down (ADR-0039).
   **`docs/INTENT.md` holds the STANDING INTENT and the next slice** (owner, 2026-09-08) — where the game is going, the directives still in force, what is not green-lit, the open asks, then the slice. Nothing else. Keep it tight: it once grew to 843 lines and the user called it "so bloated with unnecessary information" (2026-09-06). A closed ask is DELETED, never struck through; a durable fact MOVES to its home (an ADR, a subtree `CLAUDE.md`, a skill's `references/`, a reference README); history stays in git. Keep it under ~150 lines.
 - **Diagnose by TEST, never by theory — and never hand the human manual work** (user directive, 2026-08-08). Verify with a direct check before explaining: fetch the stored object, A/B against a working precedent, probe with the authenticated API. Say plainly what the sandbox **cannot** verify instead of asserting a cause. The agent automates the fix; suggesting the human do it by hand is a failure mode, not a fallback.
+- **Keep going unless a step needs the owner.** Put status notes in the same message as the next action. Stop only when blocked, before anything destructive (deleting data, force-pushing, changes outside the repo), or at a stop this file names (commit/push, an uncovered gap, an open ask).
 - **When the sandbox cannot reach an API, a CI runner can.** A temporary workflow step querying it with `${{ github.token }}` prints the answer in the log. That found the Pages branch policy after two wrong theories. Details in the `pages-deploy` skill.
 - **When the sandbox cannot reach a DOC SITE, the owner can — ask them to paste it.** Web search about a fast-moving tool is stale by default. Name the exact page and its URL, then **save it into a skill's `references/`** (`.claude/skills/midjourney/` is the worked example).
 <!-- History: a session built a whole Midjourney lesson out of 2026 blog posts. The owner
