@@ -9,6 +9,7 @@ description: >-
   it does not design, balance, or fix.
 tools: Read, Bash, Grep, Glob, Skill
 effort: medium
+maxTurns: 80
 model: sonnet
 ---
 

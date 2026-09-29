@@ -34,7 +34,7 @@ The loaded pages were read through WebFetch's summariser, not raw HTML. Re-fetch
 ChatGPT app versus API:
 
 - The app exposes a "thinking" level, not an image quality tier, and offers no size picker. `[VERIFIED]` by the owner's answers in `docs/visual/portraits/reference/gpt-probe-prompts.md`.
-- This repo's four probe outputs are all 1145x1374 (5:6), which matches none of the API sizes above and is not a multiple of 16. `[VERIFIED]` by measuring the PNG headers in `docs/visual/portraits/reference/*-gpt*.png`, 2026-09-05.
+- This repo's four probe outputs are all 1145x1374 (5:6), which matches none of the API sizes above and is not a multiple of 16. `[VERIFIED]` by measuring the PNG headers of the probe outputs, 2026-09-05.
 - No fetched page compares the app to the API; the two rows above are house observations only.
 
 ## 2. Anti-slop word swaps `[UNCERTAIN]`
@@ -68,7 +68,7 @@ Prompting craft, not documented model behaviour. The model rewards visual facts;
 
 ## 4. House knowledge - portrait probe, 2026-09-05
 
-`[VERIFIED]` by the measured table in `docs/INTENT.md` "GPT Image 2 probe - 2026-09-05" and the byte-for-byte prompts in `docs/visual/portraits/reference/gpt-probe-prompts.md`.
+`[VERIFIED]` by the byte-for-byte prompts in `docs/visual/portraits/reference/gpt-probe-prompts.md`.
 
 - Naming the line concretely worked: "broken, scratchy, varying in weight, short overlapping strokes" plus "hatching only in the shadows and hair" put v2 at foreground line energy 27.6 and 27.5 against the locked archer's 27.2.
 - "In the manner of X" plus "keep the medium, ink-line quality, texture and palette identical" (v1) did not: v1 measured 25.4 and lost the scratchy line.

@@ -1,11 +1,11 @@
 ---
 name: midjourney
 description: >-
-  Write, correct or run Midjourney image prompts for this project's art — the 16
-  job portraits, any future character or scene art, and the style lock that keeps
-  a set looking like one game. Use whenever a task mentions Midjourney, an art or
-  image prompt, a portrait, --sref / style reference, style codes, moodboards, or
-  "generate an image". It holds a LOCAL COPY of the official documentation,
+  Write, correct or run Midjourney prompts for this project's scene and prop art,
+  and the style lock that keeps a set looking like one game. Use when a task names
+  Midjourney, --sref / style reference, style codes or moodboards. Portraits are
+  made in GPT Image 2 (ADR-0035, `gpt-image-2-prompting`); this skill keeps the
+  character briefs. It holds a LOCAL COPY of the official documentation,
   because docs.midjourney.com is blocked by this sandbox's egress proxy and no
   agent here can read it. Reach for this before writing any prompt: two flags
   that "everyone knows" are already wrong in this repo's own handoff notes.
@@ -64,9 +64,7 @@ any doc, and re-reading the reference would never have found them.
 
 - **Word position.** Midjourney weights the **start** of a prompt more heavily. Gender,
   and anything the model resists, belongs in the first clause.
-- ~~**Prompt weights (`::`).** `woman::3` raises a concept's importance, and negative
-  weights are allowed, so `man::-1` would push twice as hard as `--no`.~~
-  **Corrected 2026-09-02 from the captured page** (`references/raw/multi-prompts-weights.html`):
+- **Prompt weights (`::`)** (`references/raw/multi-prompts-weights.html`):
   `::` weights are **not supported in V7 or V8.2**; compatible versions end at 6.1.
   `child::-1` as an age lever is impossible. `--no red` is exactly `red::-0.5`, a weak
   nudge and not a ban, which is why `--no lipstick` was honoured only weakly.
@@ -74,10 +72,6 @@ any doc, and re-reading the reference would never have found them.
   paints the new border in an older model than the set (`references/raw/zoom-out.html`);
   the **Edit Model** (V8.1/8.2, Style Reference compatible) is the tool for expanding a
   canvas (`references/raw/edit-model.html`).
-  ⚠️ **UNVERIFIED.** The Multi-Prompts & Weights page
-  (`/hc/en-us/articles/32658968492557`) is not captured. **Ask the owner for it before
-  writing any `::` syntax** — guessing at syntax is exactly what put `--style raw` into
-  `docs/INTENT.md`.
 
 ## Reference files
 
@@ -117,9 +111,9 @@ has every article and its URL.
 
 ### Pages NOT captured yet
 
-Version · Quality · Upscalers · Variations · Remix · Seeds · Repeat ·
-Permutations · Multi-Prompts & Weights · Image Prompts · Edit Model · Editor ·
-Describe · Text Generation · Tile · Weird · Zoom Out · Pan · Draft &
+Version · Quality · Upscalers · Seeds · Repeat ·
+Permutations · Image Prompts · Editor ·
+Describe · Text Generation · Tile · Weird · Pan · Draft &
 Conversational Modes · GPU Speed · Stealth · Image Size & Resolution ·
 Prompt Basics · Art of Prompting · Modifying Your Creations · Creating on Web ·
 Legacy Features · every Discord page · every policy page
@@ -129,7 +123,7 @@ to V8.2 and nothing here can tell you when that changes.
 
 ## How to lock a style across a set
 
-This is the whole problem for a 16-portrait set. Ranked, with the ruled-out options
+This is the whole problem for a set. Ranked, with the ruled-out options
 recorded so nobody re-proposes them.
 
 | Route | Verdict |
@@ -151,8 +145,8 @@ that might conflict with your reference image's look."
 | Subject and costume | keep | keep |
 | Framing clause | keep | keep |
 
-Writing the style clause into all sixteen production prompts is the most likely way
-to get sixteen portraits that do not match.
+Writing the style clause into every production prompt is the most likely way
+to get a set that does not match.
 
 ## Traps
 
