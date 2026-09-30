@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { makeDemoBattle, PLAYER_TEAM } from "./demo.js";
+import { makeDemoBattle } from "./demo.js";
 import { abilityDamage, attackDamage, isBasicAttack, type UnitState } from "../sim/index.js";
 import { computeActPreview } from "./preview.js";
 import { logHtml, type LookUp } from "./panels.js";
@@ -133,7 +133,7 @@ describe("the demo fields the reaction capability, and the panel surfaces it", (
   it("exactly one demo unit carries a reaction, and it is an ENEMY melee brawler", () => {
     const carriers = state.units.filter((u) => u.reaction !== null);
     expect(carriers.map((u) => u.id)).toEqual(["brawler"]);
-    expect(carriers[0]!.teamId).not.toBe(PLAYER_TEAM); // the player must be the one at risk
+    expect(carriers[0]!.teamId).not.toBe(0); // the player must be the one at risk
     expect(carriers[0]!.reaction).toEqual({ abilityId: "punch-art.counter", kind: "counter" });
   });
 
