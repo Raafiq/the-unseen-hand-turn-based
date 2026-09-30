@@ -10,15 +10,16 @@ Retire an entry by striking it and naming the commit that closed it; do not dele
 **Fixed by the skill picker slice, merged to main in PR #75** (`intent/skill-picker.md`,
 ADR-0048, commits `8cba15f` and `ef8f06a`). The player now picks a skill from a vertical
 3-row menu when two or more are learned, and the committed command carries the picked ability's id
-(`docs/10` AC-V23). One row of the original evidence stays live and is not closed by this
-slice:
+(`docs/10` AC-V23). One row of the original evidence stayed live after this slice and is now closed too (below):
 
 | Link | Evidence (line numbers at `6067276`) |
 |---|---|
-| The basic swing is melee whatever the weapon | `basicAttackFrom` (`src/sim/state.ts:462`) hard-codes `range {h:1,v:1}`; equipment is deferred (`docs/05` §4) |
+| ~~The basic swing is melee whatever the weapon~~ | ~~`basicAttackFrom` (`src/sim/state.ts:462`) hard-codes `range {h:1,v:1}`; equipment is deferred (`docs/05` §4)~~ Retired by ADR-0049 |
 
-That row is now tracked as its own intent: `intent/bow-attack.md` — Attack should take its
+That row is now tracked as its own intent: `intent/weapon-range.md` — Attack should take its
 reach from the weapon (a bow shoots), an engine change with no balance retune green-lit.
+Specified 2026-09-29: ADR-0049, `docs/01` AC-011…AC-016, `specs/005-weapon-range/spec.md`.
+**Fixed in code by ADR-0049** (built 2026-09-29, not yet merged; commit to be named at merge). `basicAttackFrom` now copies the weapon's range. This row is retired.
 
 <details><summary>Original entry (struck, kept for the record)</summary>
 

@@ -17,7 +17,7 @@ function duel({ attacker = {}, target = {}, seed = 1 }: DuelOpts = {}): BattleSt
     pa: 10,
     brave: 70,
     zodiac: { sign: "aries", gender: "male" },
-    weapon: { wp: 12, formula: "paWp", element: "none", accuracy: 100 },
+    weapon: { wp: 12, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
     ...attacker,
   });
   const tgt = defaultUnit("tgt", 1, {
@@ -76,7 +76,7 @@ describe("resolveAttack — Zodiac & Protect enter in order (AC-07)", () => {
 describe("resolveAttack — hit / miss (AC-06)", () => {
   it("a 0-accuracy swing always misses, deals no damage, but still consumes the roll", () => {
     const { state, outcome } = resolveAttack(
-      duel({ attacker: { weapon: { wp: 12, formula: "paWp", element: "none", accuracy: 0 } } }),
+      duel({ attacker: { weapon: { wp: 12, formula: "paWp", element: "none", accuracy: 0, range: { h: 1, v: 1 } } } }),
       "atk",
       "tgt",
     );

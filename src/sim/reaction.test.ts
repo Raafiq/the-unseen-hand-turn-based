@@ -264,6 +264,91 @@ describe("counter answers a landed physical blow from inside the reactor's reach
   });
 });
 
+// ── counter reach is the REACTOR's own WEAPON range (AC-015, ADR-0049) ──────
+
+describe("a counter fires by the reactor's own weapon range (AC-015, ADR-0049)", () => {
+  // Two PURPOSE-BUILT weapons that differ in RANGE ONLY (same wp, formula, element,
+  // accuracy), inline — this block reads nothing from data/, so it holds whatever the
+  // shipped pack carries. The bow's {h:4,v:3} is the Long Bow's reach.
+  const SWORD = { wp: 8, formula: "paWp" as const, element: "none" as const, accuracy: 100, range: { h: 1, v: 1 } };
+  const BOW = { ...SWORD, range: { h: 4, v: 3 } };
+
+  /**
+   * ONE physical ranged blow from `atk` (at x=0, holding `atkWeapon`) at `def` (at x=`dist`,
+   * holding `defWeapon`, Brave 100, `punch-art.counter`). Same seed every time. The blow's
+   * own reach (h:6) covers every distance used, so only the REACTOR's reach can differ.
+   */
+  function blow(defWeapon: typeof SWORD, dist: number, atkWeapon: typeof SWORD = SWORD, reaction: UnitState["reaction"] = COUNTER) {
+    const before = createBattleState({
+      seed: 99,
+      grid: { width: 8, height: 4, tiles: makeFlatTiles(8, 4) },
+      units: [
+        fighter("atk", 0, { x: 0, y: 0 }, { weapon: atkWeapon }),
+        fighter("def", 1, { x: dist, y: 0 }, { weapon: defWeapon, reaction }),
+      ],
+    });
+    before.units[0]!.abilities.push(ability({ id: "test.lob", range: { h: 6, v: 3 }, power: 10 }));
+    const { state, outcome } = resolveAbility(before, "atk", "def", "test.lob");
+    return { before, state, outcome };
+  }
+  const basicRange = (s: BattleState) => s.units.find((u) => u.id === "def")!.abilities.find((a) => a.id === "basic.attack")!.range;
+
+  it("the fixture weapons differ in reach — on the weapon AND on the derived basic attack", () => {
+    // Asserted first so the A/B below cannot compare a build to itself.
+    expect(blow(SWORD, 3).before.units[1]!.weapon.range).toEqual({ h: 1, v: 1 });
+    expect(blow(BOW, 3).before.units[1]!.weapon.range).toEqual({ h: 4, v: 3 });
+    expect(basicRange(blow(SWORD, 3).before)).toEqual({ h: 1, v: 1 });
+    expect(basicRange(blow(BOW, 3).before)).toEqual({ h: 4, v: 3 });
+    // No-reaction baseline at each distance: one draw (the blow's hit roll) and nothing else.
+    for (const dist of [3, 4, 5]) expect(blow(BOW, dist, SWORD, null).state.rngCounter).toBe(1);
+  });
+
+  it("SWORD reactor, attacker at 3: no counter, and NO reaction draw is consumed", () => {
+    const { before, state, outcome } = blow(SWORD, 3);
+    expect(outcome.reactions).toEqual([]);
+    expect(hpOf(state, "atk")).toBe(hpOf(before, "atk"));
+    expect(hpOf(state, "def")).toBeLessThan(hpOf(before, "def")); // the blow DID land
+    expect(state.rngCounter).toBe(1); // hit roll only: the Brave% trigger was never drawn
+    expect(state.rngCounter).toBe(blow(SWORD, 3, SWORD, null).state.rngCounter);
+  });
+
+  it("BOW reactor, SAME seed, attacker at 3: the counter fires (reactor id, ability id, draws)", () => {
+    const { before, state, outcome } = blow(BOW, 3);
+    expect(outcome.reactions).toHaveLength(1);
+    expect(outcome.reactions[0]).toMatchObject({
+      reactorId: "def",
+      abilityId: "punch-art.counter",
+      kind: "counter",
+      againstId: "atk",
+      hit: true,
+      nullified: false,
+    });
+    expect(hpOf(state, "atk")).toBe(hpOf(before, "atk") - outcome.reactions[0]!.damage);
+    expect(hpOf(state, "atk")).toBeLessThan(hpOf(before, "atk"));
+    expect(state.rngCounter).toBe(3); // hit + Brave trigger + the counter-swing's hit
+  });
+
+  it("BOW reactor, attacker at 4: the edge of h:4 still counters; at 5 it does NOT and draws nothing", () => {
+    expect(blow(BOW, 4).outcome.reactions).toHaveLength(1);
+    const far = blow(BOW, 5);
+    expect(far.outcome.reactions).toEqual([]);
+    expect(hpOf(far.state, "atk")).toBe(hpOf(far.before, "atk"));
+    expect(far.state.rngCounter).toBe(1); // unchanged from the no-reaction baseline
+    expect(far.state.rngCounter).toBe(blow(BOW, 5, SWORD, null).state.rngCounter);
+  });
+
+  it("the ATTACKER's weapon is irrelevant: a bow-bearing attacker at 3 vs a SWORD reactor still gets no counter", () => {
+    // The reverse of the bow case, with the weapons swapped between the two sides. A gate
+    // that read the ATTACKER's reach would get this and the bow case both backwards.
+    const { before, state, outcome } = blow(SWORD, 3, BOW);
+    expect(outcome.reactions).toEqual([]);
+    expect(hpOf(state, "atk")).toBe(hpOf(before, "atk"));
+    expect(state.rngCounter).toBe(1);
+    // …and a SWORD-bearing attacker still meets a BOW reactor's counter (the bow case above).
+    expect(blow(BOW, 3, SWORD).outcome.reactions).toHaveLength(1);
+  });
+});
+
 // ── hamedo: the pre-check that cancels the blow ─────────────────────────────
 
 describe("preemptive (Hamedo) cancels the incoming blow and strikes first", () => {
@@ -466,6 +551,10 @@ describe("determinism and the schema bump", () => {
       units: (current["units"] as Array<Record<string, unknown>>).map((u) => {
         const rest = { ...u };
         delete rest["reaction"]; // a v10 unit has no such field at all
+        // …and its weapon has no `range` either (ADR-0049), so the walk 10→11→12 is real.
+        const weapon = { ...(rest["weapon"] as Record<string, unknown>) };
+        delete weapon["range"];
+        rest["weapon"] = weapon;
         return rest;
       }),
     };

@@ -250,11 +250,12 @@ describe("migration — a v7 save (no aoe) round-trips to aoe:null and stays val
     // Downgrade to a v7-shaped blob: drop every aoe field, set the version back.
     const raw = JSON.parse(serialize(withCharge)) as {
       schemaVersion: number;
-      units: Array<{ abilities: Array<Record<string, unknown>> }>;
+      units: Array<{ abilities: Array<Record<string, unknown>>; weapon: Record<string, unknown> }>;
       chargeQueue: Array<{ effect: Record<string, unknown> }>;
     };
     raw.schemaVersion = 7;
     for (const u of raw.units) {
+      delete u.weapon["range"]; // a v7 weapon has no range (ADR-0049)
       for (const a of u.abilities) {
         delete a["aoe"];
         delete a["inflicts"]; // v7 had neither field

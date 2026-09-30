@@ -58,7 +58,7 @@ function fixture(accuracy: number, foeReaction: UnitState["reaction"] = null): (
       hp: 400,
       maxHp: 400,
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy, range: { h: 1, v: 1 } },
       evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     });
     const foe: UnitState = defaultUnit("foe", 1, {

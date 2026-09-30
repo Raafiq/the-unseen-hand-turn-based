@@ -90,7 +90,7 @@ describe("decideBalanceProbe — AC-E3(a): flanks (rear > side > front) on an eq
   it("attacks the enemy it can hit from the REAR over an identical front-facing enemy", () => {
     // hero at (2,2). A above facing S → hero strikes A's FRONT. B below facing S →
     // hero strikes B's REAR. Same HP/stats → facing is the only differentiator.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const a = defaultUnit("A", 1, { pos: { x: 2, y: 1 }, facing: "S", hp: 200, maxHp: 200 });
     const b = defaultUnit("B", 1, { pos: { x: 2, y: 3 }, facing: "S", hp: 200, maxHp: 200 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -115,7 +115,7 @@ describe("decideBalanceProbe — AC-E3(a): flanks (rear > side > front) on an eq
 describe("decideBalanceProbe — AC-E3(b): focuses the lower-HP target", () => {
   it("picks the lower-HP foe when class, magnitude, and facing tie", () => {
     // Both foes flank (side) at equal distance; only effHp differs → focus the 30-HP one.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "S", hp: 60, maxHp: 60 });
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "S", hp: 30, maxHp: 60 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -128,7 +128,7 @@ describe("decideBalanceProbe — AC-E3(b): FOCUS beats big-hit (effHp before mag
     // hero (aries) same-sign with A → Zodiac 'good' ×1.25, so A is the BIGGER hit;
     // but A also has the higher HP. B (taurus) is a neutral, smaller hit but lower
     // HP. AC-E3(b) is a FOCUS rule → the AI must take B (finish it sooner), not A.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "S", hp: 200, maxHp: 200 }); // good ×1.25 → mag 100
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "S", hp: 150, maxHp: 150, zodiac: { sign: "taurus", gender: "neutral" } }); // neutral → mag 80
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -139,7 +139,7 @@ describe("decideBalanceProbe — AC-E3(b): FOCUS beats big-hit (effHp before mag
 describe("decideBalanceProbe — class order", () => {
   it("prefers a LETHAL blow over a mere CHIP", () => {
     // A is one-shot killable (LETHAL); B is a fat CHIP target. LETHAL outranks CHIP.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const a = defaultUnit("A", 1, { pos: { x: 1, y: 2 }, facing: "N", hp: 40, maxHp: 40 });
     const b = defaultUnit("B", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 500, maxHp: 500 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -189,7 +189,7 @@ describe("decideBalanceProbe — HEAL is a TRIAGE (focus) rule, not biggest-heal
     // (LETHAL exists). Heal-triage must NOT be read as promoting HEAL above LETHAL — the
     // class order is unchanged, so the securable kill wins. Discriminating: if triage had
     // leaked into a cross-class key, the AI would panic-heal instead of killing.
-    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10, faith: 50, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } }, [HEAL_ABILITY]);
+    const healer = unitWith("healer", 0, { pos: { x: 2, y: 2 }, move: 0, pa: 10, ma: 10, faith: 50, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } }, [HEAL_ABILITY]);
     const ally = defaultUnit("ally", 0, { pos: { x: 2, y: 1 }, hp: 20, maxHp: 100 });
     const foe = defaultUnit("foe", 1, { pos: { x: 3, y: 2 }, facing: "N", hp: 30, maxHp: 30 });
     const cmd = decideBalanceProbe(field([healer, ally, foe]), "healer");
@@ -242,7 +242,7 @@ describe("decideBalanceProbe — CONTROL is valued in the same currency as damag
     controlledByTeamId: null,
   };
   /** A weak-swing actor, so the choice is decided by the status, not by a big weapon. */
-  const feeble = { wp: 1, formula: "paWp" as const, element: "none" as const, accuracy: 100 };
+  const feeble = { wp: 1, formula: "paWp" as const, element: "none" as const, accuracy: 100, range: { h: 1, v: 1 } };
 
   it("C1: picks a 0-damage disable over its own attack — but NOT when the status is inert", () => {
     // Same fixture twice; ONLY the status template differs. LIVE Stop denies the foe
@@ -596,7 +596,7 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
     // range from the start tile, so the PRE-FOLD probe emitted `{kind:"move", to:(3,0)}`
     // and spent the whole turn walking. (3,0) is exactly 3 steps and Chebyshev 1 from the
     // foe, so the fold converts that same walk into a walk-and-strike.
-    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 0 }, hp: 100, maxHp: 100 });
     const state = field([hero, foe], 1, 6, 3);
     // The board separates the two models: unreachable from the start tile...
@@ -616,7 +616,7 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
     // The signature closer turn every docs/03 archetype needed and none could execute
     // pre-fold. The foe faces S and the hero stands directly in its FRONT arc, already in
     // range — so a probe that only ever acts from where it stands would swing at the front.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 4, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 4, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const foe = defaultUnit("foe", 1, { pos: { x: 2, y: 1 }, facing: "S", hp: 200, maxHp: 200 });
     const state = field([hero, foe]);
     // The board SEPARATES the models: standing still is a FRONT hit (the worst arc), so a
@@ -665,7 +665,7 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
     // The integrated property the `move: 0`-pinned fixtures above deliberately exclude.
     // Both foes are identical but for HP and both are reachable, so AC-E3(b)'s focus key
     // must still decide — the fold must not have let arc/tile noise outrank it.
-    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 3, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 2, y: 2 }, move: 3, pa: 10, weapon: { wp: 1, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const a = defaultUnit("A", 1, { pos: { x: 0, y: 2 }, facing: "S", hp: 60, maxHp: 60 });
     const b = defaultUnit("B", 1, { pos: { x: 4, y: 2 }, facing: "S", hp: 30, maxHp: 60 });
     const cmd = decideBalanceProbe(field([hero, a, b]), "hero");
@@ -677,7 +677,7 @@ describe("decideBalanceProbe — the move+act fold (ADR-0015)", () => {
   it("the folded command the AI emits is LEGAL: the driver accepts it and settles at −100", () => {
     // Closes the loop AI → driver. A command the probe can emit but the driver rejects
     // would be a benchmark that cannot replay (AC-S1). ct 100 → act+move settles to 0.
-    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, ct: 100, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 } });
+    const hero = defaultUnit("hero", 0, { pos: { x: 0, y: 0 }, move: 3, ct: 100, pa: 10, weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } } });
     const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 0 }, ct: 0, hp: 100, maxHp: 100 });
     const state = field([hero, foe], 1, 6, 3);
     const cmd = decideBalanceProbe(state, "hero");
@@ -813,5 +813,79 @@ describe("the probe prices the TILE, not just the act — so Move stops being a 
     expect(exposureOf(state, cand, { x: 5, y: 0 })).toBe(1);
     // FOUR tiles away is outside it.
     expect(exposureOf(state, cand, { x: 4, y: 0 })).toBe(0);
+  });
+});
+
+// ── the AI's reach reads the WEAPON (ADR-0049, docs/01 AC-014) ──────────────
+
+describe("the AI's reach is the weapon's own range (AC-014, ADR-0049)", () => {
+  // PURPOSE-BUILT weapons, inline: this does not touch data/, so it holds whatever the
+  // shipped pack carries. `h:4, v:3` is the Long Bow's reach; the sword is the melee default.
+  const SWORD = { wp: 8, formula: "paWp" as const, element: "none" as const, accuracy: 100, range: { h: 1, v: 1 } };
+  const BOW = { wp: 8, formula: "speedWp" as const, element: "none" as const, accuracy: 100, range: { h: 4, v: 3 } };
+  const NO_EV = { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 };
+  const basicRange = (u: UnitState) => u.abilities.find((a) => a.id === "basic.attack")!.range;
+
+  it("an archer with move 0 shoots a foe 4 tiles away; the same unit with a sword cannot", () => {
+    const mk = (weapon: typeof SWORD | typeof BOW): { state: BattleState; archer: UnitState } => {
+      const archer = defaultUnit("archer", 0, { pos: { x: 0, y: 2 }, move: 0, pa: 10, weapon });
+      const foe = defaultUnit("foe", 1, { pos: { x: 4, y: 2 }, hp: 200, maxHp: 200, evasion: { ...NO_EV } });
+      return { state: field([archer, foe], 1, 6, 6), archer };
+    };
+    const bow = mk(BOW);
+    const sword = mk(SWORD);
+    // FIRST: the two fixtures really differ in reach, at the weapon AND on the derived
+    // basic attack (the field the AI reads) — otherwise the A/B compares a build to itself.
+    expect(bow.archer.weapon.range).toEqual({ h: 4, v: 3 });
+    expect(sword.archer.weapon.range).toEqual({ h: 1, v: 1 });
+    expect(basicRange(bow.archer)).toEqual({ h: 4, v: 3 });
+    expect(basicRange(sword.archer)).toEqual({ h: 1, v: 1 });
+    // …and the board separates them: the foe is inside one reach and outside the other.
+    expect(inAbilityRange(bow.state.grid, bow.archer.pos, { x: 4, y: 2 }, basicRange(bow.archer))).toBe(true);
+    expect(inAbilityRange(sword.state.grid, sword.archer.pos, { x: 4, y: 2 }, basicRange(sword.archer))).toBe(false);
+
+    // The bow-bearer ATTACKS, with the basic attack, on THE foe, without moving.
+    const bowCmd = decideBalanceProbe(bow.state, "archer");
+    expect(bowCmd).toEqual({
+      kind: "act",
+      abilityId: "basic.attack",
+      target: { unitId: "foe" },
+    });
+    // …and the driver ACCEPTS it and it lands: the foe (by id) loses hp through the real
+    // apply path, so an emitted-but-illegal or whiffing command cannot pass on the emit alone.
+    const foeBefore = bow.state.units.find((u) => u.id === "foe")!;
+    const after = applyCommand(bow.state, bowCmd);
+    const foeAfter = after.units.find((u) => u.id === "foe")!;
+    expect(foeAfter.hp).toBeLessThan(foeBefore.hp);
+    // The sword-bearer has no act at all (move 0, foe at 4): it ends its turn.
+    expect(decideBalanceProbe(sword.state, "archer")).toEqual({ kind: "wait" });
+  });
+
+  it("exposureOf: a foe's threat is move + ITS weapon's h — bow-bearer reaches move+4, sword move+1", () => {
+    const mk = (weapon: typeof SWORD | typeof BOW): { state: BattleState; cand: UnitState; foe: UnitState } => {
+      const cand = defaultUnit("cand", 0, { pos: { x: 0, y: 0 }, evasion: { ...NO_EV } });
+      const foe = defaultUnit("foe", 1, { pos: { x: 10, y: 0 }, move: 2, weapon, evasion: { ...NO_EV } });
+      return {
+        state: createBattleState({ seed: 1, grid: { width: 14, height: 3, tiles: makeFlatTiles(14, 3) }, units: [cand, foe] }),
+        cand,
+        foe,
+      };
+    };
+    const bow = mk(BOW);
+    const sword = mk(SWORD);
+    // Assert the two foes differ ONLY in weapon, and that the weapons differ in reach.
+    expect(basicRange(bow.foe).h).toBe(4);
+    expect(basicRange(sword.foe).h).toBe(1);
+    expect({ ...bow.foe, weapon: sword.foe.weapon, abilities: sword.foe.abilities }).toEqual(sword.foe);
+
+    // foe.move = 2. Chebyshev move + 4 = 6 from x=10 is x=4: the bow counts it, the sword does not.
+    const at = (x: number) => ({ x, y: 0 });
+    expect(exposureOf(bow.state, bow.cand, at(4))).toBe(1);
+    expect(exposureOf(sword.state, sword.cand, at(4))).toBe(0);
+    // The edges pin the bow's reach EXACTLY (not "at least 1"): 6 counts, 7 does not…
+    expect(exposureOf(bow.state, bow.cand, at(3))).toBe(0);
+    // …and the sword's threat still ends at move + 1 = 3 (x=7 in, x=6 out).
+    expect(exposureOf(sword.state, sword.cand, at(7))).toBe(1);
+    expect(exposureOf(sword.state, sword.cand, at(6))).toBe(0);
   });
 });

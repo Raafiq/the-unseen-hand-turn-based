@@ -1,5 +1,5 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
-import { startNewGame, dismissScene } from "./helpers.js";
+import { startNewGame, dismissScene, openMember, backToParty } from "./helpers.js";
 
 /**
  * THE SKILL PICKER, in a real browser (`intent/skill-picker.md`, AC-V23…V29). The
@@ -52,6 +52,30 @@ async function stepToBriar(page: Page): Promise<void> {
 async function reachBriarTurn(page: Page): Promise<void> {
   await startNewGame(page);
   await dismissScene(page);
+  await page.getByTestId("deploy").click();
+  await expect(page.getByTestId("screen-battle")).toBeVisible();
+  await stepToBriar(page);
+}
+
+/**
+ * `reachBriarTurn`, but with Briar re-armed with the Arming Sword in prep first, so her
+ * Attack reaches 1 (a melee swing) instead of the Long Bow's 4 (ADR-0049). Two tests need
+ * "Attack with NO foe in reach" on her first turn, and that premise is a fact about her
+ * weapon, not about archers: with the bow shipped a foe IS in reach and no reason shows.
+ * The swap goes through the prep weapon dropdown (`updateParty`, the same path a player
+ * uses) and the premise is asserted here so a content change fails at the setup, not at
+ * a locator timeout on `target-reason`.
+ */
+async function reachMeleeBriarTurn(page: Page): Promise<void> {
+  await startNewGame(page);
+  await dismissScene(page);
+  await openMember(page, "pc-briar");
+  await page.getByTestId("prep-weapon").selectOption("wpn-arming-sword");
+  await expect(
+    page.getByTestId("prep-weapon"),
+    "premise: Briar must be on the Arming Sword (reach 1) for a foe to be out of reach on her first turn",
+  ).toHaveValue("wpn-arming-sword");
+  await backToParty(page);
   await page.getByTestId("deploy").click();
   await expect(page.getByTestId("screen-battle")).toBeVisible();
   await stepToBriar(page);
@@ -705,11 +729,11 @@ test("a one-skill unit: Skill opens the old informational sheet, never a menu", 
 test("Attack with no foe in reach: the reason names itself in the target plate", async ({ page }) => {
   await page.setViewportSize(VIEWPORTS[0]!.size);
   await page.goto("/");
-  await reachBriarTurn(page); // an archer's melee swing does not reach where her bow does
+  await reachMeleeBriarTurn(page); // Arming Sword, reach 1: no foe is adjacent on her first turn
   const commandsBefore = await page.evaluate(() => window.tuhGame.commandCount());
 
   await page.getByTestId("attack").click();
-  await expect(page.getByTestId("target-reason")).toHaveText(/No foe in reach/);
+  await expect(page.getByTestId("target-reason"), "premise: the no-foe reason is what shows").toHaveText(/No foe in reach/);
   expect(await page.evaluate(() => window.tuhGame.actionReason())).toBe("No foe in reach");
   expect(await page.evaluate(() => window.tuhGame.reach().length), "reach still paints").toBeGreaterThan(0);
   expect(
@@ -765,9 +789,9 @@ for (const vp of VIEWPORTS) {
   }) => {
     await page.setViewportSize(vp.size);
     await page.goto("/");
-    await reachBriarTurn(page);
+    await reachMeleeBriarTurn(page); // Arming Sword: Attack reaches 1, so no foe is in reach
     await page.getByTestId("attack").click(); // "ATTACK / Reach 1 / ⊘ No foe in reach"
-    await expect(page.getByTestId("target-reason")).toBeVisible();
+    await expect(page.getByTestId("target-reason"), "premise: the no-foe reason is what shows").toHaveText(/No foe in reach/);
 
     const rows = await page.evaluate(() => {
       const plate = document.querySelector('[data-testid="target-plate"]') as HTMLElement;

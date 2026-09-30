@@ -97,7 +97,13 @@ function shiftPercent(base: number, shift: number | undefined): number {
  * weapon yet. Matches {@link defaultUnit}'s default so a built unit and a
  * default-constructed one agree on the basic attack.
  */
-const DEFAULT_BUILD_WEAPON: Weapon = { wp: 8, formula: "paWp", element: "none", accuracy: 100 };
+const DEFAULT_BUILD_WEAPON: Weapon = {
+  wp: 8,
+  formula: "paWp",
+  element: "none",
+  accuracy: 100,
+  range: { h: 1, v: 1 },
+};
 
 /**
  * The move / evasion a built unit gets when neither the caller (`over`) nor a
@@ -277,11 +283,10 @@ function equippedMovementEffect(
  * hash-set iteration. First writer wins on an id collision.
  *
  * THE SUPPORT'S ABILITY MODS APPLY TO SKILLS ONLY, never to `basic.attack`. The
- * basic attack is derived from the equipped WEAPON, and equipment is still
- * deferred (docs/05 §4) — so a range-up support has nothing meaningful to widen
- * there, and silently adding a tile of MELEE reach to every support-carrying build
- * would be a real combat change nobody authored. Revisit when the equipment layer
- * lands and a weapon carries its own range.
+ * basic attack is derived from the equipped WEAPON and its reach is the weapon's own
+ * `range` (ADR-0049), so `abilityRange` (range-up) widens skills and never the
+ * weapon: silently adding a tile of reach to every support-carrying build's basic
+ * attack would be a real combat change nobody authored.
  */
 function projectAbilities(
   record: UnitRecord,

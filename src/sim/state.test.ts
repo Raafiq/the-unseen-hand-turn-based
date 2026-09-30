@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { decideBalanceProbe } from "./ai.js";
+import { advanceToDecision, applyCommand, replay, type Command } from "./driver.js";
 import {
   BattleStateSchema,
   PERMANENT_STATUS_CT,
@@ -10,6 +12,7 @@ import {
   deserialize,
   legacyActiveStatus,
   makeFlatTiles,
+  MIGRATIONS,
   rngFor,
   serialize,
   type BattleState,
@@ -131,7 +134,10 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
       units: Array<Record<string, unknown>>;
     };
     raw.schemaVersion = 4;
-    for (const u of raw.units) delete u["abilities"];
+    for (const u of raw.units) {
+      delete u["abilities"];
+      delete (u["weapon"] as Record<string, unknown>)["range"]; // a v4 weapon has no range
+    }
     const v4 = JSON.stringify(raw);
 
     const migrated = deserialize(v4);
@@ -152,10 +158,13 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     const current = sampleState();
     const raw = JSON.parse(serialize(current)) as {
       schemaVersion: number;
-      units: Array<{ evasion: Record<string, unknown> }>;
+      units: Array<{ evasion: Record<string, unknown>; weapon: Record<string, unknown> }>;
     };
     raw.schemaVersion = 5;
-    for (const u of raw.units) delete u.evasion["magicEv"];
+    for (const u of raw.units) {
+      delete u.evasion["magicEv"];
+      delete u.weapon["range"]; // a v5 weapon has no range
+    }
     const v5 = JSON.stringify(raw);
 
     const migrated = deserialize(v5);
@@ -188,10 +197,11 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     });
     const raw = JSON.parse(serialize(current)) as {
       schemaVersion: number;
-      units: Array<{ statuses: unknown }>;
+      units: Array<{ statuses: unknown; weapon: Record<string, unknown> }>;
       chargeQueue: Array<Record<string, unknown>>;
     };
     raw.schemaVersion = 6;
+    for (const u of raw.units) delete u.weapon["range"]; // a v6 weapon has no range
     raw.units[0]!.statuses = ["stop"]; // v6 statuses were flat StatusFlag[] names
     raw.units[1]!.statuses = [];
     for (const c of raw.chargeQueue) delete c["interrupted"];
@@ -206,6 +216,75 @@ describe("BattleState — schema version handling (AC-S6, docs/05 §5)", () => {
     expect(migrated.chargeQueue[0]!.interrupted).toBe(false);
     // Round-trips cleanly once migrated (real save codec).
     expect(deserialize(serialize(migrated))).toEqual(migrated);
+  });
+
+  it("migrates a v11 save to v12: EVERY unit's weapon gains range {1,1}, nothing else moves (AC-013, ADR-0049)", () => {
+    // THREE units, three DIFFERENT weapons (formula, wp, element, accuracy all distinct),
+    // so a migration that stamps units[0] only, or copies one unit's weapon onto all,
+    // or overwrites formula/wp while stamping, is visible rather than a coincidence.
+    const weapons = [
+      { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
+      { wp: 11, formula: "braveWp", element: "fire", accuracy: 90, range: { h: 1, v: 1 } },
+      { wp: 4, formula: "speedWp", element: "ice", accuracy: 75, range: { h: 1, v: 1 } },
+    ] as const;
+    // The hand-built v12 state: what the migrated v11 save must deep-equal.
+    const expected = createBattleState({
+      seed: 4242,
+      grid: { width: 4, height: 3 },
+      units: [
+        unit("u.sword", 0, { pos: { x: 0, y: 0 }, hp: 300, maxHp: 300, weapon: { ...weapons[0] } }),
+        unit("u.blade", 0, { pos: { x: 0, y: 1 }, hp: 300, maxHp: 300, weapon: { ...weapons[1] } }),
+        unit("u.bow", 1, { pos: { x: 1, y: 0 }, hp: 300, maxHp: 300, weapon: { ...weapons[2] } }),
+      ],
+    });
+    // The v11 predecessor: same state, schemaVersion 11, no `weapon.range` anywhere.
+    // (`basic.attack` already carries range {1,1} in v11, so it is left as it is.)
+    const raw = JSON.parse(serialize(expected)) as {
+      schemaVersion: number;
+      units: Array<{ weapon: Record<string, unknown>; abilities: Array<{ range: unknown }> }>;
+    };
+    raw.schemaVersion = 11;
+    for (const u of raw.units) delete u.weapon["range"];
+    const v11 = JSON.stringify(raw);
+    // The fixture is what it claims: three distinct weapons, none with a range, all v11.
+    expect(new Set(raw.units.map((u) => JSON.stringify(u.weapon))).size).toBe(3);
+    expect(raw.units.every((u) => !("range" in u.weapon))).toBe(true);
+
+    // The migration is registered, and the current version is at least the one it produces.
+    expect(MIGRATIONS[11]).toBeTypeOf("function");
+    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(12);
+
+    const migrated = deserialize(v11);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // Per unit, by IDENTITY: each keeps ITS OWN weapon fields and gains exactly {1,1}.
+    for (let i = 0; i < 3; i++) {
+      const u = migrated.units[i]!;
+      expect(u.id).toBe(expected.units[i]!.id);
+      expect(u.weapon).toEqual({ ...weapons[i], range: { h: 1, v: 1 } });
+      expect(u.abilities[0]!.id).toBe("basic.attack");
+      expect(u.abilities[0]!.range).toEqual({ h: 1, v: 1 });
+    }
+    // …and the whole migrated state deep-equals the hand-built v12 one.
+    expect(migrated).toEqual(expected);
+
+    // Same command log, same outcome, before and after the bump. The log is generated
+    // LIVE from the hand-built state (AI-driven, so every unit takes turns), then replayed
+    // from the migrated save; the two must agree byte for byte, rngCounter included.
+    const log: Command[] = [];
+    let live = expected;
+    for (let i = 0; i < 12; i++) {
+      const d = advanceToDecision(live);
+      if (d.unitId === null) break;
+      const cmd = decideBalanceProbe(d.state, d.unitId);
+      log.push(cmd);
+      live = applyCommand(live, cmd);
+    }
+    expect(log.length).toBe(12);
+    expect(new Set(live.turnLog.map((e) => e.unitId)).size).toBe(3); // all three units acted
+    expect(live.rngCounter).toBeGreaterThan(0); // rolls were actually drawn
+    const afterBump = replay(migrated, log);
+    expect(serialize(afterBump)).toBe(serialize(live));
+    expect(afterBump.rngCounter).toBe(live.rngCounter);
   });
 
   it("refuses to migrate a v1 save whose units overflow the grid (never corrupt)", () => {

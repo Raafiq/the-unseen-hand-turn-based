@@ -1,11 +1,11 @@
-<!-- written-against: 12eda10 -->
+<!-- written-against: de2d417 -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1059 tests, 286 browser specs (`npm run check`).
+Green at the stamp: 1088 tests, 286 browser specs (`npm run check`).
 
 ---
 
@@ -35,8 +35,8 @@ enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). **The 
 picker shipped (ADR-0048, merged to main in PR #75):** pressing Skill with 2+ learned abilities opens
 a vertical 3-row menu up from SKILL; picking one paints that skill's own reach, from the sim's
 `inAbilityRange`; an unavailable skill (or Attack with no foe in reach) is selectable
-with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired. Next:
-Attack shoots at range for a bow (`intent/bow-attack.md`).
+with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired.
+**A weapon has a range: built on this branch, awaiting PR** (ADR-0049).
 
 ---
 
@@ -83,27 +83,31 @@ Nobody should start these. One line each; the detail lives where the pointer say
 
 ## OPEN — WAITING ON THE OWNER
 
-Read this before telling the owner "nothing is pending". Five asks are open; one is parked.
+Read this before telling the owner "nothing is pending". Two asks are open; one is parked.
 
 | # | Ask | State | What it unblocks |
 |---|---|---|---|
 | I | Is `default` (cheapest-anywhere spending) at 1/16 — statistically the same as naive's 0/16 — the intended difficulty, or should the retune re-open headroom for a distinguishable middle band | **PARKED by the owner (2026-09-19): no balance or depth work at this stage — do not ask again until the owner raises it.** Was: open, new this slice | Whether ADR-0027's three-tier "learnable trap" story needs restoring or the two-tier read stands |
 | F | Play the shipped combat shell on a real iPhone and a real Android phone: are the board's tiles tappable, does the rotate gate appear in portrait, does the lock button do anything, and what does ☰ → settings print for tile size | open, carried, and now the biggest unverified claim in the repo. Every statement about the shell is Chromium emulation | `docs/10` AC-V32, AC-V40, and whether the shell is actually playable |
 | G | **Confirm the Android landscape viewport height.** Tests assert 832×328 and 832×384 only; 328 assumes a ~56px browser bar and nobody has measured it | open, downgraded: the shell now ships and is asserted at 328, so this is confirmation rather than a blocker. If the real height differs, the band and rail re-fit; the board does not | Whether the asserted fold is the real one |
-| J | Which weapon types shoot at range, and how far, for the bow-attack slice | open, new — needs `fft-fidelity` sources | `intent/bow-attack.md`'s scope |
-| K | Does Aimed Shot still earn its slot once a bow's basic Attack already shoots | open, new | Whether Aimed Shot needs a redesign once bow-attack ships |
-| L | Does weapon-range Attack wait for the full equipment system, or land as a range field on today's inline weapon | open, new | `intent/bow-attack.md`'s implementation shape and whether it needs a schema migration now |
 
 ---
 
-## THE NEXT SLICE — chosen by the owner 2026-09-24
+## THE NEXT SLICE
 
-| Slice | Intent file | What the owner decided |
-|---|---|---|
-| Weapon-range Attack | `intent/bow-attack.md` | Basic Attack takes its reach from the weapon held — a bow shoots, a sword hits the next tile. Engine change (schema + golden tests); no balance retune green-lit. Closes `docs/defects.md` §1's remaining row. |
+**None is chosen.** Ask the owner before starting anything.
 
-Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
-Frames are approved before an engineer starts (taste rule).
+### Built, awaiting PR: a weapon has a range (ADR-0049, `intent/weapon-range.md`)
+
+Every weapon carries `range {h,v}`; Attack takes its reach from it (`docs/01` AC-011…AC-016).
+Schema is v12. One Long Bow `{h:4,v:3}` on Briar, owned via battle 1's grants. Aimed Shot is unchanged.
+No balance retune was green-lit or done.
+
+Landmines from this slice:
+
+- **Every Long Bow number is `[UNCERTAIN]` against FFT.** The sources were unreachable; only the `speedWp` formula is `[VERIFIED]`.
+- **Range is a Chebyshev square, not FFT's diamond.** Reach 4 covers more tiles than FFT's does.
+- **The AI does not know about ranged units yet.** `moveTowardPrime` (`src/sim/ai.ts` ~539) walks a ranged unit all the way in. `tryScreen` (~593) body-blocks as if every threat were melee. No enemy holds a bow today, so neither fires yet.
 
 ### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, merged in PR #75)
 
@@ -115,13 +119,6 @@ or the staged move tile. An unavailable skill (or Attack, no foe in reach) is se
 shows its reason in the target plate, but cannot be confirmed. Cancel undoes the most
 recent step, not always the picker's own pick. No new engine command. AC-V23…V29 in
 `docs/10`. `docs/defects.md` §1 and §2 retired.
-
-### Shipped before this: the win/lose overlay, the enemy retune, self-running enemy turns
-
-Result overlay on every decided battle (ADR-0047, AC-V70…AC-V78). Enemy retune for six
-deployed (ADR-0045). Enemy turns run themselves — entering `AI_TURN` arms one `step()`
-after a pause the ×1/×2/×3 toggle sets, 800 ms at ×1 (ADR-0046, AC-V68/AC-V69). Nothing
-about animation (walking, swings, casts) is green-lit; the toggle scales only the pause.
 
 ### Landmines this slice will hit
 

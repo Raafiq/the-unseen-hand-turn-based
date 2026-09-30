@@ -99,7 +99,9 @@ interface Candidate {
 
 /**
  * How many living FOES could strike `tile` on their next turn: their `move` steps plus
- * their basic attack's horizontal reach (docs/01 §7). The probe's only survival term
+ * their basic attack's horizontal reach (docs/01 §7) — the foe's WEAPON reach, read
+ * off its `basic.attack.range` (ADR-0049), so a bow-bearer threatens `move + 4` and a
+ * sword-bearer `move + 1`. The probe's only survival term
  * (ADR-0020), and the reason the movement chassis slot could ship at all.
  *
  * WHY IT EXISTS. `compareCandidate` enumerates every reachable tile and prices the ACT

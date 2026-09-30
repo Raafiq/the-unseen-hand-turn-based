@@ -91,7 +91,8 @@ export const DEFERRED_REACTION_EFFECTS: Readonly<Record<string, string>> = {
 /**
  * NO GEOMETRY LIVES HERE. A reaction's reach IS the reactor's own basic-attack range
  * (docs/01 §9: Counter triggers only when the attacker stands inside the counterer's
- * attack range), and that question is already answered by `grid.ts`'s
+ * attack range — its WEAPON's reach, so a bow-bearer answers from up to 4 tiles,
+ * ADR-0049), and that question is already answered by `grid.ts`'s
  * `inAbilityRange` — the same gate the driver uses to reject an out-of-range act.
  * `resolve.ts` calls it directly rather than re-deriving reach here, so a reaction can
  * never disagree with the engine about who is adjacent.

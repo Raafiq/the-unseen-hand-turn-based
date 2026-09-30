@@ -426,7 +426,7 @@ describe("targetPlateHtml / activePlateHtml — the combat-revamp band (ADR-0043
       pos: HERO_POS,
       facing: "E",
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       hp: 200,
       maxHp: 255,
       // ALREADY AT THE THRESHOLD: `Session.reset()` calls `settle()`, which accrues CT
@@ -549,7 +549,7 @@ describe("targetPlateHtml / activePlateHtml — the combat-revamp band (ADR-0043
       pos: { x: 2, y: 1 },
       facing: "E",
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       ct: 100,
     });
     const foeA = defaultUnit("foeA", 1, { pos: { x: 1, y: 1 }, facing: "E", hp: 100, maxHp: 100 });
@@ -618,7 +618,7 @@ describe("targetPlateHtml — the picked-skill readout, no target staged yet (re
       pa: 10,
       hp: 200,
       maxHp: 255,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       // ALREADY AT THE THRESHOLD (mirrors the fixture above): `Session.reset()`
       // accrues CT until someone reaches ct >= 100, and this fixture needs HERO
       // specifically to be the active actor, not whoever `speed` happens to favour.

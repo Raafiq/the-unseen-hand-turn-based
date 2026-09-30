@@ -66,7 +66,7 @@ function fixture(): BattleState {
       hp: 600,
       maxHp: 600,
       pa: 6,
-      weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     });
   return createBattleState({

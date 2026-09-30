@@ -20,7 +20,7 @@
  */
 
 import { z } from "zod";
-import { ElementSchema, WeaponFormulaSchema } from "./state.js";
+import { WeaponSchema } from "./state.js";
 
 // Local, like every other schema module here: `state.ts` keeps these private, and
 // re-exporting a primitive just to share it widens that module's surface for nothing.
@@ -56,17 +56,10 @@ export const EquipmentSchema = z
     /**
      * The basic attack this weapon produces. Required on a `weapon`, forbidden on
      * any other slot — a shield that silently carried a swing would be a second,
-     * invisible weapon.
+     * invisible weapon. It IS the unit's {@link WeaponSchema} (range included,
+     * ADR-0049), so an item's weapon and a built unit's weapon can never drift.
      */
-    weapon: z
-      .object({
-        wp: IntSchema.min(0),
-        formula: WeaponFormulaSchema,
-        element: ElementSchema,
-        accuracy: PercentSchema,
-      })
-      .strict()
-      .optional(),
+    weapon: WeaponSchema.optional(),
     /** Physical evasion this item grants, folded onto the built unit's `weaponEv`. */
     weaponEv: PercentSchema.optional(),
     /** Signed Brave shift (docs/03 #10's counterplay axis). */
