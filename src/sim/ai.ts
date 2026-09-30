@@ -128,6 +128,8 @@ interface Candidate {
  * placement also passes but overrides a documented AC, and measures worse on
  * anti-convergence (two every-cell sweepers instead of one).
  */
+const basicReachCache = new WeakMap<UnitState, number>();
+
 export function exposureOf(
   state: BattleState,
   actor: UnitState,
@@ -137,7 +139,13 @@ export function exposureOf(
   let n = 0;
   for (const u of state.units) {
     if (u.hp <= 0 || effectiveTeamOf(u) === team) continue;
-    const reach = u.move + (u.abilities.find((ab) => ab.id === BASIC_ATTACK_ID)?.range.h ?? 1);
+
+    let reach = basicReachCache.get(u);
+    if (reach === undefined) {
+      reach = u.move + (u.abilities.find((ab) => ab.id === BASIC_ATTACK_ID)?.range.h ?? 1);
+      basicReachCache.set(u, reach);
+    }
+
     if (Math.max(Math.abs(u.pos.x - tile.x), Math.abs(u.pos.y - tile.y)) <= reach) n += 1;
   }
   return n;
