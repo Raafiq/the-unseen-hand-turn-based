@@ -170,37 +170,27 @@ export interface SceneOptions {
   onAction?: (action: string) => void;
 }
 
-/**
- * Draw a scene inside `host`, and hand back the controls.
- *
- * The inner DOM is built HERE rather than authored in `index.html` four times, following
- * `buildHelp()`: four copies of a structure is four places for one of them to drift, and
- * the drift is invisible because each screen is tested separately. Test ids are derived
- * from the host's id so each mount is still individually addressable.
- */
-export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHandle {
-  const id = host.id;
-  const make = <K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    testid?: string,
-  ): HTMLElementTagNameMap[K] => {
-    const node = document.createElement(tag);
-    node.className = className;
-    if (testid !== undefined) node.dataset["testid"] = testid;
-    return node;
-  };
+function makeNode<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className: string,
+  testid?: string,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (testid !== undefined) node.dataset["testid"] = testid;
+  return node;
+}
 
-  host.textContent = "";
-
-  const wrap = make("div", "scene-body");
+function buildPortrait(id: string): HTMLElement {
   // The portrait frame. Rendered per SPEAKER RUN — it follows the plate, so a scene
   // where two people talk shows each of them in turn.
   const figure = document.createElement("figure");
   figure.className = "portrait";
   figure.dataset["testid"] = `${id}-portrait`;
-  wrap.append(figure);
+  return figure;
+}
 
+function buildRibbonCharge(ribbonUrl?: string): HTMLImageElement {
   // The house lion, on top of the CSS-drawn field (`.portrait::after`). A real <img>,
   // not a second gradient, because README §(b) is explicit that nothing in CSS draws a
   // rampant lion — same reasoning as the backdrop and the title ribbon it reuses. Built
@@ -210,11 +200,14 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   // than coincidentally true of two separately-built elements.
   const ribbonCharge = document.createElement("img");
   ribbonCharge.className = "ribbon-charge";
-  if (opts.ribbon !== undefined) ribbonCharge.src = opts.ribbon;
+  if (ribbonUrl !== undefined) ribbonCharge.src = ribbonUrl;
   ribbonCharge.alt = "";
   ribbonCharge.setAttribute("aria-hidden", "true");
+  return ribbonCharge;
+}
 
-  const lineBox = make("div", "scene-lines", `${id}-lines`);
+function buildLineBox(id: string): HTMLElement {
+  const lineBox = makeNode("div", "scene-lines", `${id}-lines`);
   // A REAL id, not just a test id: `aria-controls` below names it, and an
   // aria-controls pointing at nothing is a critical axe violation — which is how this
   // was found, on the first browser run.
@@ -227,23 +220,51 @@ export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHan
   lineBox.setAttribute("role", "log");
   lineBox.setAttribute("aria-live", "polite");
   lineBox.setAttribute("aria-relevant", "additions");
-  wrap.append(lineBox);
-  host.append(wrap);
+  return lineBox;
+}
 
-  const controls = make("div", "scene-controls");
-  const moreButton = make("button", "ghost", `${id}-more`);
+function buildControls(id: string, lineBoxId: string) {
+  const controls = makeNode("div", "scene-controls");
+  const moreButton = makeNode("button", "ghost", `${id}-more`);
   moreButton.type = "button";
   moreButton.textContent = "More ▸";
-  moreButton.setAttribute("aria-controls", lineBox.id);
-  const allButton = make("button", "ghost", `${id}-all`);
+  moreButton.setAttribute("aria-controls", lineBoxId);
+  const allButton = makeNode("button", "ghost", `${id}-all`);
   allButton.type = "button";
   allButton.textContent = "Show all";
-  const progress = make("p", "scene-progress", `${id}-progress`);
+  const progress = makeNode("p", "scene-progress", `${id}-progress`);
   // The readout is a live region of its own so "3 of 4" is announced when it changes,
   // without the line region having to re-read itself to carry the count.
   progress.setAttribute("role", "status");
   progress.setAttribute("aria-live", "polite");
   controls.append(moreButton, allButton, progress);
+  return { controls, moreButton, allButton, progress };
+}
+
+/**
+ * Draw a scene inside `host`, and hand back the controls.
+ *
+ * The inner DOM is built HERE rather than authored in `index.html` four times, following
+ * `buildHelp()`: four copies of a structure is four places for one of them to drift, and
+ * the drift is invisible because each screen is tested separately. Test ids are derived
+ * from the host's id so each mount is still individually addressable.
+ */
+export function mountScene(host: HTMLElement, opts: SceneOptions = {}): SceneHandle {
+  const id = host.id;
+
+  host.textContent = "";
+
+  const wrap = makeNode("div", "scene-body");
+  const figure = buildPortrait(id);
+  wrap.append(figure);
+
+  const ribbonCharge = buildRibbonCharge(opts.ribbon);
+
+  const lineBox = buildLineBox(id);
+  wrap.append(lineBox);
+  host.append(wrap);
+
+  const { controls, moreButton, allButton, progress } = buildControls(id, lineBox.id);
   host.append(controls);
 
   /**
