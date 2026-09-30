@@ -433,163 +433,182 @@ function applyMoveSubPhase(state: BattleState, unitId: string, to: Position): Ba
  *     as it would for a separate move command issued afterwards).
  * Either way there is ONE {@link settleTurn} at the bottom, priced −100.
  */
+function handleMoveCommand(
+  state: BattleState,
+  unitId: string,
+  command: Extract<Command, { kind: "move" }>,
+): AppliedCommand {
+  return {
+    state: settleTurn(applyMoveSubPhase(state, unitId, command.to), unitId, {
+      didMove: true,
+      didAct: false,
+    }),
+    event: null,
+    reactionEvents: [],
+    declaredChargeId: null,
+  };
+}
+
+function handleWaitCommand(state: BattleState, unitId: string): AppliedCommand {
+  return {
+    state: settleTurn(state, unitId, { didMove: false, didAct: false }),
+    event: null,
+    reactionEvents: [],
+    declaredChargeId: null,
+  };
+}
+
+function handleActCommand(
+  state: BattleState,
+  unitId: string,
+  command: Extract<Command, { kind: "act" }>,
+): AppliedCommand {
+  const fold = command.move;
+  const didMove = fold !== undefined;
+
+  // GATE 1 — the ability must be equipped on the acting unit (loadout-derived,
+  // Slice 4). Symmetric with `move` being gated by `moveRange`: an unequipped
+  // or unknown ability is rejected, never silently resolved. Read from the
+  // PRE-move state: a unit's loadout cannot change by walking, so this gate is
+  // identical either side of the move and stays first for both shapes.
+  const ability = state.units.find((u) => u.id === unitId)!.abilities.find(
+    (a) => a.id === command.abilityId,
+  );
+  if (!ability) {
+    throw new Error(`applyCommand: ${unitId} has no equipped ability ${command.abilityId}`);
+  }
+  // GATE 1b — a CHARGED ability LOCKS the other sub-phase (docs/01 §2/§3): the
+  // cast ends the turn the instant it is declared, so there is no "after" half
+  // left to move in. A move-BEFORE is legal (walk up, then begin the cast).
+  if (ability.speed !== null && fold !== undefined && fold.order === "after") {
+    throw new Error(
+      `applyCommand: charged ability ${command.abilityId} locks the SUBSEQUENT move ` +
+        `sub-phase; a move cannot follow the cast. Moving BEFORE it is legal — ` +
+        `use order "before"`,
+    );
+  }
+
+  // MOVE-BEFORE — relocate first; the act then resolves FROM THE DESTINATION.
+  const from = fold !== undefined && fold.order === "before"
+    ? applyMoveSubPhase(state, unitId, fold.to)
+    : state;
+  const actor = from.units.find((u) => u.id === unitId)!;
+
+  // Resolve the target tile (a unit target contributes its CURRENT tile).
+  const tgt = command.target;
+  let targetUnitId: string | null = null;
+  let targetTile: Position;
+  if ("unitId" in tgt) {
+    const tu = from.units.find((u) => u.id === tgt.unitId);
+    if (!tu) {
+      throw new Error(`applyCommand: ${command.abilityId} targets unknown unit ${tgt.unitId}`);
+    }
+    targetUnitId = tu.id;
+    targetTile = { x: tu.pos.x, y: tu.pos.y };
+  } else {
+    targetTile = { x: tgt.x, y: tgt.y };
+  }
+
+  // GATE 2 — range (Chebyshev reach + height tolerance; strict LoS deferred,
+  // ADR-0010 item 5). Measured from `actor.pos` — the DESTINATION for a
+  // move-before fold, the ORIGIN otherwise. Rejecting an out-of-range act keeps
+  // replay legality a pure function of (seed, commands); the fold never relaxes
+  // it, it only changes WHICH tile the reach is measured from.
+  if (!inAbilityRange(from.grid, actor.pos, targetTile, ability.range)) {
+    throw new Error(
+      `applyCommand: ${command.abilityId} target (${targetTile.x},${targetTile.y}) is out of range for ${unitId}`,
+    );
+  }
+
+  // DISPATCH by charge speed (docs/01 §3). The landed event is computed by
+  // diffing HP across the resolution ({@link hpDiffEvent}), so every instant path
+  // accounts identically and exactly (no overkill, miss ⇒ 0).
+  let after: BattleState;
+  let event: ResolutionEvent | null = null;
+  let reactions: ReactionOutcome[] = [];
+  let declaredChargeId: string | null = null;
+  if (ability.speed === null) {
+    // INSTANT — resolve now.
+    if (ability.aoe !== null) {
+      // AREA — resolve every appropriate unit in the box around the aim TILE
+      // (foes for damage, allies incl. self for heal — TARGETED, no friendly
+      // fire). A tile target is legal for an area act, so the unit-target
+      // requirement below is relaxed here.
+      const aoe = resolveAbilityAoe(from, unitId, targetTile, ability.id);
+      after = aoe.state;
+      reactions = aoe.outcome.reactions;
+    } else {
+      // SINGLE-TARGET — ONLY the weapon-derived basic swing delegates to
+      // resolveAttack (its magnitude comes from `weapon`, not from a projected
+      // `power`); every other instant, physical included, reads its magnitude
+      // from the ability projection. The discriminant is {@link isBasicAttack},
+      // NOT `formula === "physical"`: that older test swept up every authored
+      // physical skill, so `power` was projected and then discarded and six
+      // shipped abilities dealt a plain weapon swing regardless of tuning.
+      // Both branches draw exactly ONE hit roll, so the RNG cursor is unmoved
+      // by the routing itself — only the magnitude changes.
+      if (!targetUnitId) {
+        throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
+      }
+      const single = isBasicAttack(ability)
+        ? resolveAttack(from, unitId, targetUnitId)
+        : resolveAbility(from, unitId, targetUnitId, ability.id);
+      after = single.state;
+      reactions = single.outcome.reactions;
+    }
+    event = hpDiffEvent(from, after, unitId, ability.id);
+  } else {
+    // CHARGED — enqueue via declareCharge, sourcing speed + effect from the
+    // ability projection (not an inline command payload). declareCharge no
+    // longer settles (it cannot know whether this turn also moved); the single
+    // settle below prices the turn. The matured charge resolves via
+    // resolveCharge — its landed outcome is accounted THEN
+    // (advanceToDecisionDetailed), credited to this ability via declaredChargeId.
+    const beforeIds = new Set(from.chargeQueue.map((c) => c.id));
+    after = declareCharge(from, unitId, {
+      targetTile,
+      speed: ability.speed,
+      effect: {
+        kind: "magic",
+        power: ability.power,
+        element: ability.element,
+        accuracy: ability.accuracy,
+        aoe: ability.aoe,
+        // Carried through the charge, not re-read at maturity: the charge outlives
+        // this turn and its resolver is registry-free (ADR-0010/ADR-0011). Omitting
+        // this would drop a charged ability's statuses at cast time, invisibly —
+        // no SHIPPED charged ability inflicts anything today, so nothing would
+        // have failed.
+        inflicts: ability.inflicts,
+      },
+    });
+    const declared = after.chargeQueue.find((c) => !beforeIds.has(c.id));
+    declaredChargeId = declared ? declared.id : null;
+  }
+
+  // MOVE-AFTER — hit and retreat. Validated against the POST-act board.
+  if (fold !== undefined && fold.order === "after") {
+    after = applyMoveSubPhase(after, unitId, fold.to);
+  }
+
+  // THE single settle for this command: −100 when both sub-phases were used,
+  // −80 for the act alone (docs/01 §1, AC-02).
+  return {
+    state: settleTurn(after, unitId, { didMove, didAct: true }),
+    event,
+    reactionEvents: reactionEvents(reactions),
+    declaredChargeId,
+  };
+}
+
 function applyToUnit(state: BattleState, unitId: string, command: Command): AppliedCommand {
   switch (command.kind) {
     case "move":
-      return {
-        state: settleTurn(applyMoveSubPhase(state, unitId, command.to), unitId, {
-          didMove: true,
-          didAct: false,
-        }),
-        event: null,
-        reactionEvents: [],
-        declaredChargeId: null,
-      };
-    case "act": {
-      const fold = command.move;
-      const didMove = fold !== undefined;
-
-      // GATE 1 — the ability must be equipped on the acting unit (loadout-derived,
-      // Slice 4). Symmetric with `move` being gated by `moveRange`: an unequipped
-      // or unknown ability is rejected, never silently resolved. Read from the
-      // PRE-move state: a unit's loadout cannot change by walking, so this gate is
-      // identical either side of the move and stays first for both shapes.
-      const ability = state.units.find((u) => u.id === unitId)!.abilities.find(
-        (a) => a.id === command.abilityId,
-      );
-      if (!ability) {
-        throw new Error(`applyCommand: ${unitId} has no equipped ability ${command.abilityId}`);
-      }
-      // GATE 1b — a CHARGED ability LOCKS the other sub-phase (docs/01 §2/§3): the
-      // cast ends the turn the instant it is declared, so there is no "after" half
-      // left to move in. A move-BEFORE is legal (walk up, then begin the cast).
-      if (ability.speed !== null && fold !== undefined && fold.order === "after") {
-        throw new Error(
-          `applyCommand: charged ability ${command.abilityId} locks the SUBSEQUENT move ` +
-            `sub-phase; a move cannot follow the cast. Moving BEFORE it is legal — ` +
-            `use order "before"`,
-        );
-      }
-
-      // MOVE-BEFORE — relocate first; the act then resolves FROM THE DESTINATION.
-      const from = fold !== undefined && fold.order === "before"
-        ? applyMoveSubPhase(state, unitId, fold.to)
-        : state;
-      const actor = from.units.find((u) => u.id === unitId)!;
-
-      // Resolve the target tile (a unit target contributes its CURRENT tile).
-      const tgt = command.target;
-      let targetUnitId: string | null = null;
-      let targetTile: Position;
-      if ("unitId" in tgt) {
-        const tu = from.units.find((u) => u.id === tgt.unitId);
-        if (!tu) {
-          throw new Error(`applyCommand: ${command.abilityId} targets unknown unit ${tgt.unitId}`);
-        }
-        targetUnitId = tu.id;
-        targetTile = { x: tu.pos.x, y: tu.pos.y };
-      } else {
-        targetTile = { x: tgt.x, y: tgt.y };
-      }
-
-      // GATE 2 — range (Chebyshev reach + height tolerance; strict LoS deferred,
-      // ADR-0010 item 5). Measured from `actor.pos` — the DESTINATION for a
-      // move-before fold, the ORIGIN otherwise. Rejecting an out-of-range act keeps
-      // replay legality a pure function of (seed, commands); the fold never relaxes
-      // it, it only changes WHICH tile the reach is measured from.
-      if (!inAbilityRange(from.grid, actor.pos, targetTile, ability.range)) {
-        throw new Error(
-          `applyCommand: ${command.abilityId} target (${targetTile.x},${targetTile.y}) is out of range for ${unitId}`,
-        );
-      }
-
-      // DISPATCH by charge speed (docs/01 §3). The landed event is computed by
-      // diffing HP across the resolution ({@link hpDiffEvent}), so every instant path
-      // accounts identically and exactly (no overkill, miss ⇒ 0).
-      let after: BattleState;
-      let event: ResolutionEvent | null = null;
-      let reactions: ReactionOutcome[] = [];
-      let declaredChargeId: string | null = null;
-      if (ability.speed === null) {
-        // INSTANT — resolve now.
-        if (ability.aoe !== null) {
-          // AREA — resolve every appropriate unit in the box around the aim TILE
-          // (foes for damage, allies incl. self for heal — TARGETED, no friendly
-          // fire). A tile target is legal for an area act, so the unit-target
-          // requirement below is relaxed here.
-          const aoe = resolveAbilityAoe(from, unitId, targetTile, ability.id);
-          after = aoe.state;
-          reactions = aoe.outcome.reactions;
-        } else {
-          // SINGLE-TARGET — ONLY the weapon-derived basic swing delegates to
-          // resolveAttack (its magnitude comes from `weapon`, not from a projected
-          // `power`); every other instant, physical included, reads its magnitude
-          // from the ability projection. The discriminant is {@link isBasicAttack},
-          // NOT `formula === "physical"`: that older test swept up every authored
-          // physical skill, so `power` was projected and then discarded and six
-          // shipped abilities dealt a plain weapon swing regardless of tuning.
-          // Both branches draw exactly ONE hit roll, so the RNG cursor is unmoved
-          // by the routing itself — only the magnitude changes.
-          if (!targetUnitId) {
-            throw new Error(`applyCommand: instant ability ${command.abilityId} requires a unit target`);
-          }
-          const single = isBasicAttack(ability)
-            ? resolveAttack(from, unitId, targetUnitId)
-            : resolveAbility(from, unitId, targetUnitId, ability.id);
-          after = single.state;
-          reactions = single.outcome.reactions;
-        }
-        event = hpDiffEvent(from, after, unitId, ability.id);
-      } else {
-        // CHARGED — enqueue via declareCharge, sourcing speed + effect from the
-        // ability projection (not an inline command payload). declareCharge no
-        // longer settles (it cannot know whether this turn also moved); the single
-        // settle below prices the turn. The matured charge resolves via
-        // resolveCharge — its landed outcome is accounted THEN
-        // (advanceToDecisionDetailed), credited to this ability via declaredChargeId.
-        const beforeIds = new Set(from.chargeQueue.map((c) => c.id));
-        after = declareCharge(from, unitId, {
-          targetTile,
-          speed: ability.speed,
-          effect: {
-            kind: "magic",
-            power: ability.power,
-            element: ability.element,
-            accuracy: ability.accuracy,
-            aoe: ability.aoe,
-            // Carried through the charge, not re-read at maturity: the charge outlives
-            // this turn and its resolver is registry-free (ADR-0010/ADR-0011). Omitting
-            // this would drop a charged ability's statuses at cast time, invisibly —
-            // no SHIPPED charged ability inflicts anything today, so nothing would
-            // have failed.
-            inflicts: ability.inflicts,
-          },
-        });
-        const declared = after.chargeQueue.find((c) => !beforeIds.has(c.id));
-        declaredChargeId = declared ? declared.id : null;
-      }
-
-      // MOVE-AFTER — hit and retreat. Validated against the POST-act board.
-      if (fold !== undefined && fold.order === "after") {
-        after = applyMoveSubPhase(after, unitId, fold.to);
-      }
-
-      // THE single settle for this command: −100 when both sub-phases were used,
-      // −80 for the act alone (docs/01 §1, AC-02).
-      return {
-        state: settleTurn(after, unitId, { didMove, didAct: true }),
-        event,
-        reactionEvents: reactionEvents(reactions),
-        declaredChargeId,
-      };
-    }
+      return handleMoveCommand(state, unitId, command);
+    case "act":
+      return handleActCommand(state, unitId, command);
     case "wait":
-      return {
-        state: settleTurn(state, unitId, { didMove: false, didAct: false }),
-        event: null,
-        reactionEvents: [],
-        declaredChargeId: null,
-      };
+      return handleWaitCommand(state, unitId);
   }
 }
 
