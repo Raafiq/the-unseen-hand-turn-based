@@ -280,9 +280,13 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     let anyHit = false;
     let anyKo = false;
     let totalDamage = 0;
+
+    // O(1) lookup map for targets
+    const unitMap = new Map(state.units.map((u) => [u.id, u]));
+
     for (const foeRef of foes) {
       // Re-find on the live (mutating) clone so a KO earlier in the box is seen.
-      const foe = state.units.find((u) => u.id === foeRef.id)!;
+      const foe = unitMap.get(foeRef.id)!;
       const chance = applyMagicEvasion(effect.accuracy, foe.evasion.magicEv);
       const hitOne = rng.chance(chance); // ONE draw per target, id order.
       let dmg = 0;
