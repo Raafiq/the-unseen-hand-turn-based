@@ -1023,20 +1023,32 @@ function drawStatusBadges(
   const chipW = 11;
   const chipH = 12;
   const gap = 3;
-  const totalW = statuses.length * chipW + (statuses.length - 1) * gap;
+  const maxStatuses = 3;
+
+  const showOverflow = statuses.length > maxStatuses;
+  const visibleStatuses = showOverflow ? statuses.slice(0, maxStatuses) : statuses;
+  const overflowW = showOverflow ? 15 : 0;
+
+  let totalW = 0;
+  if (visibleStatuses.length > 0) {
+    totalW += visibleStatuses.length * chipW + (visibleStatuses.length - 1) * gap;
+  }
+  if (showOverflow) {
+    if (visibleStatuses.length > 0) {
+      totalW += gap;
+    }
+    totalW += overflowW;
+  }
+
   let x = cx - totalW / 2;
   // Clamp off the top edge so a unit on the back row still shows its chips.
-  // TODO(status-overflow): the row is unbounded horizontally — with 3+ statuses
-  // on one unit the centred chips can overrun neighbouring tokens. When a slice
-  // renders that many at once, add a wrap or a "+N" overflow chip. The demo caps
-  // at one status/unit, so this is latent, not live.
   const y = Math.max(2, cy - 38);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = "700 9px ui-monospace, monospace";
-  for (const st of statuses) {
+  for (const st of visibleStatuses) {
     roundedRect(ctx, x, y, chipW, chipH, 3);
     ctx.fillStyle = st.kind === "buff" ? theme.buff : theme.debuff;
     ctx.fill();
@@ -1047,6 +1059,18 @@ function drawStatusBadges(
     ctx.fillText(statusGlyph(st.id), x + chipW / 2, y + chipH / 2 + 0.5);
     x += chipW + gap;
   }
+
+  if (showOverflow) {
+    roundedRect(ctx, x, y, overflowW, chipH, 3);
+    ctx.fillStyle = "#4a5568";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#0b0f1c";
+    ctx.stroke();
+    ctx.fillStyle = "#e8ecf5";
+    ctx.fillText("+" + (statuses.length - maxStatuses), x + overflowW / 2, y + chipH / 2 + 0.5);
+  }
+
   ctx.restore();
 }
 
