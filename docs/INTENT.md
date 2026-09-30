@@ -1,4 +1,4 @@
-<!-- written-against: de2d417 -->
+<!-- written-against: 373d603 -->
 
 # INTENT — where this game is going, and what comes next
 
