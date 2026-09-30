@@ -414,7 +414,7 @@ export class CampaignShell {
     const enc = loaded.encounter;
     this.session = new Session({
       makeState: () => loaded.state,
-      playerTeam: this.def.playerTeam,
+      playerTeam: enc.teams.find((t) => t.controller === "player")?.teamId ?? 0,
       rules: {
         victory: enc.victory,
         defeat: enc.defeat,

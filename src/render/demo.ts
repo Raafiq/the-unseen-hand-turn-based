@@ -71,20 +71,6 @@ export const UNIT_META: Record<string, DemoUnitMeta> = {
   mage: { label: "Mage", color: "#c86ee0", role: "Team B · Spd 13" },
 };
 
-/**
- * The PLAYER-controlled team of the demo battle.
- *
- * TODO(controller): read this from the encounter instead. `EncounterSchema`
- * already carries it per team as `Encounter.teams[].controller`
- * (`"ai" | "player"`, see `src/sim/encounter.ts`), but the demo builds a
- * `BattleState` DIRECTLY via `createBattleState` rather than through
- * `loadEncounter`, and `BattleState` itself carries no controller field — so the
- * value is genuinely not reachable here. When the viewer loads a real encounter,
- * derive this from `teams.find(t => t.controller === "player").teamId` and delete
- * the constant (docs/10 §2).
- */
-export const PLAYER_TEAM = 0;
-
 const unit = (id: string, teamId: number, over: Partial<UnitState>): UnitState =>
   defaultUnit(id, teamId, { jump: 2, ...over });
 
