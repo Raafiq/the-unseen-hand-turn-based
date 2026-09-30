@@ -1,13 +1,13 @@
 # ADR-0049 — A weapon has a range: Attack takes its reach from the weapon
 
-- **Status:** Accepted — the owner, 2026-09-29 (six decisions, recorded below).
+- **Status:** Accepted — the owner, 2026-09-29 (six decisions, recorded below). Built 2026-09-29 on `claude/project-thread-ov8xky`; not yet merged.
 - **Date:** 2026-09-29
 - **Deciders:** the owner (`intent/weapon-range.md`).
 - **Amends:** `docs/01` §5a, §7, §9a (Counter's reach) and Acceptance Criteria; `docs/05` §3
   (the "no weapon range" sentence); closes `docs/defects.md` §1's last live row on build.
 - **Acceptance Criteria:** AC-011 … AC-016, authored into `docs/01` in this spec slice.
   Projected into `specs/005-weapon-range/spec.md`.
-- **Status of the code:** none of this is built yet. Spec only.
+- **Status of the code:** built and tested (1088 tests green), not yet merged.
 
 ## Context
 
@@ -100,3 +100,15 @@ attackable if it is in the box, as it is for every ability today.
   the field.
 - `docs/05` §3's claim "equipment is still deferred, so there is no weapon range" is retired
   in the same slice.
+
+## Amendment 2026-09-29 (built)
+
+- The party owns the Long Bow through battle 1's grants (`camp-b1-the-toll-road`), not the
+  starting inventory (owner, 2026-09-29). The prep dropdown lists inventory only, so a bow
+  granted nowhere could never be re-equipped after a swap.
+- `CONTENT_SCHEMA_VERSION` stays 2 by design. The required `weapon.range` did not bump it
+  because the only pack with equipment is re-authored in the same change (`src/sim/content.ts`
+  docstring).
+- The AC fixtures changed layout, not rules: diagonal and (3,3) foes sit on 2-D grids, and
+  the height-4 tile sits off the bow's row (`docs/01` AC-011, AC-012, AC-016). The reaction gate is
+  `tryReaction` in `src/sim/resolve.ts` (AC-015).

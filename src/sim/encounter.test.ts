@@ -137,7 +137,7 @@ describe("survive — full-run integration (runFromState)", () => {
     // so team 1 inevitably wipes it. The survive threshold is astronomically high, so
     // the eliminateTeams[0] DEFEAT fires long first — a real dynamic break, not a
     // turn-zero degenerate.
-    const noHitWeapon = { wp: 8, formula: "paWp", element: "none", accuracy: 0 } as const;
+    const noHitWeapon = { wp: 8, formula: "paWp", element: "none", accuracy: 0, range: { h: 1, v: 1 } } as const;
     const defender = defaultUnit("def", 0, {
       pos: { x: 0, y: 0 },
       move: 0,

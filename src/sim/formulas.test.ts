@@ -16,7 +16,7 @@ import { defaultUnit, type Evasion, type UnitState, type WeaponFormula } from ".
 function attacker(formula: WeaponFormula, over: Partial<UnitState> & { wp?: number }): UnitState {
   const { wp, ...rest } = over;
   const u = defaultUnit("atk", 0, rest);
-  u.weapon = { wp: wp ?? 10, formula, element: "none", accuracy: 100 };
+  u.weapon = { wp: wp ?? 10, formula, element: "none", accuracy: 100, range: { h: 1, v: 1 } };
   return u;
 }
 

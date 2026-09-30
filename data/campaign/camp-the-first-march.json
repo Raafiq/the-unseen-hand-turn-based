@@ -68,7 +68,7 @@
     },
     {
       "rosterSchemaVersion": 3,
-      "weapon": null,
+      "weapon": "wpn-long-bow",
       "id": "pc-briar",
       "name": "Briar",
       "level": 1,
@@ -349,7 +349,7 @@
     {
       "id": "b1",
       "encounterId": "camp-b1-the-toll-road",
-      "grants": ["wpn-arming-sword", "wpn-cestus"]
+      "grants": ["wpn-arming-sword", "wpn-cestus", "wpn-long-bow"]
     },
     {
       "id": "b2",

@@ -23,7 +23,12 @@ import { JobSchema, type Job } from "./job.js";
 import { StatusEffectSchema, type StatusEffect } from "./status.js";
 import { TraitSchema, type Trait } from "./trait.js";
 
-/** Current content-pack schema version. Bump when any catalog shape changes. */
+/**
+ * Current content-pack schema version. Bump when any catalog shape changes — with one
+ * deliberate exception: a new REQUIRED field on an item fails loudly at load by design
+ * instead of bumping. ADR-0049 kept this at 2 for the required `weapon.range` because
+ * the only pack with equipment is re-authored in the same change.
+ */
 export const CONTENT_SCHEMA_VERSION = 2;
 
 /** Oldest content schemaVersion we still know how to migrate forward. */

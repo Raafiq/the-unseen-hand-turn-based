@@ -1,5 +1,5 @@
 # Intent: a weapon has a range
-Author: the owner. Date: 2026-09-24; reframed 2026-09-29 from "Attack with a bow shoots". Status: accepted (owner, 2026-09-24) — the next slice now that the skill picker is merged (PR #75).
+Author: the owner. Date: 2026-09-24; reframed 2026-09-29 from "Attack with a bow shoots". Status: built, ADR-0049 (2026-09-29; on `claude/project-thread-ov8xky`, not yet merged). Accepted by the owner 2026-09-24.
 
 ## Problem
 The Attack button reaches one tile for every unit, whatever the weapon.

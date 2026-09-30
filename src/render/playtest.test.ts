@@ -371,7 +371,24 @@ describe("A3 — do the choices reach the built unit?", () => {
     const withheld = run(DEFAULT, true);
     expect(withheld.decisions).toBe(0);
     expect(withheld.battles.every((b) => b.prepDecisions === 0)).toBe(true);
-    expect(withheld.party.every((m) => m.slotsFilled === 0 && m.weapon === null)).toBe(true);
+    // "Zero edits" means each member still holds the weapon the campaign STARTED them
+    // with, not "no weapon": Briar starts armed with the Long Bow by design (ADR-0049).
+    // Looked up by member id from the campaign roster, so it is the authored start and
+    // not a value read back off the run under test.
+    const startingWeapon = (id: string): string | null => {
+      const rec = campaign.party.find((r) => r.id === id);
+      if (!rec) throw new Error(`fixture: no roster member "${id}" in the campaign`);
+      return rec.weapon;
+    };
+    expect(withheld.party).toHaveLength(campaign.party.length);
+    for (const m of withheld.party) {
+      expect(m.weapon).toBe(startingWeapon(m.id));
+      expect(m.slotsFilled).toBe(0);
+    }
+    // Not vacuous: at least one member starts armed, so a runner that equipped nothing
+    // and one that equipped the start weapon cannot both hide behind an all-null roster.
+    expect(withheld.party.find((m) => m.id === "pc-briar")?.weapon).toBe("wpn-long-bow");
+    expect(campaign.party.some((r) => r.weapon !== null)).toBe(true);
   });
 });
 

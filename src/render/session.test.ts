@@ -16,8 +16,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  BASIC_ATTACK_ID,
   advanceToDecision,
   attackDamage,
+  buildBattleUnit,
   applyCommand,
   createBattleState,
   decideBalanceProbe,
@@ -35,8 +37,10 @@ import {
   type RunConfig,
   type RunReport,
   type Tile,
+  type UnitRecord,
   type UnitState,
 } from "../sim/index.js";
+import { campaign, registry } from "./campaign-data.js";
 import { Session } from "./session.js";
 
 /**
@@ -104,7 +108,7 @@ function fixture(): BattleState {
     hp: 400,
     maxHp: 400,
     pa: 10,
-    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
     evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
   });
   const foe: UnitState = defaultUnit("foe", 1, {
@@ -429,7 +433,7 @@ describe("AC-V4 — the previewed magnitude IS the magnitude dealt (no viewer-si
       hp: 400,
       maxHp: 400,
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     });
     // The skill is FIRST in the projection, so `targetOptions` picks it over the basic
@@ -1140,7 +1144,7 @@ function wipeFixture(): BattleState {
     hp: 200,
     maxHp: 200,
     pa: 10,
-    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
     evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
   });
   const doomed = defaultUnit("doomed", 1, {
@@ -1360,7 +1364,7 @@ function ruledFixture(): BattleState {
     hp: 400,
     maxHp: 400,
     pa: 10,
-    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+    weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
     evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
   });
   const mark = defaultUnit("mark", 1, {
@@ -1576,7 +1580,7 @@ describe("the skill picker (intent/skill-picker.md, AC-V23…V29)", () => {
       hp: 400,
       maxHp: 400,
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     });
     const hero: UnitState = { ...base, abilities: [alphaAbility, betaAbility, ...base.abilities] };
@@ -1623,7 +1627,7 @@ describe("the skill picker (intent/skill-picker.md, AC-V23…V29)", () => {
       hp: 400,
       maxHp: 400,
       pa: 10,
-      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+      weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
       evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
     });
     const hero: UnitState = { ...base, abilities: [shortAbility, ...base.abilities] };
@@ -1690,6 +1694,172 @@ describe("the skill picker (intent/skill-picker.md, AC-V23…V29)", () => {
       expect(at(got, P_CONTROL)).toBe(true); // same horizontal distance, height 0 — included
     },
   );
+
+  /**
+   * AC-016 (docs/01, ADR-0049): Attack's reach is the WEAPON's, painted by the same sim
+   * rule. Layout per specs/005-weapon-range/plan.md row 016, which overrides the AC's
+   * "1x7 row" (the height-4 tile would sit ON the bow's row and hide behind the bow's own
+   * x=5 cut): a 7x2 grid, the height-4 tile at (2,1) OFF the bow's row.
+   *
+   * The bow and sword units are the campaign's real Briar record built through the real
+   * `buildBattleUnit` with the weapon swapped, so `basic.attack` and `aim.aimed-shot` are
+   * derived, never hand-copied. Both stand on the same map; whichever is fastest is the
+   * actor the Session reads. The purpose-built {h:2,v:1} weapon has no name in the pack.
+   */
+  describe("AC-016 — Attack paints the weapon's reach (ADR-0049)", () => {
+    const W = 7;
+    const H = 2;
+    const TALL: Position = { x: 2, y: 1 };
+    const BOW_AT: Position = { x: 0, y: 0 };
+    const SWORD_AT: Position = { x: 4, y: 1 };
+    const AIMED = "aim.aimed-shot";
+
+    const briarWith = (weapon: string): UnitRecord => {
+      const rec = campaign.party.find((r) => r.id === "pc-briar");
+      if (!rec) throw new Error("fixture: pc-briar missing from the shipped campaign");
+      return { ...rec, weapon };
+    };
+
+    const grid = (): { width: number; height: number; tiles: Tile[] } => {
+      const tiles: Tile[] = makeFlatTiles(W, H, 0);
+      tiles[TALL.y * W + TALL.x] = { height: 4, passable: true };
+      return { width: W, height: H, tiles };
+    };
+    const foe = (): UnitState =>
+      defaultUnit("foe", 1, { pos: { x: 6, y: 1 }, facing: "W", speed: 1, hp: 400, maxHp: 400 });
+
+    /** Both real units on the map; `first` gets the higher speed so it is the actor. */
+    function realFixture(first: "bow" | "sword"): BattleState {
+      const bow = buildBattleUnit(briarWith("wpn-long-bow"), registry, {
+        id: "bow",
+        pos: { ...BOW_AT },
+        teamId: 0,
+        facing: "E",
+        speed: first === "bow" ? 12 : 6,
+      });
+      const sword = buildBattleUnit(briarWith("wpn-arming-sword"), registry, {
+        id: "sword",
+        pos: { ...SWORD_AT },
+        teamId: 0,
+        facing: "W",
+        speed: first === "sword" ? 12 : 6,
+      });
+      return createBattleState({ seed: 16, grid: grid(), units: [bow, sword, foe()] });
+    }
+
+    /** A weapon no shipped item has: {h:2,v:1}, wp 6 (the bow is 4, the sword 8). */
+    const CUSTOM_RANGE = { h: 2, v: 1 } as const;
+    function customFixture(): BattleState {
+      const archer = defaultUnit("custom", 0, {
+        pos: { ...BOW_AT },
+        facing: "E",
+        speed: 12,
+        hp: 400,
+        maxHp: 400,
+        weapon: { wp: 6, formula: "paWp", element: "none", accuracy: 100, range: { ...CUSTOM_RANGE } },
+      });
+      return createBattleState({ seed: 17, grid: grid(), units: [archer, foe()] });
+    }
+
+    const key = (list: readonly Position[]): string[] =>
+      list.map((p) => `${p.x},${p.y}`).sort();
+
+    /** The tiles the sim's own rule accepts for `range` from `from` on the fixture grid. */
+    function simSet(state: BattleState, from: Position, range: BattleAbility["range"]): string[] {
+      const out: Position[] = [];
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (inAbilityRange(state.grid, from, { x, y }, range)) out.push({ x, y });
+        }
+      }
+      return key(out);
+    }
+
+    const attackReach = (first: "bow" | "sword"): { s: Session; got: Position[] } => {
+      const s = new Session({ makeState: () => realFixture(first), playerTeam: 0 });
+      expect(s.activeUnitId).toBe(first);
+      s.setCommandMode("attack");
+      return { s, got: s.reach() };
+    };
+    const rangeOf = (s: Session, id: string, abilityId: string): BattleAbility["range"] => {
+      const a = s.state.units.find((u) => u.id === id)?.abilities.find((x) => x.id === abilityId);
+      if (!a) throw new Error(`fixture: ${id} has no ${abilityId}`);
+      return a.range;
+    };
+
+    it(
+      "the bow's Attack reach is exactly what inAbilityRange accepts for its basic.attack, " +
+        "and the sword's is its neighbours only — and the two DIFFER. MUTATION: hard-code " +
+        "{h:1,v:1} in the Attack branch of Session.reach() and the bow half goes red.",
+      () => {
+        const bow = attackReach("bow");
+        const sword = attackReach("sword");
+
+        // FIRST: the fixture separates the models. If the two sets were equal, every
+        // assertion below would pass for a viewer that ignored the weapon.
+        expect(key(bow.got)).not.toEqual(key(sword.got));
+
+        // The bow: the sim's own set for ITS derived basic.attack range...
+        const bowRange = rangeOf(bow.s, "bow", BASIC_ATTACK_ID);
+        expect(bowRange).toEqual({ h: 4, v: 3 }); // the real Long Bow, not a stand-in
+        expect(key(bow.got)).toEqual(simSet(bow.s.state, BOW_AT, bowRange));
+        // ...which on this map reads: x=1..4 on its row, not x=5, not the height-4 tile.
+        for (let x = 1; x <= 4; x++) expect(at(bow.got, { x, y: 0 })).toBe(true);
+        expect(at(bow.got, { x: 5, y: 0 })).toBe(false);
+        expect(at(bow.got, TALL)).toBe(false); // inside the horizontal box, height 4 > v 3
+        expect(at(bow.got, { x: 3, y: 1 })).toBe(true); // control: same reach, height 0
+
+        // The sword: its 8-neighbourhood plus its own tile (the sim's rule admits distance
+        // 0, and so does it for the bow) and nothing beyond — x=2 and x=6 are absent.
+        const swordRange = rangeOf(sword.s, "sword", BASIC_ATTACK_ID);
+        expect(swordRange).toEqual({ h: 1, v: 1 });
+        expect(key(sword.got)).toEqual(simSet(sword.s.state, SWORD_AT, swordRange));
+        expect(key(sword.got)).toEqual(["3,0", "3,1", "4,0", "4,1", "5,0", "5,1"]);
+      },
+    );
+
+    it(
+      "a purpose-built {h:2,v:1} weapon paints exactly its own reach. MUTATION: a " +
+        "render-side reach keyed on the Long Bow (its wp, or its name) paints the bow's " +
+        "{4,3} — or a flat {1,1} — for this unit and this goes red.",
+      () => {
+        const s = new Session({ makeState: customFixture, playerTeam: 0 });
+        s.setCommandMode("attack");
+        const got = s.reach();
+        // Independent of the unit: the literal range this test built the weapon with.
+        expect(key(got)).toEqual(simSet(s.state, BOW_AT, CUSTOM_RANGE));
+        expect(at(got, { x: 1, y: 0 })).toBe(true);
+        expect(at(got, { x: 2, y: 0 })).toBe(true);
+        expect(at(got, { x: 3, y: 0 })).toBe(false); // the bow reaches here; this weapon does not
+        expect(at(got, TALL)).toBe(false); // height 4 > v 1
+        // and it is neither the bow's set nor the sword's
+        const bowSet = simSet(s.state, BOW_AT, { h: 4, v: 3 });
+        const swordSet = simSet(s.state, BOW_AT, { h: 1, v: 1 });
+        expect(key(got)).not.toEqual(bowSet);
+        expect(key(got)).not.toEqual(swordSet);
+      },
+    );
+
+    it(
+      "Aimed Shot on the bow unit paints x=1..5 — a DIFFERENT set from Attack's, so the " +
+        "ability's identity (aim.aimed-shot, not basic.attack) is what chose the range.",
+      () => {
+        const { s, got: attack } = attackReach("bow");
+        s.setCommandMode("skill");
+        s.selectSkill(AIMED);
+        expect(s.selectedSkill()).toBe(AIMED);
+        const aimed = s.reach();
+
+        const aimedRange = rangeOf(s, "bow", AIMED);
+        expect(aimedRange).not.toEqual(rangeOf(s, "bow", BASIC_ATTACK_ID));
+        expect(key(aimed)).toEqual(simSet(s.state, BOW_AT, aimedRange));
+        for (let x = 1; x <= 5; x++) expect(at(aimed, { x, y: 0 })).toBe(true);
+        expect(at(aimed, TALL)).toBe(false);
+        expect(key(aimed)).not.toEqual(key(attack));
+        expect(at(attack, { x: 5, y: 0 })).toBe(false); // the one tile that tells them apart
+      },
+    );
+  });
 
   it(
     "AC-V25 — reach() redraws from the STAGED move tile, not the unit's own position. " +
@@ -1844,7 +2014,7 @@ describe("the skill picker (intent/skill-picker.md, AC-V23…V29)", () => {
           hp: 400,
           maxHp: 400,
           pa: 10,
-          weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100 },
+          weapon: { wp: 8, formula: "paWp", element: "none", accuracy: 100, range: { h: 1, v: 1 } },
           evasion: { classEv: 0, weaponEv: 0, shieldEv: 0, accessoryEv: 0, magicEv: 0 },
         });
         const hero: UnitState = { ...base, abilities: [alphaAbility, betaAbility, ...base.abilities] };

@@ -72,6 +72,11 @@
  *     save consumes the same rolls and plays byte-identically. Additive — a reaction
  *     draw is taken ONLY when an equipped reaction's trigger condition holds, so a
  *     `null` reaction leaves the docs/05 §3 roll order exactly where it was.
+ *   - v12 (weapon-range slice, ADR-0049): {@link WeaponSchema} gains a required
+ *     `range`, and `basicAttackFrom` copies it onto `basic.attack` instead of
+ *     hard-coding `{h:1,v:1}`. The 11→12 migration stamps `{h:1,v:1}` on every unit's
+ *     weapon — the reach every v11 swing had — so a migrated save plays
+ *     byte-identically. Representation-only: no roll or result shifts.
  */
 
 import { z } from "zod";
@@ -100,7 +105,7 @@ export {
 } from "./active-status.js";
 
 /** Current on-disk schema version. Bump whenever BattleState shape changes. */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 /** Oldest schemaVersion we still know how to migrate forward. */
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -172,6 +177,13 @@ export const WeaponSchema = z
     element: ElementSchema,
     /** Base accuracy % of a swing before evasion (docs/01 §6). */
     accuracy: PercentSchema,
+    /**
+     * How far a basic attack with this weapon reaches (ADR-0049): {@link
+     * basicAttackFrom} copies it onto `basic.attack`, the one range the AI, the
+     * reaction gate and the viewer all read. Required, no default (a v11 save is
+     * stamped `{h:1,v:1}` by `migrate11to12`).
+     */
+    range: RangeBoxSchema,
   })
   .strict();
 export type Weapon = z.infer<typeof WeaponSchema>;
@@ -446,10 +458,11 @@ export function effectiveTeamOf(unit: UnitState): number {
  * The SINGLE source of a basic attack so a freshly-built unit ({@link defaultUnit}
  * / build.ts) and a migrated v4 unit (migrate4to5) always produce a byte-identical
  * `basic.attack`, and so it can never disagree with the `weapon` it is drawn from.
- * `power`/`element`/`accuracy` mirror the weapon; a basic swing is instant
- * (`speed: null`), melee (`range {h:1,v:1}`), single-target (`aoe: null` — which is
- * what lets the AoE resolver skip the weapon-based branch entirely), and inflicts
- * nothing.
+ * `power`/`element`/`accuracy`/`range` mirror the weapon (the range is a COPY, so
+ * mutating the ability never reaches back into the weapon); a basic swing is instant
+ * (`speed: null`), single-target (`aoe: null` — which is what lets the AoE resolver
+ * skip the weapon-based branch entirely), and inflicts nothing. Reach is the
+ * weapon's: a sword is `{h:1,v:1}`, a bow reaches further (ADR-0049).
  */
 export function basicAttackFrom(weapon: Weapon): BattleAbility {
   return {
@@ -459,7 +472,7 @@ export function basicAttackFrom(weapon: Weapon): BattleAbility {
     power: weapon.wp,
     element: weapon.element,
     accuracy: weapon.accuracy,
-    range: { h: 1, v: 1 },
+    range: { h: weapon.range.h, v: weapon.range.v },
     inflicts: [],
     speed: null,
     aoe: null,
@@ -476,7 +489,13 @@ export function defaultUnit(id: string, teamId: number, over: Partial<UnitState>
   // Hoisted so the default `abilities` basic-attack is derived from the SAME
   // weapon a caller may override — a fresh unit's `weapon` and `basic.attack`
   // can never drift. An explicit `over.abilities` still wins (spread last).
-  const weapon: Weapon = over.weapon ?? { wp: 8, formula: "paWp", element: "none", accuracy: 100 };
+  const weapon: Weapon = over.weapon ?? {
+    wp: 8,
+    formula: "paWp",
+    element: "none",
+    accuracy: 100,
+    range: { h: 1, v: 1 },
+  };
   return {
     id,
     teamId,
@@ -639,11 +658,16 @@ const migrate3to4: Migration = (s) => {
  * the same weapon carries. Purely additive: nothing reads `abilities` in combat
  * yet, so no roll or result changes. Real units are born at the current version
  * via {@link defaultUnit} / build.ts.
+ *
+ * FROZEN at the v4 shape (ADR-0049): a v4 weapon carries no `range`, and the
+ * current {@link basicAttackFrom} copies `weapon.range`. Stamping `{h:1,v:1}` here
+ * reproduces the melee swing every v4 unit had; without it `range` would be
+ * `undefined` and every v1–v4 load would fail. `migrate11to12` stamps the weapon.
  */
 const migrate4to5: Migration = (s) => {
   const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
     ...u,
-    abilities: [basicAttackFrom(u["weapon"] as Weapon)],
+    abilities: [basicAttackFrom({ ...(u["weapon"] as Weapon), range: { h: 1, v: 1 } })],
   }));
   return { ...s, schemaVersion: 5, units };
 };
@@ -793,6 +817,22 @@ const migrate10to11: Migration = (s) => {
 };
 
 /**
+ * v11 → v12: a weapon has a RANGE (ADR-0049). Every unit's `weapon` gains `range`,
+ * stamped `{h:1,v:1}` — the reach every v11 basic attack had (`basicAttackFrom`
+ * hard-coded it), so `basic.attack` already carries the matching range and is left
+ * untouched. Every other weapon field survives as-is. A migrated save consumes the
+ * identical roll sequence and plays byte-identically; no registry is read. Real
+ * units are born at the current version via {@link defaultUnit} / build.ts.
+ */
+const migrate11to12: Migration = (s) => {
+  const units = (s["units"] as Array<Record<string, unknown>>).map((u) => ({
+    ...u,
+    weapon: { ...(u["weapon"] as Record<string, unknown>), range: { h: 1, v: 1 } },
+  }));
+  return { ...s, schemaVersion: 12, units };
+};
+
+/**
  * Migration registry: `MIGRATIONS[v]` upgrades a state from version `v` to
  * `v + 1`. Each schema bump registers its migration here.
  */
@@ -807,6 +847,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   8: migrate8to9,
   9: migrate9to10,
   10: migrate10to11,
+  11: migrate11to12,
 };
 
 export class SchemaVersionError extends Error {

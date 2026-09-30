@@ -582,9 +582,9 @@ export class Session {
    * nothing picked yet" — see {@link targets}'s docstring for why that stays blank).
    *
    * PUBLIC so the target plate (`panels.ts`) can print its name/reach when there is
-   * no preview to summarise (the "Attack / Reach 1 / ⊘ No foe in reach" state,
-   * `intent/skill-picker.md`) — the same read {@link reach} and {@link actionReason}
-   * already use, not a second table.
+   * no preview to summarise (the "Attack / Reach" state, `intent/skill-picker.md`)
+   * — the reach comes from the weapon's range (ADR-0049). The same read {@link reach}
+   * and {@link actionReason} already use, not a second table.
    */
   currentAbility(): BattleAbility | null {
     const actor = this.actor();

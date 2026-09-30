@@ -1,11 +1,11 @@
-<!-- written-against: 12eda10 -->
+<!-- written-against: 63414b4 -->
 
 # INTENT — where this game is going, and what comes next
 
 **Read this after `CLAUDE.md`.** The SessionStart hook prints branch, merge state and unpushed
 work; everything it derives is left out here. If the hook says the stamp is stale, treat every
 claim below as a hypothesis and re-derive it before acting.
-Green at the stamp: 1059 tests, 286 browser specs (`npm run check`).
+Green at the stamp: 1088 tests, 286 browser specs (`npm run check`).
 
 ---
 
@@ -35,8 +35,8 @@ enemy retune shipped (ADR-0045). The win/lose overlay shipped (ADR-0047). **The 
 picker shipped (ADR-0048, merged to main in PR #75):** pressing Skill with 2+ learned abilities opens
 a vertical 3-row menu up from SKILL; picking one paints that skill's own reach, from the sim's
 `inAbilityRange`; an unavailable skill (or Attack with no foe in reach) is selectable
-with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired. Next:
-a weapon has a range (`intent/weapon-range.md`).
+with a reason shown, but not executable. `docs/defects.md` §1 and §2 are retired.
+**A weapon has a range: built on this branch, awaiting PR** (ADR-0049).
 
 ---
 
@@ -93,14 +93,21 @@ Read this before telling the owner "nothing is pending". Two asks are open; one 
 
 ---
 
-## THE NEXT SLICE — chosen by the owner 2026-09-24
+## THE NEXT SLICE
 
-| Slice | Intent file | What the owner decided |
-|---|---|---|
-| A weapon has a range | `intent/weapon-range.md` | Range is a property of every weapon; basic Attack takes its reach from the weapon held — a bow shoots, a sword hits the next tile. Engine change (schema + golden tests); no balance retune green-lit. Closes `docs/defects.md` §1's remaining row. |
+**None is chosen.** Ask the owner before starting anything.
 
-Each intent file ends with the questions the owner has not answered; ask them before the frames, not after.
-Frames are approved before an engineer starts (taste rule).
+### Built, awaiting PR: a weapon has a range (ADR-0049, `intent/weapon-range.md`)
+
+Every weapon carries `range {h,v}`; Attack takes its reach from it (`docs/01` AC-011…AC-016).
+Schema is v12. One Long Bow `{h:4,v:3}` on Briar, owned via battle 1's grants. Aimed Shot is unchanged.
+No balance retune was green-lit or done.
+
+Landmines from this slice:
+
+- **Every Long Bow number is `[UNCERTAIN]` against FFT.** The sources were unreachable; only the `speedWp` formula is `[VERIFIED]`.
+- **Range is a Chebyshev square, not FFT's diamond.** Reach 4 covers more tiles than FFT's does.
+- **The AI does not know about ranged units yet.** `moveTowardPrime` (`src/sim/ai.ts` ~539) walks a ranged unit all the way in. `tryScreen` (~593) body-blocks as if every threat were melee. No enemy holds a bow today, so neither fires yet.
 
 ### Shipped: the skill picker (ADR-0048, `intent/skill-picker.md`, merged in PR #75)
 
@@ -112,13 +119,6 @@ or the staged move tile. An unavailable skill (or Attack, no foe in reach) is se
 shows its reason in the target plate, but cannot be confirmed. Cancel undoes the most
 recent step, not always the picker's own pick. No new engine command. AC-V23…V29 in
 `docs/10`. `docs/defects.md` §1 and §2 retired.
-
-### Shipped before this: the win/lose overlay, the enemy retune, self-running enemy turns
-
-Result overlay on every decided battle (ADR-0047, AC-V70…AC-V78). Enemy retune for six
-deployed (ADR-0045). Enemy turns run themselves — entering `AI_TURN` arms one `step()`
-after a pause the ×1/×2/×3 toggle sets, 800 ms at ×1 (ADR-0046, AC-V68/AC-V69). Nothing
-about animation (walking, swings, casts) is green-lit; the toggle scales only the pause.
 
 ### Landmines this slice will hit
 
