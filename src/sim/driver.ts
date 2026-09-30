@@ -547,7 +547,7 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
         // settle below prices the turn. The matured charge resolves via
         // resolveCharge — its landed outcome is accounted THEN
         // (advanceToDecisionDetailed), credited to this ability via declaredChargeId.
-        const beforeIds = new Set(from.chargeQueue.map((c) => c.id));
+        const qLen = from.chargeQueue.length;
         after = declareCharge(from, unitId, {
           targetTile,
           speed: ability.speed,
@@ -565,7 +565,7 @@ function applyToUnit(state: BattleState, unitId: string, command: Command): Appl
             inflicts: ability.inflicts,
           },
         });
-        const declared = after.chargeQueue.find((c) => !beforeIds.has(c.id));
+        const declared = after.chargeQueue.length > qLen ? after.chargeQueue[after.chargeQueue.length - 1] : undefined;
         declaredChargeId = declared ? declared.id : null;
       }
 
