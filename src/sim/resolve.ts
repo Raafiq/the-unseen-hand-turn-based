@@ -566,9 +566,10 @@ export function resolveAbilityAoe(
   const physical = ability.formula === "physical";
   const reactions: ReactionOutcome[] = [];
   let total = 0;
+  const unitById = new Map(state.units.map((u) => [u.id, u]));
   for (const ref of affected) {
     // Re-find on the live (mutating) clone so an earlier KO in the box is seen.
-    const target = state.units.find((u) => u.id === ref.id)!;
+    const target = unitById.get(ref.id)!;
     const facing = relativeFacing(target, attacker.pos);
     const chance = hitChance(ability.accuracy, target.evasion, facing);
     const hit = rng.chance(chance); // ONE draw per target, id order.
