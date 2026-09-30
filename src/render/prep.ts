@@ -1440,19 +1440,50 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     </div>`;
   }
 
-  function render(): void {
-    const record = model.record();
-    const commands = model.commands();
-
-    // Live derived stats, and a traits-stripped baseline so any stat an equipped trait
-    // lifts renders highlighted (the visible "the trait did something").
+  function renderStatsBody(record: UnitRecord): string {
     const stats = model.stats();
     const baseStats = model.stats({ ...record, loadout: { ...record.loadout, traits: [] } });
-    const statsBody = STAT_CELLS.map(({ key, label, suffix }) => {
+    return STAT_CELLS.map(({ key, label, suffix }) => {
       const up = stats[key] > baseStats[key];
       return `<li${up ? ' class="up"' : ""}><span class="k">${label}</span><span class="v" data-stat="${key}">${stats[key]}${suffix}</span></li>`;
     }).join("");
+  }
 
+  function renderTraitsBody(record: UnitRecord): string {
+    return record.mastered.length === 0
+      ? `<p class="empty" id="traits-empty">No mastered jobs yet — master a full job tree to earn a trait.</p>`
+      : record.mastered
+          .map((jobId) => {
+            const t = registry.job(jobId).masteryBonus.trait;
+            const on = record.loadout.traits.includes(t);
+            return (
+              `<label class="chk"><span class="ttile">${icon(jobCrest(jobId))}` +
+              `<input type="checkbox" data-trait="${esc(t)}"${on ? " checked" : ""}/></span>` +
+              `<span><span class="tname">${esc(traitLabel(t))}</span>` +
+              `<span class="tdesc">Mastered from ${esc(jobLabel(jobId))}.</span></span></label>`
+            );
+          })
+          .join("");
+  }
+
+  function renderCommandItems(commands: readonly string[]): string {
+    return commands
+      .map((id) => {
+        const blocker = DEFERRED_ACTIONS[id];
+        // \`basic.attack\` is weapon-derived and has no catalog entry, so the lookup is
+        // guarded rather than assumed — the equipped weapon's own numbers describe it.
+        const summary = registry.abilityById.has(id)
+          ? abilitySummary(registry.ability(id))
+          : null;
+        const desc = summary === null ? "" : `<span class="desc">${esc(summary)}</span>`;
+        return blocker === undefined
+          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}${desc}</li>`
+          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span>${desc}</li>`;
+      })
+      .join("");
+  }
+
+  function renderAbilitySelect(record: UnitRecord, slot: "reaction" | "support" | "movement"): string {
     const noneOpt: Opt = { value: "", label: "— none —" };
 
     // A slot whose equipped ability does nothing must SAY so — the same rule the command
@@ -1468,72 +1499,26 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
       support: DEFERRED_SUPPORT_EFFECTS,
       movement: DEFERRED_MOVEMENT_EFFECTS,
     };
-    const abilitySelect = (slot: "reaction" | "support" | "movement"): string =>
-      optionList(
-        [
-          noneOpt,
-          ...model.learnedByType(slot).map((id) => ({
-            value: id,
-            label:
-              deferredFor[slot][id] === undefined
-                ? abilityLabel(id)
-                : `${abilityLabel(id)} — no effect yet`,
-          })),
-        ],
-        record.loadout[slot] ?? "",
-      );
 
-    // Job-associated, not just the trait id: the mockup's tile carries the mastered
-    // job's crest and says "Mastered from X.", which `earnedTraits()` alone (a bare
-    // list of trait ids) cannot answer — so this walks `record.mastered` directly.
-    const traitsBody =
-      record.mastered.length === 0
-        ? `<p class="empty" id="traits-empty">No mastered jobs yet — master a full job tree to earn a trait.</p>`
-        : record.mastered
-            .map((jobId) => {
-              const t = registry.job(jobId).masteryBonus.trait;
-              const on = record.loadout.traits.includes(t);
-              return (
-                `<label class="chk"><span class="ttile">${icon(jobCrest(jobId))}` +
-                `<input type="checkbox" data-trait="${esc(t)}"${on ? " checked" : ""}/></span>` +
-                `<span><span class="tname">${esc(traitLabel(t))}</span>` +
-                `<span class="tdesc">Mastered from ${esc(jobLabel(jobId))}.</span></span></label>`
-              );
-            })
-            .join("");
+    return optionList(
+      [
+        noneOpt,
+        ...model.learnedByType(slot).map((id) => ({
+          value: id,
+          label:
+            deferredFor[slot][id] === undefined
+              ? abilityLabel(id)
+              : `${abilityLabel(id)} — no effect yet`,
+        })),
+      ],
+      record.loadout[slot] ?? "",
+    );
+  }
 
-    // A DEFERRED command resolves to nothing in the current pipeline, so listing it beside
-    // Attack as an equal option asserts a capability the sim does not have — pillar 4's
-    // absent-not-zero rule applied to a menu. Marked, not hidden: they ARE learned and
-    // equipped, and hiding them would misrepresent the chassis in the other direction.
-    //
-    // Keyed per ABILITY, not per skillset: `steal` is a live skillset now (`heart` charms)
-    // while `steal.gil` and the three equipment thefts still do nothing, so a skillset-level
-    // lookup would have quietly promoted four dead commands.
-    const commandItems = commands
-      .map((id) => {
-        const blocker = DEFERRED_ACTIONS[id];
-        // `basic.attack` is weapon-derived and has no catalog entry, so the lookup is
-        // guarded rather than assumed — the equipped weapon's own numbers describe it.
-        const summary = registry.abilityById.has(id)
-          ? abilitySummary(registry.ability(id))
-          : null;
-        const desc = summary === null ? "" : `<span class="desc">${esc(summary)}</span>`;
-        return blocker === undefined
-          ? `<li data-cmd="${esc(id)}">${esc(abilityLabel(id))}${desc}</li>`
-          : `<li data-cmd="${esc(id)}" class="deferred" title="No effect yet — ${esc(blocker)}">${esc(abilityLabel(id))} <span class="tag">no effect yet</span>${desc}</li>`;
-      })
-      .join("");
-
-    const heroHtml =
-      portraitOf === undefined
-        ? ""
-        : `<div class="hero"><img src="${esc(portraitOf(record))}" alt=""></div>`;
-
-    if (layout === "dossier") {
-      container.innerHTML =
-        railHtml() +
-        `
+  function renderDossierLayout(statsBody: string, abilitySelect: (slot: "reaction" | "support" | "movement") => string): string {
+    return (
+      railHtml() +
+      `
     <div class="sheet" data-testid="dossier-sheet">
       <div class="scol scol-main">
         ${identityHtml()}
@@ -1549,12 +1534,20 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
         ${jobStripHtml()}
         ${learn === "open" ? learnOverlayHtml() : ""}
       </div>
-    </div>`;
-      bind();
-      return;
-    }
+    </div>`
+    );
+  }
 
-    container.innerHTML = `
+  function renderTabsLayout(
+    record: UnitRecord,
+    commands: readonly string[],
+    statsBody: string,
+    abilitySelect: (slot: "reaction" | "support" | "movement") => string,
+    traitsBody: string,
+    commandItems: string,
+    heroHtml: string,
+  ): string {
+    return `
     <header class="unit-head">
       ${heroHtml}
       <div class="idcol">
@@ -1651,6 +1644,53 @@ export function mountPrep(container: HTMLElement, opts: PrepOptions): PrepHandle
     </div>
 
     ${jobStripHtml()}`;
+  }
+
+  function render(): void {
+    const record = model.record();
+    const commands = model.commands();
+
+    // Live derived stats, and a traits-stripped baseline so any stat an equipped trait
+    // lifts renders highlighted (the visible "the trait did something").
+    const statsBody = renderStatsBody(record);
+
+    const abilitySelect = (slot: "reaction" | "support" | "movement") => renderAbilitySelect(record, slot);
+
+    // Job-associated, not just the trait id: the mockup's tile carries the mastered
+    // job's crest and says "Mastered from X.", which `earnedTraits()` alone (a bare
+    // list of trait ids) cannot answer — so this walks `record.mastered` directly.
+    const traitsBody = renderTraitsBody(record);
+
+    // A DEFERRED command resolves to nothing in the current pipeline, so listing it beside
+    // Attack as an equal option asserts a capability the sim does not have — pillar 4's
+    // absent-not-zero rule applied to a menu. Marked, not hidden: they ARE learned and
+    // equipped, and hiding them would misrepresent the chassis in the other direction.
+    //
+    // Keyed per ABILITY, not per skillset: `steal` is a live skillset now (`heart` charms)
+    // while `steal.gil` and the three equipment thefts still do nothing, so a skillset-level
+    // lookup would have quietly promoted four dead commands.
+    const commandItems = renderCommandItems(commands);
+
+    const heroHtml =
+      portraitOf === undefined
+        ? ""
+        : `<div class="hero"><img src="${esc(portraitOf(record))}" alt=""></div>`;
+
+    if (layout === "dossier") {
+      container.innerHTML = renderDossierLayout(statsBody, abilitySelect);
+      bind();
+      return;
+    }
+
+    container.innerHTML = renderTabsLayout(
+      record,
+      commands,
+      statsBody,
+      abilitySelect,
+      traitsBody,
+      commandItems,
+      heroHtml,
+    );
 
     bind();
   }
