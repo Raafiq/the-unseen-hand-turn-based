@@ -1,9 +1,0 @@
-
- RUN  v3.2.7 /app
-
- ✓ src/sim/benchmark-suite.test.ts (14 tests) 951ms
-
- Test Files  1 passed (1)
-      Tests  14 passed (14)
-   Start at  12:45:13
-   Duration  2.05s (transform 428ms, setup 0ms, collect 609ms, tests 951ms, environment 0ms, prepare 114ms)
