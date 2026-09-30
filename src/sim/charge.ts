@@ -48,6 +48,7 @@ import {
   type BattleState,
   type ChargeEffect,
   type Position,
+  type UnitState,
   effectiveTeamOf,
 } from "./state.js";
 
@@ -283,31 +284,12 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
     for (const foeRef of foes) {
       // Re-find on the live (mutating) clone so a KO earlier in the box is seen.
       const foe = state.units.find((u) => u.id === foeRef.id)!;
-      const chance = applyMagicEvasion(effect.accuracy, foe.evasion.magicEv);
-      const hitOne = rng.chance(chance); // ONE draw per target, id order.
-      let dmg = 0;
-      let koOne = false;
-      if (hitOne) {
-        anyHit = true;
-        // MAGNITUDE — same floor order as the single-target path, per target.
-        let m = magicDamage(caster.ma, effect.power, caster.faith, foe.faith);
-        m = applyZodiac(m, zodiacCompatibility(caster.zodiac, foe.zodiac));
-        if (foe.statuses.some((st) => st.id === "shell")) m = applyShell(m);
-        if (m < 0) m = 0;
-        dmg = m;
-        totalDamage += dmg;
-        const newHp = Math.max(0, foe.hp - dmg);
-        const wasAlive = foe.hp > 0;
-        foe.hp = newHp;
-        if (newHp === 0 && wasAlive) {
-          foe.crystalTimer = CRYSTAL_TIMER_START;
-          koOne = true;
-          anyKo = true;
-        }
-        // ON-HIT STATUS at maturity, per landed target (docs/05 §2 step d). The
-        // templates rode along on the charge effect, so nothing is re-read here.
-        applyInflicts(state, foe, effect.inflicts, effectiveTeamOf(caster));
-      }
+
+      const { hitChance: chance, hit: hitOne, damage: dmg, ko: koOne } = resolveTargetHit(state, caster, foe, effect, rng);
+      if (hitOne) anyHit = true;
+      if (koOne) anyKo = true;
+      totalDamage += dmg;
+
       perTarget.push({ targetId: foe.id, hitChance: chance, hit: hitOne, damage: dmg, ko: koOne });
     }
 
@@ -358,32 +340,8 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
   //    later slice, routes its base = MA+K through `magicHitChance` so Faith and
   //    Zodiac DO gate landing.) One draw, same cursor position as before.
   const rng = rngFor(state);
-  const chance = applyMagicEvasion(effect.accuracy, target.evasion.magicEv);
-  const hit = rng.chance(chance);
 
-  let damage = 0;
-  let ko = false;
-  if (hit) {
-    // 4. MAGNITUDE — magic formula → element → Zodiac → Shell → clamp (docs/05 §2).
-    let dmg = magicDamage(caster.ma, effect.power, caster.faith, target.faith);
-    // Element "none" is a pass-through; weak/half/absorb/null land in a later slice.
-    const tier = zodiacCompatibility(caster.zodiac, target.zodiac);
-    dmg = applyZodiac(dmg, tier);
-    if (target.statuses.some((st) => st.id === "shell")) dmg = applyShell(dmg);
-    if (dmg < 0) dmg = 0;
-    damage = dmg;
-
-    const newHp = Math.max(0, target.hp - damage);
-    const wasAlive = target.hp > 0;
-    target.hp = newHp;
-    if (newHp === 0 && wasAlive) {
-      target.crystalTimer = CRYSTAL_TIMER_START;
-      ko = true;
-    }
-    // ON-HIT STATUS at maturity (docs/05 §2 step d), from the templates the charge
-    // carried since it was declared.
-    applyInflicts(state, target, effect.inflicts, effectiveTeamOf(caster));
-  }
+  const { hitChance: chance, hit, damage, ko } = resolveTargetHit(state, caster, target, effect, rng);
 
   state.rngCounter = rng.count;
   dequeue();
@@ -404,4 +362,37 @@ export function resolveCharge(input: BattleState, chargeId: string): ChargeResol
       ko,
     },
   };
+}
+
+function resolveTargetHit(
+  state: BattleState,
+  caster: UnitState,
+  target: UnitState,
+  effect: ChargeEffect,
+  rng: ReturnType<typeof rngFor>,
+): { hitChance: number; hit: boolean; damage: number; ko: boolean } {
+  const chance = applyMagicEvasion(effect.accuracy, target.evasion.magicEv);
+  const hit = rng.chance(chance);
+
+  let damage = 0;
+  let ko = false;
+  if (hit) {
+    let dmg = magicDamage(caster.ma, effect.power, caster.faith, target.faith);
+    const tier = zodiacCompatibility(caster.zodiac, target.zodiac);
+    dmg = applyZodiac(dmg, tier);
+    if (target.statuses.some((st) => st.id === "shell")) dmg = applyShell(dmg);
+    if (dmg < 0) dmg = 0;
+    damage = dmg;
+
+    const newHp = Math.max(0, target.hp - damage);
+    const wasAlive = target.hp > 0;
+    target.hp = newHp;
+    if (newHp === 0 && wasAlive) {
+      target.crystalTimer = CRYSTAL_TIMER_START;
+      ko = true;
+    }
+    applyInflicts(state, target, effect.inflicts, effectiveTeamOf(caster));
+  }
+
+  return { hitChance: chance, hit, damage, ko };
 }
