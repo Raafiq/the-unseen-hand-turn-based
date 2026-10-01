@@ -49,7 +49,7 @@ import {
   type UnitContribution,
   type UnitState,
 } from "../sim/index.js";
-import { PLAYER_TEAM, makeDemoBattle } from "./demo.js";
+import { makeDemoBattle } from "./demo.js";
 // TYPE ONLY, and that is the direction rule holding: the beat flows OUT of a commit into
 // the page's animation layer and never back in. A value import would let a timing source
 // reach the one file in `src/render` that emits commands.
@@ -138,7 +138,7 @@ export interface SessionOptions {
    * safe (the session never mutates the caller's state).
    */
   makeState?: () => BattleState;
-  /** Which team accepts input (docs/10 §2). Defaults to {@link PLAYER_TEAM}. */
+  /** Which team accepts input (docs/10 §2). Defaults to 0 (the demo battle's player team). */
   playerTeam?: number;
   /**
    * The encounter's OBJECTIVES and halting caps. Supply them and the session stops
@@ -247,7 +247,7 @@ export class Session {
 
   constructor(opts: SessionOptions = {}) {
     this.makeState = opts.makeState ?? makeDemoBattle;
-    this.playerTeam = opts.playerTeam ?? PLAYER_TEAM;
+    this.playerTeam = opts.playerTeam ?? 0;
     this.rules = opts.rules ?? null;
     this.state = this.makeState();
     this.reset();

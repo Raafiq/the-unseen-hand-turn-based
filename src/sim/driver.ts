@@ -243,7 +243,8 @@ function hpDiffEvent(
     // Counted by id against the pre-action set, so a REFRESH (same id, longer timer)
     // adds nothing: re-Stopping a Stopped foe is not a second landed action.
     if (u.id !== sourceUnitId && u.statuses.length > 0) {
-      const had = new Set(prev.statuses.map((st) => st.id));
+      const had = new Set<string>();
+      for (const st of prev.statuses) had.add(st.id);
       for (const st of u.statuses) if (!had.has(st.id)) statusesInflicted += 1;
     }
     const delta = u.hp - prev.hp;
